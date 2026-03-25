@@ -1,31 +1,19 @@
-import { clsx, type ClassValue } from 'clsx'
-import { twMerge } from 'tailwind-merge'
+import { type ClassValue, clsx } from "clsx"
+import { twMerge } from "tailwind-merge"
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
 
-export function formatCurrency(amount: number, currency = 'SGD'): string {
-  return new Intl.NumberFormat('en-SG', {
-    style: 'currency',
-    currency,
-    minimumFractionDigits: 2,
-  }).format(amount)
-}
+export const formatCurrency = (value: number, currency: string = "MYR") => {
+  const prefix = currency === "MYR" ? "RM" : currency === "SGD" ? "S$" : "$";
+  return `${prefix} ${value.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ",")}`;
+};
 
-export function formatDate(date: string | Date): string {
-  return new Intl.DateTimeFormat('en-SG', {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-  }).format(new Date(date))
-}
-
-export function getInitials(name: string): string {
-  return name
-    .split(' ')
-    .map((n) => n[0])
-    .join('')
-    .toUpperCase()
-    .slice(0, 2)
-}
+export const formatDate = (dateStr: string) => {
+  return new Date(dateStr).toLocaleDateString("en-MY", {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+  });
+};

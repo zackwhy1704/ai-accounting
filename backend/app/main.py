@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import get_settings
-from app.api.v1 import auth, invoices, documents, contacts, accounts, dashboard, billing
+from app.api.v1 import auth, invoices, bills, documents, contacts, accounts, dashboard, billing
 
 settings = get_settings()
 
@@ -26,6 +26,7 @@ app.add_middleware(
 app.include_router(auth.router, prefix=settings.API_V1_PREFIX)
 app.include_router(dashboard.router, prefix=settings.API_V1_PREFIX)
 app.include_router(invoices.router, prefix=settings.API_V1_PREFIX)
+app.include_router(bills.router, prefix=settings.API_V1_PREFIX)
 app.include_router(contacts.router, prefix=settings.API_V1_PREFIX)
 app.include_router(accounts.router, prefix=settings.API_V1_PREFIX)
 app.include_router(documents.router, prefix=settings.API_V1_PREFIX)

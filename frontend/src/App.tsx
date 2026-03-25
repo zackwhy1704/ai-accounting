@@ -1,32 +1,70 @@
-import { Routes, Route } from 'react-router-dom'
+import { Routes, Route, Navigate } from 'react-router-dom'
 import { AppLayout } from './components/layout/AppLayout'
-import { DashboardPage } from './pages/dashboard/DashboardPage'
-import { InvoicesPage } from './pages/invoices/InvoicesPage'
-import { BillsPage } from './pages/bills/BillsPage'
-import { ContactsPage } from './pages/contacts/ContactsPage'
-import { DocumentsPage } from './pages/documents/DocumentsPage'
-import { AccountingPage } from './pages/accounting/AccountingPage'
-import { ReportsPage } from './pages/reports/ReportsPage'
-import { SettingsPage } from './pages/settings/SettingsPage'
-import { BillingPage } from './pages/billing/BillingPage'
-import { AIAssistantPage } from './pages/ai-assistant/AIAssistantPage'
-import { LoginPage } from './pages/auth/LoginPage'
+import { useAuth } from './lib/auth'
+import LoginPage from './pages/auth/LoginPage'
+import DashboardPage from './pages/dashboard/DashboardPage'
+import InvoicesPage from './pages/invoices/InvoicesPage'
+import BillsPage from './pages/bills/BillsPage'
+import ContactsPage from './pages/contacts/ContactsPage'
+import DocumentsPage from './pages/documents/DocumentsPage'
+import AccountingPage from './pages/accounting/AccountingPage'
+import BillingPage from './pages/billing/BillingPage'
+import AIAssistantPage from './pages/ai-assistant/AIAssistantPage'
+import SettingsPage from './pages/settings/SettingsPage'
+import GenericPage from './pages/GenericPage'
+
+function ProtectedRoute({ children }: { children: React.ReactNode }) {
+  const { token, isLoading } = useAuth()
+  if (isLoading) return <div className="flex min-h-screen items-center justify-center text-slate-500">Loading...</div>
+  if (!token) return <Navigate to="/login" replace />
+  return <>{children}</>
+}
 
 function App() {
   return (
     <Routes>
       <Route path="/login" element={<LoginPage />} />
-      <Route element={<AppLayout />}>
-        <Route path="/" element={<DashboardPage />} />
-        <Route path="/invoices" element={<InvoicesPage />} />
-        <Route path="/bills" element={<BillsPage />} />
+      <Route element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
+        <Route path="/" element={<Navigate to="/dashboard" replace />} />
+        <Route path="/dashboard" element={<DashboardPage />} />
+
+        {/* Sales */}
+        <Route path="/sales/invoices" element={<InvoicesPage />} />
+        <Route path="/sales/quotations" element={<GenericPage title="Quotations" category="Sales" />} />
+        <Route path="/sales/delivery-orders" element={<GenericPage title="Delivery Orders" category="Sales" />} />
+        <Route path="/sales/credit-notes" element={<GenericPage title="Credit Notes" category="Sales" />} />
+        <Route path="/sales/payments" element={<GenericPage title="Payments" category="Sales" />} />
+        <Route path="/sales/refunds" element={<GenericPage title="Refunds" category="Sales" />} />
+
+        {/* Purchases */}
+        <Route path="/purchases/bills" element={<BillsPage />} />
+        <Route path="/purchases/purchase-orders" element={<GenericPage title="Purchase Orders" category="Purchases" />} />
+        <Route path="/purchases/goods-received-notes" element={<GenericPage title="Goods Received Notes" category="Purchases" />} />
+        <Route path="/purchases/credit-notes" element={<GenericPage title="Credit Notes" category="Purchases" />} />
+        <Route path="/purchases/payments" element={<GenericPage title="Payments" category="Purchases" />} />
+        <Route path="/purchases/refunds" element={<GenericPage title="Refunds" category="Purchases" />} />
+
+        {/* Upload */}
+        <Route path="/upload" element={<DocumentsPage />} />
+
+        {/* Bank */}
+        <Route path="/bank/money-in" element={<GenericPage title="Money In" category="Bank" />} />
+        <Route path="/bank/money-out" element={<GenericPage title="Money Out" category="Bank" />} />
+        <Route path="/bank/transfers" element={<GenericPage title="Transfers" category="Bank" />} />
+        <Route path="/bank/accounts" element={<GenericPage title="Bank Accounts" category="Bank" />} />
+
+        {/* Other */}
         <Route path="/contacts" element={<ContactsPage />} />
-        <Route path="/documents" element={<DocumentsPage />} />
+        <Route path="/products" element={<GenericPage title="Products & Services" category="Inventory" />} />
+        <Route path="/stocks" element={<GenericPage title="Stocks" category="Inventory" />} />
+        <Route path="/reports" element={<GenericPage title="Reports" category="Analytics" />} />
         <Route path="/accounting" element={<AccountingPage />} />
-        <Route path="/reports" element={<ReportsPage />} />
-        <Route path="/settings" element={<SettingsPage />} />
-        <Route path="/billing" element={<BillingPage />} />
         <Route path="/ai-assistant" element={<AIAssistantPage />} />
+        <Route path="/billing" element={<BillingPage />} />
+        <Route path="/settings" element={<SettingsPage />} />
+
+        {/* Catch-all: redirect unknown routes to dashboard */}
+        <Route path="*" element={<Navigate to="/dashboard" replace />} />
       </Route>
     </Routes>
   )

@@ -27,6 +27,10 @@ class Settings(BaseSettings):
     AZURE_FORM_RECOGNIZER_ENDPOINT: str = ""
     AZURE_FORM_RECOGNIZER_KEY: str = ""
 
+    # Anthropic Claude (Vision OCR fallback)
+    ANTHROPIC_API_KEY: str = ""
+    AI_MODEL: str = "claude-haiku-4-5-20251001"
+
     # Stripe
     STRIPE_SECRET_KEY: str = ""
     STRIPE_PUBLISHABLE_KEY: str = ""

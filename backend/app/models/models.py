@@ -271,7 +271,8 @@ class Document(Base):
     file_url: Mapped[str] = mapped_column(String(1000))
     file_type: Mapped[str] = mapped_column(String(50))
     file_size: Mapped[int] = mapped_column(Integer)
-    status: Mapped[str] = mapped_column(String(20), default="uploaded")  # uploaded, processing, processed, failed
+    status: Mapped[str] = mapped_column(String(20), default="uploaded")  # uploaded, processing, processed, failed, done
+    category: Mapped[str | None] = mapped_column(String(50))  # invoice, receipt, bill, bank_statement, other
     ai_extracted_data: Mapped[dict | None] = mapped_column(JSONB)
     ai_confidence: Mapped[float | None] = mapped_column(Numeric(3, 2))
     linked_invoice_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("invoices.id"))

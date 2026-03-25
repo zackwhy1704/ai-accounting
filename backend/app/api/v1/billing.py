@@ -11,15 +11,17 @@ router = APIRouter(prefix="/billing", tags=["Billing"])
 
 @router.get("/plans")
 async def get_plans():
-    return {
-        plan_id: {
+    return [
+        {
+            "id": plan_id,
             "name": config["name"],
-            "price_monthly": config["price_monthly"],
-            "ai_scans_limit": config["ai_scans_limit"],
-            "users_limit": config["users_limit"],
+            "price": config["price_monthly"] / 100,  # cents → dollars
+            "ai_scans": "Unlimited" if config["ai_scans_limit"] == -1 else config["ai_scans_limit"],
+            "max_users": config["users_limit"],
+            "features": [],
         }
         for plan_id, config in PLANS.items()
-    }
+    ]
 
 
 @router.get("/usage")
@@ -27,6 +29,9 @@ async def get_usage(
     current_user: dict = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
+    from app.models.models import User as UserModel
+    from sqlalchemy import func
+
     result = await db.execute(
         select(Organization).where(Organization.id == current_user["org_id"])
     )
@@ -34,11 +39,16 @@ async def get_usage(
     if not org:
         raise HTTPException(status_code=404, detail="Organization not found")
 
+    users_count_result = await db.execute(
+        select(func.count()).select_from(UserModel).where(UserModel.organization_id == org.id)
+    )
+    users_count = users_count_result.scalar() or 0
+
     return {
         "plan": org.plan,
         "ai_scans_used": org.ai_scans_used,
         "ai_scans_limit": org.ai_scans_limit,
-        "ai_scans_remaining": max(0, org.ai_scans_limit - org.ai_scans_used),
+        "users_count": users_count,
     }
 
 

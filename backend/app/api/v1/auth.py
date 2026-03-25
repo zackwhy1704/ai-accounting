@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, status
+from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from app.core.database import get_db
@@ -99,3 +100,37 @@ async def get_me(
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     return user
+
+
+@router.get("/org-settings")
+async def get_org_settings(
+    current_user: dict = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    from app.models.models import Organization
+    result = await db.execute(select(Organization).where(Organization.id == current_user["org_id"]))
+    org = result.scalar_one_or_none()
+    if not org:
+        raise HTTPException(status_code=404, detail="Organization not found")
+    return {"currency": org.currency, "name": org.name}
+
+
+class CurrencyUpdate(BaseModel):
+    currency: str
+
+@router.patch("/org-settings/currency")
+async def update_org_currency(
+    body: CurrencyUpdate,
+    current_user: dict = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    if body.currency not in ("SGD", "MYR", "USD"):
+        raise HTTPException(status_code=400, detail="Currency must be SGD, MYR, or USD")
+    from app.models.models import Organization
+    result = await db.execute(select(Organization).where(Organization.id == current_user["org_id"]))
+    org = result.scalar_one_or_none()
+    if not org:
+        raise HTTPException(status_code=404, detail="Organization not found")
+    org.currency = body.currency
+    await db.commit()
+    return {"currency": org.currency}

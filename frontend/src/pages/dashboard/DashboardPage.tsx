@@ -1,264 +1,140 @@
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
-import { formatCurrency, formatDate } from '@/lib/utils'
+import { useDashboard } from "../../lib/hooks"
+import { formatCurrency } from "../../lib/utils"
+import { useTheme } from "../../lib/theme"
+import { Card } from "../../components/ui/card"
+import { Button } from "../../components/ui/button"
+import { Minus, Plus, ChevronDown, Settings } from "lucide-react"
+import { useEffect, useState } from "react"
 import {
-  TrendingUp,
-  TrendingDown,
-  DollarSign,
-  FileText,
-  Upload,
-  AlertCircle,
-  ArrowUpRight,
-  ArrowDownRight,
-} from 'lucide-react'
-import {
-  AreaChart,
-  Area,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-  BarChart,
-  Bar,
-} from 'recharts'
+  CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis,
+} from "recharts"
 
-const revenueData = [
-  { month: 'Oct', revenue: 42000, expenses: 28000 },
-  { month: 'Nov', revenue: 48000, expenses: 31000 },
-  { month: 'Dec', revenue: 55000, expenses: 35000 },
-  { month: 'Jan', revenue: 51000, expenses: 33000 },
-  { month: 'Feb', revenue: 59000, expenses: 36000 },
-  { month: 'Mar', revenue: 63000, expenses: 38000 },
-]
+const sevenDayLabels = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
 
-const recentTransactions = [
-  { id: '1', date: '2026-03-22', description: 'Payment from Acme Corp', amount: 5400, type: 'credit' },
-  { id: '2', date: '2026-03-21', description: 'AWS Cloud Services', amount: -1250, type: 'debit' },
-  { id: '3', date: '2026-03-21', description: 'Office Supplies - Lazada', amount: -320, type: 'debit' },
-  { id: '4', date: '2026-03-20', description: 'Invoice #INV-0042 paid', amount: 8900, type: 'credit' },
-  { id: '5', date: '2026-03-19', description: 'Payroll - March 2026', amount: -24000, type: 'debit' },
-]
+export default function DashboardPage() {
+  const { data, isLoading } = useDashboard()
+  const { t } = useTheme()
+  const [mounted, setMounted] = useState(false)
+  useEffect(() => { setMounted(true) }, [])
 
-const overdueInvoices = [
-  { id: 'INV-0038', client: 'TechStart Pte Ltd', amount: 3200, dueDate: '2026-03-10', daysOverdue: 14 },
-  { id: 'INV-0035', client: 'Green Solutions SG', amount: 1800, dueDate: '2026-03-05', daysOverdue: 19 },
-]
+  const summaryMetrics = [
+    { title: t("dashboard.accountsReceivable"), value: formatCurrency(data?.accounts_receivable ?? 0), subtitle: t("dashboard.outstanding"), icon: "plus" as const },
+    { title: t("dashboard.overdueInvoices"), value: String(data?.overdue_invoices ?? 0), subtitle: t("dashboard.needAttention"), icon: "plus" as const },
+    { title: t("dashboard.accountsPayable"), value: formatCurrency(data?.accounts_payable ?? 0), subtitle: t("dashboard.outstanding"), icon: "minus" as const },
+    { title: t("dashboard.pendingDocuments"), value: String(data?.pending_documents ?? 0), subtitle: t("dashboard.aiProcessing"), icon: "minus" as const },
+  ]
 
-const expenseByCategory = [
-  { category: 'Payroll', amount: 24000 },
-  { category: 'Cloud/IT', amount: 4500 },
-  { category: 'Office', amount: 2100 },
-  { category: 'Marketing', amount: 3200 },
-  { category: 'Travel', amount: 1800 },
-]
+  const agingWidgets = [
+    {
+      title: t("dashboard.outstandingInvoices"),
+      buckets: [
+        { label: t("dashboard.upcoming"), color: "#7C9DFF" },
+        { label: "1-30", color: "#6C7CFF" },
+        { label: "31-60", color: "#4D63FF" },
+        { label: "61-90", color: "#3A4DFF" },
+        { label: "91+", color: "#2B35D8" },
+      ],
+    },
+    {
+      title: t("dashboard.outstandingBills"),
+      buckets: [
+        { label: t("dashboard.upcoming"), color: "#7C9DFF" },
+        { label: "1-30", color: "#6C7CFF" },
+        { label: "31-60", color: "#4D63FF" },
+        { label: "61-90", color: "#3A4DFF" },
+        { label: "91+", color: "#2B35D8" },
+      ],
+    },
+  ]
 
-export function DashboardPage() {
+  const incomeData = sevenDayLabels.map((label) => ({ label, value: 0 }))
+  const chartCards = [
+    { title: t("dashboard.income"), netLabel: `NET ${formatCurrency(data?.total_revenue ?? 0)}`, data: incomeData, lineColor: "#7C9DFF" },
+    { title: t("dashboard.profitLoss"), netLabel: `NET ${formatCurrency(data?.net_income ?? 0)}`, data: incomeData, lineColor: "#7C9DFF" },
+    { title: t("dashboard.expenses"), netLabel: `NET ${formatCurrency(data?.total_expenses ?? 0)}`, data: incomeData, lineColor: "#FF6B8A" },
+    { title: t("dashboard.cashBalance"), netLabel: `${formatCurrency(data?.cash_balance ?? 0)}`, data: incomeData, lineColor: "#5CE6C6" },
+  ]
+
+  if (isLoading) {
+    return <div className="flex items-center justify-center py-20 text-muted-foreground">{t("dashboard.loadingDashboard")}</div>
+  }
+
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold">Dashboard</h1>
-        <p className="text-muted-foreground">Welcome back. Here's your financial overview.</p>
+    <div className="flex flex-col gap-4">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-4">
+        {summaryMetrics.map((m) => {
+          const Icon = m.icon === "plus" ? Plus : Minus
+          return (
+            <Card key={m.title} className="rounded-2xl border-border bg-card p-4 shadow-[0_0_0_1px_rgba(15,23,42,0.06),0_18px_55px_rgba(2,6,23,0.08)]">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <div className="text-[10px] font-semibold tracking-widest text-muted-foreground">{m.title}</div>
+                  <div className="mt-2 text-lg font-semibold text-foreground">{m.value}</div>
+                  <div className="mt-0.5 text-xs text-muted-foreground">{m.subtitle}</div>
+                </div>
+                <div className="flex h-9 w-9 items-center justify-center rounded-xl border border-border bg-muted">
+                  <Icon className="h-4 w-4 text-foreground" />
+                </div>
+              </div>
+            </Card>
+          )
+        })}
       </div>
 
-      {/* Metric Cards */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <MetricCard
-          title="Total Revenue"
-          value={formatCurrency(63000)}
-          change="+6.8%"
-          trend="up"
-          icon={<DollarSign className="h-4 w-4" />}
-        />
-        <MetricCard
-          title="Total Expenses"
-          value={formatCurrency(38000)}
-          change="+5.6%"
-          trend="up"
-          icon={<TrendingDown className="h-4 w-4" />}
-        />
-        <MetricCard
-          title="Net Income"
-          value={formatCurrency(25000)}
-          change="+9.2%"
-          trend="up"
-          icon={<TrendingUp className="h-4 w-4" />}
-        />
-        <MetricCard
-          title="Outstanding"
-          value={formatCurrency(12400)}
-          change="3 invoices"
-          trend="neutral"
-          icon={<FileText className="h-4 w-4" />}
-        />
-      </div>
-
-      {/* Charts Row */}
-      <div className="grid gap-6 lg:grid-cols-3">
-        <Card className="lg:col-span-2">
-          <CardHeader>
-            <CardTitle>Revenue vs Expenses</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="h-72">
-              <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={revenueData}>
-                  <defs>
-                    <linearGradient id="revenue" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#16a34a" stopOpacity={0.2} />
-                      <stop offset="95%" stopColor="#16a34a" stopOpacity={0} />
-                    </linearGradient>
-                    <linearGradient id="expenses" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#ef4444" stopOpacity={0.2} />
-                      <stop offset="95%" stopColor="#ef4444" stopOpacity={0} />
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-                  <XAxis dataKey="month" stroke="#94a3b8" fontSize={12} />
-                  <YAxis stroke="#94a3b8" fontSize={12} tickFormatter={(v) => `$${v / 1000}k`} />
-                  <Tooltip formatter={(value) => formatCurrency(Number(value))} />
-                  <Area type="monotone" dataKey="revenue" stroke="#16a34a" fill="url(#revenue)" strokeWidth={2} />
-                  <Area type="monotone" dataKey="expenses" stroke="#ef4444" fill="url(#expenses)" strokeWidth={2} />
-                </AreaChart>
-              </ResponsiveContainer>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Expenses by Category</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="h-72">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={expenseByCategory} layout="vertical">
-                  <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-                  <XAxis type="number" stroke="#94a3b8" fontSize={12} tickFormatter={(v) => `$${v / 1000}k`} />
-                  <YAxis type="category" dataKey="category" stroke="#94a3b8" fontSize={12} width={70} />
-                  <Tooltip formatter={(value) => formatCurrency(Number(value))} />
-                  <Bar dataKey="amount" fill="#16a34a" radius={[0, 4, 4, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Recent Activity Row */}
-      <div className="grid gap-6 lg:grid-cols-2">
-        {/* Recent Transactions */}
-        <Card>
-          <CardHeader className="flex-row items-center justify-between">
-            <CardTitle>Recent Transactions</CardTitle>
-            <Badge variant="secondary">{recentTransactions.length} transactions</Badge>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
-              {recentTransactions.map((t) => (
-                <div key={t.id} className="flex items-center justify-between py-2 border-b border-border last:border-0">
-                  <div className="flex items-center gap-3">
-                    <div className={`flex h-8 w-8 items-center justify-center rounded-full ${t.amount > 0 ? 'bg-success/10' : 'bg-destructive/10'}`}>
-                      {t.amount > 0 ? (
-                        <ArrowUpRight className="h-4 w-4 text-success" />
-                      ) : (
-                        <ArrowDownRight className="h-4 w-4 text-destructive" />
-                      )}
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium">{t.description}</p>
-                      <p className="text-xs text-muted-foreground">{formatDate(t.date)}</p>
-                    </div>
-                  </div>
-                  <span className={`text-sm font-semibold ${t.amount > 0 ? 'text-success' : 'text-destructive'}`}>
-                    {t.amount > 0 ? '+' : ''}{formatCurrency(t.amount)}
-                  </span>
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        {agingWidgets.map((w) => (
+          <Card key={w.title} className="rounded-2xl border-border bg-card p-5 shadow-[0_0_0_1px_rgba(15,23,42,0.06),0_18px_55px_rgba(2,6,23,0.08)]">
+            <div className="text-sm font-semibold text-foreground">{w.title}</div>
+            <div className="mt-4 flex flex-wrap gap-x-5 gap-y-3">
+              {w.buckets.map((b) => (
+                <div key={b.label} className="flex items-center gap-2">
+                  <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: b.color }} />
+                  <span className="text-xs text-muted-foreground">{b.label}</span>
                 </div>
               ))}
             </div>
-          </CardContent>
-        </Card>
-
-        {/* Overdue & Alerts */}
-        <div className="space-y-6">
-          <Card>
-            <CardHeader className="flex-row items-center justify-between">
-              <CardTitle className="flex items-center gap-2">
-                <AlertCircle className="h-4 w-4 text-warning" />
-                Overdue Invoices
-              </CardTitle>
-              <Badge variant="warning">{overdueInvoices.length}</Badge>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-3">
-                {overdueInvoices.map((inv) => (
-                  <div key={inv.id} className="flex items-center justify-between rounded-lg border border-warning/20 bg-warning/5 p-3">
-                    <div>
-                      <p className="text-sm font-medium">{inv.id} — {inv.client}</p>
-                      <p className="text-xs text-muted-foreground">{inv.daysOverdue} days overdue</p>
-                    </div>
-                    <span className="text-sm font-semibold text-warning">{formatCurrency(inv.amount)}</span>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
           </Card>
+        ))}
+      </div>
 
-          <Card>
-            <CardHeader className="flex-row items-center justify-between">
-              <CardTitle className="flex items-center gap-2">
-                <Upload className="h-4 w-4 text-primary" />
-                Quick Actions
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-2 gap-3">
-                <button className="flex flex-col items-center gap-2 rounded-lg border border-border p-4 hover:bg-muted transition-colors">
-                  <FileText className="h-6 w-6 text-primary" />
-                  <span className="text-xs font-medium">New Invoice</span>
-                </button>
-                <button className="flex flex-col items-center gap-2 rounded-lg border border-border p-4 hover:bg-muted transition-colors">
-                  <Upload className="h-6 w-6 text-primary" />
-                  <span className="text-xs font-medium">Upload Document</span>
-                </button>
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+        {chartCards.map((c) => (
+          <Card key={c.title + c.lineColor} className="rounded-2xl border-border bg-card p-5 shadow-[0_0_0_1px_rgba(15,23,42,0.06),0_18px_55px_rgba(2,6,23,0.08)]">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <div className="text-sm font-semibold text-foreground">{c.title}</div>
+                <div className="mt-1 flex items-center gap-2 text-[11px]">
+                  <span className="font-semibold text-foreground">{c.netLabel}</span>
+                  <span className="text-muted-foreground">{t("dashboard.7day")}</span>
+                </div>
               </div>
-            </CardContent>
+              <div className="flex items-center gap-2">
+                <Button type="button" variant="secondary" className="h-8 rounded-xl px-2.5 text-xs font-medium">
+                  7-Day <ChevronDown className="ml-1.5 h-4 w-4" />
+                </Button>
+                <Button type="button" variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground">
+                  <Settings className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+            <div className="mt-4 w-full min-h-[176px]">
+              {mounted ? (
+                <ResponsiveContainer width="100%" aspect={3.2}>
+                  <LineChart data={c.data} margin={{ top: 6, right: 10, bottom: 0, left: -12 }}>
+                    <CartesianGrid stroke="rgba(15,23,42,0.08)" vertical={false} />
+                    <XAxis dataKey="label" tick={{ fill: "rgba(15,23,42,0.50)", fontSize: 10 }} axisLine={false} tickLine={false} />
+                    <YAxis hide domain={[0, "dataMax"]} />
+                    <Tooltip cursor={{ stroke: "rgba(124,157,255,0.35)" }} contentStyle={{ background: "rgba(255,255,255,0.98)", border: "1px solid rgba(15,23,42,0.12)", borderRadius: 12 }} />
+                    <Line type="monotone" dataKey="value" stroke={c.lineColor} strokeWidth={2} dot={{ r: 3, fill: c.lineColor, strokeWidth: 0 }} activeDot={{ r: 4, fill: c.lineColor, stroke: "rgba(255,255,255,0.6)", strokeWidth: 1 }} />
+                  </LineChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="h-[176px] w-full rounded-xl border border-border bg-muted" />
+              )}
+            </div>
           </Card>
-        </div>
+        ))}
       </div>
     </div>
-  )
-}
-
-function MetricCard({
-  title,
-  value,
-  change,
-  trend,
-  icon,
-}: {
-  title: string
-  value: string
-  change: string
-  trend: 'up' | 'down' | 'neutral'
-  icon: React.ReactNode
-}) {
-  return (
-    <Card>
-      <CardContent className="p-6">
-        <div className="flex items-center justify-between">
-          <p className="text-sm font-medium text-muted-foreground">{title}</p>
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 text-primary">
-            {icon}
-          </div>
-        </div>
-        <div className="mt-3">
-          <p className="text-2xl font-bold">{value}</p>
-          <p className={`mt-1 text-xs font-medium ${trend === 'up' ? 'text-success' : trend === 'down' ? 'text-destructive' : 'text-muted-foreground'}`}>
-            {change} vs last month
-          </p>
-        </div>
-      </CardContent>
-    </Card>
   )
 }

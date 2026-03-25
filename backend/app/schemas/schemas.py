@@ -76,6 +76,7 @@ class InvoiceResponse(BaseModel):
     subtotal: float
     tax_amount: float
     total: float
+    amount_paid: float
     currency: str
     notes: str | None
     created_at: datetime
@@ -102,7 +103,9 @@ class BillResponse(BaseModel):
     subtotal: float
     tax_amount: float
     total: float
+    amount_paid: float
     currency: str
+    notes: str | None
     created_at: datetime
     model_config = {"from_attributes": True}
 
@@ -159,7 +162,11 @@ class DocumentResponse(BaseModel):
     file_type: str
     file_size: int
     status: str
+    category: str | None = None
     ai_extracted_data: dict | None
+    ai_confidence: float | None = None
+    linked_bill_id: UUID | None = None
+    linked_invoice_id: UUID | None = None
     uploaded_at: datetime
     processed_at: datetime | None
     model_config = {"from_attributes": True}

@@ -1,122 +1,81 @@
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
-import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table'
-import { formatCurrency } from '@/lib/utils'
-import { Plus, BookOpen, ArrowRightLeft } from 'lucide-react'
-
-const chartOfAccounts = [
-  { code: '1000', name: 'Cash at Bank', type: 'asset', balance: 85400 },
-  { code: '1100', name: 'Accounts Receivable', type: 'asset', balance: 21800 },
-  { code: '1200', name: 'Prepaid Expenses', type: 'asset', balance: 3200 },
-  { code: '2000', name: 'Accounts Payable', type: 'liability', balance: 8770 },
-  { code: '2100', name: 'GST Payable', type: 'liability', balance: 4500 },
-  { code: '2200', name: 'Accrued Expenses', type: 'liability', balance: 2100 },
-  { code: '3000', name: 'Owner\'s Equity', type: 'equity', balance: 50000 },
-  { code: '3100', name: 'Retained Earnings', type: 'equity', balance: 45030 },
-  { code: '4000', name: 'Sales Revenue', type: 'revenue', balance: 318000 },
-  { code: '4100', name: 'Service Revenue', type: 'revenue', balance: 45000 },
-  { code: '5000', name: 'Cost of Goods Sold', type: 'expense', balance: 142000 },
-  { code: '5100', name: 'Payroll Expense', type: 'expense', balance: 96000 },
-  { code: '5200', name: 'Rent Expense', type: 'expense', balance: 24000 },
-  { code: '5300', name: 'Utilities', type: 'expense', balance: 4800 },
-]
-
-const recentJournals = [
-  { id: '1', date: '2026-03-22', description: 'Invoice INV-0045 payment received', entries: [{ account: 'Cash at Bank', debit: 5400, credit: 0 }, { account: 'Accounts Receivable', debit: 0, credit: 5400 }] },
-  { id: '2', date: '2026-03-21', description: 'AWS monthly bill', entries: [{ account: 'Cloud/IT Expense', debit: 1250, credit: 0 }, { account: 'Accounts Payable', debit: 0, credit: 1250 }] },
-  { id: '3', date: '2026-03-20', description: 'March payroll accrual', entries: [{ account: 'Payroll Expense', debit: 24000, credit: 0 }, { account: 'Cash at Bank', debit: 0, credit: 24000 }] },
-]
+import { useAccounts } from "../../lib/hooks"
+import { useTheme } from "../../lib/theme"
+import { Card } from "../../components/ui/card"
+import { Button } from "../../components/ui/button"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../../components/ui/table"
+import { Badge } from "../../components/ui/badge"
+import { Tabs, TabsList, TabsTrigger } from "../../components/ui/tabs"
+import { Plus } from "lucide-react"
+import { useState } from "react"
+import { cn } from "../../lib/utils"
 
 const typeColors: Record<string, string> = {
-  asset: 'text-blue-600 bg-blue-50',
-  liability: 'text-red-600 bg-red-50',
-  equity: 'text-purple-600 bg-purple-50',
-  revenue: 'text-green-600 bg-green-50',
-  expense: 'text-orange-600 bg-orange-50',
+  asset: "bg-sky-500/10 text-sky-700 border-sky-400/20",
+  liability: "bg-rose-500/10 text-rose-700 border-rose-400/20",
+  equity: "bg-violet-500/10 text-violet-700 border-violet-400/20",
+  revenue: "bg-emerald-500/10 text-emerald-700 border-emerald-400/20",
+  expense: "bg-amber-500/10 text-amber-700 border-amber-400/20",
 }
 
-export function AccountingPage() {
+export default function AccountingPage() {
+  const [tab, setTab] = useState("all")
+  const { data: accounts = [], isLoading } = useAccounts(tab === "all" ? undefined : tab)
+  const { t } = useTheme()
+
+  const accountTypes = [
+    { label: t("common.all"), value: "all" },
+    { label: t("accounting.asset"), value: "asset" },
+    { label: t("accounting.liability"), value: "liability" },
+    { label: t("accounting.equity"), value: "equity" },
+    { label: t("accounting.revenue"), value: "revenue" },
+    { label: t("accounting.expense"), value: "expense" },
+  ]
+
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="flex flex-col gap-4">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h1 className="text-2xl font-semibold">Accounting</h1>
-          <p className="text-muted-foreground">Chart of accounts and journal entries</p>
+          <div className="text-xs text-muted-foreground">{t("accounting.category")}</div>
+          <div className="mt-1 text-2xl font-semibold tracking-tight text-foreground">{t("accounting.title")}</div>
+          <div className="mt-1 max-w-2xl text-sm text-muted-foreground">{t("accounting.desc")}</div>
         </div>
-        <div className="flex gap-2">
-          <Button variant="outline"><ArrowRightLeft className="h-4 w-4" /> New Journal Entry</Button>
-          <Button><Plus className="h-4 w-4" /> Add Account</Button>
-        </div>
+        <Button type="button" className="h-9 rounded-xl bg-gradient-to-r from-[#7C9DFF] to-[#4D63FF] px-3 text-xs font-semibold text-white shadow-[0_0_0_1px_rgba(124,157,255,0.25),0_16px_40px_rgba(0,0,0,0.35)] hover:opacity-95"><Plus className="mr-2 h-4 w-4" /> {t("accounting.newAccount")}</Button>
       </div>
 
-      {/* Chart of Accounts */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2"><BookOpen className="h-5 w-5" /> Chart of Accounts</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Code</TableHead>
-                <TableHead>Account Name</TableHead>
-                <TableHead>Type</TableHead>
-                <TableHead className="text-right">Balance</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {chartOfAccounts.map((a) => (
-                <TableRow key={a.code}>
-                  <TableCell className="font-mono text-sm">{a.code}</TableCell>
-                  <TableCell className="font-medium">{a.name}</TableCell>
-                  <TableCell><span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${typeColors[a.type]}`}>{a.type}</span></TableCell>
-                  <TableCell className="text-right font-medium">{formatCurrency(a.balance)}</TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
-
-      {/* Recent Journal Entries */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Recent Journal Entries</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            {recentJournals.map((j) => (
-              <div key={j.id} className="rounded-lg border border-border p-4">
-                <div className="flex items-center justify-between mb-3">
-                  <div>
-                    <p className="font-medium text-sm">{j.description}</p>
-                    <p className="text-xs text-muted-foreground">{j.date}</p>
-                  </div>
-                  <Badge variant="secondary">Posted</Badge>
-                </div>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Account</TableHead>
-                      <TableHead className="text-right">Debit</TableHead>
-                      <TableHead className="text-right">Credit</TableHead>
+      <Card className="rounded-2xl border-border bg-card p-4 shadow-[0_0_0_1px_rgba(15,23,42,0.06),0_18px_55px_rgba(2,6,23,0.08)]">
+        <Tabs value={tab} onValueChange={setTab}>
+          <TabsList className="h-auto flex-wrap justify-start gap-1 rounded-xl bg-muted p-1">
+            {accountTypes.map(at => (<TabsTrigger key={at.value} value={at.value} className="rounded-lg px-3 py-1.5 text-xs">{at.label}</TabsTrigger>))}
+          </TabsList>
+        </Tabs>
+        <div className="mt-4">
+          {isLoading ? (<div className="py-10 text-center text-sm text-muted-foreground">{t("common.loading")}</div>
+          ) : accounts.length === 0 ? (
+            <div className="rounded-2xl border border-border bg-card px-6 py-10 text-center">
+              <div className="text-base font-semibold text-foreground">{t("accounting.noAccounts")}</div>
+              <div className="mt-1 text-sm text-muted-foreground">{t("accounting.noAccountsDesc")}</div>
+            </div>
+          ) : (
+            <div className="overflow-hidden rounded-2xl border border-border bg-card">
+              <Table>
+                <TableHeader><TableRow className="border-border hover:bg-transparent">
+                  <TableHead className="w-[100px] text-muted-foreground">{t("accounting.code")}</TableHead><TableHead className="text-muted-foreground">{t("accounting.name")}</TableHead><TableHead className="text-muted-foreground">{t("accounting.type")}</TableHead><TableHead className="text-muted-foreground">{t("accounting.subtype")}</TableHead><TableHead className="text-muted-foreground">{t("accounting.currency")}</TableHead>
+                </TableRow></TableHeader>
+                <TableBody>
+                  {accounts.map(a => (
+                    <TableRow key={a.id} className="border-border hover:bg-muted/50">
+                      <TableCell className="font-medium text-foreground">{a.code}</TableCell>
+                      <TableCell className="text-foreground">{a.name}</TableCell>
+                      <TableCell><Badge variant="outline" className={cn("rounded-lg px-2 py-0.5 text-[11px] font-semibold", typeColors[a.type] ?? "")}>{a.type.charAt(0).toUpperCase() + a.type.slice(1)}</Badge></TableCell>
+                      <TableCell className="text-muted-foreground">{a.subtype ?? "—"}</TableCell>
+                      <TableCell className="text-muted-foreground">{a.currency}</TableCell>
                     </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {j.entries.map((e, i) => (
-                      <TableRow key={i}>
-                        <TableCell className={e.credit > 0 ? 'pl-8' : ''}>{e.account}</TableCell>
-                        <TableCell className="text-right">{e.debit > 0 ? formatCurrency(e.debit) : ''}</TableCell>
-                        <TableCell className="text-right">{e.credit > 0 ? formatCurrency(e.credit) : ''}</TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
-            ))}
-          </div>
-        </CardContent>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+        </div>
       </Card>
     </div>
   )
