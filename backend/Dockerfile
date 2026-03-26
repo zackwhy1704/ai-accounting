@@ -10,14 +10,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
+# Copy all app code (including entrypoint.sh)
 COPY . .
 
-# Create uploads directory (Railway Volume mounts here)
-RUN mkdir -p /data/uploads
-
-EXPOSE 8000
-
-COPY entrypoint.sh .
-RUN chmod +x entrypoint.sh
+RUN mkdir -p /data/uploads && chmod +x entrypoint.sh
 
 CMD ["./entrypoint.sh"]
