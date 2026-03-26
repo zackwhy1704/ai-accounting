@@ -102,6 +102,82 @@ async def get_me(
     return user
 
 
+class ForgotPasswordRequest(BaseModel):
+    email: str
+
+class ResetPasswordRequest(BaseModel):
+    token: str
+    new_password: str
+
+@router.post("/forgot-password")
+async def forgot_password(body: ForgotPasswordRequest, db: AsyncSession = Depends(get_db)):
+    """Send a password reset email. Always returns success to prevent email enumeration."""
+    from app.core.config import get_settings
+    settings = get_settings()
+
+    result = await db.execute(select(User).where(User.email == body.email))
+    user = result.scalar_one_or_none()
+
+    if user and settings.RESEND_API_KEY:
+        # Generate a reset token (JWT, 1 hour expiry)
+        from datetime import timedelta
+        reset_token = create_access_token(
+            {"sub": str(user.id), "type": "password_reset"},
+            expires_delta=timedelta(hours=1),
+        )
+        reset_url = f"{settings.FRONTEND_URL}/login?reset_token={reset_token}"
+
+        try:
+            import resend
+            resend.api_key = settings.RESEND_API_KEY
+            resend.Emails.send({
+                "from": settings.EMAIL_FROM,
+                "to": [user.email],
+                "subject": "Reset your Accruly password",
+                "html": f"""
+                    <div style="font-family: sans-serif; max-width: 480px; margin: 0 auto;">
+                        <h2 style="color: #1a0b2e;">Reset your password</h2>
+                        <p>Hi {user.full_name},</p>
+                        <p>We received a request to reset your password. Click the button below to set a new one:</p>
+                        <a href="{reset_url}" style="display: inline-block; padding: 12px 24px; background: linear-gradient(135deg, #7C9DFF, #4D63FF); color: white; text-decoration: none; border-radius: 8px; font-weight: 600; margin: 16px 0;">Reset Password</a>
+                        <p style="color: #666; font-size: 14px;">This link expires in 1 hour. If you didn't request this, you can safely ignore this email.</p>
+                        <hr style="border: none; border-top: 1px solid #eee; margin: 24px 0;" />
+                        <p style="color: #999; font-size: 12px;">Accruly — AI-powered accounting</p>
+                    </div>
+                """,
+            })
+        except Exception as e:
+            import logging
+            logging.getLogger(__name__).error(f"Failed to send reset email: {e}")
+
+    return {"message": "If an account with that email exists, a reset link has been sent."}
+
+
+@router.post("/reset-password")
+async def reset_password(body: ResetPasswordRequest, db: AsyncSession = Depends(get_db)):
+    """Reset password using a valid reset token."""
+    from jose import jwt, JWTError
+    from app.core.config import get_settings
+    settings = get_settings()
+
+    try:
+        payload = jwt.decode(body.token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
+        if payload.get("type") != "password_reset":
+            raise HTTPException(status_code=400, detail="Invalid reset token")
+        user_id = payload.get("sub")
+    except JWTError:
+        raise HTTPException(status_code=400, detail="Invalid or expired reset token")
+
+    result = await db.execute(select(User).where(User.id == user_id))
+    user = result.scalar_one_or_none()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    user.hashed_password = hash_password(body.new_password)
+    await db.commit()
+    return {"message": "Password reset successfully. You can now log in."}
+
+
 @router.get("/org-settings")
 async def get_org_settings(
     current_user: dict = Depends(get_current_user),

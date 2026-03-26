@@ -146,6 +146,20 @@ export function useAccounts(type?: string) {
   })
 }
 
+// Password Reset
+export function useForgotPassword() {
+  return useMutation({
+    mutationFn: (email: string) => api.post('/auth/forgot-password', { email }).then(r => r.data),
+  })
+}
+
+export function useResetPassword() {
+  return useMutation({
+    mutationFn: (data: { token: string; new_password: string }) =>
+      api.post('/auth/reset-password', data).then(r => r.data),
+  })
+}
+
 // Org Settings
 export function useOrgSettings() {
   return useQuery<{ currency: string; name: string }>({
