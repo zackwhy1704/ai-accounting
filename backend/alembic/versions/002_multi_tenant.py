@@ -10,7 +10,7 @@ import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
 
 revision: str = '002_multi_tenant'
-down_revision: Union[str, Sequence[str], None] = '028574c47fa6'
+down_revision: Union[str, Sequence[str], None] = 'a001_add_docs_cat'
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
