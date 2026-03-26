@@ -1,7 +1,10 @@
 #!/bin/sh
 set -e
 
-echo "Starting nginx on port $PORT, proxying API to $BACKEND_HOST:$BACKEND_PORT"
+# BACKEND_URL can be full URL like https://backend.up.railway.app
+# or we construct from BACKEND_HOST:BACKEND_PORT
+BACKEND="${BACKEND_URL:-http://$BACKEND_HOST:$BACKEND_PORT}"
+echo "Starting nginx on port $PORT, proxying API to $BACKEND"
 
 cat > /etc/nginx/conf.d/default.conf <<EOF
 server {
@@ -10,11 +13,11 @@ server {
     root /usr/share/nginx/html;
     index index.html;
 
-    resolver 8.8.8.8 1.1.1.1 valid=10s;
+    resolver 127.0.0.11 8.8.8.8 1.1.1.1 valid=10s;
     resolver_timeout 5s;
 
     location /api/ {
-        set \$backend_url "http://$BACKEND_HOST:$BACKEND_PORT";
+        set \$backend_url "$BACKEND";
         proxy_pass \$backend_url/api/;
         proxy_set_header Host \$host;
         proxy_set_header X-Real-IP \$remote_addr;
