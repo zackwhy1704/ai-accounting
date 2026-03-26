@@ -9,7 +9,7 @@ import {
   useCheckSlug,
 } from "../../lib/hooks"
 import {
-  Building2, Upload, Globe, Palette, Link2, Mail, Phone,
+  Building2, Upload, Globe, Palette, Mail,
   Check, X, Loader2, ExternalLink, Eye,
 } from "lucide-react"
 import { cn } from "../../lib/utils"

@@ -3,19 +3,16 @@ import { Card } from "../../components/ui/card"
 import { useToast } from "../../components/ui/toast"
 import {
   useFirmDashboard,
-  useFirmClients,
   useCreateFirmClient,
   useArchiveFirmClient,
-  useRestoreFirmClient,
   useSwitchOrg,
 } from "../../lib/hooks"
 import { formatCurrency } from "../../lib/utils"
 import {
-  Building2, Users, FileText, Receipt, FolderOpen, Plus, Archive,
-  RotateCcw, ArrowRight, Loader2, Search, Globe, TrendingUp,
+  Building2, Users, FileText, Plus, Archive,
+  ArrowRight, Loader2, Search, TrendingUp,
   AlertCircle,
 } from "lucide-react"
-import { cn } from "../../lib/utils"
 
 const COUNTRY_FLAGS: Record<string, string> = {
   SG: "🇸🇬", MY: "🇲🇾", HK: "🇭🇰", US: "🇺🇸", GB: "🇬🇧", AU: "🇦🇺",
@@ -23,16 +20,13 @@ const COUNTRY_FLAGS: Record<string, string> = {
 
 export default function PracticeDashboardPage() {
   const { data: dashboard, isLoading } = useFirmDashboard()
-  const { data: clients } = useFirmClients()
   const createClient = useCreateFirmClient()
   const archiveClient = useArchiveFirmClient()
-  const restoreClient = useRestoreFirmClient()
   const switchOrg = useSwitchOrg()
   const { toast } = useToast()
 
   const [search, setSearch] = useState("")
   const [showCreate, setShowCreate] = useState(false)
-  const [showArchived, setShowArchived] = useState(false)
   const [newClient, setNewClient] = useState({ name: "", org_type: "sme", country: "SG", currency: "SGD", industry: "" })
 
   const handleCreate = () => {
@@ -73,7 +67,6 @@ export default function PracticeDashboardPage() {
 
   // Aggregate metrics
   const totalRevenue = filteredClients.reduce((s, c) => s + c.metrics.total_revenue, 0)
-  const totalExpenses = filteredClients.reduce((s, c) => s + c.metrics.total_expenses, 0)
   const totalInvoices = filteredClients.reduce((s, c) => s + c.metrics.invoices, 0)
   const totalPendingDocs = filteredClients.reduce((s, c) => s + c.metrics.pending_documents, 0)
 

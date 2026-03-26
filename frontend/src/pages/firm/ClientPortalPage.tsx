@@ -7,7 +7,6 @@ import {
   Building2, Upload, Loader2, CheckCircle, FileText, LogIn,
   UserPlus, Mail, Lock, User, Phone, ArrowRight,
 } from "lucide-react"
-import { cn } from "../../lib/utils"
 import type { PortalInfo } from "../../types"
 
 const API_BASE = import.meta.env.VITE_API_URL || "/api/v1"
