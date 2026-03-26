@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import api from './api'
-import type { Invoice, Bill, Contact, Document, DashboardData, Account, BillingUsage, BillingPlan, Organization, UserOrgMembership, OnboardingData } from '../types'
+import type { Invoice, Bill, Contact, Document, DashboardData, Account, BillingUsage, BillingPlan, Organization, UserOrgMembership, OnboardingData, FirmSettings, FirmClientOrg, FirmDashboard, SlugCheck } from '../types'
 
 // Dashboard
 export function useDashboard() {
@@ -227,5 +227,105 @@ export function useCreateOrg() {
   return useMutation<Organization, Error, { name: string; org_type?: string; country?: string; currency?: string; industry?: string }>({
     mutationFn: (data) => api.post('/auth/organizations', data).then(r => r.data),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['user-orgs'] }),
+  })
+}
+
+// ── Firm / Practice ──
+export function useFirmSettings() {
+  return useQuery<FirmSettings>({
+    queryKey: ['firm-settings'],
+    queryFn: () => api.get('/firm/settings').then(r => r.data),
+  })
+}
+
+export function useUpdateFirmSettings() {
+  const qc = useQueryClient()
+  return useMutation<FirmSettings, Error, Partial<FirmSettings>>({
+    mutationFn: (data) => api.patch('/firm/settings', data).then(r => r.data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['firm-settings'] }),
+  })
+}
+
+export function useUploadFirmLogo() {
+  const qc = useQueryClient()
+  return useMutation<{ logo_url: string }, Error, File>({
+    mutationFn: (file) => {
+      const formData = new FormData()
+      formData.append('file', file)
+      return api.post('/firm/logo', formData, {
+        headers: { 'Content-Type': undefined },
+      }).then(r => r.data)
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['firm-settings'] }),
+  })
+}
+
+export function useUploadFirmFavicon() {
+  const qc = useQueryClient()
+  return useMutation<{ favicon_url: string }, Error, File>({
+    mutationFn: (file) => {
+      const formData = new FormData()
+      formData.append('file', file)
+      return api.post('/firm/favicon', formData, {
+        headers: { 'Content-Type': undefined },
+      }).then(r => r.data)
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['firm-settings'] }),
+  })
+}
+
+export function useCheckSlug(slug: string) {
+  return useQuery<SlugCheck>({
+    queryKey: ['check-slug', slug],
+    queryFn: () => api.get(`/firm/check-slug/${slug}`).then(r => r.data),
+    enabled: slug.length >= 3,
+  })
+}
+
+export function useFirmDashboard() {
+  return useQuery<FirmDashboard>({
+    queryKey: ['firm-dashboard'],
+    queryFn: () => api.get('/firm/dashboard').then(r => r.data),
+  })
+}
+
+export function useFirmClients(includeArchived?: boolean) {
+  return useQuery<FirmClientOrg[]>({
+    queryKey: ['firm-clients', includeArchived],
+    queryFn: () => api.get('/firm/clients', { params: includeArchived ? { include_archived: true } : {} }).then(r => r.data),
+  })
+}
+
+export function useCreateFirmClient() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (data: { name: string; org_type?: string; country?: string; currency?: string; industry?: string }) =>
+      api.post('/firm/clients', data).then(r => r.data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['firm-clients'] })
+      qc.invalidateQueries({ queryKey: ['firm-dashboard'] })
+    },
+  })
+}
+
+export function useArchiveFirmClient() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (clientId: string) => api.delete(`/firm/clients/${clientId}`).then(r => r.data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['firm-clients'] })
+      qc.invalidateQueries({ queryKey: ['firm-dashboard'] })
+    },
+  })
+}
+
+export function useRestoreFirmClient() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (clientId: string) => api.post(`/firm/clients/${clientId}/restore`).then(r => r.data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['firm-clients'] })
+      qc.invalidateQueries({ queryKey: ['firm-dashboard'] })
+    },
   })
 }

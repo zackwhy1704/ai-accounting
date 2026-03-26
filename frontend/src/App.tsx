@@ -13,6 +13,9 @@ import BillingPage from './pages/billing/BillingPage'
 import AIAssistantPage from './pages/ai-assistant/AIAssistantPage'
 import SettingsPage from './pages/settings/SettingsPage'
 import GenericPage from './pages/GenericPage'
+import FirmSettingsPage from './pages/firm/FirmSettingsPage'
+import PracticeDashboardPage from './pages/firm/PracticeDashboardPage'
+import ClientPortalPage from './pages/firm/ClientPortalPage'
 
 function ProtectedRoute({ children, allowOnboarding }: { children: React.ReactNode; allowOnboarding?: boolean }) {
   const { token, isLoading, onboardingCompleted } = useAuth()
@@ -26,6 +29,8 @@ function ProtectedRoute({ children, allowOnboarding }: { children: React.ReactNo
 function App() {
   return (
     <Routes>
+      {/* Client portal — public, outside auth */}
+      <Route path="/p/:slug" element={<ClientPortalPage />} />
       <Route path="/login" element={<LoginPage />} />
       <Route path="/onboarding" element={<ProtectedRoute allowOnboarding><OnboardingPage /></ProtectedRoute>} />
       <Route element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
@@ -66,6 +71,10 @@ function App() {
         <Route path="/ai-assistant" element={<AIAssistantPage />} />
         <Route path="/billing" element={<BillingPage />} />
         <Route path="/settings" element={<SettingsPage />} />
+
+        {/* Firm / Practice */}
+        <Route path="/firm/settings" element={<FirmSettingsPage />} />
+        <Route path="/firm/dashboard" element={<PracticeDashboardPage />} />
 
         {/* Catch-all: redirect unknown routes to dashboard */}
         <Route path="*" element={<Navigate to="/dashboard" replace />} />

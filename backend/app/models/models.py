@@ -38,6 +38,19 @@ class Organization(Base):
     previous_tool: Mapped[str | None] = mapped_column(String(100))  # what they used before
     address: Mapped[str | None] = mapped_column(Text)
     logo_url: Mapped[str | None] = mapped_column(String(1000))
+    # Firm / white-label fields
+    slug: Mapped[str | None] = mapped_column(String(50), unique=True, index=True)  # e.g. "abc-accounting" → accruly.io/abc-accounting
+    parent_firm_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("organizations.id"))  # if this is a client org under a firm
+    brand_primary_color: Mapped[str | None] = mapped_column(String(7))  # hex e.g. #4D63FF
+    brand_secondary_color: Mapped[str | None] = mapped_column(String(7))
+    client_portal_enabled: Mapped[bool] = mapped_column(Boolean, default=False)
+    favicon_url: Mapped[str | None] = mapped_column(String(1000))
+    custom_domain: Mapped[str | None] = mapped_column(String(255), unique=True, index=True)
+    firm_description: Mapped[str | None] = mapped_column(Text)
+    firm_contact_email: Mapped[str | None] = mapped_column(String(255))
+    firm_website: Mapped[str | None] = mapped_column(String(500))
+    firm_support_email: Mapped[str | None] = mapped_column(String(255))
+    is_archived: Mapped[bool] = mapped_column(Boolean, default=False)
     onboarding_completed: Mapped[bool] = mapped_column(Boolean, default=False)
     plan: Mapped[str] = mapped_column(String(20), default="starter")
     stripe_customer_id: Mapped[str | None] = mapped_column(String(255))
@@ -48,6 +61,7 @@ class Organization(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
 
     # Relationships
+    parent_firm: Mapped["Organization | None"] = relationship("Organization", remote_side="Organization.id", foreign_keys=[parent_firm_id])
     user_memberships: Mapped[list["UserOrganization"]] = relationship(back_populates="organization", cascade="all, delete-orphan")
     users: Mapped[list["User"]] = relationship(back_populates="organization")
     accounts: Mapped[list["Account"]] = relationship(back_populates="organization")

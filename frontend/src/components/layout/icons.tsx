@@ -14,6 +14,8 @@ import {
   CreditCard,
   Bot,
   BarChart3,
+  Building2,
+  Briefcase,
 } from "lucide-react"
 
 export type NavIcon =
@@ -31,6 +33,8 @@ export type NavIcon =
   | "credit-card"
   | "bot"
   | "bar-chart"
+  | "building-2"
+  | "briefcase"
 
 export const navIconMap: Record<NavIcon, ComponentType<{ className?: string }>> = {
   "layout-dashboard": LayoutDashboard,
@@ -47,4 +51,6 @@ export const navIconMap: Record<NavIcon, ComponentType<{ className?: string }>> 
   "credit-card": CreditCard,
   bot: Bot,
   "bar-chart": BarChart3,
+  "building-2": Building2,
+  briefcase: Briefcase,
 }

@@ -56,5 +56,14 @@ export const navItems: NavItem[] = [
   { labelKey: "nav.accounting", href: "/accounting", icon: "calculator" },
   { labelKey: "nav.aiAssistant", href: "/ai-assistant", icon: "bot" },
   { labelKey: "nav.billing", href: "/billing", icon: "credit-card" },
+  {
+    labelKey: "nav.firmDashboard",
+    href: "/firm",
+    icon: "briefcase",
+    children: [
+      { labelKey: "nav.firmDashboard", href: "/firm/dashboard" },
+      { labelKey: "nav.firmSettings", href: "/firm/settings" },
+    ],
+  },
   { labelKey: "nav.controlPanel", href: "/settings", icon: "settings" },
 ]

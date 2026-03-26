@@ -142,6 +142,83 @@ export interface UserOrgMembership {
   onboarding_completed: boolean
 }
 
+// Firm / Practice
+export interface FirmSettings {
+  slug: string | null
+  name: string
+  logo_url: string | null
+  favicon_url: string | null
+  brand_primary_color: string | null
+  brand_secondary_color: string | null
+  client_portal_enabled: boolean
+  custom_domain: string | null
+  firm_description: string | null
+  firm_contact_email: string | null
+  firm_website: string | null
+  firm_support_email: string | null
+  portal_url: string | null
+}
+
+export interface FirmClientOrg {
+  id: string
+  name: string
+  org_type: string
+  country: string
+  currency: string
+  industry: string | null
+  onboarding_completed: boolean
+  is_archived: boolean
+  created_at: string
+}
+
+export interface FirmClientMetrics {
+  invoices: number
+  bills: number
+  documents: number
+  pending_documents: number
+  users: number
+  total_revenue: number
+  total_expenses: number
+}
+
+export interface FirmDashboardClient {
+  id: string
+  name: string
+  org_type: string
+  country: string
+  currency: string
+  industry: string | null
+  logo_url: string | null
+  onboarding_completed: boolean
+  created_at: string
+  metrics: FirmClientMetrics
+}
+
+export interface FirmDashboard {
+  firm_name: string
+  firm_slug: string | null
+  total_clients: number
+  clients: FirmDashboardClient[]
+}
+
+export interface PortalInfo {
+  firm_name: string
+  logo_url: string | null
+  favicon_url: string | null
+  brand_primary_color: string
+  brand_secondary_color: string
+  slug: string
+  firm_description: string | null
+  firm_website: string | null
+  firm_support_email: string | null
+}
+
+export interface SlugCheck {
+  slug: string
+  available: boolean
+  reason?: string
+}
+
 export interface OnboardingData {
   org_type: string
   business_name: string

@@ -227,6 +227,10 @@ const translations = {
     "ai.placeholder": "Ask anything about your finances...",
 
     // Login
+    // Firm / Practice
+    "nav.firmDashboard": "Practice Dashboard",
+    "nav.firmSettings": "White-Label Settings",
+
     "login.appName": "AI Accounting",
     "login.appDesc": "Cloud accounting powered by AI",
     "login.createAccount": "Create account",
@@ -457,6 +461,9 @@ const translations = {
     "ai.previewMode": "我目前处于预览模式。完整的AI助手功能即将推出！",
     "ai.placeholder": "询问有关财务的任何问题...",
 
+    "nav.firmDashboard": "实践仪表板",
+    "nav.firmSettings": "白标设置",
+
     "login.appName": "AI 会计",
     "login.appDesc": "AI驱动的云会计",
     "login.createAccount": "创建账户",
@@ -686,6 +693,9 @@ const translations = {
     "ai.greeting": "Hai! Saya pembantu perakaunan AI anda. Saya boleh membantu dengan soalan kewangan, mencipta invois, menerangkan transaksi, dan banyak lagi. Bagaimana saya boleh membantu anda hari ini?",
     "ai.previewMode": "Saya kini dalam mod pratonton. Keupayaan penuh pembantu AI akan datang tidak lama lagi!",
     "ai.placeholder": "Tanya apa sahaja tentang kewangan anda...",
+
+    "nav.firmDashboard": "Papan Pemuka Amalan",
+    "nav.firmSettings": "Tetapan Label Putih",
 
     "login.appName": "AI Perakaunan",
     "login.appDesc": "Perakaunan awan dikuasakan AI",
