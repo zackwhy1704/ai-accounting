@@ -1,16 +1,34 @@
-import { NavLink, useLocation } from 'react-router-dom'
-import { ChevronDown, ChevronUp, LogOut } from 'lucide-react'
+import { NavLink, useLocation, useNavigate } from 'react-router-dom'
+import { ChevronDown, ChevronUp, LogOut, Building2, Plus, Check } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/lib/auth'
 import { useTheme } from '@/lib/theme'
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import { navItems } from './nav-data'
 import { navIconMap } from './icons'
+import { useUserOrganizations, useSwitchOrg } from '@/lib/hooks'
 
 export function Sidebar() {
   const location = useLocation()
+  const navigate = useNavigate()
   const { logout, user } = useAuth()
   const { t } = useTheme()
+  const { data: orgs } = useUserOrganizations()
+  const switchOrg = useSwitchOrg()
+  const [orgDropdownOpen, setOrgDropdownOpen] = useState(false)
+  const orgDropdownRef = useRef<HTMLDivElement>(null)
+
+  const currentOrg = orgs?.find(o => o.organization_id === user?.organization_id)
+
+  useEffect(() => {
+    const handleClick = (e: MouseEvent) => {
+      if (orgDropdownRef.current && !orgDropdownRef.current.contains(e.target as Node)) {
+        setOrgDropdownOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClick)
+    return () => document.removeEventListener('mousedown', handleClick)
+  }, [])
 
   const expandableItems = useMemo(
     () => navItems.filter((i) => Boolean(i.children?.length)),
@@ -54,6 +72,64 @@ export function Sidebar() {
           {user?.full_name ?? 'AI Account'}
         </span>
       </div>
+
+      {/* Org Switcher */}
+      {orgs && orgs.length > 0 && (
+        <div className="px-4 mb-4 relative" ref={orgDropdownRef}>
+          <button
+            onClick={() => setOrgDropdownOpen(!orgDropdownOpen)}
+            className="w-full flex items-center gap-3 rounded-xl px-3 py-2.5 text-left bg-white/5 hover:bg-white/10 transition-colors border border-white/10"
+          >
+            <Building2 className="h-4 w-4 text-[#a78bfa] shrink-0" />
+            <div className="flex-1 min-w-0">
+              <div className="text-[13px] font-medium text-white/90 truncate">
+                {currentOrg?.organization_name || 'Select org'}
+              </div>
+              <div className="text-[11px] text-white/40 capitalize">{currentOrg?.org_type || ''}</div>
+            </div>
+            <ChevronDown className={cn("h-3.5 w-3.5 text-white/40 transition-transform", orgDropdownOpen && "rotate-180")} />
+          </button>
+
+          {orgDropdownOpen && (
+            <div className="absolute left-4 right-4 top-full mt-1 z-50 rounded-xl border border-white/10 bg-[#1a0b2e] shadow-[0_16px_50px_rgba(0,0,0,0.6)] py-1">
+              {orgs.map(o => (
+                <button
+                  key={o.organization_id}
+                  onClick={() => {
+                    if (o.organization_id !== user?.organization_id) {
+                      switchOrg.mutate(o.organization_id, {
+                        onSuccess: () => {
+                          window.location.reload()
+                        }
+                      })
+                    }
+                    setOrgDropdownOpen(false)
+                  }}
+                  className="w-full flex items-center gap-3 px-4 py-2.5 text-left hover:bg-white/5 transition-colors"
+                >
+                  <Building2 className="h-4 w-4 text-white/40 shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <div className="text-[13px] text-white/80 truncate">{o.organization_name}</div>
+                    <div className="text-[11px] text-white/40 capitalize">{o.org_type} · {o.role}</div>
+                  </div>
+                  {o.organization_id === user?.organization_id && (
+                    <Check className="h-4 w-4 text-[#a78bfa] shrink-0" />
+                  )}
+                </button>
+              ))}
+              <div className="border-t border-white/10 mt-1 pt-1">
+                <button
+                  onClick={() => { setOrgDropdownOpen(false); navigate('/settings') }}
+                  className="w-full flex items-center gap-3 px-4 py-2.5 text-left hover:bg-white/5 transition-colors"
+                >
+                  <Plus className="h-4 w-4 text-white/40" />
+                  <span className="text-[13px] text-white/60">Add organisation</span>
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Navigation */}
       <nav className="flex-1 overflow-y-auto px-4 space-y-1">
