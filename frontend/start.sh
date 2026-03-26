@@ -6,6 +6,10 @@ set -e
 BACKEND="${BACKEND_URL:-http://$BACKEND_HOST:$BACKEND_PORT}"
 echo "Starting nginx on port $PORT, proxying API to $BACKEND"
 
+# Extract hostname from BACKEND_URL for proxy Host header
+BACKEND_HOSTNAME=$(echo "$BACKEND" | sed 's|https\?://||' | sed 's|:.*||' | sed 's|/.*||')
+echo "Backend hostname for proxy: $BACKEND_HOSTNAME"
+
 cat > /etc/nginx/conf.d/default.conf <<EOF
 server {
     listen $PORT;
@@ -19,10 +23,11 @@ server {
     location /api/ {
         set \$backend_url "$BACKEND";
         proxy_pass \$backend_url/api/;
-        proxy_set_header Host \$host;
+        proxy_set_header Host $BACKEND_HOSTNAME;
         proxy_set_header X-Real-IP \$remote_addr;
         proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto \$scheme;
+        proxy_ssl_server_name on;
         client_max_body_size 10M;
         proxy_read_timeout 120s;
     }
