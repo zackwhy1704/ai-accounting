@@ -1,10 +1,13 @@
 #!/bin/sh
 set -e
 
-echo "Running database migrations..."
-# Use direct connection for migrations (remove -pooler from hostname if present)
-MIGRATION_URL=$(echo "$DATABASE_URL" | sed 's/-pooler\./\./')
-DATABASE_URL="$MIGRATION_URL" alembic upgrade head
+echo "=== Accruly Backend Starting ==="
+echo "PORT=${PORT:-8000}"
+echo "DATABASE_URL is set: $(test -n "$DATABASE_URL" && echo yes || echo no)"
 
-echo "Starting server on port ${PORT:-8000}..."
-exec uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}
+echo "Running database migrations..."
+alembic upgrade head 2>&1
+echo "Migrations complete."
+
+echo "Starting uvicorn on port ${PORT:-8000}..."
+exec uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000} --log-level info
