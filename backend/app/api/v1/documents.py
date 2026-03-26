@@ -1,6 +1,8 @@
 import asyncio
 import logging
+from pathlib import Path
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, BackgroundTasks
+from fastapi.responses import FileResponse
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
@@ -175,6 +177,33 @@ async def delete_document(
 
     await storage_service.delete_file(doc.file_url)
     await db.delete(doc)
+
+
+@router.get("/{document_id}/file")
+async def get_document_file(
+    document_id: UUID,
+    current_user: dict = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    result = await db.execute(
+        select(Document).where(
+            Document.id == document_id,
+            Document.organization_id == current_user["org_id"],
+        )
+    )
+    doc = result.scalar_one_or_none()
+    if not doc:
+        raise HTTPException(status_code=404, detail="Document not found")
+
+    file_path = Path(doc.file_url)
+    if not file_path.exists():
+        raise HTTPException(status_code=404, detail="File not found on storage")
+
+    return FileResponse(
+        path=str(file_path),
+        filename=doc.filename,
+        media_type=doc.file_type,
+    )
 
 
 # ── Update extracted data ──

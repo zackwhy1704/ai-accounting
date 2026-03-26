@@ -12,8 +12,8 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 
-# Create uploads directory
-RUN mkdir -p /app/uploads
+# Create uploads directory (Railway Volume mounts here)
+RUN mkdir -p /data/uploads
 
 EXPOSE 8000
 
