@@ -43,6 +43,8 @@ export default function LoginPage() {
       const result = await login(email, password)
       if (!result.onboarding_completed) {
         navigate("/onboarding")
+      } else if (result.org_type === 'firm') {
+        navigate("/firm/dashboard")
       } else {
         navigate("/dashboard")
       }

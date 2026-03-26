@@ -5,7 +5,7 @@ import type { User } from '../types'
 interface AuthContextType {
   user: User | null
   token: string | null
-  login: (email: string, password: string) => Promise<{ onboarding_completed: boolean }>
+  login: (email: string, password: string) => Promise<{ onboarding_completed: boolean; org_type: string | null }>
   register: (email: string, password: string, fullName: string, companyName: string, phone?: string) => Promise<void>
   logout: () => void
   isLoading: boolean
@@ -55,11 +55,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       api.get('/auth/organizations', { headers: { Authorization: `Bearer ${accessToken}` } }),
     ])
     setUser(meRes.data)
-    const orgs = orgsRes.data as Array<{ organization_id: string; onboarding_completed: boolean }>
+    const orgs = orgsRes.data as Array<{ organization_id: string; onboarding_completed: boolean; org_type: string }>
     const currentOrg = orgs.find(o => o.organization_id === meRes.data.organization_id)
     const completed = currentOrg?.onboarding_completed ?? true
     setOnboardingCompleted(completed)
-    return { onboarding_completed: completed }
+    return { onboarding_completed: completed, org_type: currentOrg?.org_type ?? null }
   }
 
   const register = async (email: string, password: string, fullName: string, companyName: string, phone?: string) => {

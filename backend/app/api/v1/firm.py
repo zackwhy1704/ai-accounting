@@ -367,6 +367,7 @@ async def create_client_org(
         currency=data.currency,
         industry=data.industry,
         parent_firm_id=firm.id,
+        onboarding_completed=True,
     )
     db.add(org)
     await db.flush()
@@ -550,6 +551,7 @@ async def client_portal_signup(
         country=firm.country,
         currency=firm.currency,
         parent_firm_id=firm.id,
+        onboarding_completed=True,
     )
     db.add(client_org)
     await db.flush()

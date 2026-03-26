@@ -145,7 +145,7 @@ export default function OnboardingPage() {
     try {
       await completeOnboarding.mutateAsync(data)
       setOnboardingCompleted(true)
-      navigate('/dashboard', { replace: true })
+      navigate(data.org_type === 'firm' ? '/firm/dashboard' : '/dashboard', { replace: true })
     } catch {
       setError('Something went wrong. Please try again.')
     }

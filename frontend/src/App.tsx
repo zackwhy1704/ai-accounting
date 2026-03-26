@@ -1,6 +1,7 @@
 import { Routes, Route, Navigate } from 'react-router-dom'
 import { AppLayout } from './components/layout/AppLayout'
 import { useAuth } from './lib/auth'
+import { useUserOrganizations } from './lib/hooks'
 import LoginPage from './pages/auth/LoginPage'
 import OnboardingPage from './pages/auth/OnboardingPage'
 import DashboardPage from './pages/dashboard/DashboardPage'
@@ -26,6 +27,14 @@ function ProtectedRoute({ children, allowOnboarding }: { children: React.ReactNo
   return <>{children}</>
 }
 
+function SmartRedirect() {
+  const { user } = useAuth()
+  const { data: orgs } = useUserOrganizations()
+  const currentOrg = orgs?.find(o => o.organization_id === user?.organization_id)
+  if (currentOrg?.org_type === 'firm') return <Navigate to="/firm/dashboard" replace />
+  return <Navigate to="/dashboard" replace />
+}
+
 function App() {
   return (
     <Routes>
@@ -34,7 +43,7 @@ function App() {
       <Route path="/login" element={<LoginPage />} />
       <Route path="/onboarding" element={<ProtectedRoute allowOnboarding><OnboardingPage /></ProtectedRoute>} />
       <Route element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
-        <Route path="/" element={<Navigate to="/dashboard" replace />} />
+        <Route path="/" element={<SmartRedirect />} />
         <Route path="/dashboard" element={<DashboardPage />} />
 
         {/* Sales */}

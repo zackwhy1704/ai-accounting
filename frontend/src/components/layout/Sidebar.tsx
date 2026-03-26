@@ -119,11 +119,16 @@ export function Sidebar() {
               ))}
               <div className="border-t border-white/10 mt-1 pt-1">
                 <button
-                  onClick={() => { setOrgDropdownOpen(false); navigate('/settings') }}
+                  onClick={() => {
+                    setOrgDropdownOpen(false)
+                    navigate(currentOrg?.org_type === 'firm' ? '/firm/dashboard' : '/settings')
+                  }}
                   className="w-full flex items-center gap-3 px-4 py-2.5 text-left hover:bg-white/5 transition-colors"
                 >
                   <Plus className="h-4 w-4 text-white/40" />
-                  <span className="text-[13px] text-white/60">Add organisation</span>
+                  <span className="text-[13px] text-white/60">
+                    {currentOrg?.org_type === 'firm' ? 'Add client organisation' : 'Add organisation'}
+                  </span>
                 </button>
               </div>
             </div>
@@ -133,7 +138,12 @@ export function Sidebar() {
 
       {/* Navigation */}
       <nav className="flex-1 overflow-y-auto px-4 space-y-1">
-        {navItems.map((item) => {
+        {navItems.filter((item) => {
+          const isFirm = currentOrg?.org_type === 'firm'
+          // Hide firm nav for non-firm orgs
+          if (item.href === '/firm' && !isFirm) return false
+          return true
+        }).map((item) => {
           const Icon = navIconMap[item.icon]
           const hasChildren = Boolean(item.children?.length)
           const isActive = location.pathname === item.href || location.pathname.startsWith(`${item.href}/`)
