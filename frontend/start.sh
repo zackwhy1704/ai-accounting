@@ -17,7 +17,7 @@ server {
     root /usr/share/nginx/html;
     index index.html;
 
-    resolver 127.0.0.11 8.8.8.8 1.1.1.1 valid=10s;
+    resolver 8.8.8.8 1.1.1.1 valid=30s;
     resolver_timeout 5s;
 
     location /api/ {
