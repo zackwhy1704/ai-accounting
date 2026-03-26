@@ -6,6 +6,9 @@ COPY package.json package-lock.json ./
 RUN npm ci
 
 COPY . .
+
+ARG VITE_API_URL=https://ai-accounting-production-adce.up.railway.app/api/v1
+ENV VITE_API_URL=$VITE_API_URL
 RUN npm run build
 
 FROM nginx:alpine
@@ -15,7 +18,5 @@ COPY start.sh /start.sh
 RUN chmod +x /start.sh
 
 ENV PORT=3000
-ENV BACKEND_HOST=backend.railway.internal
-ENV BACKEND_PORT=8000
 
 CMD ["/start.sh"]
