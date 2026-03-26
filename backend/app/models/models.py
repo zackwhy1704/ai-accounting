@@ -76,7 +76,9 @@ class User(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
     organization: Mapped["Organization"] = relationship(back_populates="users")
-    org_memberships: Mapped[list["UserOrganization"]] = relationship(back_populates="user", cascade="all, delete-orphan")
+    org_memberships: Mapped[list["UserOrganization"]] = relationship(
+        back_populates="user", foreign_keys="[UserOrganization.user_id]", cascade="all, delete-orphan"
+    )
 
 
 # ──────────────────────────────────────────────
