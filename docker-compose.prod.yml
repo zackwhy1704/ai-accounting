@@ -1,0 +1,50 @@
+version: "3.8"
+
+services:
+  db:
+    image: postgres:16-alpine
+    restart: always
+    environment:
+      POSTGRES_DB: ai_account
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-changeme}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build: ./backend
+    restart: always
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql+asyncpg://postgres:${DB_PASSWORD:-changeme}@db:5432/ai_account
+      SECRET_KEY: ${SECRET_KEY:-change-this-in-production}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
+      AI_MODEL: ${AI_MODEL:-claude-haiku-4-5-20251001}
+      STORAGE_BACKEND: local
+      LOCAL_STORAGE_PATH: /app/uploads
+      CORS_ORIGINS: '["https://www.accruly.io", "https://accruly.io"]'
+      DEBUG: "False"
+      API_V1_PREFIX: /api/v1
+      ACCESS_TOKEN_EXPIRE_MINUTES: 1440
+      ALGORITHM: HS256
+    volumes:
+      - uploads:/app/uploads
+
+  frontend:
+    build: ./frontend
+    restart: always
+    depends_on:
+      - backend
+    ports:
+      - "80:80"
+
+volumes:
+  pgdata:
+  uploads:

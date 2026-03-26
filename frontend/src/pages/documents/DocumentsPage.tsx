@@ -238,8 +238,7 @@ export default function DocumentsPage() {
       <input ref={fileRef} type="file" accept=".pdf,.jpg,.jpeg,.png,.webp,.xlsx" multiple className="hidden" onChange={onFileChange} />
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <div className="text-xs text-muted-foreground">{t("documents.category")}</div>
-          <div className="mt-1 text-2xl font-semibold tracking-tight text-foreground">{t("documents.title")}</div>
+          <div className="text-2xl font-semibold tracking-tight text-foreground">{t("documents.title")}</div>
           <div className="mt-1 max-w-2xl text-sm text-muted-foreground">{t("documents.desc")}</div>
         </div>
         <div className="flex items-center gap-2">

@@ -130,8 +130,8 @@ const translations = {
     "bills.paid7d": "Paid (7d)",
 
     // Documents
-    "documents.category": "Upload Documents",
-    "documents.title": "Digital Inbox",
+    "documents.category": "",
+    "documents.title": "Upload Documents",
     "documents.desc": "Drop invoices, bills, and receipts here. We'll keep them organised and ready for review.",
     "documents.autoCategorise": "Auto-categorise",
     "documents.upload": "Upload",
@@ -365,8 +365,8 @@ const translations = {
     "bills.summary": "摘要",
     "bills.paid7d": "已付（7天）",
 
-    "documents.category": "上传文件",
-    "documents.title": "数字收件箱",
+    "documents.category": "",
+    "documents.title": "上传文件",
     "documents.desc": "在此处放入发票、账单和收据。我们会帮您整理并准备好供审核。",
     "documents.autoCategorise": "自动分类",
     "documents.upload": "上传",
@@ -595,8 +595,8 @@ const translations = {
     "bills.summary": "Ringkasan",
     "bills.paid7d": "Dibayar (7h)",
 
-    "documents.category": "Muat Naik Dokumen",
-    "documents.title": "Peti Masuk Digital",
+    "documents.category": "",
+    "documents.title": "Muat Naik Dokumen",
     "documents.desc": "Letakkan invois, bil, dan resit di sini. Kami akan susun dan sediakan untuk semakan.",
     "documents.autoCategorise": "Auto-kategori",
     "documents.upload": "Muat Naik",
