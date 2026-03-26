@@ -13,7 +13,9 @@ FROM nginx:alpine
 COPY --from=build /app/dist /usr/share/nginx/html
 COPY nginx.conf.template /etc/nginx/templates/default.conf.template
 
-# Railway injects PORT dynamically; default to 8080 for local
+# Railway sets PORT dynamically. Default to 8080.
 ENV PORT=8080
-ENV BACKEND_HOST=backend
+ENV BACKEND_HOST=backend.railway.internal
 ENV BACKEND_PORT=8000
+
+EXPOSE 8080
