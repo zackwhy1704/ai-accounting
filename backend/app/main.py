@@ -36,3 +36,16 @@ app.include_router(billing.router, prefix=settings.API_V1_PREFIX)
 @app.get("/api/health")
 async def health():
     return {"status": "healthy", "app": settings.APP_NAME, "version": "0.1.0"}
+
+
+@app.get("/api/health/db")
+async def health_db():
+    """Health check that tests actual DB connectivity."""
+    from app.core.database import engine
+    from sqlalchemy import text
+    try:
+        async with engine.connect() as conn:
+            result = await conn.execute(text("SELECT 1"))
+            return {"status": "healthy", "db": "connected", "result": result.scalar()}
+    except Exception as e:
+        return {"status": "unhealthy", "db": "failed", "error": str(e)}
