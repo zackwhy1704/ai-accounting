@@ -4,8 +4,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from app.core.database import get_db
 from app.core.security import hash_password, verify_password, create_access_token, get_current_user
-from app.models.models import User, Organization, Account
-from app.schemas.schemas import UserRegister, UserLogin, TokenResponse, UserResponse
+from app.models.models import User, Organization, Account, UserOrganization
+from app.schemas.schemas import (
+    UserRegister, UserLogin, TokenResponse, UserResponse,
+    OnboardingRequest, OrganizationResponse, UserOrgMembership,
+    SwitchOrgRequest, CreateOrgRequest,
+)
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 
@@ -62,9 +66,20 @@ async def register(data: UserRegister, db: AsyncSession = Depends(get_db)):
         email=data.email,
         hashed_password=hash_password(data.password),
         full_name=data.full_name,
+        phone=data.phone,
         role="admin",
     )
     db.add(user)
+    await db.flush()
+
+    # Create user↔org membership
+    membership = UserOrganization(
+        user_id=user.id,
+        organization_id=org.id,
+        role="owner",
+        is_default=True,
+    )
+    db.add(membership)
     await db.flush()
 
     token = create_access_token(
@@ -200,8 +215,8 @@ async def update_org_currency(
     current_user: dict = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    if body.currency not in ("SGD", "MYR", "USD"):
-        raise HTTPException(status_code=400, detail="Currency must be SGD, MYR, or USD")
+    if body.currency not in ("SGD", "MYR", "USD", "HKD", "GBP", "AUD", "EUR"):
+        raise HTTPException(status_code=400, detail="Unsupported currency")
     from app.models.models import Organization
     result = await db.execute(select(Organization).where(Organization.id == current_user["org_id"]))
     org = result.scalar_one_or_none()
@@ -210,3 +225,131 @@ async def update_org_currency(
     org.currency = body.currency
     await db.commit()
     return {"currency": org.currency}
+
+
+# ──────────────────────────────────────────────
+# Onboarding (Step 2: after register, set up business)
+# ──────────────────────────────────────────────
+@router.post("/onboarding", response_model=OrganizationResponse)
+async def complete_onboarding(
+    data: OnboardingRequest,
+    current_user: dict = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Complete onboarding: set org type, country, fiscal year, etc."""
+    result = await db.execute(select(Organization).where(Organization.id == current_user["org_id"]))
+    org = result.scalar_one_or_none()
+    if not org:
+        raise HTTPException(status_code=404, detail="Organization not found")
+
+    org.name = data.business_name
+    org.org_type = data.org_type
+    org.industry = data.industry
+    org.country = data.country
+    org.timezone = data.timezone
+    org.currency = data.currency
+    org.fiscal_year_end_day = data.fiscal_year_end_day
+    org.fiscal_year_end_month = data.fiscal_year_end_month
+    org.has_employees = data.has_employees
+    org.previous_tool = data.previous_tool
+    org.onboarding_completed = True
+    await db.commit()
+    await db.refresh(org)
+    return org
+
+
+# ──────────────────────────────────────────────
+# Multi-org: list, switch, create
+# ──────────────────────────────────────────────
+@router.get("/organizations")
+async def list_user_organizations(
+    current_user: dict = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """List all organizations the current user belongs to."""
+    result = await db.execute(
+        select(UserOrganization, Organization)
+        .join(Organization, UserOrganization.organization_id == Organization.id)
+        .where(UserOrganization.user_id == current_user["sub"])
+    )
+    rows = result.all()
+    return [
+        {
+            "organization_id": str(uo.organization_id),
+            "organization_name": org.name,
+            "org_type": org.org_type,
+            "role": uo.role,
+            "is_default": uo.is_default,
+            "currency": org.currency,
+            "country": org.country,
+            "onboarding_completed": org.onboarding_completed,
+        }
+        for uo, org in rows
+    ]
+
+
+@router.post("/switch-org", response_model=TokenResponse)
+async def switch_organization(
+    data: SwitchOrgRequest,
+    current_user: dict = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Switch to a different organization. Returns new JWT scoped to that org."""
+    # Verify membership
+    result = await db.execute(
+        select(UserOrganization).where(
+            UserOrganization.user_id == current_user["sub"],
+            UserOrganization.organization_id == data.organization_id,
+        )
+    )
+    membership = result.scalar_one_or_none()
+    if not membership:
+        raise HTTPException(status_code=403, detail="You don't have access to this organization")
+
+    # Update user's current org
+    user_result = await db.execute(select(User).where(User.id == current_user["sub"]))
+    user = user_result.scalar_one()
+    user.organization_id = data.organization_id
+    await db.commit()
+
+    token = create_access_token(
+        {"sub": str(user.id), "org_id": str(data.organization_id), "role": membership.role}
+    )
+    return TokenResponse(access_token=token)
+
+
+@router.post("/organizations", response_model=OrganizationResponse)
+async def create_organization(
+    data: CreateOrgRequest,
+    current_user: dict = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Create a new organization (for firms/accountants adding client orgs)."""
+    # Create org
+    org = Organization(
+        name=data.name,
+        org_type=data.org_type,
+        country=data.country,
+        currency=data.currency,
+        industry=data.industry,
+    )
+    db.add(org)
+    await db.flush()
+
+    # Create default chart of accounts
+    for code, name, acc_type, subtype in DEFAULT_ACCOUNTS:
+        db.add(Account(
+            organization_id=org.id, code=code, name=name,
+            type=acc_type, subtype=subtype, is_system=True,
+        ))
+
+    # Add user as owner of new org
+    db.add(UserOrganization(
+        user_id=current_user["sub"],
+        organization_id=org.id,
+        role="owner",
+        is_default=False,
+    ))
+    await db.flush()
+    await db.refresh(org)
+    return org
