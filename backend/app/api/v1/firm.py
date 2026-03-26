@@ -11,7 +11,7 @@ Firm / Practice management API.
 import re
 import logging
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
 from uuid import UUID
@@ -349,6 +349,13 @@ class CreateClientOrg(BaseModel):
     country: str = "SG"
     currency: str = "SGD"
     industry: str | None = None
+
+    @field_validator("name")
+    @classmethod
+    def name_not_empty(cls, v: str) -> str:
+        if not v.strip():
+            raise ValueError("Client name cannot be empty")
+        return v.strip()
 
 
 @router.post("/clients")
