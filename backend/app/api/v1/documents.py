@@ -147,8 +147,7 @@ async def reprocess_document(
 
     doc.status = "processing"
     try:
-        with open(doc.file_url, "rb") as f:
-            content = f.read()
+        content = await storage_service.download_file(doc.file_url)
         extracted = await document_processor.process_invoice(content, doc.file_type)
         doc.ai_extracted_data = extracted
         doc.status = "processed"
@@ -185,6 +184,8 @@ async def get_document_file(
     current_user: dict = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
+    from fastapi.responses import RedirectResponse
+
     result = await db.execute(
         select(Document).where(
             Document.id == document_id,
@@ -195,6 +196,12 @@ async def get_document_file(
     if not doc:
         raise HTTPException(status_code=404, detail="Document not found")
 
+    # S3/R2: redirect to a time-limited presigned URL (1 hour)
+    if doc.file_url.startswith("s3://"):
+        presigned = storage_service.get_presigned_url(doc.file_url, expires_in=3600)
+        return RedirectResponse(url=presigned)
+
+    # Local storage: serve file directly
     file_path = Path(doc.file_url)
     if not file_path.exists():
         raise HTTPException(status_code=404, detail="File not found on storage")

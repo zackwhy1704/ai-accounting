@@ -14,13 +14,13 @@ class Settings(BaseSettings):
     # Database - AWS-migratable (works with RDS PostgreSQL)
     DATABASE_URL: str = "postgresql+asyncpg://postgres:postgres@localhost:5432/ai_account"
 
-    # Storage - S3-compatible (works with AWS S3, Supabase Storage, MinIO)
-    STORAGE_BACKEND: str = "local"  # "local", "s3"
-    S3_BUCKET_NAME: str = "ai-account-documents"
-    S3_REGION: str = "ap-southeast-1"
+    # Storage - S3-compatible (Cloudflare R2, AWS S3, MinIO)
+    STORAGE_BACKEND: str = "local"  # "local" or "s3"
+    S3_BUCKET_NAME: str = "accruly-documents"
+    S3_REGION: str = "auto"  # "auto" for Cloudflare R2
     S3_ACCESS_KEY: str = ""
     S3_SECRET_KEY: str = ""
-    S3_ENDPOINT_URL: str = ""  # For MinIO/Supabase, leave empty for AWS
+    S3_ENDPOINT_URL: str = ""  # R2: https://<account_id>.r2.cloudflarestorage.com
     LOCAL_STORAGE_PATH: str = "./uploads"
 
     # Azure Document Intelligence (OCR)

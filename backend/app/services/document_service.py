@@ -273,10 +273,24 @@ class DocumentProcessor:
 
 
 class StorageService:
-    """File storage abstraction. Supports local and S3-compatible storage."""
+    """File storage abstraction. S3-compatible (Cloudflare R2, AWS S3) or local."""
 
     def __init__(self):
         self.backend = settings.STORAGE_BACKEND
+        self._s3_client = None
+
+    @property
+    def s3_client(self):
+        if self._s3_client is None:
+            import boto3
+            self._s3_client = boto3.client(
+                "s3",
+                region_name=settings.S3_REGION or "auto",
+                aws_access_key_id=settings.S3_ACCESS_KEY,
+                aws_secret_access_key=settings.S3_SECRET_KEY,
+                endpoint_url=settings.S3_ENDPOINT_URL or None,
+            )
+        return self._s3_client
 
     async def upload_file(self, file_content: bytes, filename: str, content_type: str) -> str:
         if self.backend == "s3":
@@ -293,26 +307,50 @@ class StorageService:
         return str(file_path)
 
     async def _upload_s3(self, file_content: bytes, filename: str, content_type: str) -> str:
-        import boto3
-        s3_client = boto3.client(
-            "s3", region_name=settings.S3_REGION,
-            aws_access_key_id=settings.S3_ACCESS_KEY,
-            aws_secret_access_key=settings.S3_SECRET_KEY,
-            endpoint_url=settings.S3_ENDPOINT_URL or None,
-        )
+        """Upload to S3/R2. Returns the object key (not a URL)."""
         key = f"documents/{uuid.uuid4().hex}/{filename}"
-        s3_client.put_object(
-            Bucket=settings.S3_BUCKET_NAME, Key=key,
-            Body=file_content, ContentType=content_type,
+        put_params = {
+            "Bucket": settings.S3_BUCKET_NAME,
+            "Key": key,
+            "Body": file_content,
+            "ContentType": content_type,
+        }
+        # AWS S3 supports SSE header; Cloudflare R2 encrypts at rest by default
+        if not settings.S3_ENDPOINT_URL or "amazonaws.com" in settings.S3_ENDPOINT_URL:
+            put_params["ServerSideEncryption"] = "AES256"
+        self.s3_client.put_object(**put_params)
+        # Store the key, not a URL — generate presigned URLs on demand
+        return f"s3://{settings.S3_BUCKET_NAME}/{key}"
+
+    def get_presigned_url(self, file_url: str, expires_in: int = 3600) -> str:
+        """Generate a time-limited presigned URL for secure file access."""
+        if not file_url.startswith("s3://"):
+            return file_url  # Local path, return as-is
+        # Parse s3://bucket/key
+        parts = file_url[5:].split("/", 1)
+        bucket = parts[0]
+        key = parts[1]
+        return self.s3_client.generate_presigned_url(
+            "get_object",
+            Params={"Bucket": bucket, "Key": key},
+            ExpiresIn=expires_in,
         )
-        if settings.S3_ENDPOINT_URL:
-            return f"{settings.S3_ENDPOINT_URL}/{settings.S3_BUCKET_NAME}/{key}"
-        return f"https://{settings.S3_BUCKET_NAME}.s3.{settings.S3_REGION}.amazonaws.com/{key}"
+
+    async def download_file(self, file_url: str) -> bytes:
+        """Download file content from storage."""
+        if file_url.startswith("s3://"):
+            parts = file_url[5:].split("/", 1)
+            response = self.s3_client.get_object(Bucket=parts[0], Key=parts[1])
+            return response["Body"].read()
+        else:
+            async with aiofiles.open(file_url, "rb") as f:
+                return await f.read()
 
     async def delete_file(self, file_url: str) -> None:
-        if self.backend == "s3":
-            pass
-        else:
+        if self.backend == "s3" and file_url.startswith("s3://"):
+            parts = file_url[5:].split("/", 1)
+            self.s3_client.delete_object(Bucket=parts[0], Key=parts[1])
+        elif not file_url.startswith("s3://"):
             path = Path(file_url)
             if path.exists():
                 path.unlink()
