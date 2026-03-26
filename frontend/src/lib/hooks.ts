@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import api from './api'
-import type { Invoice, Bill, Contact, Document, DashboardData, Account, BillingUsage, BillingPlan } from '../types'
+import type { Invoice, Bill, Contact, Document, DashboardData, Account, BillingUsage, BillingPlan, Organization, UserOrgMembership, OnboardingData } from '../types'
 
 // Dashboard
 export function useDashboard() {
@@ -188,5 +188,44 @@ export function useBillingUsage() {
   return useQuery<BillingUsage>({
     queryKey: ['billing-usage'],
     queryFn: () => api.get('/billing/usage').then(r => r.data),
+  })
+}
+
+// ── Onboarding & Multi-org ──
+export function useCompleteOnboarding() {
+  const qc = useQueryClient()
+  return useMutation<Organization, Error, OnboardingData>({
+    mutationFn: (data) => api.post('/auth/onboarding', data).then(r => r.data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['org-settings'] })
+      qc.invalidateQueries({ queryKey: ['user-orgs'] })
+    },
+  })
+}
+
+export function useUserOrganizations() {
+  return useQuery<UserOrgMembership[]>({
+    queryKey: ['user-orgs'],
+    queryFn: () => api.get('/auth/organizations').then(r => r.data),
+  })
+}
+
+export function useSwitchOrg() {
+  const qc = useQueryClient()
+  return useMutation<{ access_token: string }, Error, string>({
+    mutationFn: (organization_id) =>
+      api.post('/auth/switch-org', { organization_id }).then(r => r.data),
+    onSuccess: (data) => {
+      localStorage.setItem('access_token', data.access_token)
+      qc.invalidateQueries()
+    },
+  })
+}
+
+export function useCreateOrg() {
+  const qc = useQueryClient()
+  return useMutation<Organization, Error, { name: string; org_type?: string; country?: string; currency?: string; industry?: string }>({
+    mutationFn: (data) => api.post('/auth/organizations', data).then(r => r.data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['user-orgs'] }),
   })
 }

@@ -2,6 +2,7 @@ import { Routes, Route, Navigate } from 'react-router-dom'
 import { AppLayout } from './components/layout/AppLayout'
 import { useAuth } from './lib/auth'
 import LoginPage from './pages/auth/LoginPage'
+import OnboardingPage from './pages/auth/OnboardingPage'
 import DashboardPage from './pages/dashboard/DashboardPage'
 import InvoicesPage from './pages/invoices/InvoicesPage'
 import BillsPage from './pages/bills/BillsPage'
@@ -24,6 +25,7 @@ function App() {
   return (
     <Routes>
       <Route path="/login" element={<LoginPage />} />
+      <Route path="/onboarding" element={<ProtectedRoute><OnboardingPage /></ProtectedRoute>} />
       <Route element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
         <Route path="/" element={<Navigate to="/dashboard" replace />} />
         <Route path="/dashboard" element={<DashboardPage />} />

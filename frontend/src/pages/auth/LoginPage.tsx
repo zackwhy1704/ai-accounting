@@ -61,7 +61,7 @@ export default function LoginPage() {
     setLoading(true)
     try {
       await register(email, password, fullName, companyName)
-      navigate("/dashboard")
+      navigate("/onboarding")
     } catch (err: any) {
       setError(err.response?.data?.detail || "Registration failed. Please try again.")
     } finally {

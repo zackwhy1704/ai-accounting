@@ -114,3 +114,43 @@ export interface BillingUsage {
   ai_scans_limit: number
   users_count: number
 }
+
+export interface Organization {
+  id: string
+  name: string
+  org_type: string
+  country: string
+  timezone: string
+  currency: string
+  fiscal_year_end_day: number
+  fiscal_year_end_month: number
+  has_employees: boolean
+  industry: string | null
+  plan: string
+  onboarding_completed: boolean
+  created_at: string
+}
+
+export interface UserOrgMembership {
+  organization_id: string
+  organization_name: string
+  org_type: string
+  role: string
+  is_default: boolean
+  currency: string
+  country: string
+  onboarding_completed: boolean
+}
+
+export interface OnboardingData {
+  org_type: string
+  business_name: string
+  industry: string | null
+  country: string
+  timezone: string
+  currency: string
+  fiscal_year_end_day: number
+  fiscal_year_end_month: number
+  has_employees: boolean
+  previous_tool: string | null
+}
