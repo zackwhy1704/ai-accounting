@@ -4,9 +4,14 @@ server {
     root /usr/share/nginx/html;
     index index.html;
 
-    # API proxy to backend service
+    # Use Railway's internal DNS resolver; re-resolve every 10s
+    resolver 127.0.0.11 8.8.8.8 valid=10s;
+    resolver_timeout 5s;
+
+    # API proxy to backend service — variable forces runtime DNS resolution
     location /api/ {
-        proxy_pass http://${BACKEND_HOST}:${BACKEND_PORT}/api/;
+        set $backend "http://${BACKEND_HOST}:${BACKEND_PORT}";
+        proxy_pass $backend/api/;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
