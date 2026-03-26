@@ -21,6 +21,7 @@ export default function LoginPage() {
   const [confirmPassword, setConfirmPassword] = useState("")
   const [fullName, setFullName] = useState("")
   const [companyName, setCompanyName] = useState("")
+  const [phone, setPhone] = useState("")
   const [error, setError] = useState("")
   const [success, setSuccess] = useState("")
   const [loading, setLoading] = useState(false)
@@ -39,8 +40,12 @@ export default function LoginPage() {
     setError("")
     setLoading(true)
     try {
-      await login(email, password)
-      navigate("/dashboard")
+      const result = await login(email, password)
+      if (!result.onboarding_completed) {
+        navigate("/onboarding")
+      } else {
+        navigate("/dashboard")
+      }
     } catch (err: any) {
       const status = err.response?.status
       if (status === 401) {
@@ -58,9 +63,13 @@ export default function LoginPage() {
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault()
     setError("")
+    if (password.length < 8) {
+      setError("Password must be at least 8 characters.")
+      return
+    }
     setLoading(true)
     try {
-      await register(email, password, fullName, companyName)
+      await register(email, password, fullName, companyName, phone)
       navigate("/onboarding")
     } catch (err: any) {
       setError(err.response?.data?.detail || "Registration failed. Please try again.")
@@ -126,7 +135,7 @@ export default function LoginPage() {
 
   const titles: Record<View, { heading: string; sub: string }> = {
     login: { heading: t("login.welcomeBack"), sub: t("login.signInDesc") },
-    register: { heading: t("login.createAccount"), sub: t("login.startTrial") },
+    register: { heading: "Start a free trial", sub: "No credit card required. Cancel anytime." },
     forgot: { heading: "Reset password", sub: "Enter your email and we'll send you a reset link." },
     reset: { heading: "Set new password", sub: "Enter your new password below." },
   }
@@ -191,27 +200,71 @@ export default function LoginPage() {
           </form>
         )}
 
-        {/* Register Form */}
+        {/* Register Form - Xero style: name, email, phone, password */}
         {view === "register" && (
           <form onSubmit={handleRegister} className="space-y-4">
-            <div>
-              <label className="text-xs font-medium text-white/70 mb-1.5 block">{t("login.fullName")}</label>
-              <Input value={fullName} onChange={(e) => setFullName(e.target.value.replace(/\b\w/g, c => c.toUpperCase()))} placeholder="John Doe" required className="h-10 rounded-xl border-white/10 bg-white/5 text-white placeholder:text-white/30" />
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-xs font-medium text-white/70 mb-1.5 block">First name</label>
+                <Input
+                  value={fullName.split(' ')[0] || ''}
+                  onChange={(e) => {
+                    const last = fullName.split(' ').slice(1).join(' ')
+                    setFullName(e.target.value + (last ? ' ' + last : ''))
+                  }}
+                  placeholder="John"
+                  required
+                  className="h-10 rounded-xl border-white/10 bg-white/5 text-white placeholder:text-white/30"
+                />
+              </div>
+              <div>
+                <label className="text-xs font-medium text-white/70 mb-1.5 block">Last name</label>
+                <Input
+                  value={fullName.split(' ').slice(1).join(' ') || ''}
+                  onChange={(e) => {
+                    const first = fullName.split(' ')[0] || ''
+                    setFullName(first + (e.target.value ? ' ' + e.target.value : ''))
+                  }}
+                  placeholder="Doe"
+                  required
+                  className="h-10 rounded-xl border-white/10 bg-white/5 text-white placeholder:text-white/30"
+                />
+              </div>
             </div>
             <div>
-              <label className="text-xs font-medium text-white/70 mb-1.5 block">{t("login.companyName")}</label>
-              <Input value={companyName} onChange={(e) => setCompanyName(e.target.value.replace(/\b\w/g, c => c.toUpperCase()))} placeholder="Acme Sdn Bhd" required className="h-10 rounded-xl border-white/10 bg-white/5 text-white placeholder:text-white/30" />
-            </div>
-            <div>
-              <label className="text-xs font-medium text-white/70 mb-1.5 block">{t("login.email")}</label>
+              <label className="text-xs font-medium text-white/70 mb-1.5 block">Email</label>
               <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@company.com" required className="h-10 rounded-xl border-white/10 bg-white/5 text-white placeholder:text-white/30" />
             </div>
             <div>
-              <label className="text-xs font-medium text-white/70 mb-1.5 block">{t("login.password")}</label>
-              <Input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" required className="h-10 rounded-xl border-white/10 bg-white/5 text-white placeholder:text-white/30" />
+              <label className="text-xs font-medium text-white/70 mb-1.5 block">Phone</label>
+              <div className="flex gap-2">
+                <div className="flex items-center gap-1.5 h-10 px-3 rounded-xl border border-white/10 bg-white/5 text-white/70 text-sm shrink-0">
+                  <span className="text-base">🇸🇬</span> +65
+                </div>
+                <Input type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="8123 4567" className="h-10 rounded-xl border-white/10 bg-white/5 text-white placeholder:text-white/30" />
+              </div>
             </div>
+            <div>
+              <label className="text-xs font-medium text-white/70 mb-1.5 block">Company name</label>
+              <Input value={companyName} onChange={(e) => setCompanyName(e.target.value)} placeholder="Acme Pte Ltd" required className="h-10 rounded-xl border-white/10 bg-white/5 text-white placeholder:text-white/30" />
+            </div>
+            <div>
+              <label className="text-xs font-medium text-white/70 mb-1.5 block">Password</label>
+              <Input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Min. 8 characters" required minLength={8} className="h-10 rounded-xl border-white/10 bg-white/5 text-white placeholder:text-white/30" />
+            </div>
+
+            <div className="flex items-start gap-2.5 pt-1">
+              <input type="checkbox" required className="mt-1 h-4 w-4 rounded border-white/20 bg-white/5 accent-[#7C9DFF]" />
+              <span className="text-xs text-white/50 leading-relaxed">
+                I've read and agreed to the{" "}
+                <span className="text-[#7C9DFF] cursor-pointer hover:underline">Terms of Use</span>,{" "}
+                <span className="text-[#7C9DFF] cursor-pointer hover:underline">Privacy Notice</span>, and{" "}
+                <span className="text-[#7C9DFF] cursor-pointer hover:underline">Offer Details</span>.
+              </span>
+            </div>
+
             <Button type="submit" disabled={loading} className="h-10 w-full rounded-xl bg-gradient-to-r from-[#7C9DFF] to-[#4D63FF] text-sm font-semibold text-white shadow-[0_0_0_1px_rgba(124,157,255,0.25),0_16px_40px_rgba(0,0,0,0.35)] hover:opacity-95">
-              {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : t("login.create")}
+              {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Next: Set up your business"}
             </Button>
           </form>
         )}

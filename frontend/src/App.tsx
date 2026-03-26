@@ -14,10 +14,12 @@ import AIAssistantPage from './pages/ai-assistant/AIAssistantPage'
 import SettingsPage from './pages/settings/SettingsPage'
 import GenericPage from './pages/GenericPage'
 
-function ProtectedRoute({ children }: { children: React.ReactNode }) {
-  const { token, isLoading } = useAuth()
+function ProtectedRoute({ children, allowOnboarding }: { children: React.ReactNode; allowOnboarding?: boolean }) {
+  const { token, isLoading, onboardingCompleted } = useAuth()
   if (isLoading) return <div className="flex min-h-screen items-center justify-center text-slate-500">Loading...</div>
   if (!token) return <Navigate to="/login" replace />
+  // Redirect to onboarding if not completed (except on the onboarding page itself)
+  if (!allowOnboarding && onboardingCompleted === false) return <Navigate to="/onboarding" replace />
   return <>{children}</>
 }
 
@@ -25,7 +27,7 @@ function App() {
   return (
     <Routes>
       <Route path="/login" element={<LoginPage />} />
-      <Route path="/onboarding" element={<ProtectedRoute><OnboardingPage /></ProtectedRoute>} />
+      <Route path="/onboarding" element={<ProtectedRoute allowOnboarding><OnboardingPage /></ProtectedRoute>} />
       <Route element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
         <Route path="/" element={<Navigate to="/dashboard" replace />} />
         <Route path="/dashboard" element={<DashboardPage />} />
