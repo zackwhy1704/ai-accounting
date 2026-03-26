@@ -90,7 +90,7 @@ const labelClass = 'block text-xs font-medium text-white/60 mb-2 tracking-wide u
 
 export default function OnboardingPage() {
   const navigate = useNavigate()
-  const { user } = useAuth()
+  const { user, setOnboardingCompleted } = useAuth()
   const completeOnboarding = useCompleteOnboarding()
   const [step, setStep] = useState(1)
   const TOTAL_STEPS = 4
@@ -144,6 +144,7 @@ export default function OnboardingPage() {
     setError('')
     try {
       await completeOnboarding.mutateAsync(data)
+      setOnboardingCompleted(true)
       navigate('/dashboard', { replace: true })
     } catch {
       setError('Something went wrong. Please try again.')
