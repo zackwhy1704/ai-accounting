@@ -11,7 +11,7 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Cache-bust: change this value to force rebuild
-ARG CACHEBUST=5
+ARG CACHEBUST=6
 # Copy all app code (including entrypoint.sh)
 COPY . .
 
