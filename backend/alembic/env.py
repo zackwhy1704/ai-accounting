@@ -9,7 +9,10 @@ config = context.config
 settings = get_settings()
 
 # Set sqlalchemy.url from settings (use sync driver for migrations)
+# Handle both postgresql+asyncpg:// and plain postgresql:// (Railway)
 sync_url = settings.DATABASE_URL.replace("+asyncpg", "")
+if sync_url.startswith("postgres://"):
+    sync_url = sync_url.replace("postgres://", "postgresql://", 1)
 config.set_main_option("sqlalchemy.url", sync_url)
 
 if config.config_file_name is not None:
