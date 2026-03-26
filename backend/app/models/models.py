@@ -24,12 +24,21 @@ class Organization(Base):
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=new_uuid)
     name: Mapped[str] = mapped_column(String(255))
+    org_type: Mapped[str] = mapped_column(String(20), default="sme")  # sme, firm, individual, freelancer
     uen: Mapped[str | None] = mapped_column(String(20))
     industry: Mapped[str | None] = mapped_column(String(100))
+    country: Mapped[str] = mapped_column(String(2), default="SG")  # ISO 3166-1 alpha-2
+    timezone: Mapped[str] = mapped_column(String(50), default="Asia/Singapore")
     currency: Mapped[str] = mapped_column(String(3), default="SGD")
     tax_rate: Mapped[float] = mapped_column(Numeric(5, 2), default=9.0)
     gst_registration_no: Mapped[str | None] = mapped_column(String(20))
+    fiscal_year_end_day: Mapped[int] = mapped_column(Integer, default=31)
+    fiscal_year_end_month: Mapped[int] = mapped_column(Integer, default=12)
+    has_employees: Mapped[bool] = mapped_column(Boolean, default=False)
+    previous_tool: Mapped[str | None] = mapped_column(String(100))  # what they used before
     address: Mapped[str | None] = mapped_column(Text)
+    logo_url: Mapped[str | None] = mapped_column(String(1000))
+    onboarding_completed: Mapped[bool] = mapped_column(Boolean, default=False)
     plan: Mapped[str] = mapped_column(String(20), default="starter")
     stripe_customer_id: Mapped[str | None] = mapped_column(String(255))
     stripe_subscription_id: Mapped[str | None] = mapped_column(String(255))
@@ -38,6 +47,8 @@ class Organization(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
 
+    # Relationships
+    user_memberships: Mapped[list["UserOrganization"]] = relationship(back_populates="organization", cascade="all, delete-orphan")
     users: Mapped[list["User"]] = relationship(back_populates="organization")
     accounts: Mapped[list["Account"]] = relationship(back_populates="organization")
     contacts: Mapped[list["Contact"]] = relationship(back_populates="organization")
@@ -54,16 +65,41 @@ class User(Base):
     __tablename__ = "users"
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=new_uuid)
-    organization_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("organizations.id"))
+    organization_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("organizations.id"))  # default/current org
     email: Mapped[str] = mapped_column(String(255), unique=True, index=True)
     hashed_password: Mapped[str] = mapped_column(String(255))
     full_name: Mapped[str] = mapped_column(String(255))
+    phone: Mapped[str | None] = mapped_column(String(30))
     role: Mapped[str] = mapped_column(String(20), default="admin")  # admin, accountant, viewer
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     mfa_enabled: Mapped[bool] = mapped_column(Boolean, default=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
     organization: Mapped["Organization"] = relationship(back_populates="users")
+    org_memberships: Mapped[list["UserOrganization"]] = relationship(back_populates="user", cascade="all, delete-orphan")
+
+
+# ──────────────────────────────────────────────
+# User ↔ Organization (many-to-many with role)
+# ──────────────────────────────────────────────
+class UserOrganization(Base):
+    """Junction table: one user can belong to many orgs with different roles."""
+    __tablename__ = "user_organizations"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=new_uuid)
+    user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    organization_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("organizations.id", ondelete="CASCADE"), index=True)
+    role: Mapped[str] = mapped_column(String(20), default="admin")  # owner, admin, accountant, bookkeeper, viewer
+    is_default: Mapped[bool] = mapped_column(Boolean, default=False)  # user's default org on login
+    invited_by: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("users.id"))
+    joined_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+    user: Mapped["User"] = relationship(back_populates="org_memberships", foreign_keys=[user_id])
+    organization: Mapped["Organization"] = relationship(back_populates="user_memberships")
+
+    __table_args__ = (
+        UniqueConstraint("user_id", "organization_id", name="uq_user_org"),
+    )
 
 
 # ──────────────────────────────────────────────
