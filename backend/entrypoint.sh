@@ -14,6 +14,7 @@ async def test():
     url = os.environ.get('DATABASE_URL', '')
     if url.startswith('postgresql://'):
         url = url.replace('postgresql://', 'postgresql+asyncpg://', 1)
+    url = url.replace('sslmode=require', 'ssl=require')
     print(f'Async URL scheme: {url.split(\"@\")[0].split(\"://\")[0]}')
     from sqlalchemy.ext.asyncio import create_async_engine
     eng = create_async_engine(url, echo=False)
