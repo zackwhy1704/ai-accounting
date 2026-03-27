@@ -228,7 +228,7 @@ const translations = {
 
     // Login
     // Firm / Practice
-    "nav.firmDashboard": "Practice Dashboard",
+    "nav.firmDashboard": "Client Dashboard",
     "nav.firmSettings": "White-Label Settings",
 
     "login.appName": "AI Accounting",
@@ -461,7 +461,7 @@ const translations = {
     "ai.previewMode": "我目前处于预览模式。完整的AI助手功能即将推出！",
     "ai.placeholder": "询问有关财务的任何问题...",
 
-    "nav.firmDashboard": "实践仪表板",
+    "nav.firmDashboard": "客户仪表板",
     "nav.firmSettings": "白标设置",
 
     "login.appName": "AI 会计",
@@ -694,7 +694,7 @@ const translations = {
     "ai.previewMode": "Saya kini dalam mod pratonton. Keupayaan penuh pembantu AI akan datang tidak lama lagi!",
     "ai.placeholder": "Tanya apa sahaja tentang kewangan anda...",
 
-    "nav.firmDashboard": "Papan Pemuka Amalan",
+    "nav.firmDashboard": "Papan Pemuka Pelanggan",
     "nav.firmSettings": "Tetapan Label Putih",
 
     "login.appName": "AI Perakaunan",

@@ -121,13 +121,13 @@ export function Sidebar() {
                 <button
                   onClick={() => {
                     setOrgDropdownOpen(false)
-                    navigate(currentOrg?.org_type === 'firm' ? '/firm/dashboard' : '/settings')
+                    navigate(currentOrg?.org_type === 'firm' ? '/firm/settings' : '/settings')
                   }}
                   className="w-full flex items-center gap-3 px-4 py-2.5 text-left hover:bg-white/5 transition-colors"
                 >
                   <Plus className="h-4 w-4 text-white/40" />
                   <span className="text-[13px] text-white/60">
-                    {currentOrg?.org_type === 'firm' ? 'Add client organisation' : 'Add organisation'}
+                    {currentOrg?.org_type === 'firm' ? 'Manage client portal' : 'Add organisation'}
                   </span>
                 </button>
               </div>

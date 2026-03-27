@@ -449,6 +449,15 @@ def test_client_portal():
     })
     check("Duplicate portal signup rejected", r.status_code == 400, f"status={r.status_code}")
 
+    # --- Portal login (existing client can login via main auth from portal page) ---
+    r = api("POST", "/auth/login", json={"email": portal_email, "password": "clientpass123"})
+    check("Portal client can login via /auth/login", r.status_code == 200, f"status={r.status_code}")
+    check("Portal login returns token", "access_token" in r.json(), "")
+
+    # --- Portal login with wrong password ---
+    r = api("POST", "/auth/login", json={"email": portal_email, "password": "wrongpass"})
+    check("Portal login bad password returns 401", r.status_code == 401, f"status={r.status_code}")
+
 
 # ══════════════════════════════════════════════════════════
 #  8. DATA ISOLATION: Client A vs Client B

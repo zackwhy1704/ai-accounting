@@ -3,13 +3,12 @@ import { Card } from "../../components/ui/card"
 import { useToast } from "../../components/ui/toast"
 import {
   useFirmDashboard,
-  useCreateFirmClient,
   useArchiveFirmClient,
   useSwitchOrg,
 } from "../../lib/hooks"
 import { formatCurrency } from "../../lib/utils"
 import {
-  Building2, Users, FileText, Plus, Archive,
+  Building2, Users, FileText, Archive,
   ArrowRight, Loader2, Search, TrendingUp,
   AlertCircle,
 } from "lucide-react"
@@ -20,29 +19,11 @@ const COUNTRY_FLAGS: Record<string, string> = {
 
 export default function PracticeDashboardPage() {
   const { data: dashboard, isLoading } = useFirmDashboard()
-  const createClient = useCreateFirmClient()
   const archiveClient = useArchiveFirmClient()
   const switchOrg = useSwitchOrg()
   const { toast } = useToast()
 
   const [search, setSearch] = useState("")
-  const [showCreate, setShowCreate] = useState(false)
-  const [newClient, setNewClient] = useState({ name: "", org_type: "sme", country: "SG", currency: "SGD", industry: "" })
-
-  const handleCreate = () => {
-    if (!newClient.name.trim()) return
-    createClient.mutate(
-      { ...newClient, industry: newClient.industry || undefined },
-      {
-        onSuccess: () => {
-          toast("Client created", "success")
-          setShowCreate(false)
-          setNewClient({ name: "", org_type: "sme", country: "SG", currency: "SGD", industry: "" })
-        },
-        onError: (e: any) => toast(e?.response?.data?.detail || "Failed to create client", "warning"),
-      }
-    )
-  }
 
   const handleSwitch = (orgId: string) => {
     switchOrg.mutate(orgId, {
@@ -56,7 +37,7 @@ export default function PracticeDashboardPage() {
   if (isLoading) {
     return (
       <div className="flex min-h-[400px] items-center justify-center text-muted-foreground">
-        <Loader2 className="mr-2 h-5 w-5 animate-spin" /> Loading practice dashboard...
+        <Loader2 className="mr-2 h-5 w-5 animate-spin" /> Loading client dashboard...
       </div>
     )
   }
@@ -76,18 +57,12 @@ export default function PracticeDashboardPage() {
         <div>
           <div className="text-xs text-muted-foreground">Practice</div>
           <div className="mt-1 text-2xl font-semibold tracking-tight text-foreground">
-            {dashboard?.firm_name || "Practice Dashboard"}
+            {dashboard?.firm_name || "Client Dashboard"}
           </div>
           <div className="mt-1 text-sm text-muted-foreground">
             {dashboard?.total_clients || 0} client{(dashboard?.total_clients || 0) !== 1 ? "s" : ""}
           </div>
         </div>
-        <button
-          onClick={() => setShowCreate(true)}
-          className="flex items-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors"
-        >
-          <Plus className="h-4 w-4" /> Add Client
-        </button>
       </div>
 
       {/* Summary Cards */}
@@ -205,99 +180,6 @@ export default function PracticeDashboardPage() {
         </div>
       )}
 
-      {/* Create Client Modal */}
-      {showCreate && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => setShowCreate(false)}>
-          <Card className="w-full max-w-md rounded-2xl bg-card p-6 shadow-xl" onClick={(e) => e.stopPropagation()}>
-            <div className="text-lg font-semibold text-foreground mb-4">Add Client Organisation</div>
-            <div className="space-y-3">
-              <div>
-                <label className="text-xs text-muted-foreground">Company Name *</label>
-                <input
-                  type="text"
-                  value={newClient.name}
-                  onChange={(e) => setNewClient({ ...newClient, name: e.target.value })}
-                  className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
-                  placeholder="ABC Pte Ltd"
-                  autoFocus
-                />
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="text-xs text-muted-foreground">Type</label>
-                  <select
-                    value={newClient.org_type}
-                    onChange={(e) => setNewClient({ ...newClient, org_type: e.target.value })}
-                    className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
-                  >
-                    <option value="sme">SME</option>
-                    <option value="individual">Individual</option>
-                    <option value="freelancer">Freelancer</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="text-xs text-muted-foreground">Country</label>
-                  <select
-                    value={newClient.country}
-                    onChange={(e) => setNewClient({ ...newClient, country: e.target.value })}
-                    className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
-                  >
-                    <option value="SG">Singapore</option>
-                    <option value="MY">Malaysia</option>
-                    <option value="HK">Hong Kong</option>
-                    <option value="US">United States</option>
-                    <option value="GB">United Kingdom</option>
-                    <option value="AU">Australia</option>
-                  </select>
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="text-xs text-muted-foreground">Currency</label>
-                  <select
-                    value={newClient.currency}
-                    onChange={(e) => setNewClient({ ...newClient, currency: e.target.value })}
-                    className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
-                  >
-                    <option value="SGD">SGD</option>
-                    <option value="MYR">MYR</option>
-                    <option value="HKD">HKD</option>
-                    <option value="USD">USD</option>
-                    <option value="GBP">GBP</option>
-                    <option value="AUD">AUD</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="text-xs text-muted-foreground">Industry</label>
-                  <input
-                    type="text"
-                    value={newClient.industry}
-                    onChange={(e) => setNewClient({ ...newClient, industry: e.target.value })}
-                    className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
-                    placeholder="e.g. Technology"
-                  />
-                </div>
-              </div>
-            </div>
-            <div className="mt-5 flex justify-end gap-2">
-              <button
-                onClick={() => setShowCreate(false)}
-                className="rounded-xl px-4 py-2 text-sm text-muted-foreground hover:bg-muted transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleCreate}
-                disabled={!newClient.name.trim() || createClient.isPending}
-                className="flex items-center gap-2 rounded-xl bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50 transition-colors"
-              >
-                {createClient.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
-                Create
-              </button>
-            </div>
-          </Card>
-        </div>
-      )}
     </div>
   )
 }

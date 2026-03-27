@@ -14,7 +14,7 @@ const API_BASE = import.meta.env.VITE_API_URL || "/api/v1"
 export default function ClientPortalPage() {
   const { slug } = useParams<{ slug: string }>()
   const navigate = useNavigate()
-  const [mode, setMode] = useState<"landing" | "signup" | "success">("landing")
+  const [mode, setMode] = useState<"landing" | "login" | "signup" | "success">("landing")
   const [form, setForm] = useState({
     email: "", password: "", full_name: "", company_name: "", phone: "",
   })
@@ -43,6 +43,24 @@ export default function ClientPortalPage() {
     },
   })
 
+  // Login mutation (uses main auth endpoint)
+  const login = useMutation({
+    mutationFn: (data: { email: string; password: string }) =>
+      axios.post(`${API_BASE}/auth/login`, data).then((r) => r.data),
+    onSuccess: (data) => {
+      localStorage.setItem("access_token", data.access_token)
+      navigate("/dashboard", { replace: true })
+    },
+    onError: (e: any) => {
+      const status = e?.response?.status
+      if (status === 401) {
+        setError("Incorrect email or password.")
+      } else {
+        setError(e?.response?.data?.detail || "Login failed. Please try again.")
+      }
+    },
+  })
+
   const handleSignup = (e: React.FormEvent) => {
     e.preventDefault()
     setError("")
@@ -55,6 +73,16 @@ export default function ClientPortalPage() {
       return
     }
     signup.mutate(form)
+  }
+
+  const handleLogin = (e: React.FormEvent) => {
+    e.preventDefault()
+    setError("")
+    if (!form.email || !form.password) {
+      setError("Please enter your email and password")
+      return
+    }
+    login.mutate({ email: form.email, password: form.password })
   }
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -77,6 +105,11 @@ export default function ClientPortalPage() {
       }
     }
     setUploading(false)
+  }
+
+  const switchMode = (newMode: "landing" | "login" | "signup") => {
+    setMode(newMode)
+    setError("")
   }
 
   if (isLoading) {
@@ -117,9 +150,9 @@ export default function ClientPortalPage() {
           )}
           <span className="text-lg font-semibold text-white">{portal.firm_name}</span>
         </div>
-        {mode !== "signup" && (
+        {mode !== "login" && mode !== "signup" && (
           <button
-            onClick={() => navigate("/login")}
+            onClick={() => switchMode("login")}
             className="flex items-center gap-1.5 rounded-lg bg-white/20 px-3 py-1.5 text-sm text-white hover:bg-white/30 transition-colors"
           >
             <LogIn className="h-3.5 w-3.5" /> Sign In
@@ -144,7 +177,7 @@ export default function ClientPortalPage() {
             )}
             <div className="mt-6 space-y-3">
               <button
-                onClick={() => setMode("signup")}
+                onClick={() => switchMode("signup")}
                 className="flex w-full items-center justify-center gap-2 rounded-xl py-3 text-sm font-medium text-white transition-colors"
                 style={{ backgroundColor: primary }}
               >
@@ -152,7 +185,7 @@ export default function ClientPortalPage() {
                 <ArrowRight className="h-4 w-4" />
               </button>
               <button
-                onClick={() => navigate("/login")}
+                onClick={() => switchMode("login")}
                 className="flex w-full items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white py-3 text-sm font-medium text-slate-700 hover:bg-slate-50 transition-colors"
               >
                 <LogIn className="h-4 w-4" /> Already have an account? Sign in
@@ -173,6 +206,77 @@ export default function ClientPortalPage() {
               </div>
             )}
           </div>
+        )}
+
+        {mode === "login" && (
+          <Card className="w-full max-w-md rounded-2xl border-slate-200 bg-white p-6 shadow-lg">
+            <div className="text-center mb-5">
+              <h2 className="text-xl font-bold text-slate-900">Sign In</h2>
+              <p className="mt-1 text-sm text-slate-500">
+                Sign in to your {portal.firm_name} account
+              </p>
+            </div>
+
+            <form onSubmit={handleLogin} className="space-y-3">
+              <div>
+                <label className="text-xs text-slate-500">Email</label>
+                <div className="relative mt-1">
+                  <Mail className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                  <input
+                    type="email"
+                    value={form.email}
+                    onChange={(e) => setForm({ ...form, email: e.target.value })}
+                    className="w-full rounded-lg border border-slate-200 bg-white pl-9 pr-3 py-2.5 text-sm"
+                    placeholder="john@abc.com"
+                    required
+                    autoFocus
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="text-xs text-slate-500">Password</label>
+                <div className="relative mt-1">
+                  <Lock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                  <input
+                    type="password"
+                    value={form.password}
+                    onChange={(e) => setForm({ ...form, password: e.target.value })}
+                    className="w-full rounded-lg border border-slate-200 bg-white pl-9 pr-3 py-2.5 text-sm"
+                    placeholder="Enter your password"
+                    required
+                  />
+                </div>
+              </div>
+
+              {error && (
+                <div className="rounded-lg bg-red-50 px-3 py-2 text-xs text-red-600">{error}</div>
+              )}
+
+              <button
+                type="submit"
+                disabled={login.isPending}
+                className="flex w-full items-center justify-center gap-2 rounded-xl py-3 text-sm font-medium text-white disabled:opacity-50 transition-colors"
+                style={{ backgroundColor: primary }}
+              >
+                {login.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <LogIn className="h-4 w-4" />}
+                Sign In
+              </button>
+            </form>
+
+            <div className="mt-4 text-center text-xs text-slate-400">
+              Don't have an account?{" "}
+              <button onClick={() => switchMode("signup")} className="text-slate-600 hover:underline font-medium">
+                Create one
+              </button>
+            </div>
+
+            <button
+              onClick={() => switchMode("landing")}
+              className="mt-2 w-full text-center text-xs text-slate-400 hover:text-slate-600"
+            >
+              Back
+            </button>
+          </Card>
         )}
 
         {mode === "signup" && (
@@ -271,9 +375,16 @@ export default function ClientPortalPage() {
               </button>
             </form>
 
+            <div className="mt-4 text-center text-xs text-slate-400">
+              Already have an account?{" "}
+              <button onClick={() => switchMode("login")} className="text-slate-600 hover:underline font-medium">
+                Sign in
+              </button>
+            </div>
+
             <button
-              onClick={() => setMode("landing")}
-              className="mt-3 w-full text-center text-xs text-slate-400 hover:text-slate-600"
+              onClick={() => switchMode("landing")}
+              className="mt-2 w-full text-center text-xs text-slate-400 hover:text-slate-600"
             >
               Back
             </button>
