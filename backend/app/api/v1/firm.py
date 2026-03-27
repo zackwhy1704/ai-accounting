@@ -19,9 +19,10 @@ from app.core.database import get_db
 from app.core.security import get_current_user, hash_password, create_access_token
 from app.models.models import (
     Organization, User, UserOrganization, Account,
-    Invoice, Bill, Document,
+    Invoice, Bill, Document, ClientInvitation,
 )
 from app.services.document_service import storage_service
+from datetime import datetime, timezone
 
 logger = logging.getLogger(__name__)
 
@@ -343,67 +344,151 @@ async def practice_dashboard(
 # ──────────────────────────────────────────────
 # Client org management
 # ──────────────────────────────────────────────
-class CreateClientOrg(BaseModel):
-    name: str
-    org_type: str = "sme"  # sme, individual, freelancer
-    country: str = "SG"
-    currency: str = "SGD"
-    industry: str | None = None
+# Client invitations
+# ──────────────────────────────────────────────
+class InviteClientRequest(BaseModel):
+    contact_name: str
+    business_name: str
+    email: str
 
-    @field_validator("name")
+    @field_validator("contact_name", "business_name")
     @classmethod
-    def name_not_empty(cls, v: str) -> str:
+    def not_empty(cls, v: str) -> str:
         if not v.strip():
-            raise ValueError("Client name cannot be empty")
+            raise ValueError("Field cannot be empty")
         return v.strip()
+
+    @field_validator("email")
+    @classmethod
+    def valid_email(cls, v: str) -> str:
+        v = v.strip().lower()
+        if "@" not in v or "." not in v:
+            raise ValueError("Invalid email address")
+        return v
 
 
 @router.post("/clients")
-async def create_client_org(
-    data: CreateClientOrg,
+async def invite_client(
+    data: InviteClientRequest,
     current_user: dict = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """Create a new client organisation under the firm."""
+    """Invite a client via email. Creates an invitation and sends a branded invite email."""
     firm = await _require_firm(current_user, db)
 
-    org = Organization(
-        name=data.name,
-        org_type=data.org_type,
-        country=data.country,
-        currency=data.currency,
-        industry=data.industry,
-        parent_firm_id=firm.id,
-        onboarding_completed=True,
+    if not firm.slug or not firm.client_portal_enabled:
+        raise HTTPException(400, "Please set up your portal slug and enable the client portal first (White-Label Settings)")
+
+    # Check for existing pending invite to same email
+    existing = await db.execute(
+        select(ClientInvitation).where(
+            ClientInvitation.firm_id == firm.id,
+            ClientInvitation.email == data.email,
+            ClientInvitation.status == "pending",
+        )
     )
-    db.add(org)
-    await db.flush()
+    if existing.scalar_one_or_none():
+        raise HTTPException(400, "An invitation has already been sent to this email")
 
-    # Create default chart of accounts
-    for code, name, acc_type, subtype in DEFAULT_ACCOUNTS:
-        db.add(Account(
-            organization_id=org.id, code=code, name=name,
-            type=acc_type, subtype=subtype, is_system=True,
-        ))
+    # Generate invite token (JWT with 7-day expiry)
+    from datetime import timedelta
+    invite_token = create_access_token(
+        {"type": "client_invite", "firm_id": str(firm.id), "email": data.email},
+        expires_delta=timedelta(days=7),
+    )
 
-    # Add the current accountant user to the client org
-    db.add(UserOrganization(
-        user_id=current_user["sub"],
-        organization_id=org.id,
-        role="accountant",
-        is_default=False,
-    ))
-    await db.flush()
-    await db.refresh(org)
+    invitation = ClientInvitation(
+        firm_id=firm.id,
+        invited_by_user_id=current_user["sub"],
+        contact_name=data.contact_name,
+        business_name=data.business_name,
+        email=data.email,
+        token=invite_token,
+        status="pending",
+    )
+    db.add(invitation)
+    await db.commit()
+    await db.refresh(invitation)
+
+    # Send branded invite email
+    from app.core.config import get_settings
+    settings = get_settings()
+    invite_url = f"{settings.FRONTEND_URL}/p/{firm.slug}/invite/{invite_token}"
+
+    primary = firm.brand_primary_color or "#4D63FF"
+    secondary = firm.brand_secondary_color or "#7C9DFF"
+    firm_name = firm.name
+
+    if settings.RESEND_API_KEY:
+        try:
+            import resend
+            resend.api_key = settings.RESEND_API_KEY
+            resend.Emails.send({
+                "from": settings.EMAIL_FROM,
+                "to": [data.email],
+                "subject": f"{firm_name} has invited you to their client portal",
+                "html": f"""
+                    <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; max-width: 520px; margin: 0 auto; padding: 24px;">
+                        <div style="background: linear-gradient(135deg, {primary}, {secondary}); border-radius: 16px; padding: 32px; text-align: center; margin-bottom: 24px;">
+                            <h1 style="color: white; margin: 0; font-size: 22px;">{firm_name}</h1>
+                            <p style="color: rgba(255,255,255,0.8); margin: 8px 0 0; font-size: 14px;">Client Portal Invitation</p>
+                        </div>
+                        <p style="color: #333; font-size: 15px;">Hi {data.contact_name},</p>
+                        <p style="color: #555; font-size: 14px; line-height: 1.6;">
+                            <strong>{firm_name}</strong> has invited you to join their client portal for <strong>{data.business_name}</strong>.
+                            You'll be able to securely upload documents, view reports, and collaborate with your accounting team.
+                        </p>
+                        <div style="text-align: center; margin: 28px 0;">
+                            <a href="{invite_url}" style="display: inline-block; padding: 14px 32px; background: linear-gradient(135deg, {primary}, {secondary}); color: white; text-decoration: none; border-radius: 12px; font-weight: 600; font-size: 15px;">
+                                Accept Invitation
+                            </a>
+                        </div>
+                        <p style="color: #999; font-size: 12px; text-align: center;">This invitation expires in 7 days.</p>
+                        <hr style="border: none; border-top: 1px solid #eee; margin: 24px 0;" />
+                        <p style="color: #bbb; font-size: 11px; text-align: center;">Powered by Accruly</p>
+                    </div>
+                """,
+            })
+        except Exception as e:
+            logger.error(f"Failed to send invite email to {data.email}: {e}")
 
     return {
-        "id": str(org.id),
-        "name": org.name,
-        "org_type": org.org_type,
-        "country": org.country,
-        "currency": org.currency,
-        "parent_firm_id": str(firm.id),
+        "id": str(invitation.id),
+        "email": invitation.email,
+        "contact_name": invitation.contact_name,
+        "business_name": invitation.business_name,
+        "status": invitation.status,
+        "token": invite_token,
+        "created_at": invitation.created_at.isoformat(),
     }
+
+
+@router.get("/invitations")
+async def list_invitations(
+    current_user: dict = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """List all client invitations for this firm."""
+    firm = await _require_firm(current_user, db)
+    result = await db.execute(
+        select(ClientInvitation)
+        .where(ClientInvitation.firm_id == firm.id)
+        .order_by(ClientInvitation.created_at.desc())
+    )
+    invitations = result.scalars().all()
+    return [
+        {
+            "id": str(inv.id),
+            "email": inv.email,
+            "contact_name": inv.contact_name,
+            "business_name": inv.business_name,
+            "status": inv.status,
+            "client_org_id": str(inv.client_org_id) if inv.client_org_id else None,
+            "created_at": inv.created_at.isoformat(),
+            "accepted_at": inv.accepted_at.isoformat() if inv.accepted_at else None,
+        }
+        for inv in invitations
+    ]
 
 
 @router.get("/clients")
@@ -614,6 +699,167 @@ async def client_portal_signup(
     )
     return {
         "access_token": token,
+        "token_type": "bearer",
+        "firm_name": firm.name,
+        "organization_id": str(client_org.id),
+    }
+
+
+# ──────────────────────────────────────────────
+# Accept invitation — client sets password
+# ──────────────────────────────────────────────
+@router.get("/invite/{token}")
+async def get_invite_info(token: str, db: AsyncSession = Depends(get_db)):
+    """Public: validate an invitation token and return details."""
+    result = await db.execute(
+        select(ClientInvitation).where(ClientInvitation.token == token)
+    )
+    invitation = result.scalar_one_or_none()
+    if not invitation:
+        raise HTTPException(404, "Invitation not found")
+    if invitation.status != "pending":
+        raise HTTPException(400, f"Invitation has already been {invitation.status}")
+
+    # Validate token hasn't expired
+    from jose import jwt, JWTError
+    from app.core.config import get_settings
+    settings = get_settings()
+    try:
+        jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
+    except JWTError:
+        invitation.status = "expired"
+        await db.commit()
+        raise HTTPException(400, "Invitation has expired. Please ask your bookkeeper to send a new one.")
+
+    # Get firm info for branding
+    firm_result = await db.execute(select(Organization).where(Organization.id == invitation.firm_id))
+    firm = firm_result.scalar_one_or_none()
+
+    return {
+        "contact_name": invitation.contact_name,
+        "business_name": invitation.business_name,
+        "email": invitation.email,
+        "firm_name": firm.name if firm else "Your Accounting Firm",
+        "brand_primary_color": firm.brand_primary_color if firm else "#4D63FF",
+        "brand_secondary_color": firm.brand_secondary_color if firm else "#7C9DFF",
+        "logo_url": firm.logo_url if firm else None,
+    }
+
+
+class AcceptInviteRequest(BaseModel):
+    token: str
+    password: str
+    phone: str | None = None
+
+
+@router.post("/invite/accept")
+async def accept_invite(
+    data: AcceptInviteRequest,
+    db: AsyncSession = Depends(get_db),
+):
+    """Client accepts an invitation: sets password, creates org + user."""
+    result = await db.execute(
+        select(ClientInvitation).where(ClientInvitation.token == data.token)
+    )
+    invitation = result.scalar_one_or_none()
+    if not invitation:
+        raise HTTPException(404, "Invitation not found")
+    if invitation.status != "pending":
+        raise HTTPException(400, f"Invitation has already been {invitation.status}")
+
+    if len(data.password) < 8:
+        raise HTTPException(400, "Password must be at least 8 characters")
+
+    # Validate JWT hasn't expired
+    from jose import jwt, JWTError
+    from app.core.config import get_settings
+    settings = get_settings()
+    try:
+        jwt.decode(data.token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
+    except JWTError:
+        invitation.status = "expired"
+        await db.commit()
+        raise HTTPException(400, "Invitation has expired")
+
+    # Check email not already registered
+    existing_user = await db.execute(select(User).where(User.email == invitation.email))
+    if existing_user.scalar_one_or_none():
+        raise HTTPException(400, "Email already registered. Please sign in instead.")
+
+    # Get firm
+    firm_result = await db.execute(select(Organization).where(Organization.id == invitation.firm_id))
+    firm = firm_result.scalar_one_or_none()
+    if not firm:
+        raise HTTPException(404, "Firm not found")
+
+    # Create client org
+    client_org = Organization(
+        name=invitation.business_name,
+        org_type="sme",
+        country=firm.country,
+        currency=firm.currency,
+        parent_firm_id=firm.id,
+        onboarding_completed=True,
+    )
+    db.add(client_org)
+    await db.flush()
+
+    # Create default chart of accounts
+    for code, name, acc_type, subtype in DEFAULT_ACCOUNTS:
+        db.add(Account(
+            organization_id=client_org.id, code=code, name=name,
+            type=acc_type, subtype=subtype, is_system=True,
+        ))
+
+    # Create client user
+    client_user = User(
+        organization_id=client_org.id,
+        email=invitation.email,
+        hashed_password=hash_password(data.password),
+        full_name=invitation.contact_name,
+        phone=data.phone,
+        role="admin",
+    )
+    db.add(client_user)
+    await db.flush()
+
+    # Add client user as owner of their org
+    db.add(UserOrganization(
+        user_id=client_user.id,
+        organization_id=client_org.id,
+        role="owner",
+        is_default=True,
+    ))
+
+    # Give all firm owners/admins access to this client org
+    firm_members = await db.execute(
+        select(UserOrganization).where(
+            UserOrganization.organization_id == firm.id,
+            UserOrganization.role.in_(["owner", "admin"]),
+        )
+    )
+    for membership in firm_members.scalars().all():
+        db.add(UserOrganization(
+            user_id=membership.user_id,
+            organization_id=client_org.id,
+            role="accountant",
+            is_default=False,
+            invited_by=membership.user_id,
+        ))
+
+    # Update invitation status
+    invitation.status = "accepted"
+    invitation.accepted_at = datetime.now(timezone.utc)
+    invitation.client_org_id = client_org.id
+
+    await db.commit()
+
+    # Return access token
+    access_token = create_access_token(
+        {"sub": str(client_user.id), "org_id": str(client_org.id), "role": "admin"}
+    )
+    return {
+        "access_token": access_token,
         "token_type": "bearer",
         "firm_name": firm.name,
         "organization_id": str(client_org.id),

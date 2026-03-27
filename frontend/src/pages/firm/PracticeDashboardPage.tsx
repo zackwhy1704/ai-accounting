@@ -3,14 +3,16 @@ import { Card } from "../../components/ui/card"
 import { useToast } from "../../components/ui/toast"
 import {
   useFirmDashboard,
+  useInviteClient,
+  useFirmInvitations,
   useArchiveFirmClient,
   useSwitchOrg,
 } from "../../lib/hooks"
 import { formatCurrency } from "../../lib/utils"
 import {
-  Building2, Users, FileText, Archive,
+  Building2, Users, FileText, Plus, Archive, Mail,
   ArrowRight, Loader2, Search, TrendingUp,
-  AlertCircle,
+  AlertCircle, Clock, CheckCircle, Send,
 } from "lucide-react"
 
 const COUNTRY_FLAGS: Record<string, string> = {
@@ -19,11 +21,27 @@ const COUNTRY_FLAGS: Record<string, string> = {
 
 export default function PracticeDashboardPage() {
   const { data: dashboard, isLoading } = useFirmDashboard()
+  const { data: invitations } = useFirmInvitations()
+  const inviteClient = useInviteClient()
   const archiveClient = useArchiveFirmClient()
   const switchOrg = useSwitchOrg()
   const { toast } = useToast()
 
   const [search, setSearch] = useState("")
+  const [showInvite, setShowInvite] = useState(false)
+  const [invite, setInvite] = useState({ contact_name: "", business_name: "", email: "" })
+
+  const handleInvite = () => {
+    if (!invite.contact_name.trim() || !invite.business_name.trim() || !invite.email.trim()) return
+    inviteClient.mutate(invite, {
+      onSuccess: () => {
+        toast("Invitation sent", "success")
+        setShowInvite(false)
+        setInvite({ contact_name: "", business_name: "", email: "" })
+      },
+      onError: (e: any) => toast(e?.response?.data?.detail || "Failed to send invitation", "warning"),
+    })
+  }
 
   const handleSwitch = (orgId: string) => {
     switchOrg.mutate(orgId, {
@@ -45,6 +63,7 @@ export default function PracticeDashboardPage() {
   const filteredClients = (dashboard?.clients || []).filter(
     (c) => c.name.toLowerCase().includes(search.toLowerCase())
   )
+  const pendingInvites = (invitations || []).filter(i => i.status === "pending")
 
   // Aggregate metrics
   const totalRevenue = filteredClients.reduce((s, c) => s + c.metrics.total_revenue, 0)
@@ -55,14 +74,25 @@ export default function PracticeDashboardPage() {
     <div className="flex flex-col gap-4">
       <div className="flex items-center justify-between">
         <div>
-          <div className="text-xs text-muted-foreground">Practice</div>
+          <div className="text-xs text-muted-foreground">Firm</div>
           <div className="mt-1 text-2xl font-semibold tracking-tight text-foreground">
             {dashboard?.firm_name || "Client Dashboard"}
           </div>
           <div className="mt-1 text-sm text-muted-foreground">
             {dashboard?.total_clients || 0} client{(dashboard?.total_clients || 0) !== 1 ? "s" : ""}
+            {pendingInvites.length > 0 && (
+              <span className="ml-2 text-amber-500">
+                ({pendingInvites.length} pending invite{pendingInvites.length !== 1 ? "s" : ""})
+              </span>
+            )}
           </div>
         </div>
+        <button
+          onClick={() => setShowInvite(true)}
+          className="flex items-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors"
+        >
+          <Send className="h-4 w-4" /> Invite Client
+        </button>
       </div>
 
       {/* Summary Cards */}
@@ -93,6 +123,29 @@ export default function PracticeDashboardPage() {
         </Card>
       </div>
 
+      {/* Pending Invitations */}
+      {pendingInvites.length > 0 && (
+        <div>
+          <div className="text-xs font-medium text-muted-foreground mb-2">Pending Invitations</div>
+          <div className="grid grid-cols-1 gap-2 md:grid-cols-2 xl:grid-cols-3">
+            {pendingInvites.map((inv) => (
+              <Card key={inv.id} className="rounded-2xl border-dashed border-amber-300/50 bg-amber-50/50 dark:bg-amber-900/10 p-4">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-amber-100 dark:bg-amber-900/30">
+                    <Clock className="h-4 w-4 text-amber-600" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-sm font-medium text-foreground truncate">{inv.business_name}</div>
+                    <div className="text-xs text-muted-foreground truncate">{inv.contact_name} · {inv.email}</div>
+                  </div>
+                  <span className="text-[10px] text-amber-600 bg-amber-100 dark:bg-amber-900/30 px-2 py-0.5 rounded-full">Pending</span>
+                </div>
+              </Card>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Search & Filter */}
       <div className="flex items-center gap-3">
         <div className="relative flex-1">
@@ -112,7 +165,7 @@ export default function PracticeDashboardPage() {
         <Card className="rounded-2xl border-border bg-card p-8 text-center shadow-sm">
           <Building2 className="mx-auto h-10 w-10 text-muted-foreground/50" />
           <div className="mt-3 text-sm font-medium text-foreground">No clients yet</div>
-          <div className="mt-1 text-xs text-muted-foreground">Add your first client to get started</div>
+          <div className="mt-1 text-xs text-muted-foreground">Invite your first client to get started</div>
         </Card>
       ) : (
         <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
@@ -180,6 +233,75 @@ export default function PracticeDashboardPage() {
         </div>
       )}
 
+      {/* Invite Client Modal */}
+      {showInvite && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => setShowInvite(false)}>
+          <Card className="w-full max-w-md rounded-2xl bg-card p-6 shadow-xl" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center gap-3 mb-4">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10">
+                <Send className="h-5 w-5 text-primary" />
+              </div>
+              <div>
+                <div className="text-lg font-semibold text-foreground">Invite Client</div>
+                <div className="text-xs text-muted-foreground">Send a branded invitation email</div>
+              </div>
+            </div>
+            <div className="space-y-3">
+              <div>
+                <label className="text-xs text-muted-foreground">Contact Name *</label>
+                <input
+                  type="text"
+                  value={invite.contact_name}
+                  onChange={(e) => setInvite({ ...invite, contact_name: e.target.value })}
+                  className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
+                  placeholder="John Tan"
+                  autoFocus
+                />
+              </div>
+              <div>
+                <label className="text-xs text-muted-foreground">Business Name *</label>
+                <input
+                  type="text"
+                  value={invite.business_name}
+                  onChange={(e) => setInvite({ ...invite, business_name: e.target.value })}
+                  className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
+                  placeholder="ABC Pte Ltd"
+                />
+              </div>
+              <div>
+                <label className="text-xs text-muted-foreground">Email Address *</label>
+                <input
+                  type="email"
+                  value={invite.email}
+                  onChange={(e) => setInvite({ ...invite, email: e.target.value })}
+                  className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
+                  placeholder="john@abcltd.com"
+                />
+              </div>
+            </div>
+            <div className="mt-1 rounded-lg bg-muted/50 px-3 py-2 text-xs text-muted-foreground">
+              <Mail className="inline h-3 w-3 mr-1" />
+              A branded invitation email will be sent to this address. The client will set their own password.
+            </div>
+            <div className="mt-4 flex justify-end gap-2">
+              <button
+                onClick={() => setShowInvite(false)}
+                className="rounded-xl px-4 py-2 text-sm text-muted-foreground hover:bg-muted transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleInvite}
+                disabled={!invite.contact_name.trim() || !invite.business_name.trim() || !invite.email.trim() || inviteClient.isPending}
+                className="flex items-center gap-2 rounded-xl bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50 transition-colors"
+              >
+                {inviteClient.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
+                Send Invitation
+              </button>
+            </div>
+          </Card>
+        </div>
+      )}
     </div>
   )
 }

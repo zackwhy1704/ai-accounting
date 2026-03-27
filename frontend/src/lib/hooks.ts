@@ -296,15 +296,22 @@ export function useFirmClients(includeArchived?: boolean) {
   })
 }
 
-export function useCreateFirmClient() {
+export function useInviteClient() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: (data: { name: string; org_type?: string; country?: string; currency?: string; industry?: string }) =>
+    mutationFn: (data: { contact_name: string; business_name: string; email: string }) =>
       api.post('/firm/clients', data).then(r => r.data),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['firm-clients'] })
+      qc.invalidateQueries({ queryKey: ['firm-invitations'] })
       qc.invalidateQueries({ queryKey: ['firm-dashboard'] })
     },
+  })
+}
+
+export function useFirmInvitations() {
+  return useQuery<Array<{ id: string; email: string; contact_name: string; business_name: string; status: string; client_org_id: string | null; created_at: string; accepted_at: string | null }>>({
+    queryKey: ['firm-invitations'],
+    queryFn: () => api.get('/firm/invitations').then(r => r.data),
   })
 }
 

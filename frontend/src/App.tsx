@@ -17,6 +17,7 @@ import GenericPage from './pages/GenericPage'
 import FirmSettingsPage from './pages/firm/FirmSettingsPage'
 import PracticeDashboardPage from './pages/firm/PracticeDashboardPage'
 import ClientPortalPage from './pages/firm/ClientPortalPage'
+import AcceptInvitePage from './pages/firm/AcceptInvitePage'
 
 function ProtectedRoute({ children, allowOnboarding }: { children: React.ReactNode; allowOnboarding?: boolean }) {
   const { token, isLoading, onboardingCompleted } = useAuth()
@@ -40,6 +41,7 @@ function App() {
     <Routes>
       {/* Client portal — public, outside auth */}
       <Route path="/p/:slug" element={<ClientPortalPage />} />
+      <Route path="/p/:slug/invite/:token" element={<AcceptInvitePage />} />
       <Route path="/login" element={<LoginPage />} />
       <Route path="/onboarding" element={<ProtectedRoute allowOnboarding><OnboardingPage /></ProtectedRoute>} />
       <Route element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>

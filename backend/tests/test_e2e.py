@@ -198,7 +198,7 @@ def test_navigation_guards():
         r = api("GET", endpoint, token=state["sme_token"])
         check(f"SME blocked from GET {endpoint}", r.status_code == 403, f"status={r.status_code}")
 
-    r = api("POST", "/firm/clients", token=state["sme_token"], json={"name": "Should Fail"})
+    r = api("POST", "/firm/clients", token=state["sme_token"], json={"contact_name": "Test", "business_name": "Test Biz", "email": "test@test.com"})
     check("SME blocked from POST /firm/clients", r.status_code == 403, f"status={r.status_code}")
 
     r = api("PATCH", "/firm/settings", token=state["sme_token"], json={"slug": "test"})
@@ -261,44 +261,103 @@ def test_firm_settings():
 #  5. FIRM: Create, List, Archive, Restore Clients
 # ══════════════════════════════════════════════════════════
 def test_firm_clients():
-    section("5. Firm: Create, List, Archive, Restore Clients")
+    section("5. Firm: Invite Clients, Accept, List, Archive, Restore")
 
     token = state["firm_token"]
 
-    # --- Create client A ---
+    # --- Invite client A ---
+    email_a = f"client-a-{uid()}@test.com"
     r = api("POST", "/firm/clients", token=token, json={
-        "name": f"Client A {uid()}",
-        "org_type": "sme",
-        "country": "SG",
-        "currency": "SGD",
-        "industry": "Retail",
+        "contact_name": f"Contact A {uid()}",
+        "business_name": f"Client A Biz {uid()}",
+        "email": email_a,
     })
-    check("Create client A", r.status_code == 200, f"status={r.status_code} body={r.text[:200]}")
-    client_a = r.json()
-    state["client_a_id"] = client_a["id"]
-    state["client_a_name"] = client_a["name"]
-    check("Client A has parent_firm_id", client_a.get("parent_firm_id") == state["firm_org_id"], f"got {client_a.get('parent_firm_id')}")
+    check("Invite client A", r.status_code == 200, f"status={r.status_code} body={r.text[:200]}")
+    invite_a = r.json()
+    token_a = invite_a.get("token")
+    check("Invite A has pending status", invite_a.get("status") == "pending", f"got {invite_a.get('status')}")
+    check("Invite A returns token", token_a is not None, "")
 
-    # --- Create client B ---
+    # --- Invite client B ---
+    email_b = f"client-b-{uid()}@test.com"
     r = api("POST", "/firm/clients", token=token, json={
-        "name": f"Client B {uid()}",
-        "org_type": "individual",
-        "country": "MY",
-        "currency": "MYR",
+        "contact_name": f"Contact B {uid()}",
+        "business_name": f"Client B Biz {uid()}",
+        "email": email_b,
     })
-    check("Create client B", r.status_code == 200, f"status={r.status_code}")
-    client_b = r.json()
-    state["client_b_id"] = client_b["id"]
+    check("Invite client B", r.status_code == 200, f"status={r.status_code}")
+    invite_b = r.json()
+    token_b = invite_b.get("token")
 
-    # --- Create client C (for archive test) ---
-    r = api("POST", "/firm/clients", token=token, json={"name": f"Client C {uid()}"})
-    check("Create client C", r.status_code == 200, f"status={r.status_code}")
-    client_c = r.json()
-    state["client_c_id"] = client_c["id"]
+    # --- Invite client C (for archive test) ---
+    email_c = f"client-c-{uid()}@test.com"
+    r = api("POST", "/firm/clients", token=token, json={
+        "contact_name": f"Contact C {uid()}",
+        "business_name": f"Client C Biz {uid()}",
+        "email": email_c,
+    })
+    check("Invite client C", r.status_code == 200, f"status={r.status_code}")
+    invite_c = r.json()
+    token_c = invite_c.get("token")
+
+    # --- Duplicate invite should fail ---
+    r = api("POST", "/firm/clients", token=token, json={
+        "contact_name": "Dup", "business_name": "Dup Biz", "email": email_a,
+    })
+    check("Duplicate invite rejected", r.status_code == 400, f"status={r.status_code}")
+
+    # --- List invitations ---
+    r = api("GET", "/firm/invitations", token=token)
+    check("List invitations", r.status_code == 200 and len(r.json()) >= 3, f"status={r.status_code} count={len(r.json()) if r.status_code==200 else 'N/A'}")
+    pending = [i for i in r.json() if i["status"] == "pending"]
+    check("At least 3 pending invitations", len(pending) >= 3, f"got {len(pending)}")
+
+    # --- Validate invite token (public endpoint) ---
+    r = api("GET", f"/firm/invite/{token_a}")
+    check("Validate invite A token", r.status_code == 200, f"status={r.status_code}")
+    invite_info = r.json()
+    check("Invite info has firm_name", invite_info.get("firm_name") is not None, "")
+    check("Invite info has contact_name", invite_info.get("contact_name") == invite_a["contact_name"], "")
+
+    # --- Accept invite A ---
+    r = api("POST", "/firm/invite/accept", json={
+        "token": token_a, "password": "testpass123", "phone": "+6591234567",
+    })
+    check("Accept invite A", r.status_code == 200, f"status={r.status_code} body={r.text[:200]}")
+    accept_a = r.json()
+    state["client_a_id"] = accept_a.get("organization_id")
+    state["client_a_name"] = invite_a["business_name"]
+    check("Accept returns access_token", accept_a.get("access_token") is not None, "")
+    check("Accept returns organization_id", state["client_a_id"] is not None, "")
+
+    # --- Accept invite B ---
+    r = api("POST", "/firm/invite/accept", json={
+        "token": token_b, "password": "testpass123",
+    })
+    check("Accept invite B", r.status_code == 200, f"status={r.status_code}")
+    state["client_b_id"] = r.json().get("organization_id")
+
+    # --- Accept invite C ---
+    r = api("POST", "/firm/invite/accept", json={
+        "token": token_c, "password": "testpass123",
+    })
+    check("Accept invite C", r.status_code == 200, f"status={r.status_code}")
+    state["client_c_id"] = r.json().get("organization_id")
+
+    # --- Re-accept should fail ---
+    r = api("POST", "/firm/invite/accept", json={
+        "token": token_a, "password": "testpass123",
+    })
+    check("Re-accept invite fails", r.status_code == 400, f"status={r.status_code}")
+
+    # --- Invitations now show accepted ---
+    r = api("GET", "/firm/invitations", token=token)
+    accepted = [i for i in r.json() if i["status"] == "accepted"]
+    check("Invitations show accepted status", len(accepted) >= 3, f"got {len(accepted)}")
 
     # --- List clients ---
     r = api("GET", "/firm/clients", token=token)
-    check("List clients returns 3", r.status_code == 200 and len(r.json()) >= 3, f"status={r.status_code} count={len(r.json()) if r.status_code==200 else 'N/A'}")
+    check("List clients returns >= 3", r.status_code == 200 and len(r.json()) >= 3, f"status={r.status_code} count={len(r.json()) if r.status_code==200 else 'N/A'}")
 
     # --- Dashboard ---
     r = api("GET", "/firm/dashboard", token=token)
@@ -308,9 +367,9 @@ def test_firm_clients():
     check("Dashboard has firm_name", dash.get("firm_name") is not None, "")
     check("Dashboard clients have metrics", len(dash.get("clients", [])) >= 3 and "metrics" in dash["clients"][0], "")
 
-    # Verify client A in dashboard has correct data
-    dash_client_a = next((c for c in dash["clients"] if c["id"] == state["client_a_id"]), None)
-    check("Client A in dashboard", dash_client_a is not None, "")
+    # Verify client A in dashboard
+    dash_client_a = next((c for c in dash["clients"] if c["id"] == state.get("client_a_id")), None)
+    check("Client A in dashboard", dash_client_a is not None, f"looking for {state.get('client_a_id')}")
     if dash_client_a:
         check("Client A onboarding_completed=true", dash_client_a.get("onboarding_completed") is True, f"got {dash_client_a.get('onboarding_completed')}")
         check("Client A has user count >= 1", dash_client_a["metrics"]["users"] >= 1, f"got {dash_client_a['metrics']['users']}")
@@ -602,9 +661,9 @@ def test_edge_cases():
     r = api("POST", f"/firm/clients/{fake_id}/restore", token=token)
     check("Restore non-existent client returns 404", r.status_code == 404, f"status={r.status_code}")
 
-    # --- Create client with empty name ---
-    r = api("POST", "/firm/clients", token=token, json={"name": ""})
-    check("Empty client name rejected", r.status_code in (400, 422), f"status={r.status_code}")
+    # --- Invite client with empty name ---
+    r = api("POST", "/firm/clients", token=token, json={"contact_name": "", "business_name": "Biz", "email": "x@y.com"})
+    check("Empty contact name rejected", r.status_code in (400, 422), f"status={r.status_code}")
 
     # --- Slug too short ---
     r = api("GET", "/firm/check-slug/ab")

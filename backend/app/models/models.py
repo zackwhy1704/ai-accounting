@@ -119,6 +119,29 @@ class UserOrganization(Base):
 
 
 # ──────────────────────────────────────────────
+# Client Invitation (firm invites client)
+# ──────────────────────────────────────────────
+class ClientInvitation(Base):
+    """A firm invites a client via email. Token is used to accept."""
+    __tablename__ = "client_invitations"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=new_uuid)
+    firm_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("organizations.id", ondelete="CASCADE"), index=True)
+    invited_by_user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id"))
+    contact_name: Mapped[str] = mapped_column(String(255))
+    business_name: Mapped[str] = mapped_column(String(255))
+    email: Mapped[str] = mapped_column(String(255), index=True)
+    token: Mapped[str] = mapped_column(String(500), unique=True, index=True)
+    status: Mapped[str] = mapped_column(String(20), default="pending")  # pending, accepted, expired
+    client_org_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("organizations.id"), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    accepted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    firm: Mapped["Organization"] = relationship(foreign_keys=[firm_id])
+    invited_by: Mapped["User"] = relationship(foreign_keys=[invited_by_user_id])
+
+
+# ──────────────────────────────────────────────
 # Chart of Accounts (double-entry bookkeeping)
 # ──────────────────────────────────────────────
 class Account(Base):
