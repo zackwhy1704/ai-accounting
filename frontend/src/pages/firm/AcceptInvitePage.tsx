@@ -5,13 +5,13 @@ import axios from "axios"
 import { Card } from "../../components/ui/card"
 import {
   Building2, Lock, Loader2, CheckCircle, Phone,
-  Upload, FileText, ArrowRight,
+  ArrowRight,
 } from "lucide-react"
 
 const API_BASE = import.meta.env.VITE_API_URL || "/api/v1"
 
 export default function AcceptInvitePage() {
-  const { slug, token } = useParams<{ slug: string; token: string }>()
+  const { token } = useParams<{ slug: string; token: string }>()
   const navigate = useNavigate()
   const [password, setPassword] = useState("")
   const [phone, setPhone] = useState("")

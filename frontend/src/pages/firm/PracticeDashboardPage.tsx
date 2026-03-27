@@ -10,9 +10,9 @@ import {
 } from "../../lib/hooks"
 import { formatCurrency } from "../../lib/utils"
 import {
-  Building2, Users, FileText, Plus, Archive, Mail,
+  Building2, Users, FileText, Archive, Mail,
   ArrowRight, Loader2, Search, TrendingUp,
-  AlertCircle, Clock, CheckCircle, Send,
+  AlertCircle, Clock, Send,
 } from "lucide-react"
 
 const COUNTRY_FLAGS: Record<string, string> = {
