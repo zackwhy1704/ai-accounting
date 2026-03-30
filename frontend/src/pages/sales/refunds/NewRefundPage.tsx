@@ -2,7 +2,6 @@ import { useState, useMemo } from "react"
 import { useNavigate } from "react-router-dom"
 import { useContacts, useAccounts, useCreditNotes, useCreateSalesRefund } from "../../../lib/hooks"
 import { formatCurrency } from "../../../lib/utils"
-import { useTheme } from "../../../lib/theme"
 import { Card } from "../../../components/ui/card"
 import { Button } from "../../../components/ui/button"
 import { Input } from "../../../components/ui/input"
@@ -17,7 +16,6 @@ const refundMethods = [
 
 export default function NewRefundPage() {
   const navigate = useNavigate()
-  const { t } = useTheme()
   const { data: contacts = [] } = useContacts()
   const { data: accounts = [] } = useAccounts()
   const { data: creditNotes = [] } = useCreditNotes()
@@ -67,8 +65,8 @@ export default function NewRefundPage() {
   return (
     <div className="mx-auto max-w-3xl space-y-6 py-8">
       <div>
-        <h1 className={`text-2xl font-bold ${t("text-foreground")}`}>New Refund</h1>
-        <p className={`mt-1 text-sm ${t("text-muted-foreground")}`}>
+        <h1 className="text-2xl font-bold text-foreground">New Refund</h1>
+        <p className="mt-1 text-sm text-muted-foreground">
           Process a refund to a customer
         </p>
       </div>
@@ -77,7 +75,7 @@ export default function NewRefundPage() {
         <div className="grid gap-5">
           {/* Customer */}
           <div className="space-y-1.5">
-            <label className={`text-sm font-medium ${t("text-foreground")}`}>Customer</label>
+            <label className="text-sm font-medium text-foreground">Customer</label>
             <Select value={contactId} onValueChange={setContactId}>
               <SelectTrigger>
                 <SelectValue placeholder="Select customer" />
@@ -94,7 +92,7 @@ export default function NewRefundPage() {
 
           {/* Refund Date */}
           <div className="space-y-1.5">
-            <label className={`text-sm font-medium ${t("text-foreground")}`}>Refund Date</label>
+            <label className="text-sm font-medium text-foreground">Refund Date</label>
             <Input
               type="date"
               value={refundDate}
@@ -104,7 +102,7 @@ export default function NewRefundPage() {
 
           {/* Refund Method */}
           <div className="space-y-1.5">
-            <label className={`text-sm font-medium ${t("text-foreground")}`}>Refund Method</label>
+            <label className="text-sm font-medium text-foreground">Refund Method</label>
             <Select value={refundMethod} onValueChange={setRefundMethod}>
               <SelectTrigger>
                 <SelectValue placeholder="Select refund method" />
@@ -121,7 +119,7 @@ export default function NewRefundPage() {
 
           {/* Reference */}
           <div className="space-y-1.5">
-            <label className={`text-sm font-medium ${t("text-foreground")}`}>Reference</label>
+            <label className="text-sm font-medium text-foreground">Reference</label>
             <Input
               placeholder="e.g. REF-001"
               value={reference}
@@ -131,7 +129,7 @@ export default function NewRefundPage() {
 
           {/* Bank Account */}
           <div className="space-y-1.5">
-            <label className={`text-sm font-medium ${t("text-foreground")}`}>Bank Account</label>
+            <label className="text-sm font-medium text-foreground">Bank Account</label>
             <Select value={bankAccountId} onValueChange={setBankAccountId}>
               <SelectTrigger>
                 <SelectValue placeholder="Select bank account" />
@@ -148,13 +146,12 @@ export default function NewRefundPage() {
 
           {/* Linked Credit Note */}
           <div className="space-y-1.5">
-            <label className={`text-sm font-medium ${t("text-foreground")}`}>
+            <label className="text-sm font-medium text-foreground">
               Linked Credit Note
             </label>
             <Select
               value={creditNoteId}
               onValueChange={setCreditNoteId}
-              disabled={!contactId}
             >
               <SelectTrigger>
                 <SelectValue
@@ -173,7 +170,7 @@ export default function NewRefundPage() {
 
           {/* Amount */}
           <div className="space-y-1.5">
-            <label className={`text-sm font-medium ${t("text-foreground")}`}>Amount</label>
+            <label className="text-sm font-medium text-foreground">Amount</label>
             <Input
               type="number"
               min="0"
@@ -186,7 +183,7 @@ export default function NewRefundPage() {
 
           {/* Currency */}
           <div className="space-y-1.5">
-            <label className={`text-sm font-medium ${t("text-foreground")}`}>Currency</label>
+            <label className="text-sm font-medium text-foreground">Currency</label>
             <Input
               value={currency}
               onChange={(e) => setCurrency(e.target.value)}
@@ -195,9 +192,9 @@ export default function NewRefundPage() {
 
           {/* Notes */}
           <div className="space-y-1.5">
-            <label className={`text-sm font-medium ${t("text-foreground")}`}>Notes</label>
+            <label className="text-sm font-medium text-foreground">Notes</label>
             <textarea
-              className={`flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50`}
+              className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
               placeholder="Additional notes..."
               value={notes}
               onChange={(e) => setNotes(e.target.value)}

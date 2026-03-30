@@ -2,7 +2,6 @@ import { useState, useMemo } from "react"
 import { useNavigate } from "react-router-dom"
 import { useContacts, useAccounts, useInvoices, useCreateSalesPayment } from "../../../lib/hooks"
 import { formatCurrency, formatDate } from "../../../lib/utils"
-import { useTheme } from "../../../lib/theme"
 import { Card } from "../../../components/ui/card"
 import { Button } from "../../../components/ui/button"
 import { Input } from "../../../components/ui/input"
@@ -13,7 +12,6 @@ const cardClass = "rounded-2xl border-border bg-card p-6 shadow-[0_0_0_1px_rgba(
 
 export default function NewPaymentPage() {
   const navigate = useNavigate()
-  const { theme } = useTheme()
   const { data: contacts } = useContacts()
   const { data: accounts } = useAccounts()
   const { data: invoices } = useInvoices()

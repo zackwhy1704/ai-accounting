@@ -144,7 +144,7 @@ export default function PaymentsPage() {
                         <TableCell className="text-muted-foreground">{formatDate(p.payment_date)}</TableCell>
                         <TableCell className="text-foreground">{contactMap.get(p.contact_id) ?? "—"}</TableCell>
                         <TableCell className="text-muted-foreground">{p.payment_method ?? "—"}</TableCell>
-                        <TableCell className="text-right text-foreground">{formatCurrency(p.total)}</TableCell>
+                        <TableCell className="text-right text-foreground">{formatCurrency(p.amount)}</TableCell>
                         <TableCell>
                           <Badge variant="outline" className={cn("rounded-lg px-2 py-0.5 text-[11px] font-semibold", statusColors[p.status] ?? "")}>{p.status.charAt(0).toUpperCase() + p.status.slice(1)}</Badge>
                         </TableCell>

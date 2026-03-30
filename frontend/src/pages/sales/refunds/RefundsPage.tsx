@@ -144,9 +144,9 @@ export default function RefundsPage() {
                         <TableCell className="font-medium text-foreground">{r.refund_number}</TableCell>
                         <TableCell className="text-muted-foreground">{formatDate(r.refund_date)}</TableCell>
                         <TableCell className="text-foreground">{contactMap.get(r.contact_id) ?? "\u2014"}</TableCell>
-                        <TableCell className="text-muted-foreground">{r.linked_credit_note ?? "\u2014"}</TableCell>
+                        <TableCell className="text-muted-foreground">{r.credit_note_id ?? "\u2014"}</TableCell>
                         <TableCell className="text-muted-foreground">{r.refund_method ?? "\u2014"}</TableCell>
-                        <TableCell className="text-right text-foreground">{formatCurrency(r.total)}</TableCell>
+                        <TableCell className="text-right text-foreground">{formatCurrency(r.amount)}</TableCell>
                         <TableCell>
                           <Badge variant="outline" className={cn("rounded-lg px-2 py-0.5 text-[11px] font-semibold", statusColors[r.status] ?? "")}>{r.status.charAt(0).toUpperCase() + r.status.slice(1)}</Badge>
                         </TableCell>

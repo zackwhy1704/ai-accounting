@@ -2,7 +2,6 @@ import { useState } from "react"
 import { useNavigate } from "react-router-dom"
 import { Plus, Trash2 } from "lucide-react"
 import { useContacts, useAccounts, useCreateSalesOrder } from "../../../lib/hooks"
-import { useTheme } from "../../../lib/theme"
 import { Card } from "../../../components/ui/card"
 import { Button } from "../../../components/ui/button"
 import { Input } from "../../../components/ui/input"
@@ -31,7 +30,6 @@ type TabKey = (typeof TABS)[number]["key"]
 
 export default function NewSalesOrderPage() {
   const navigate = useNavigate()
-  const { t } = useTheme()
   const { data: contacts = [] } = useContacts()
   const { data: accounts = [] } = useAccounts()
   const createSalesOrder = useCreateSalesOrder()
@@ -343,7 +341,7 @@ export default function NewSalesOrderPage() {
                 <SelectValue placeholder="Add Product..." />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="placeholder" disabled>Search products...</SelectItem>
+                <SelectItem value="placeholder">Search products...</SelectItem>
               </SelectContent>
             </Select>
           </div>
