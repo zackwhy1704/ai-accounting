@@ -2,7 +2,6 @@ import { useState } from "react"
 import { useNavigate } from "react-router-dom"
 import { Plus, Trash2 } from "lucide-react"
 import { useContacts, useAccounts, useInvoices, useCreateDebitNote } from "../../../lib/hooks"
-import { useTheme } from "../../../lib/theme"
 import { Card } from "../../../components/ui/card"
 import { Button } from "../../../components/ui/button"
 import { Input } from "../../../components/ui/input"
@@ -37,7 +36,6 @@ const tabs = [
 
 export default function NewDebitNotePage() {
   const navigate = useNavigate()
-  const { t } = useTheme()
   const { data: contacts = [] } = useContacts()
   const { data: accounts = [] } = useAccounts()
   const { data: invoices = [] } = useInvoices()

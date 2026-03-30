@@ -145,7 +145,7 @@ export default function DebitNotesPage() {
                         <TableCell className="font-medium text-foreground">{dn.debit_note_number}</TableCell>
                         <TableCell className="text-muted-foreground">{formatDate(dn.issue_date)}</TableCell>
                         <TableCell className="text-foreground">{contactMap.get(dn.contact_id) ?? "\u2014"}</TableCell>
-                        <TableCell className="text-foreground">{dn.linked_invoice_number ?? "\u2014"}</TableCell>
+                        <TableCell className="text-foreground">{dn.invoice_id ?? "\u2014"}</TableCell>
                         <TableCell className="text-right text-foreground">{formatCurrency(dn.total)}</TableCell>
                         <TableCell>
                           <Badge variant="outline" className={cn("rounded-lg px-2 py-0.5 text-[11px] font-semibold", statusColors[dn.status] ?? "")}>{dn.status.charAt(0).toUpperCase() + dn.status.slice(1)}</Badge>
