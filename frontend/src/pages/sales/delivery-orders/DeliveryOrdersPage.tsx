@@ -143,7 +143,7 @@ export default function DeliveryOrdersPage() {
                         <TableCell className="font-medium text-foreground">{d.delivery_number}</TableCell>
                         <TableCell className="text-muted-foreground">{formatDate(d.delivery_date)}</TableCell>
                         <TableCell className="text-foreground">{contactMap.get(d.contact_id) ?? "—"}</TableCell>
-                        <TableCell className="text-muted-foreground">{d.ship_to ?? "—"}</TableCell>
+                        <TableCell className="text-muted-foreground">{d.ship_to_address ?? "—"}</TableCell>
                         <TableCell className="text-right text-foreground">{formatCurrency(d.total)}</TableCell>
                         <TableCell>
                           <Badge variant="outline" className={cn("rounded-lg px-2 py-0.5 text-[11px] font-semibold", statusColors[d.status] ?? "")}>{d.status.charAt(0).toUpperCase() + d.status.slice(1)}</Badge>
