@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import get_settings
-from app.api.v1 import auth, invoices, bills, documents, contacts, accounts, dashboard, billing, firm
+from app.api.v1 import auth, invoices, bills, documents, contacts, accounts, dashboard, billing, firm, sales
 
 settings = get_settings()
 
@@ -32,6 +32,7 @@ app.include_router(accounts.router, prefix=settings.API_V1_PREFIX)
 app.include_router(documents.router, prefix=settings.API_V1_PREFIX)
 app.include_router(billing.router, prefix=settings.API_V1_PREFIX)
 app.include_router(firm.router, prefix=settings.API_V1_PREFIX)
+app.include_router(sales.router, prefix=settings.API_V1_PREFIX)
 
 
 @app.get("/api/health")

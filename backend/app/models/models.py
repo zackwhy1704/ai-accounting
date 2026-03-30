@@ -244,6 +244,348 @@ class InvoiceLineItem(Base):
 
 
 # ──────────────────────────────────────────────
+# Quotation
+# ──────────────────────────────────────────────
+class Quotation(Base):
+    __tablename__ = "quotations"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=new_uuid)
+    organization_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("organizations.id"))
+    contact_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("contacts.id"))
+    quotation_number: Mapped[str] = mapped_column(String(50))
+    status: Mapped[str] = mapped_column(String(20), default="draft")  # draft, sent, accepted, declined, expired, converted
+    issue_date: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    expiry_date: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    reference: Mapped[str | None] = mapped_column(String(100))
+    subtotal: Mapped[float] = mapped_column(Numeric(15, 2), default=0)
+    discount_amount: Mapped[float] = mapped_column(Numeric(15, 2), default=0)
+    tax_amount: Mapped[float] = mapped_column(Numeric(15, 2), default=0)
+    total: Mapped[float] = mapped_column(Numeric(15, 2), default=0)
+    currency: Mapped[str] = mapped_column(String(3), default="MYR")
+    notes: Mapped[str | None] = mapped_column(Text)
+    terms: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
+
+    organization: Mapped["Organization"] = relationship()
+    contact: Mapped["Contact"] = relationship()
+    line_items: Mapped[list["QuotationLineItem"]] = relationship(back_populates="quotation", cascade="all, delete-orphan")
+
+    __table_args__ = (
+        UniqueConstraint("organization_id", "quotation_number", name="uq_org_quotation_number"),
+        Index("ix_quotations_org_status", "organization_id", "status"),
+    )
+
+
+class QuotationLineItem(Base):
+    __tablename__ = "quotation_line_items"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=new_uuid)
+    quotation_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("quotations.id", ondelete="CASCADE"))
+    description: Mapped[str] = mapped_column(String(500))
+    quantity: Mapped[float] = mapped_column(Numeric(10, 2), default=1)
+    unit_price: Mapped[float] = mapped_column(Numeric(15, 2))
+    tax_rate: Mapped[float] = mapped_column(Numeric(5, 2), default=0)
+    discount: Mapped[float] = mapped_column(Numeric(15, 2), default=0)
+    amount: Mapped[float] = mapped_column(Numeric(15, 2))
+    account_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("accounts.id"))
+    sort_order: Mapped[int] = mapped_column(Integer, default=0)
+
+    quotation: Mapped["Quotation"] = relationship(back_populates="line_items")
+
+
+# ──────────────────────────────────────────────
+# Sales Order
+# ──────────────────────────────────────────────
+class SalesOrder(Base):
+    __tablename__ = "sales_orders"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=new_uuid)
+    organization_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("organizations.id"))
+    contact_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("contacts.id"))
+    quotation_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("quotations.id"))
+    order_number: Mapped[str] = mapped_column(String(50))
+    status: Mapped[str] = mapped_column(String(20), default="draft")  # draft, confirmed, fulfilled, cancelled
+    issue_date: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    delivery_date: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    reference: Mapped[str | None] = mapped_column(String(100))
+    subtotal: Mapped[float] = mapped_column(Numeric(15, 2), default=0)
+    discount_amount: Mapped[float] = mapped_column(Numeric(15, 2), default=0)
+    tax_amount: Mapped[float] = mapped_column(Numeric(15, 2), default=0)
+    total: Mapped[float] = mapped_column(Numeric(15, 2), default=0)
+    currency: Mapped[str] = mapped_column(String(3), default="MYR")
+    notes: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
+
+    organization: Mapped["Organization"] = relationship()
+    contact: Mapped["Contact"] = relationship()
+    line_items: Mapped[list["SalesOrderLineItem"]] = relationship(back_populates="sales_order", cascade="all, delete-orphan")
+
+    __table_args__ = (
+        UniqueConstraint("organization_id", "order_number", name="uq_org_order_number"),
+        Index("ix_sales_orders_org_status", "organization_id", "status"),
+    )
+
+
+class SalesOrderLineItem(Base):
+    __tablename__ = "sales_order_line_items"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=new_uuid)
+    sales_order_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("sales_orders.id", ondelete="CASCADE"))
+    description: Mapped[str] = mapped_column(String(500))
+    quantity: Mapped[float] = mapped_column(Numeric(10, 2), default=1)
+    unit_price: Mapped[float] = mapped_column(Numeric(15, 2))
+    tax_rate: Mapped[float] = mapped_column(Numeric(5, 2), default=0)
+    discount: Mapped[float] = mapped_column(Numeric(15, 2), default=0)
+    amount: Mapped[float] = mapped_column(Numeric(15, 2))
+    account_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("accounts.id"))
+    sort_order: Mapped[int] = mapped_column(Integer, default=0)
+
+    sales_order: Mapped["SalesOrder"] = relationship(back_populates="line_items")
+
+
+# ──────────────────────────────────────────────
+# Delivery Order
+# ──────────────────────────────────────────────
+class DeliveryOrder(Base):
+    __tablename__ = "delivery_orders"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=new_uuid)
+    organization_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("organizations.id"))
+    contact_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("contacts.id"))
+    invoice_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("invoices.id"))
+    quotation_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("quotations.id"))
+    sales_order_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("sales_orders.id"))
+    delivery_number: Mapped[str] = mapped_column(String(50))
+    status: Mapped[str] = mapped_column(String(20), default="draft")  # draft, delivered, cancelled
+    delivery_date: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    ship_to_address: Mapped[str | None] = mapped_column(Text)
+    deliver_to_address: Mapped[str | None] = mapped_column(Text)
+    reference: Mapped[str | None] = mapped_column(String(100))
+    subtotal: Mapped[float] = mapped_column(Numeric(15, 2), default=0)
+    tax_amount: Mapped[float] = mapped_column(Numeric(15, 2), default=0)
+    total: Mapped[float] = mapped_column(Numeric(15, 2), default=0)
+    currency: Mapped[str] = mapped_column(String(3), default="MYR")
+    notes: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
+
+    organization: Mapped["Organization"] = relationship()
+    contact: Mapped["Contact"] = relationship()
+    line_items: Mapped[list["DeliveryOrderLineItem"]] = relationship(back_populates="delivery_order", cascade="all, delete-orphan")
+
+    __table_args__ = (
+        UniqueConstraint("organization_id", "delivery_number", name="uq_org_delivery_number"),
+        Index("ix_delivery_orders_org_status", "organization_id", "status"),
+    )
+
+
+class DeliveryOrderLineItem(Base):
+    __tablename__ = "delivery_order_line_items"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=new_uuid)
+    delivery_order_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("delivery_orders.id", ondelete="CASCADE"))
+    description: Mapped[str] = mapped_column(String(500))
+    quantity: Mapped[float] = mapped_column(Numeric(10, 2), default=1)
+    unit_price: Mapped[float] = mapped_column(Numeric(15, 2))
+    tax_rate: Mapped[float] = mapped_column(Numeric(5, 2), default=0)
+    amount: Mapped[float] = mapped_column(Numeric(15, 2))
+    sort_order: Mapped[int] = mapped_column(Integer, default=0)
+
+    delivery_order: Mapped["DeliveryOrder"] = relationship(back_populates="line_items")
+
+
+# ──────────────────────────────────────────────
+# Credit Note
+# ──────────────────────────────────────────────
+class CreditNote(Base):
+    __tablename__ = "credit_notes"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=new_uuid)
+    organization_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("organizations.id"))
+    contact_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("contacts.id"))
+    invoice_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("invoices.id"))
+    credit_note_number: Mapped[str] = mapped_column(String(50))
+    status: Mapped[str] = mapped_column(String(20), default="draft")  # draft, issued, applied, void
+    issue_date: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    reference: Mapped[str | None] = mapped_column(String(100))
+    subtotal: Mapped[float] = mapped_column(Numeric(15, 2), default=0)
+    discount_amount: Mapped[float] = mapped_column(Numeric(15, 2), default=0)
+    tax_amount: Mapped[float] = mapped_column(Numeric(15, 2), default=0)
+    total: Mapped[float] = mapped_column(Numeric(15, 2), default=0)
+    credit_applied: Mapped[float] = mapped_column(Numeric(15, 2), default=0)
+    currency: Mapped[str] = mapped_column(String(3), default="MYR")
+    notes: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
+
+    organization: Mapped["Organization"] = relationship()
+    contact: Mapped["Contact"] = relationship()
+    line_items: Mapped[list["CreditNoteLineItem"]] = relationship(back_populates="credit_note", cascade="all, delete-orphan")
+    credit_applications: Mapped[list["CreditApplication"]] = relationship(back_populates="credit_note", cascade="all, delete-orphan")
+
+    __table_args__ = (
+        UniqueConstraint("organization_id", "credit_note_number", name="uq_org_credit_note_number"),
+        Index("ix_credit_notes_org_status", "organization_id", "status"),
+    )
+
+
+class CreditNoteLineItem(Base):
+    __tablename__ = "credit_note_line_items"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=new_uuid)
+    credit_note_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("credit_notes.id", ondelete="CASCADE"))
+    description: Mapped[str] = mapped_column(String(500))
+    quantity: Mapped[float] = mapped_column(Numeric(10, 2), default=1)
+    unit_price: Mapped[float] = mapped_column(Numeric(15, 2))
+    tax_rate: Mapped[float] = mapped_column(Numeric(5, 2), default=0)
+    discount: Mapped[float] = mapped_column(Numeric(15, 2), default=0)
+    amount: Mapped[float] = mapped_column(Numeric(15, 2))
+    account_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("accounts.id"))
+    sort_order: Mapped[int] = mapped_column(Integer, default=0)
+
+    credit_note: Mapped["CreditNote"] = relationship(back_populates="line_items")
+
+
+class CreditApplication(Base):
+    __tablename__ = "credit_applications"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=new_uuid)
+    credit_note_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("credit_notes.id", ondelete="CASCADE"))
+    invoice_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("invoices.id"))
+    amount: Mapped[float] = mapped_column(Numeric(15, 2))
+    applied_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+    credit_note: Mapped["CreditNote"] = relationship(back_populates="credit_applications")
+    invoice: Mapped["Invoice"] = relationship()
+
+
+# ──────────────────────────────────────────────
+# Debit Note
+# ──────────────────────────────────────────────
+class DebitNote(Base):
+    __tablename__ = "debit_notes"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=new_uuid)
+    organization_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("organizations.id"))
+    contact_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("contacts.id"))
+    invoice_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("invoices.id"))
+    debit_note_number: Mapped[str] = mapped_column(String(50))
+    status: Mapped[str] = mapped_column(String(20), default="draft")  # draft, issued, applied, void
+    issue_date: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    reference: Mapped[str | None] = mapped_column(String(100))
+    subtotal: Mapped[float] = mapped_column(Numeric(15, 2), default=0)
+    discount_amount: Mapped[float] = mapped_column(Numeric(15, 2), default=0)
+    tax_amount: Mapped[float] = mapped_column(Numeric(15, 2), default=0)
+    total: Mapped[float] = mapped_column(Numeric(15, 2), default=0)
+    currency: Mapped[str] = mapped_column(String(3), default="MYR")
+    notes: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
+
+    organization: Mapped["Organization"] = relationship()
+    contact: Mapped["Contact"] = relationship()
+    line_items: Mapped[list["DebitNoteLineItem"]] = relationship(back_populates="debit_note", cascade="all, delete-orphan")
+
+    __table_args__ = (
+        UniqueConstraint("organization_id", "debit_note_number", name="uq_org_debit_note_number"),
+        Index("ix_debit_notes_org_status", "organization_id", "status"),
+    )
+
+
+class DebitNoteLineItem(Base):
+    __tablename__ = "debit_note_line_items"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=new_uuid)
+    debit_note_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("debit_notes.id", ondelete="CASCADE"))
+    description: Mapped[str] = mapped_column(String(500))
+    quantity: Mapped[float] = mapped_column(Numeric(10, 2), default=1)
+    unit_price: Mapped[float] = mapped_column(Numeric(15, 2))
+    tax_rate: Mapped[float] = mapped_column(Numeric(5, 2), default=0)
+    discount: Mapped[float] = mapped_column(Numeric(15, 2), default=0)
+    amount: Mapped[float] = mapped_column(Numeric(15, 2))
+    account_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("accounts.id"))
+    sort_order: Mapped[int] = mapped_column(Integer, default=0)
+
+    debit_note: Mapped["DebitNote"] = relationship(back_populates="line_items")
+
+
+# ──────────────────────────────────────────────
+# Sales Payment
+# ──────────────────────────────────────────────
+class SalesPayment(Base):
+    __tablename__ = "sales_payments"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=new_uuid)
+    organization_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("organizations.id"))
+    contact_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("contacts.id"))
+    payment_number: Mapped[str] = mapped_column(String(50))
+    status: Mapped[str] = mapped_column(String(20), default="draft")  # draft, completed, void
+    payment_date: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    payment_method: Mapped[str] = mapped_column(String(20), default="bank")  # cash, bank, cheque, online
+    reference: Mapped[str | None] = mapped_column(String(100))
+    amount: Mapped[float] = mapped_column(Numeric(15, 2))
+    bank_account_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("accounts.id"))
+    currency: Mapped[str] = mapped_column(String(3), default="MYR")
+    notes: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
+
+    organization: Mapped["Organization"] = relationship()
+    contact: Mapped["Contact"] = relationship()
+    allocations: Mapped[list["PaymentAllocation"]] = relationship(back_populates="payment", cascade="all, delete-orphan")
+
+    __table_args__ = (
+        UniqueConstraint("organization_id", "payment_number", name="uq_org_payment_number"),
+        Index("ix_sales_payments_org_status", "organization_id", "status"),
+    )
+
+
+class PaymentAllocation(Base):
+    __tablename__ = "payment_allocations"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=new_uuid)
+    payment_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("sales_payments.id", ondelete="CASCADE"))
+    invoice_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("invoices.id"))
+    amount: Mapped[float] = mapped_column(Numeric(15, 2))
+
+    payment: Mapped["SalesPayment"] = relationship(back_populates="allocations")
+    invoice: Mapped["Invoice"] = relationship()
+
+
+# ──────────────────────────────────────────────
+# Sales Refund
+# ──────────────────────────────────────────────
+class SalesRefund(Base):
+    __tablename__ = "sales_refunds"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=new_uuid)
+    organization_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("organizations.id"))
+    contact_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("contacts.id"))
+    credit_note_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("credit_notes.id"))
+    refund_number: Mapped[str] = mapped_column(String(50))
+    status: Mapped[str] = mapped_column(String(20), default="draft")  # draft, completed, void
+    refund_date: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    refund_method: Mapped[str] = mapped_column(String(20), default="bank")
+    reference: Mapped[str | None] = mapped_column(String(100))
+    amount: Mapped[float] = mapped_column(Numeric(15, 2))
+    bank_account_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("accounts.id"))
+    currency: Mapped[str] = mapped_column(String(3), default="MYR")
+    notes: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
+
+    organization: Mapped["Organization"] = relationship()
+    contact: Mapped["Contact"] = relationship()
+
+    __table_args__ = (
+        UniqueConstraint("organization_id", "refund_number", name="uq_org_refund_number"),
+        Index("ix_sales_refunds_org_status", "organization_id", "status"),
+    )
+
+
+# ──────────────────────────────────────────────
 # Bill (vendor invoices)
 # ──────────────────────────────────────────────
 class Bill(Base):

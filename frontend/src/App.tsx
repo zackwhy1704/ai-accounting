@@ -6,6 +6,21 @@ import LoginPage from './pages/auth/LoginPage'
 import OnboardingPage from './pages/auth/OnboardingPage'
 import DashboardPage from './pages/dashboard/DashboardPage'
 import InvoicesPage from './pages/invoices/InvoicesPage'
+import QuotationsPage from './pages/sales/quotations/QuotationsPage'
+import NewQuotationPage from './pages/sales/quotations/NewQuotationPage'
+import SalesOrdersPage from './pages/sales/orders/SalesOrdersPage'
+import NewSalesOrderPage from './pages/sales/orders/NewSalesOrderPage'
+import DeliveryOrdersPage from './pages/sales/delivery-orders/DeliveryOrdersPage'
+import NewDeliveryOrderPage from './pages/sales/delivery-orders/NewDeliveryOrderPage'
+import NewInvoicePage from './pages/sales/invoices/NewInvoicePage'
+import CreditNotesPage from './pages/sales/credit-notes/CreditNotesPage'
+import NewCreditNotePage from './pages/sales/credit-notes/NewCreditNotePage'
+import DebitNotesPage from './pages/sales/debit-notes/DebitNotesPage'
+import NewDebitNotePage from './pages/sales/debit-notes/NewDebitNotePage'
+import PaymentsPage from './pages/sales/payments/PaymentsPage'
+import NewPaymentPage from './pages/sales/payments/NewPaymentPage'
+import RefundsPage from './pages/sales/refunds/RefundsPage'
+import NewRefundPage from './pages/sales/refunds/NewRefundPage'
 import BillsPage from './pages/bills/BillsPage'
 import ContactsPage from './pages/contacts/ContactsPage'
 import DocumentsPage from './pages/documents/DocumentsPage'
@@ -49,12 +64,22 @@ function App() {
         <Route path="/dashboard" element={<DashboardPage />} />
 
         {/* Sales */}
+        <Route path="/sales/quotations" element={<QuotationsPage />} />
+        <Route path="/sales/quotations/new" element={<NewQuotationPage />} />
+        <Route path="/sales/orders" element={<SalesOrdersPage />} />
+        <Route path="/sales/orders/new" element={<NewSalesOrderPage />} />
+        <Route path="/sales/delivery-orders" element={<DeliveryOrdersPage />} />
+        <Route path="/sales/delivery-orders/new" element={<NewDeliveryOrderPage />} />
         <Route path="/sales/invoices" element={<InvoicesPage />} />
-        <Route path="/sales/quotations" element={<GenericPage title="Quotations" category="Sales" />} />
-        <Route path="/sales/delivery-orders" element={<GenericPage title="Delivery Orders" category="Sales" />} />
-        <Route path="/sales/credit-notes" element={<GenericPage title="Credit Notes" category="Sales" />} />
-        <Route path="/sales/payments" element={<GenericPage title="Payments" category="Sales" />} />
-        <Route path="/sales/refunds" element={<GenericPage title="Refunds" category="Sales" />} />
+        <Route path="/sales/invoices/new" element={<NewInvoicePage />} />
+        <Route path="/sales/credit-notes" element={<CreditNotesPage />} />
+        <Route path="/sales/credit-notes/new" element={<NewCreditNotePage />} />
+        <Route path="/sales/debit-notes" element={<DebitNotesPage />} />
+        <Route path="/sales/debit-notes/new" element={<NewDebitNotePage />} />
+        <Route path="/sales/payments" element={<PaymentsPage />} />
+        <Route path="/sales/payments/new" element={<NewPaymentPage />} />
+        <Route path="/sales/refunds" element={<RefundsPage />} />
+        <Route path="/sales/refunds/new" element={<NewRefundPage />} />
 
         {/* Purchases */}
         <Route path="/purchases/bills" element={<BillsPage />} />

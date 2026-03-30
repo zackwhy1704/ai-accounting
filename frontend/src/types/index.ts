@@ -51,6 +51,173 @@ export interface Bill {
   created_at: string
 }
 
+export interface LineItem {
+  id?: string
+  description: string
+  quantity: number
+  unit_price: number
+  tax_rate: number
+  amount: number
+  account_id: string | null
+  account_name?: string
+  discount: number
+  sort_order: number
+}
+
+export interface Quotation {
+  id: string
+  quotation_number: string
+  contact_id: string
+  contact_name?: string
+  status: string // draft, sent, accepted, declined, expired, converted
+  issue_date: string
+  expiry_date: string
+  reference: string | null
+  subtotal: number
+  discount_amount: number
+  tax_amount: number
+  total: number
+  currency: string
+  notes: string | null
+  terms: string | null
+  line_items: LineItem[]
+  created_at: string
+}
+
+export interface SalesOrder {
+  id: string
+  order_number: string
+  contact_id: string
+  contact_name?: string
+  quotation_id: string | null
+  status: string // draft, confirmed, fulfilled, cancelled
+  issue_date: string
+  delivery_date: string | null
+  reference: string | null
+  subtotal: number
+  discount_amount: number
+  tax_amount: number
+  total: number
+  currency: string
+  notes: string | null
+  line_items: LineItem[]
+  created_at: string
+}
+
+export interface DeliveryOrder {
+  id: string
+  delivery_number: string
+  contact_id: string
+  contact_name?: string
+  invoice_id: string | null
+  quotation_id: string | null
+  sales_order_id: string | null
+  status: string // draft, delivered, cancelled
+  delivery_date: string
+  ship_to_address: string | null
+  deliver_to_address: string | null
+  reference: string | null
+  subtotal: number
+  tax_amount: number
+  total: number
+  currency: string
+  notes: string | null
+  line_items: LineItem[]
+  created_at: string
+}
+
+export interface CreditNote {
+  id: string
+  credit_note_number: string
+  contact_id: string
+  contact_name?: string
+  invoice_id: string | null
+  status: string // draft, issued, applied, void
+  issue_date: string
+  reference: string | null
+  subtotal: number
+  discount_amount: number
+  tax_amount: number
+  total: number
+  credit_applied: number
+  currency: string
+  notes: string | null
+  line_items: LineItem[]
+  applied_to_invoices: CreditApplication[]
+  created_at: string
+}
+
+export interface CreditApplication {
+  invoice_id: string
+  invoice_number: string
+  invoice_date: string
+  invoice_total: number
+  invoice_balance: number
+  apply_amount: number
+}
+
+export interface DebitNote {
+  id: string
+  debit_note_number: string
+  contact_id: string
+  contact_name?: string
+  invoice_id: string
+  status: string // draft, issued, applied, void
+  issue_date: string
+  reference: string | null
+  subtotal: number
+  discount_amount: number
+  tax_amount: number
+  total: number
+  currency: string
+  notes: string | null
+  line_items: LineItem[]
+  created_at: string
+}
+
+export interface SalesPayment {
+  id: string
+  payment_number: string
+  contact_id: string
+  contact_name?: string
+  status: string // draft, completed, void
+  payment_date: string
+  payment_method: string // cash, bank, cheque, online
+  reference: string | null
+  amount: number
+  bank_account_id: string | null
+  currency: string
+  notes: string | null
+  allocations: PaymentAllocation[]
+  created_at: string
+}
+
+export interface PaymentAllocation {
+  invoice_id: string
+  invoice_number: string
+  invoice_date: string
+  invoice_total: number
+  invoice_balance: number
+  amount_applied: number
+}
+
+export interface SalesRefund {
+  id: string
+  refund_number: string
+  contact_id: string
+  contact_name?: string
+  credit_note_id: string | null
+  status: string // draft, completed, void
+  refund_date: string
+  refund_method: string
+  reference: string | null
+  amount: number
+  bank_account_id: string | null
+  currency: string
+  notes: string | null
+  created_at: string
+}
+
 export interface Account {
   id: string
   code: string

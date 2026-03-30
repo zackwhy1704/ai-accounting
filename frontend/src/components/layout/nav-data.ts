@@ -17,9 +17,11 @@ export const navItems: NavItem[] = [
     icon: "receipt",
     children: [
       { labelKey: "nav.quotations", href: "/sales/quotations" },
+      { labelKey: "nav.saleOrders", href: "/sales/orders" },
       { labelKey: "nav.deliveryOrders", href: "/sales/delivery-orders" },
       { labelKey: "nav.invoices", href: "/sales/invoices" },
       { labelKey: "nav.creditNotes", href: "/sales/credit-notes" },
+      { labelKey: "nav.debitNotes", href: "/sales/debit-notes" },
       { labelKey: "nav.payments", href: "/sales/payments" },
       { labelKey: "nav.refunds", href: "/sales/refunds" },
     ],

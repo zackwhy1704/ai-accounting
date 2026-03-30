@@ -135,6 +135,246 @@ class InvoiceResponse(BaseModel):
     model_config = {"from_attributes": True}
 
 
+# ── Quotation ──
+class QuotationLineItemCreate(BaseModel):
+    description: str
+    quantity: float = 1.0
+    unit_price: float
+    tax_rate: float = 0.0
+    discount: float = 0.0
+    account_id: UUID | None = None
+
+class QuotationCreate(BaseModel):
+    contact_id: UUID
+    issue_date: datetime
+    expiry_date: datetime
+    reference: str | None = None
+    currency: str = "MYR"
+    notes: str | None = None
+    terms: str | None = None
+    line_items: list[QuotationLineItemCreate]
+
+class QuotationResponse(BaseModel):
+    id: UUID
+    quotation_number: str
+    contact_id: UUID
+    status: str
+    issue_date: datetime
+    expiry_date: datetime
+    reference: str | None
+    subtotal: float
+    discount_amount: float
+    tax_amount: float
+    total: float
+    currency: str
+    notes: str | None
+    terms: str | None
+    created_at: datetime
+    model_config = {"from_attributes": True}
+
+
+# ── Sales Order ──
+class SalesOrderCreate(BaseModel):
+    contact_id: UUID
+    quotation_id: UUID | None = None
+    issue_date: datetime
+    delivery_date: datetime | None = None
+    reference: str | None = None
+    currency: str = "MYR"
+    notes: str | None = None
+    line_items: list[QuotationLineItemCreate]
+
+class SalesOrderResponse(BaseModel):
+    id: UUID
+    order_number: str
+    contact_id: UUID
+    quotation_id: UUID | None
+    status: str
+    issue_date: datetime
+    delivery_date: datetime | None
+    reference: str | None
+    subtotal: float
+    discount_amount: float
+    tax_amount: float
+    total: float
+    currency: str
+    notes: str | None
+    created_at: datetime
+    model_config = {"from_attributes": True}
+
+
+# ── Delivery Order ──
+class DeliveryOrderLineItemCreate(BaseModel):
+    description: str
+    quantity: float = 1.0
+    unit_price: float
+    tax_rate: float = 0.0
+
+class DeliveryOrderCreate(BaseModel):
+    contact_id: UUID
+    invoice_id: UUID | None = None
+    quotation_id: UUID | None = None
+    sales_order_id: UUID | None = None
+    delivery_date: datetime
+    ship_to_address: str | None = None
+    deliver_to_address: str | None = None
+    reference: str | None = None
+    currency: str = "MYR"
+    notes: str | None = None
+    line_items: list[DeliveryOrderLineItemCreate]
+
+class DeliveryOrderResponse(BaseModel):
+    id: UUID
+    delivery_number: str
+    contact_id: UUID
+    invoice_id: UUID | None
+    quotation_id: UUID | None
+    sales_order_id: UUID | None
+    status: str
+    delivery_date: datetime
+    ship_to_address: str | None
+    deliver_to_address: str | None
+    reference: str | None
+    subtotal: float
+    tax_amount: float
+    total: float
+    currency: str
+    notes: str | None
+    created_at: datetime
+    model_config = {"from_attributes": True}
+
+
+# ── Credit Note ──
+class CreditNoteLineItemCreate(BaseModel):
+    description: str
+    quantity: float = 1.0
+    unit_price: float
+    tax_rate: float = 0.0
+    discount: float = 0.0
+    account_id: UUID | None = None
+
+class CreditApplicationCreate(BaseModel):
+    invoice_id: UUID
+    amount: float
+
+class CreditNoteCreate(BaseModel):
+    contact_id: UUID
+    invoice_id: UUID | None = None
+    issue_date: datetime
+    reference: str | None = None
+    currency: str = "MYR"
+    notes: str | None = None
+    line_items: list[CreditNoteLineItemCreate]
+    credit_applications: list[CreditApplicationCreate] = []
+
+class CreditNoteResponse(BaseModel):
+    id: UUID
+    credit_note_number: str
+    contact_id: UUID
+    invoice_id: UUID | None
+    status: str
+    issue_date: datetime
+    reference: str | None
+    subtotal: float
+    discount_amount: float
+    tax_amount: float
+    total: float
+    credit_applied: float
+    currency: str
+    notes: str | None
+    created_at: datetime
+    model_config = {"from_attributes": True}
+
+
+# ── Debit Note ──
+class DebitNoteCreate(BaseModel):
+    contact_id: UUID
+    invoice_id: UUID
+    issue_date: datetime
+    reference: str | None = None
+    currency: str = "MYR"
+    notes: str | None = None
+    line_items: list[CreditNoteLineItemCreate]
+
+class DebitNoteResponse(BaseModel):
+    id: UUID
+    debit_note_number: str
+    contact_id: UUID
+    invoice_id: UUID
+    status: str
+    issue_date: datetime
+    reference: str | None
+    subtotal: float
+    discount_amount: float
+    tax_amount: float
+    total: float
+    currency: str
+    notes: str | None
+    created_at: datetime
+    model_config = {"from_attributes": True}
+
+
+# ── Sales Payment ──
+class PaymentAllocationCreate(BaseModel):
+    invoice_id: UUID
+    amount: float
+
+class SalesPaymentCreate(BaseModel):
+    contact_id: UUID
+    payment_date: datetime
+    payment_method: str = "bank"
+    reference: str | None = None
+    amount: float
+    bank_account_id: UUID | None = None
+    currency: str = "MYR"
+    notes: str | None = None
+    allocations: list[PaymentAllocationCreate] = []
+
+class SalesPaymentResponse(BaseModel):
+    id: UUID
+    payment_number: str
+    contact_id: UUID
+    status: str
+    payment_date: datetime
+    payment_method: str
+    reference: str | None
+    amount: float
+    bank_account_id: UUID | None
+    currency: str
+    notes: str | None
+    created_at: datetime
+    model_config = {"from_attributes": True}
+
+
+# ── Sales Refund ──
+class SalesRefundCreate(BaseModel):
+    contact_id: UUID
+    credit_note_id: UUID | None = None
+    refund_date: datetime
+    refund_method: str = "bank"
+    reference: str | None = None
+    amount: float
+    bank_account_id: UUID | None = None
+    currency: str = "MYR"
+    notes: str | None = None
+
+class SalesRefundResponse(BaseModel):
+    id: UUID
+    refund_number: str
+    contact_id: UUID
+    credit_note_id: UUID | None
+    status: str
+    refund_date: datetime
+    refund_method: str
+    reference: str | None
+    amount: float
+    bank_account_id: UUID | None
+    currency: str
+    notes: str | None
+    created_at: datetime
+    model_config = {"from_attributes": True}
+
+
 # ── Bill ──
 class BillCreate(BaseModel):
     contact_id: UUID

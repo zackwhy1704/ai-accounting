@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import api from './api'
-import type { Invoice, Bill, Contact, Document, DashboardData, Account, BillingUsage, BillingPlan, Organization, UserOrgMembership, OnboardingData, FirmSettings, FirmClientOrg, FirmDashboard, SlugCheck } from '../types'
+import type { Invoice, Bill, Contact, Document, DashboardData, Account, BillingUsage, BillingPlan, Organization, UserOrgMembership, OnboardingData, FirmSettings, FirmClientOrg, FirmDashboard, SlugCheck, Quotation, SalesOrder, DeliveryOrder, CreditNote, DebitNote, SalesPayment, SalesRefund } from '../types'
 
 // Dashboard
 export function useDashboard() {
@@ -23,6 +23,143 @@ export function useCreateInvoice() {
   return useMutation({
     mutationFn: (data: Record<string, unknown>) => api.post('/invoices', data).then(r => r.data),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['invoices'] }),
+  })
+}
+
+// Quotations
+export function useQuotations(status?: string) {
+  return useQuery<Quotation[]>({
+    queryKey: ['quotations', status],
+    queryFn: () => api.get('/quotations', { params: status ? { status } : {} }).then(r => r.data),
+  })
+}
+
+export function useCreateQuotation() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (data: Record<string, unknown>) => api.post('/quotations', data).then(r => r.data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['quotations'] }),
+  })
+}
+
+export function useConvertQuotation() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, target }: { id: string; target: string }) => api.post(`/quotations/${id}/convert`, { target }).then(r => r.data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['quotations'] })
+      qc.invalidateQueries({ queryKey: ['invoices'] })
+      qc.invalidateQueries({ queryKey: ['delivery-orders'] })
+      qc.invalidateQueries({ queryKey: ['sales-orders'] })
+    },
+  })
+}
+
+// Sales Orders
+export function useSalesOrders(status?: string) {
+  return useQuery<SalesOrder[]>({
+    queryKey: ['sales-orders', status],
+    queryFn: () => api.get('/sales-orders', { params: status ? { status } : {} }).then(r => r.data),
+  })
+}
+
+export function useCreateSalesOrder() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (data: Record<string, unknown>) => api.post('/sales-orders', data).then(r => r.data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['sales-orders'] }),
+  })
+}
+
+// Delivery Orders
+export function useDeliveryOrders(status?: string) {
+  return useQuery<DeliveryOrder[]>({
+    queryKey: ['delivery-orders', status],
+    queryFn: () => api.get('/delivery-orders', { params: status ? { status } : {} }).then(r => r.data),
+  })
+}
+
+export function useCreateDeliveryOrder() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (data: Record<string, unknown>) => api.post('/delivery-orders', data).then(r => r.data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['delivery-orders'] }),
+  })
+}
+
+// Credit Notes
+export function useCreditNotes(status?: string) {
+  return useQuery<CreditNote[]>({
+    queryKey: ['credit-notes', status],
+    queryFn: () => api.get('/credit-notes', { params: status ? { status } : {} }).then(r => r.data),
+  })
+}
+
+export function useCreateCreditNote() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (data: Record<string, unknown>) => api.post('/credit-notes', data).then(r => r.data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['credit-notes'] })
+      qc.invalidateQueries({ queryKey: ['invoices'] })
+    },
+  })
+}
+
+// Debit Notes
+export function useDebitNotes(status?: string) {
+  return useQuery<DebitNote[]>({
+    queryKey: ['debit-notes', status],
+    queryFn: () => api.get('/debit-notes', { params: status ? { status } : {} }).then(r => r.data),
+  })
+}
+
+export function useCreateDebitNote() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (data: Record<string, unknown>) => api.post('/debit-notes', data).then(r => r.data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['debit-notes'] })
+      qc.invalidateQueries({ queryKey: ['invoices'] })
+    },
+  })
+}
+
+// Sales Payments
+export function useSalesPayments(status?: string) {
+  return useQuery<SalesPayment[]>({
+    queryKey: ['sales-payments', status],
+    queryFn: () => api.get('/sales-payments', { params: status ? { status } : {} }).then(r => r.data),
+  })
+}
+
+export function useCreateSalesPayment() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (data: Record<string, unknown>) => api.post('/sales-payments', data).then(r => r.data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['sales-payments'] })
+      qc.invalidateQueries({ queryKey: ['invoices'] })
+    },
+  })
+}
+
+// Sales Refunds
+export function useSalesRefunds(status?: string) {
+  return useQuery<SalesRefund[]>({
+    queryKey: ['sales-refunds', status],
+    queryFn: () => api.get('/sales-refunds', { params: status ? { status } : {} }).then(r => r.data),
+  })
+}
+
+export function useCreateSalesRefund() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (data: Record<string, unknown>) => api.post('/sales-refunds', data).then(r => r.data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['sales-refunds'] })
+      qc.invalidateQueries({ queryKey: ['credit-notes'] })
+    },
   })
 }
 
