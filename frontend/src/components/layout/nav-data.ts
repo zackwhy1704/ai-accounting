@@ -78,5 +78,13 @@ export const navItems: NavItem[] = [
       { labelKey: "nav.firmSettings", href: "/firm/settings" },
     ],
   },
-  { labelKey: "nav.controlPanel", href: "/settings", icon: "settings" },
+  {
+    labelKey: "nav.controlPanel",
+    href: "/settings",
+    icon: "settings",
+    children: [
+      { labelKey: "nav.invoiceTemplates", href: "/settings/invoice-templates" },
+      { labelKey: "nav.customFields", href: "/settings/custom-fields" },
+    ],
+  },
 ]

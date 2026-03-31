@@ -1,5 +1,5 @@
 import { useState } from "react"
-import { BarChart3, TrendingUp, Users, Building2, Scale, Loader2, Download } from "lucide-react"
+import { TrendingUp, Users, Building2, Scale, Loader2, Download } from "lucide-react"
 import { Card } from "../../components/ui/card"
 import { Button } from "../../components/ui/button"
 import { Input } from "../../components/ui/input"

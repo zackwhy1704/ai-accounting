@@ -1,5 +1,5 @@
 import { useState } from "react"
-import { Plus, Zap, MoreHorizontal, Toggle } from "lucide-react"
+import { Plus, Zap, MoreHorizontal } from "lucide-react"
 import { useBankRules, useAccounts, useContacts } from "../../lib/hooks"
 import { formatDate } from "../../lib/utils"
 import { Card } from "../../components/ui/card"

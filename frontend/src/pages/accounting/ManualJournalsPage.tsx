@@ -1,6 +1,6 @@
-import { useState } from "react"
+
 import { useNavigate } from "react-router-dom"
-import { Plus, BookOpen, MoreHorizontal, CheckCircle, XCircle } from "lucide-react"
+import { Plus, BookOpen, MoreHorizontal } from "lucide-react"
 import { useManualJournals } from "../../lib/hooks"
 import { formatDate, formatCurrency } from "../../lib/utils"
 import { Card } from "../../components/ui/card"

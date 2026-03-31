@@ -1,9 +1,9 @@
 import { useEffect, useState } from "react"
 import { useParams } from "react-router-dom"
-import { CreditCard, Loader2, CheckCircle2, XCircle } from "lucide-react"
+import { CreditCard, Loader2, XCircle } from "lucide-react"
 import { Button } from "../../components/ui/button"
 import { Card } from "../../components/ui/card"
-import axios from "axios"
+import axios from "axios"  // direct axios ok for public page
 
 interface PaymentLinkData {
   token: string

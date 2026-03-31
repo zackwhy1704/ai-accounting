@@ -1034,3 +1034,61 @@ class VendorCredit(Base):
         UniqueConstraint("organization_id", "vendor_credit_number", name="uq_org_vendor_credit_number"),
         Index("ix_vendor_credits_org_status", "organization_id", "status"),
     )
+
+
+# ──────────────────────────────────────────────
+# Custom Fields (per-org, per-entity-type)
+# ──────────────────────────────────────────────
+class CustomField(Base):
+    __tablename__ = "custom_fields"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=new_uuid)
+    organization_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("organizations.id", ondelete="CASCADE"), index=True)
+    entity_type: Mapped[str] = mapped_column(String(50))   # invoice | bill | contact | product | quotation
+    field_name: Mapped[str] = mapped_column(String(100))
+    field_label: Mapped[str] = mapped_column(String(100))
+    field_type: Mapped[str] = mapped_column(String(20))    # text | number | date | select | checkbox
+    is_required: Mapped[bool] = mapped_column(Boolean, default=False)
+    options: Mapped[dict | None] = mapped_column(JSONB)    # for select fields: {"choices": ["A","B","C"]}
+    default_value: Mapped[str | None] = mapped_column(String(500))
+    sort_order: Mapped[int] = mapped_column(Integer, default=0)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+    __table_args__ = (
+        UniqueConstraint("organization_id", "entity_type", "field_name", name="uq_org_entity_field"),
+        Index("ix_custom_fields_org_entity", "organization_id", "entity_type"),
+    )
+
+
+# ──────────────────────────────────────────────
+# Invoice Templates (custom branding / layout)
+# ──────────────────────────────────────────────
+class InvoiceTemplate(Base):
+    __tablename__ = "invoice_templates"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=new_uuid)
+    organization_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("organizations.id", ondelete="CASCADE"), index=True)
+    name: Mapped[str] = mapped_column(String(100))
+    is_default: Mapped[bool] = mapped_column(Boolean, default=False)
+    # Layout: classic | modern | minimal | branded
+    layout: Mapped[str] = mapped_column(String(20), default="classic")
+    # Colors
+    primary_color: Mapped[str] = mapped_column(String(7), default="#4D63FF")
+    secondary_color: Mapped[str] = mapped_column(String(7), default="#F8FAFF")
+    # Logo / branding
+    logo_url: Mapped[str | None] = mapped_column(String(1000))
+    show_logo: Mapped[bool] = mapped_column(Boolean, default=True)
+    # Content toggles
+    show_payment_terms: Mapped[bool] = mapped_column(Boolean, default=True)
+    show_notes: Mapped[bool] = mapped_column(Boolean, default=True)
+    show_bank_details: Mapped[bool] = mapped_column(Boolean, default=True)
+    show_tax_breakdown: Mapped[bool] = mapped_column(Boolean, default=True)
+    show_signature: Mapped[bool] = mapped_column(Boolean, default=False)
+    # Custom text
+    header_text: Mapped[str | None] = mapped_column(String(500))
+    footer_text: Mapped[str | None] = mapped_column(String(500))
+    terms_text: Mapped[str | None] = mapped_column(Text)
+    bank_details_text: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)

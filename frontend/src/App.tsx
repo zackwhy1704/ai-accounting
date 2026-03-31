@@ -43,6 +43,8 @@ import ManualJournalsPage from './pages/accounting/ManualJournalsPage'
 import ReportsPage from './pages/reports/ReportsPage'
 import NewManualJournalPage from './pages/accounting/NewManualJournalPage'
 import NewProductPage from './pages/products/NewProductPage'
+import InvoiceTemplatesPage from './pages/settings/InvoiceTemplatesPage'
+import CustomFieldsPage from './pages/settings/CustomFieldsPage'
 
 function ProtectedRoute({ children, allowOnboarding }: { children: React.ReactNode; allowOnboarding?: boolean }) {
   const { token, isLoading, onboardingCompleted } = useAuth()
@@ -125,6 +127,8 @@ function App() {
         <Route path="/ai-assistant" element={<AIAssistantPage />} />
         <Route path="/billing" element={<BillingPage />} />
         <Route path="/settings" element={<SettingsPage />} />
+        <Route path="/settings/invoice-templates" element={<InvoiceTemplatesPage />} />
+        <Route path="/settings/custom-fields" element={<CustomFieldsPage />} />
 
         {/* Firm / Practice */}
         <Route path="/firm/settings" element={<FirmSettingsPage />} />
