@@ -160,8 +160,7 @@ export default function ClientPortalPage() {
         {mode === "landing" && (
           <div className="w-full max-w-lg text-center">
             <div
-              className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl text-white"
-              style={{ background: `linear-gradient(135deg, ${primary}, ${secondary})` }}
+              className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-primary text-white"
             >
               <Building2 className="h-8 w-8" />
             </div>
@@ -174,8 +173,7 @@ export default function ClientPortalPage() {
             <div className="mt-6 space-y-3">
               <button
                 onClick={() => switchMode("signup")}
-                className="flex w-full items-center justify-center gap-2 rounded-xl py-3 text-sm font-medium text-white transition-colors"
-                style={{ backgroundColor: primary }}
+                className="flex w-full items-center justify-center gap-2 rounded-xl bg-primary py-3 text-sm font-medium text-white transition-colors hover:bg-primary/90"
               >
                 <UserPlus className="h-4 w-4" /> Create Account & Get Started
                 <ArrowRight className="h-4 w-4" />
@@ -251,8 +249,7 @@ export default function ClientPortalPage() {
               <button
                 type="submit"
                 disabled={login.isPending}
-                className="flex w-full items-center justify-center gap-2 rounded-xl py-3 text-sm font-medium text-white disabled:opacity-50 transition-colors"
-                style={{ backgroundColor: primary }}
+                className="flex w-full items-center justify-center gap-2 rounded-xl bg-primary py-3 text-sm font-medium text-white disabled:opacity-50 transition-colors hover:bg-primary/90"
               >
                 {login.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <LogIn className="h-4 w-4" />}
                 Sign In
@@ -363,8 +360,7 @@ export default function ClientPortalPage() {
               <button
                 type="submit"
                 disabled={signup.isPending}
-                className="flex w-full items-center justify-center gap-2 rounded-xl py-3 text-sm font-medium text-white disabled:opacity-50 transition-colors"
-                style={{ backgroundColor: primary }}
+                className="flex w-full items-center justify-center gap-2 rounded-xl bg-primary py-3 text-sm font-medium text-white disabled:opacity-50 transition-colors hover:bg-primary/90"
               >
                 {signup.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <UserPlus className="h-4 w-4" />}
                 Create Account
@@ -437,8 +433,7 @@ export default function ClientPortalPage() {
 
             <button
               onClick={() => navigate("/dashboard")}
-              className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl py-3 text-sm font-medium text-white transition-colors"
-              style={{ backgroundColor: primary }}
+              className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl bg-primary py-3 text-sm font-medium text-white transition-colors hover:bg-primary/90"
             >
               Go to Dashboard <ArrowRight className="h-4 w-4" />
             </button>
