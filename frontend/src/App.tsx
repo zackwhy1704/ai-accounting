@@ -33,6 +33,7 @@ import FirmSettingsPage from './pages/firm/FirmSettingsPage'
 import PracticeDashboardPage from './pages/firm/PracticeDashboardPage'
 import ClientPortalPage from './pages/firm/ClientPortalPage'
 import AcceptInvitePage from './pages/firm/AcceptInvitePage'
+import PayPage from './pages/public/PayPage'
 import ProductsPage from './pages/products/ProductsPage'
 import RecurringInvoicesPage from './pages/sales/recurring/RecurringInvoicesPage'
 import VendorCreditsPage from './pages/purchases/VendorCreditsPage'
@@ -65,6 +66,7 @@ function App() {
       {/* Client portal — public, outside auth */}
       <Route path="/p/:slug" element={<ClientPortalPage />} />
       <Route path="/p/:slug/invite/:token" element={<AcceptInvitePage />} />
+      <Route path="/pay/:token" element={<PayPage />} />
       <Route path="/login" element={<LoginPage />} />
       <Route path="/onboarding" element={<ProtectedRoute allowOnboarding><OnboardingPage /></ProtectedRoute>} />
       <Route element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
