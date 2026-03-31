@@ -6,8 +6,9 @@ from uuid import UUID
 
 from app.core.database import get_db
 from app.core.security import get_current_user
-from app.models.models import ManualJournal, ManualJournalLine
+from app.models.models import ManualJournal, ManualJournalLine, Transaction, JournalEntry
 from app.schemas.schemas import ManualJournalCreate, ManualJournalResponse
+from .gl_helpers import revert_gl
 
 router = APIRouter(prefix="/manual-journals", tags=["manual-journals"])
 
@@ -121,6 +122,26 @@ async def post_journal(
     if journal.status != "draft":
         raise HTTPException(status_code=409, detail="Journal is already posted or void")
     journal.status = "posted"
+
+    # Post to GL ledger
+    txn = Transaction(
+        organization_id=current_user["org_id"],
+        date=journal.date,
+        description=journal.description or journal.journal_number,
+        reference=journal.reference or journal.journal_number,
+        source="manual_journal",
+        source_id=journal.id,
+    )
+    db.add(txn)
+    await db.flush()
+    for line in journal.lines:
+        db.add(JournalEntry(
+            transaction_id=txn.id,
+            account_id=line.account_id,
+            debit=round(float(line.debit), 2),
+            credit=round(float(line.credit), 2),
+        ))
+
     await db.commit()
     await db.refresh(journal)
     return journal
@@ -145,7 +166,18 @@ async def void_journal(
         raise HTTPException(status_code=404, detail="Journal not found")
     if journal.status == "void":
         raise HTTPException(status_code=409, detail="Journal already voided")
+    prev_status = journal.status
     journal.status = "void"
+
+    # Reverse GL if it was posted
+    if prev_status == "posted":
+        await revert_gl(
+            db, current_user["org_id"], journal_id, "manual_journal",
+            journal.date,
+            f"Reversal: Journal {journal.journal_number} voided",
+            journal.reference or journal.journal_number,
+        )
+
     await db.commit()
     await db.refresh(journal)
     return journal

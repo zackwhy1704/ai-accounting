@@ -4,8 +4,9 @@ from sqlalchemy import select, func
 from uuid import UUID
 from app.core.database import get_db
 from app.core.security import get_current_user
-from app.models.models import Bill, BillLineItem, Account, Transaction, JournalEntry
+from app.models.models import Bill, BillLineItem
 from app.schemas.schemas import BillCreate, BillResponse
+from .gl_helpers import post_gl, revert_gl
 
 router = APIRouter(prefix="/bills", tags=["Bills"])
 
@@ -70,39 +71,9 @@ async def create_bill(
         )
         db.add(line)
 
-    # Double-entry: Debit Expense, Credit Accounts Payable
-    ap_account = await db.execute(
-        select(Account).where(Account.organization_id == org_id, Account.code == "2000")
-    )
-    ap = ap_account.scalar_one_or_none()
-
-    expense_account = await db.execute(
-        select(Account).where(Account.organization_id == org_id, Account.code == "5000")
-    )
-    exp = expense_account.scalar_one_or_none()
-
-    if ap and exp:
-        txn = Transaction(
-            organization_id=org_id,
-            date=data.issue_date,
-            description=f"Bill {bill.bill_number}",
-            reference=bill.bill_number,
-            source="bill",
-            source_id=bill.id,
-        )
-        db.add(txn)
-        await db.flush()
-
-        db.add(JournalEntry(transaction_id=txn.id, account_id=exp.id, debit=subtotal, credit=0))
-        db.add(JournalEntry(transaction_id=txn.id, account_id=ap.id, debit=0, credit=subtotal + tax_amount))
-        if tax_amount > 0:
-            gst_input = await db.execute(
-                select(Account).where(Account.organization_id == org_id, Account.code == "1200")
-            )
-            gst = gst_input.scalar_one_or_none()
-            if gst:
-                db.add(JournalEntry(transaction_id=txn.id, account_id=gst.id, debit=tax_amount, credit=0))
-
+    # No GL entries at draft stage — posted on 'approved' status
+    await db.commit()
+    await db.refresh(bill)
     return bill
 
 
@@ -139,26 +110,34 @@ async def update_bill_status(
     if status not in valid_statuses:
         raise HTTPException(status_code=400, detail=f"Invalid status. Must be one of: {valid_statuses}")
 
+    prev_status = bill.status
     bill.status = status
 
-    if status == "paid" and bill.amount_paid < bill.total:
-        bill.amount_paid = bill.total
-        org_id = current_user["org_id"]
-        cash = (await db.execute(select(Account).where(Account.organization_id == org_id, Account.code == "1000"))).scalar_one_or_none()
-        ap = (await db.execute(select(Account).where(Account.organization_id == org_id, Account.code == "2000"))).scalar_one_or_none()
+    # draft/received → approved: post Dr Expense (+ Dr GST Input) / Cr AP
+    if status == "approved" and prev_status in ("draft", "received"):
+        subtotal = float(bill.subtotal)
+        tax_amount = float(bill.tax_amount)
+        total = float(bill.total)
+        entries = [
+            ("5000", subtotal, 0),   # Dr Expense
+            ("2000", 0, total),      # Cr Accounts Payable
+        ]
+        if tax_amount > 0:
+            entries.append(("1200", tax_amount, 0))  # Dr GST Input (ITC)
+        await post_gl(
+            db, org_id, bill.issue_date,
+            f"Bill {bill.bill_number}",
+            bill.bill_number, "bill", bill.id, entries,
+        )
 
-        if cash and ap:
-            txn = Transaction(
-                organization_id=org_id,
-                date=bill.due_date,
-                description=f"Payment for {bill.bill_number}",
-                reference=bill.bill_number,
-                source="bill",
-                source_id=bill.id,
-            )
-            db.add(txn)
-            await db.flush()
-            db.add(JournalEntry(transaction_id=txn.id, account_id=ap.id, debit=float(bill.total), credit=0))
-            db.add(JournalEntry(transaction_id=txn.id, account_id=cash.id, debit=0, credit=float(bill.total)))
+    # cancelled: reverse any posted GL entries
+    elif status == "cancelled" and prev_status not in ("draft", "received"):
+        await revert_gl(
+            db, org_id, bill.id, "bill",
+            bill.issue_date,
+            f"Reversal: Bill {bill.bill_number} cancelled",
+            bill.bill_number,
+        )
 
+    await db.commit()
     return {"status": bill.status}

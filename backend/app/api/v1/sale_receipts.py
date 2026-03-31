@@ -7,6 +7,7 @@ from app.core.database import get_db
 from app.core.security import get_current_user
 from app.models.models import SaleReceipt
 from app.schemas.schemas import SaleReceiptCreate, SaleReceiptResponse
+from .gl_helpers import post_gl, revert_gl
 
 router = APIRouter(prefix="/sale-receipts", tags=["sale-receipts"])
 
@@ -62,6 +63,21 @@ async def create_sale_receipt(
         total=total,
     )
     db.add(receipt)
+    await db.flush()
+
+    # GL: Dr Cash / Cr Revenue (+ Cr GST Payable if tax)
+    entries = [
+        ("1000", total, 0),        # Dr Cash/Bank
+        ("4000", 0, subtotal),     # Cr Revenue
+    ]
+    if tax_amount > 0:
+        entries.append(("2100", 0, tax_amount))  # Cr GST Payable
+    await post_gl(
+        db, current_user["org_id"], payload.receipt_date,
+        f"Sale Receipt {receipt_number}",
+        receipt_number, "sale_receipt", receipt.id, entries,
+    )
+
     await db.commit()
     await db.refresh(receipt)
     return receipt
@@ -103,6 +119,12 @@ async def void_sale_receipt(
     if receipt.status == "void":
         raise HTTPException(status_code=409, detail="Already voided")
     receipt.status = "void"
+    await revert_gl(
+        db, current_user["org_id"], receipt_id, "sale_receipt",
+        receipt.receipt_date,
+        f"Reversal: Sale Receipt {receipt.receipt_number} voided",
+        receipt.receipt_number,
+    )
     await db.commit()
     await db.refresh(receipt)
     return receipt

@@ -7,6 +7,7 @@ from app.core.database import get_db
 from app.core.security import get_current_user
 from app.models.models import VendorCredit
 from app.schemas.schemas import VendorCreditCreate, VendorCreditResponse
+from .gl_helpers import post_gl, revert_gl
 
 router = APIRouter(prefix="/vendor-credits", tags=["vendor-credits"])
 
@@ -61,6 +62,16 @@ async def create_vendor_credit(
         total=total,
     )
     db.add(vc)
+    await db.flush()
+
+    # GL: Dr AP / Cr Vendor Credit Liability
+    await post_gl(
+        db, current_user["org_id"], payload.issue_date,
+        f"Vendor Credit {vc_number}",
+        vc_number, "vendor_credit", vc.id,
+        [("2000", total, 0), ("2200", 0, total)],
+    )
+
     await db.commit()
     await db.refresh(vc)
     return vc
@@ -102,6 +113,12 @@ async def void_vendor_credit(
     if vc.status == "void":
         raise HTTPException(status_code=409, detail="Already voided")
     vc.status = "void"
+    await revert_gl(
+        db, current_user["org_id"], vc_id, "vendor_credit",
+        vc.issue_date,
+        f"Reversal: Vendor Credit {vc.vendor_credit_number} voided",
+        vc.vendor_credit_number,
+    )
     await db.commit()
     await db.refresh(vc)
     return vc

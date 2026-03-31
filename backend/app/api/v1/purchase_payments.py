@@ -10,6 +10,7 @@ from pydantic import BaseModel
 from app.core.database import get_db
 from app.core.security import get_current_user
 from app.models.models import PurchasePayment
+from .gl_helpers import post_gl, revert_gl
 
 router = APIRouter(prefix="/purchase-payments", tags=["purchase-payments"])
 
@@ -85,12 +86,23 @@ async def create_purchase_payment(
     db: AsyncSession = Depends(get_db),
     current_user: dict = Depends(get_current_user),
 ):
+    org_id = current_user["org_id"]
     payment = PurchasePayment(
-        organization_id=current_user["org_id"],
+        organization_id=org_id,
         payment_no=_gen_payment_no(),
         **payload.model_dump(),
     )
     db.add(payment)
+    await db.flush()
+
+    # GL: Dr AP / Cr Cash (paying a vendor reduces AP and cash)
+    await post_gl(
+        db, org_id, payload.payment_date,
+        f"Purchase payment {payment.payment_no}",
+        payment.payment_no, "purchase_payment", payment.id,
+        [("2000", float(payload.amount), 0), ("1000", 0, float(payload.amount))],
+    )
+
     await db.commit()
     await db.refresh(payment)
     return payment
@@ -153,4 +165,10 @@ async def void_purchase_payment(
     if not payment:
         raise HTTPException(status_code=404, detail="Purchase payment not found")
     payment.status = "void"
+    await revert_gl(
+        db, current_user["org_id"], payment_id, "purchase_payment",
+        payment.payment_date,
+        f"Reversal: Purchase payment {payment.payment_no} voided",
+        payment.payment_no,
+    )
     await db.commit()

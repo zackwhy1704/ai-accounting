@@ -10,6 +10,7 @@ from pydantic import BaseModel
 from app.core.database import get_db
 from app.core.security import get_current_user
 from app.models.models import PurchaseRefund
+from .gl_helpers import post_gl, revert_gl
 
 router = APIRouter(prefix="/purchase-refunds", tags=["purchase-refunds"])
 
@@ -85,12 +86,23 @@ async def create_purchase_refund(
     db: AsyncSession = Depends(get_db),
     current_user: dict = Depends(get_current_user),
 ):
+    org_id = current_user["org_id"]
     refund = PurchaseRefund(
-        organization_id=current_user["org_id"],
+        organization_id=org_id,
         refund_no=_gen_refund_no(),
         **payload.model_dump(),
     )
     db.add(refund)
+    await db.flush()
+
+    # GL: Dr Cash / Cr AP (vendor refunds us — cash increases, AP decreases)
+    await post_gl(
+        db, org_id, payload.refund_date,
+        f"Purchase refund {refund.refund_no}",
+        refund.refund_no, "purchase_refund", refund.id,
+        [("1000", float(payload.amount), 0), ("2000", 0, float(payload.amount))],
+    )
+
     await db.commit()
     await db.refresh(refund)
     return refund
@@ -153,4 +165,10 @@ async def void_purchase_refund(
     if not refund:
         raise HTTPException(status_code=404, detail="Purchase refund not found")
     refund.status = "void"
+    await revert_gl(
+        db, current_user["org_id"], refund_id, "purchase_refund",
+        refund.refund_date,
+        f"Reversal: Purchase refund {refund.refund_no} voided",
+        refund.refund_no,
+    )
     await db.commit()

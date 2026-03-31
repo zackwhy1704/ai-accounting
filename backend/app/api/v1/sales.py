@@ -8,8 +8,9 @@ from app.models.models import (
     Quotation, QuotationLineItem, SalesOrder, SalesOrderLineItem,
     DeliveryOrder, DeliveryOrderLineItem, CreditNote, CreditNoteLineItem,
     CreditApplication as CreditApplicationModel, DebitNote, DebitNoteLineItem,
-    SalesPayment, PaymentAllocation, SalesRefund, Invoice, Account, Transaction, JournalEntry,
+    SalesPayment, PaymentAllocation, SalesRefund, Invoice,
 )
+from .gl_helpers import post_gl, revert_gl
 from app.schemas.schemas import (
     QuotationCreate, QuotationResponse, SalesOrderCreate, SalesOrderResponse,
     DeliveryOrderCreate, DeliveryOrderResponse, CreditNoteCreate, CreditNoteResponse,
@@ -221,6 +222,21 @@ async def create_credit_note(data: CreditNoteCreate, current_user: dict = Depend
     else:
         obj.status = "issued"
 
+    # GL: Dr Revenue / Cr AR (+ Dr GST Payable if tax)
+    entries = [
+        ("4000", float(subtotal - discount_total), 0),  # Dr Revenue
+        ("1100", 0, float(total)),                       # Cr AR
+    ]
+    if tax_amount > 0:
+        entries.append(("2100", float(tax_amount), 0))  # Dr GST Payable
+    await post_gl(
+        db, org_id, data.issue_date,
+        f"Credit Note {obj.credit_note_number}",
+        obj.credit_note_number, "credit_note", obj.id, entries,
+    )
+
+    await db.commit()
+    await db.refresh(obj)
     return obj
 
 
@@ -259,13 +275,23 @@ async def create_debit_note(data: DebitNoteCreate, current_user: dict = Depends(
             amount=item.quantity * item.unit_price, account_id=item.account_id, sort_order=i,
         ))
 
-    # Increase the linked invoice total
-    inv_result = await db.execute(select(Invoice).where(Invoice.id == data.invoice_id))
-    inv = inv_result.scalar_one_or_none()
-    if inv:
-        inv.total = float(inv.total) + float(obj.total)
-        inv.subtotal = float(inv.subtotal) + float(obj.subtotal)
+    # GL: Dr AR / Cr Revenue (debit note increases what customer owes)
+    dn_total = float(subtotal - discount_total + tax_amount)
+    dn_subtotal = float(subtotal - discount_total)
+    entries = [
+        ("1100", dn_total, 0),       # Dr AR
+        ("4000", 0, dn_subtotal),    # Cr Revenue
+    ]
+    if tax_amount > 0:
+        entries.append(("2100", 0, float(tax_amount)))  # Cr GST Payable
+    await post_gl(
+        db, org_id, data.issue_date,
+        f"Debit Note {obj.debit_note_number}",
+        obj.debit_note_number, "debit_note", obj.id, entries,
+    )
 
+    await db.commit()
+    await db.refresh(obj)
     return obj
 
 
@@ -306,22 +332,16 @@ async def create_sales_payment(data: SalesPaymentCreate, current_user: dict = De
             if inv.amount_paid >= float(inv.total):
                 inv.status = "paid"
 
-    # Create journal entry: Debit Cash/Bank, Credit AR
-    cash_account = await db.execute(select(Account).where(Account.organization_id == org_id, Account.code == "1000"))
-    cash = cash_account.scalar_one_or_none()
-    ar_account = await db.execute(select(Account).where(Account.organization_id == org_id, Account.code == "1100"))
-    ar = ar_account.scalar_one_or_none()
-    if cash and ar:
-        txn = Transaction(
-            organization_id=org_id, date=data.payment_date,
-            description=f"Payment received {obj.payment_number}",
-            reference=obj.payment_number, source="payment", source_id=obj.id,
-        )
-        db.add(txn)
-        await db.flush()
-        db.add(JournalEntry(transaction_id=txn.id, account_id=cash.id, debit=data.amount, credit=0))
-        db.add(JournalEntry(transaction_id=txn.id, account_id=ar.id, debit=0, credit=data.amount))
+    # GL: Dr Cash/Bank / Cr AR
+    await post_gl(
+        db, org_id, data.payment_date,
+        f"Payment received {obj.payment_number}",
+        obj.payment_number, "payment", obj.id,
+        [("1000", float(data.amount), 0), ("1100", 0, float(data.amount))],
+    )
 
+    await db.commit()
+    await db.refresh(obj)
     return obj
 
 
@@ -352,20 +372,14 @@ async def create_sales_refund(data: SalesRefundCreate, current_user: dict = Depe
     db.add(obj)
     await db.flush()
 
-    # Create journal entry: Debit AR, Credit Cash/Bank
-    cash_account = await db.execute(select(Account).where(Account.organization_id == org_id, Account.code == "1000"))
-    cash = cash_account.scalar_one_or_none()
-    ar_account = await db.execute(select(Account).where(Account.organization_id == org_id, Account.code == "1100"))
-    ar = ar_account.scalar_one_or_none()
-    if cash and ar:
-        txn = Transaction(
-            organization_id=org_id, date=data.refund_date,
-            description=f"Refund {obj.refund_number}",
-            reference=obj.refund_number, source="refund", source_id=obj.id,
-        )
-        db.add(txn)
-        await db.flush()
-        db.add(JournalEntry(transaction_id=txn.id, account_id=ar.id, debit=data.amount, credit=0))
-        db.add(JournalEntry(transaction_id=txn.id, account_id=cash.id, debit=0, credit=data.amount))
+    # GL: Dr AR / Cr Cash/Bank (refund reduces cash, reinstates AR)
+    await post_gl(
+        db, org_id, data.refund_date,
+        f"Refund {obj.refund_number}",
+        obj.refund_number, "refund", obj.id,
+        [("1100", float(data.amount), 0), ("1000", 0, float(data.amount))],
+    )
 
+    await db.commit()
+    await db.refresh(obj)
     return obj

@@ -4,8 +4,9 @@ from sqlalchemy import select, func
 from uuid import UUID
 from app.core.database import get_db
 from app.core.security import get_current_user
-from app.models.models import Invoice, InvoiceLineItem, Contact, Transaction, JournalEntry, Account
+from app.models.models import Invoice, InvoiceLineItem
 from app.schemas.schemas import InvoiceCreate, InvoiceResponse
+from .gl_helpers import post_gl, revert_gl
 
 router = APIRouter(prefix="/invoices", tags=["Invoices"])
 
@@ -63,58 +64,21 @@ async def create_invoice(
     db.add(invoice)
     await db.flush()
 
-    # Add line items
+    # Add line items — no GL entries at draft stage
     for i, item in enumerate(data.line_items):
-        amount = item.quantity * item.unit_price
-        line = InvoiceLineItem(
+        db.add(InvoiceLineItem(
             invoice_id=invoice.id,
             description=item.description,
             quantity=item.quantity,
             unit_price=item.unit_price,
             tax_rate=item.tax_rate,
-            amount=amount,
+            amount=item.quantity * item.unit_price,
             account_id=item.account_id,
             sort_order=i,
-        )
-        db.add(line)
+        ))
 
-    # Create double-entry journal transaction
-    # Debit: Accounts Receivable, Credit: Revenue + GST Payable
-    ar_account = await db.execute(
-        select(Account).where(Account.organization_id == org_id, Account.code == "1100")
-    )
-    ar = ar_account.scalar_one_or_none()
-
-    revenue_account = await db.execute(
-        select(Account).where(Account.organization_id == org_id, Account.code == "4000")
-    )
-    rev = revenue_account.scalar_one_or_none()
-
-    if ar and rev:
-        txn = Transaction(
-            organization_id=org_id,
-            date=data.issue_date,
-            description=f"Invoice {invoice_number}",
-            reference=invoice_number,
-            source="invoice",
-            source_id=invoice.id,
-        )
-        db.add(txn)
-        await db.flush()
-
-        # Debit AR for total
-        db.add(JournalEntry(transaction_id=txn.id, account_id=ar.id, debit=subtotal + tax_amount, credit=0))
-        # Credit Revenue for subtotal
-        db.add(JournalEntry(transaction_id=txn.id, account_id=rev.id, debit=0, credit=subtotal))
-        # Credit GST Payable for tax
-        if tax_amount > 0:
-            gst_account = await db.execute(
-                select(Account).where(Account.organization_id == org_id, Account.code == "2100")
-            )
-            gst = gst_account.scalar_one_or_none()
-            if gst:
-                db.add(JournalEntry(transaction_id=txn.id, account_id=gst.id, debit=0, credit=tax_amount))
-
+    await db.commit()
+    await db.refresh(invoice)
     return invoice
 
 
@@ -151,28 +115,34 @@ async def update_invoice_status(
     if status not in valid_statuses:
         raise HTTPException(status_code=400, detail=f"Invalid status. Must be one of: {valid_statuses}")
 
+    prev_status = invoice.status
     invoice.status = status
 
-    # If paid, create payment journal entry
-    if status == "paid" and invoice.amount_paid < invoice.total:
-        invoice.amount_paid = invoice.total
-        # Debit: Cash, Credit: AR
-        org_id = current_user["org_id"]
-        cash = (await db.execute(select(Account).where(Account.organization_id == org_id, Account.code == "1000"))).scalar_one_or_none()
-        ar = (await db.execute(select(Account).where(Account.organization_id == org_id, Account.code == "1100"))).scalar_one_or_none()
+    # draft → sent: post Dr AR / Cr Revenue (+ Cr GST Payable)
+    if status == "sent" and prev_status == "draft":
+        subtotal = float(invoice.subtotal)
+        tax_amount = float(invoice.tax_amount)
+        total = float(invoice.total)
+        entries = [
+            ("1100", total, 0),
+            ("4000", 0, subtotal),
+        ]
+        if tax_amount > 0:
+            entries.append(("2100", 0, tax_amount))
+        await post_gl(
+            db, org_id, invoice.issue_date,
+            f"Invoice {invoice.invoice_number}",
+            invoice.invoice_number, "invoice", invoice.id, entries,
+        )
 
-        if cash and ar:
-            txn = Transaction(
-                organization_id=org_id,
-                date=invoice.due_date,
-                description=f"Payment received for {invoice.invoice_number}",
-                reference=invoice.invoice_number,
-                source="invoice",
-                source_id=invoice.id,
-            )
-            db.add(txn)
-            await db.flush()
-            db.add(JournalEntry(transaction_id=txn.id, account_id=cash.id, debit=float(invoice.total), credit=0))
-            db.add(JournalEntry(transaction_id=txn.id, account_id=ar.id, debit=0, credit=float(invoice.total)))
+    # cancelled: reverse any previously posted GL entries
+    elif status == "cancelled" and prev_status != "draft":
+        await revert_gl(
+            db, org_id, invoice.id, "invoice",
+            invoice.issue_date,
+            f"Reversal: Invoice {invoice.invoice_number} cancelled",
+            invoice.invoice_number,
+        )
 
+    await db.commit()
     return {"status": invoice.status}
