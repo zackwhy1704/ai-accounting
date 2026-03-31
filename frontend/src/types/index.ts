@@ -317,9 +317,6 @@ export interface FirmSettings {
   slug: string | null
   name: string
   logo_url: string | null
-  favicon_url: string | null
-  brand_primary_color: string | null
-  brand_secondary_color: string | null
   client_portal_enabled: boolean
   custom_domain: string | null
   firm_description: string | null
@@ -374,9 +371,6 @@ export interface FirmDashboard {
 export interface PortalInfo {
   firm_name: string
   logo_url: string | null
-  favicon_url: string | null
-  brand_primary_color: string
-  brand_secondary_color: string
   slug: string
   firm_description: string | null
   firm_website: string | null

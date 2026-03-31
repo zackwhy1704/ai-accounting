@@ -71,33 +71,35 @@ def _validate_slug(slug: str) -> str:
     return slug
 
 
-async def _require_firm(current_user: dict, db: AsyncSession) -> Organization:
-    """Verify current user's org is a firm."""
+async def _get_org(current_user: dict, db: AsyncSession) -> Organization:
+    """Return the current user's organization (any org type)."""
     result = await db.execute(
         select(Organization).where(Organization.id == current_user["org_id"])
     )
     org = result.scalar_one_or_none()
-    if not org or org.org_type != "firm":
-        raise HTTPException(403, "This feature is only available to accounting firms")
+    if not org:
+        raise HTTPException(404, "Organization not found")
     return org
 
 
-def _firm_settings_response(firm: Organization) -> dict:
-    """Build the standard firm settings response dict."""
+# Alias kept for firm-specific endpoints that still exist
+async def _require_firm(current_user: dict, db: AsyncSession) -> Organization:
+    return await _get_org(current_user, db)
+
+
+def _firm_settings_response(org: Organization) -> dict:
+    """Build the org settings/branding response dict."""
     return {
-        "slug": firm.slug,
-        "name": firm.name,
-        "logo_url": firm.logo_url,
-        "favicon_url": firm.favicon_url,
-        "brand_primary_color": firm.brand_primary_color,
-        "brand_secondary_color": firm.brand_secondary_color,
-        "client_portal_enabled": firm.client_portal_enabled,
-        "custom_domain": firm.custom_domain,
-        "firm_description": firm.firm_description,
-        "firm_contact_email": firm.firm_contact_email,
-        "firm_website": firm.firm_website,
-        "firm_support_email": firm.firm_support_email,
-        "portal_url": f"/p/{firm.slug}" if firm.slug else None,
+        "slug": org.slug,
+        "name": org.name,
+        "logo_url": org.logo_url,
+        "client_portal_enabled": org.client_portal_enabled,
+        "custom_domain": org.custom_domain,
+        "firm_description": org.firm_description,
+        "firm_contact_email": org.firm_contact_email,
+        "firm_website": org.firm_website,
+        "firm_support_email": org.firm_support_email,
+        "portal_url": f"/p/{org.slug}" if org.slug else None,
     }
 
 
@@ -106,9 +108,6 @@ def _firm_settings_response(firm: Organization) -> dict:
 # ──────────────────────────────────────────────
 class WhiteLabelSettings(BaseModel):
     slug: str | None = None
-    logo_url: str | None = None
-    brand_primary_color: str | None = None
-    brand_secondary_color: str | None = None
     client_portal_enabled: bool | None = None
     custom_domain: str | None = None
     firm_description: str | None = None
@@ -122,8 +121,8 @@ async def get_firm_settings(
     current_user: dict = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    firm = await _require_firm(current_user, db)
-    return _firm_settings_response(firm)
+    org = await _get_org(current_user, db)
+    return _firm_settings_response(org)
 
 
 @router.patch("/settings")
@@ -132,113 +131,76 @@ async def update_firm_settings(
     current_user: dict = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    firm = await _require_firm(current_user, db)
+    org = await _get_org(current_user, db)
 
     if data.slug is not None:
         slug = _validate_slug(data.slug)
         existing = await db.execute(
-            select(Organization).where(Organization.slug == slug, Organization.id != firm.id)
+            select(Organization).where(Organization.slug == slug, Organization.id != org.id)
         )
         if existing.scalar_one_or_none():
             raise HTTPException(400, f"Slug '{slug}' is already taken")
-        firm.slug = slug
+        org.slug = slug
 
-    if data.logo_url is not None:
-        firm.logo_url = data.logo_url
-    if data.brand_primary_color is not None:
-        firm.brand_primary_color = data.brand_primary_color
-    if data.brand_secondary_color is not None:
-        firm.brand_secondary_color = data.brand_secondary_color
     if data.client_portal_enabled is not None:
-        firm.client_portal_enabled = data.client_portal_enabled
+        org.client_portal_enabled = data.client_portal_enabled
     if data.custom_domain is not None:
-        # Validate uniqueness
         if data.custom_domain:
             existing = await db.execute(
                 select(Organization).where(
                     Organization.custom_domain == data.custom_domain,
-                    Organization.id != firm.id,
+                    Organization.id != org.id,
                 )
             )
             if existing.scalar_one_or_none():
                 raise HTTPException(400, "This custom domain is already in use")
-        firm.custom_domain = data.custom_domain or None
+        org.custom_domain = data.custom_domain or None
     if data.firm_description is not None:
-        firm.firm_description = data.firm_description
+        org.firm_description = data.firm_description
     if data.firm_contact_email is not None:
-        firm.firm_contact_email = data.firm_contact_email
+        org.firm_contact_email = data.firm_contact_email
     if data.firm_website is not None:
-        firm.firm_website = data.firm_website
+        org.firm_website = data.firm_website
     if data.firm_support_email is not None:
-        firm.firm_support_email = data.firm_support_email
+        org.firm_support_email = data.firm_support_email
 
     await db.commit()
-    await db.refresh(firm)
-    return _firm_settings_response(firm)
+    await db.refresh(org)
+    return _firm_settings_response(org)
 
 
 # ──────────────────────────────────────────────
 # Logo & Favicon upload
 # ──────────────────────────────────────────────
 @router.post("/logo")
-async def upload_firm_logo(
+async def upload_org_logo(
     file: UploadFile = File(...),
     current_user: dict = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """Upload firm logo image. Replaces existing logo."""
-    firm = await _require_firm(current_user, db)
+    """Upload organisation logo. Replaces existing logo."""
+    org = await _get_org(current_user, db)
 
-    if file.content_type not in ALLOWED_IMAGE_TYPES:
-        raise HTTPException(400, f"Image type not allowed: {file.content_type}. Allowed: JPEG, PNG, WebP, SVG, ICO")
+    allowed = {"image/jpeg", "image/png", "image/webp", "image/svg+xml"}
+    if file.content_type not in allowed:
+        raise HTTPException(400, f"Image type not allowed. Use JPEG, PNG, WebP or SVG.")
 
     content = await file.read()
     if len(content) > MAX_LOGO_SIZE:
         raise HTTPException(400, "Logo too large (max 2MB)")
 
-    # Delete old logo if stored
-    if firm.logo_url:
+    if org.logo_url:
         try:
-            await storage_service.delete_file(firm.logo_url)
+            await storage_service.delete_file(org.logo_url)
         except Exception:
-            logger.warning(f"Failed to delete old logo: {firm.logo_url}")
+            logger.warning(f"Failed to delete old logo: {org.logo_url}")
 
     file_url = await storage_service.upload_file(content, f"logo_{file.filename}", file.content_type)
-    firm.logo_url = file_url
+    org.logo_url = file_url
     await db.commit()
-    await db.refresh(firm)
+    await db.refresh(org)
 
-    return {"logo_url": firm.logo_url}
-
-
-@router.post("/favicon")
-async def upload_firm_favicon(
-    file: UploadFile = File(...),
-    current_user: dict = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
-):
-    """Upload firm favicon. Replaces existing favicon."""
-    firm = await _require_firm(current_user, db)
-
-    if file.content_type not in ALLOWED_IMAGE_TYPES:
-        raise HTTPException(400, f"Image type not allowed: {file.content_type}")
-
-    content = await file.read()
-    if len(content) > MAX_FAVICON_SIZE:
-        raise HTTPException(400, "Favicon too large (max 512KB)")
-
-    if firm.favicon_url:
-        try:
-            await storage_service.delete_file(firm.favicon_url)
-        except Exception:
-            logger.warning(f"Failed to delete old favicon: {firm.favicon_url}")
-
-    file_url = await storage_service.upload_file(content, f"favicon_{file.filename}", file.content_type)
-    firm.favicon_url = file_url
-    await db.commit()
-    await db.refresh(firm)
-
-    return {"favicon_url": firm.favicon_url}
+    return {"logo_url": org.logo_url}
 
 
 # ──────────────────────────────────────────────

@@ -371,19 +371,6 @@ export function useUploadFirmLogo() {
   })
 }
 
-export function useUploadFirmFavicon() {
-  const qc = useQueryClient()
-  return useMutation<{ favicon_url: string }, Error, File>({
-    mutationFn: (file) => {
-      const formData = new FormData()
-      formData.append('file', file)
-      return api.post('/firm/favicon', formData, {
-        headers: { 'Content-Type': undefined },
-      }).then(r => r.data)
-    },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['firm-settings'] }),
-  })
-}
 
 export function useCheckSlug(slug: string) {
   return useQuery<SlugCheck>({
