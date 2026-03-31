@@ -7,6 +7,7 @@ from app.api.v1 import (
     bank_accounts, bank_transactions, bank_transfers_router, stock, fixed_assets, purchase_payments, purchase_refunds, contact_groups, settings_data,
 )
 from app.api.v1.sharing import router as sharing_router
+from app.api.v1.invitations import router as invitations_router
 
 settings = get_settings()
 
@@ -81,3 +82,4 @@ app.include_router(purchase_refunds.router, prefix=settings.API_V1_PREFIX)
 app.include_router(contact_groups.router, prefix=settings.API_V1_PREFIX)
 app.include_router(settings_data.router, prefix=settings.API_V1_PREFIX)
 app.include_router(sharing_router, prefix=settings.API_V1_PREFIX)
+app.include_router(invitations_router, prefix=settings.API_V1_PREFIX)

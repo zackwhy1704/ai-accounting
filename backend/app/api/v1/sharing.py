@@ -7,7 +7,7 @@ import uuid
 
 from app.core.database import get_db
 from app.core.security import get_current_user
-from app.models.models import Document, DocumentShare, User, Organization
+from app.models.models import Document, DocumentShare, User, Organization, FirmClientLink
 
 router = APIRouter(prefix="/sharing", tags=["sharing"])
 
@@ -311,3 +311,42 @@ async def get_documents_from_client(
         }
         for share, doc in rows
     ]
+
+
+@router.get("/linked-firms")
+async def get_linked_firms_for_sme(
+    current_user: dict = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    SME: return list of linked accountant firms to populate the share dropdown.
+    Returns firm name + primary contact email so SME can share to them in one click.
+    """
+    org_id = uuid.UUID(current_user["org_id"])
+    result = await db.execute(
+        select(FirmClientLink).where(
+            FirmClientLink.client_org_id == org_id,
+            FirmClientLink.status == "active",
+        )
+    )
+    links = result.scalars().all()
+
+    out = []
+    for link in links:
+        firm_result = await db.execute(select(Organization).where(Organization.id == link.firm_org_id))
+        firm = firm_result.scalar_one_or_none()
+        if not firm:
+            continue
+        # Get primary user email for the firm
+        user_result = await db.execute(
+            select(User).where(User.organization_id == link.firm_org_id).limit(1)
+        )
+        firm_user = user_result.scalar_one_or_none()
+        out.append({
+            "link_id": str(link.id),
+            "firm_org_id": str(firm.id),
+            "firm_name": firm.name,
+            "firm_logo_url": firm.logo_url,
+            "contact_email": firm_user.email if firm_user else firm.firm_contact_email,
+        })
+    return out

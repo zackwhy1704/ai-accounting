@@ -17,6 +17,7 @@ import {
   Building2,
   Briefcase,
   Share2,
+  Link2,
 } from "lucide-react"
 
 export type NavIcon =
@@ -37,6 +38,7 @@ export type NavIcon =
   | "building-2"
   | "briefcase"
   | "share-2"
+  | "link"
 
 export const navIconMap: Record<NavIcon, ComponentType<{ className?: string }>> = {
   "layout-dashboard": LayoutDashboard,
@@ -56,4 +58,5 @@ export const navIconMap: Record<NavIcon, ComponentType<{ className?: string }>> 
   "building-2": Building2,
   briefcase: Briefcase,
   "share-2": Share2,
+  "link": Link2,
 }

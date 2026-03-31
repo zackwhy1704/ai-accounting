@@ -52,6 +52,10 @@ const translations = {
     "nav.myInvois": "MyInvois (LHDN)",
     "nav.sgCompliance": "IRAS E-Invoice",
     "nav.companySettings": "Company Settings",
+    "nav.myAccountants": "My Accountants",
+    "nav.firmClients": "Clients",
+    "nav.sharedDocuments": "Shared Documents",
+    "nav.sharedWithMe": "Shared With Me",
 
     // Header
     "header.search": "Search invoices, contacts, documents...",
@@ -488,6 +492,8 @@ const translations = {
     "nav.firmSettings": "White-Label Settings",
     "nav.sharedWithMe": "Shared with Me",
     "nav.sharedDocuments": "Shared Documents",
+    "nav.myAccountants": "My Accountants",
+    "nav.firmClients": "Clients",
 
     "login.appName": "AI Accounting",
     "login.appDesc": "Cloud accounting powered by AI",
@@ -763,6 +769,8 @@ const translations = {
     "nav.firmSettings": "白标设置",
     "nav.sharedWithMe": "与我共享",
     "nav.sharedDocuments": "共享文件",
+    "nav.myAccountants": "我的会计师",
+    "nav.firmClients": "客户",
 
     "login.appName": "AI 会计",
     "login.appDesc": "AI驱动的云会计",
@@ -1038,6 +1046,8 @@ const translations = {
     "nav.firmSettings": "Tetapan Label Putih",
     "nav.sharedWithMe": "Dikongsi Dengan Saya",
     "nav.sharedDocuments": "Dokumen Dikongsi",
+    "nav.myAccountants": "Akauntan Saya",
+    "nav.firmClients": "Klien",
 
     "login.appName": "AI Perakaunan",
     "login.appDesc": "Perakaunan awan dikuasakan AI",

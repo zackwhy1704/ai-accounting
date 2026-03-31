@@ -738,6 +738,35 @@ class DocumentShare(Base):
 
 
 # ──────────────────────────────────────────────
+# Firm ↔ Client Links
+# ──────────────────────────────────────────────
+class FirmClientLink(Base):
+    """
+    A firm (accounting practice) invites an existing SME/client org to link.
+    Once accepted, the firm can see documents the SME chooses to share,
+    and appears in the SME's accountant dropdown.
+    """
+    __tablename__ = "firm_client_links"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=new_uuid)
+    firm_org_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("organizations.id", ondelete="CASCADE"), index=True)
+    client_org_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("organizations.id", ondelete="CASCADE"), nullable=True, index=True)
+    status: Mapped[str] = mapped_column(String(20), default="pending")  # pending, active, declined, revoked
+    invited_email: Mapped[str] = mapped_column(String(255))  # email the invite was sent to
+    invited_by: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id"))
+    token: Mapped[str] = mapped_column(String(64), unique=True, index=True)
+    note: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    accepted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    __table_args__ = (
+        Index("ix_fcl_firm", "firm_org_id"),
+        Index("ix_fcl_client", "client_org_id"),
+        Index("ix_fcl_token", "token"),
+    )
+
+
+# ──────────────────────────────────────────────
 # Audit Log (immutable, append-only)
 # ──────────────────────────────────────────────
 class AuditLog(Base):

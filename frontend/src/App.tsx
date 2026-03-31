@@ -73,6 +73,9 @@ import MyInvoisPage from './pages/myinvois/MyInvoisPage'
 import SgCompliancePage from './pages/sg/SgCompliancePage'
 import SharedDocumentsPage from './pages/documents/SharedDocumentsPage'
 import SharedDocumentsOwnerPage from './pages/documents/SharedDocumentsOwnerPage'
+import AcceptClientInvitePage from './pages/invitations/AcceptClientInvitePage'
+import MyAccountantsPage from './pages/invitations/MyAccountantsPage'
+import FirmClientsPage from './pages/firm/FirmClientsPage'
 
 function ProtectedRoute({ children, allowOnboarding }: { children: React.ReactNode; allowOnboarding?: boolean }) {
   const { token, isLoading, onboardingCompleted } = useAuth()
@@ -93,6 +96,8 @@ function App() {
       {/* Client portal — public, outside auth */}
       <Route path="/p/:slug" element={<ClientPortalPage />} />
       <Route path="/p/:slug/invite/:token" element={<AcceptInvitePage />} />
+      {/* Firm-client invite accept — requires login */}
+      <Route path="/accept-client-invite" element={<AcceptClientInvitePage />} />
       <Route path="/pay/:token" element={<PayPage />} />
       <Route path="/login" element={<LoginPage />} />
       <Route path="/onboarding" element={<ProtectedRoute allowOnboarding><OnboardingPage /></ProtectedRoute>} />
@@ -192,6 +197,8 @@ function App() {
         {/* Shared Documents */}
         <Route path="/shared-documents" element={<SharedDocumentsOwnerPage />} />
         <Route path="/shared-with-me" element={<SharedDocumentsPage />} />
+        <Route path="/my-accountants" element={<MyAccountantsPage />} />
+        <Route path="/firm/clients" element={<FirmClientsPage />} />
 
         {/* Catch-all: redirect unknown routes to dashboard */}
         <Route path="*" element={<Navigate to="/dashboard" replace />} />
