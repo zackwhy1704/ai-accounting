@@ -1,0 +1,108 @@
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select, func
+from uuid import UUID
+
+from app.core.database import get_db
+from app.core.security import get_current_user
+from app.models.models import SaleReceipt
+from app.schemas.schemas import SaleReceiptCreate, SaleReceiptResponse
+
+router = APIRouter(prefix="/sale-receipts", tags=["sale-receipts"])
+
+
+async def _next_receipt_number(org_id: UUID, db: AsyncSession) -> str:
+    result = await db.execute(
+        select(func.count(SaleReceipt.id)).where(SaleReceipt.organization_id == org_id)
+    )
+    count = result.scalar_one() + 1
+    return f"SR-{count:05d}"
+
+
+def _calc_totals(line_items: list) -> tuple[float, float, float]:
+    subtotal = sum(item.quantity * item.unit_price for item in line_items)
+    tax_amount = sum(item.quantity * item.unit_price * item.tax_rate / 100 for item in line_items)
+    return subtotal, tax_amount, subtotal + tax_amount
+
+
+@router.get("", response_model=list[SaleReceiptResponse])
+async def list_sale_receipts(
+    status: str | None = None,
+    db: AsyncSession = Depends(get_db),
+    current_user: dict = Depends(get_current_user),
+):
+    q = select(SaleReceipt).where(SaleReceipt.organization_id == current_user["org_id"])
+    if status:
+        q = q.where(SaleReceipt.status == status)
+    q = q.order_by(SaleReceipt.receipt_date.desc())
+    result = await db.execute(q)
+    return result.scalars().all()
+
+
+@router.post("", response_model=SaleReceiptResponse, status_code=201)
+async def create_sale_receipt(
+    payload: SaleReceiptCreate,
+    db: AsyncSession = Depends(get_db),
+    current_user: dict = Depends(get_current_user),
+):
+    subtotal, tax_amount, total = _calc_totals(payload.line_items)
+    receipt_number = await _next_receipt_number(current_user["org_id"], db)
+    receipt = SaleReceipt(
+        organization_id=current_user["org_id"],
+        receipt_number=receipt_number,
+        contact_id=payload.contact_id,
+        receipt_date=payload.receipt_date,
+        currency=payload.currency,
+        payment_method=payload.payment_method,
+        bank_account_id=payload.bank_account_id,
+        notes=payload.notes,
+        line_items=[item.model_dump() for item in payload.line_items],
+        subtotal=subtotal,
+        tax_amount=tax_amount,
+        total=total,
+    )
+    db.add(receipt)
+    await db.commit()
+    await db.refresh(receipt)
+    return receipt
+
+
+@router.get("/{receipt_id}", response_model=SaleReceiptResponse)
+async def get_sale_receipt(
+    receipt_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: dict = Depends(get_current_user),
+):
+    result = await db.execute(
+        select(SaleReceipt).where(
+            SaleReceipt.id == receipt_id,
+            SaleReceipt.organization_id == current_user["org_id"],
+        )
+    )
+    receipt = result.scalar_one_or_none()
+    if not receipt:
+        raise HTTPException(status_code=404, detail="Sale receipt not found")
+    return receipt
+
+
+@router.post("/{receipt_id}/void", response_model=SaleReceiptResponse)
+async def void_sale_receipt(
+    receipt_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: dict = Depends(get_current_user),
+):
+    result = await db.execute(
+        select(SaleReceipt).where(
+            SaleReceipt.id == receipt_id,
+            SaleReceipt.organization_id == current_user["org_id"],
+        )
+    )
+    receipt = result.scalar_one_or_none()
+    if not receipt:
+        raise HTTPException(status_code=404, detail="Sale receipt not found")
+    if receipt.status == "void":
+        raise HTTPException(status_code=409, detail="Already voided")
+    receipt.status = "void"
+    await db.commit()
+    await db.refresh(receipt)
+    return receipt

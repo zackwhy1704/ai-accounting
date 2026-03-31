@@ -474,3 +474,279 @@ class DashboardResponse(BaseModel):
     cash_balance: float
     overdue_invoices: int
     pending_documents: int
+
+
+# ── Organization Settings (Country/Tax) ──
+class OrganizationSettingsUpdate(BaseModel):
+    tax_regime: str | None = None          # MY_SST | SG_GST | AU_GST | EU_VAT | NONE
+    sst_registration_no: str | None = None
+    einvoice_enabled: bool | None = None
+    einvoice_supplier_tin: str | None = None
+    einvoice_sandbox: bool | None = None
+    base_currency: str | None = None
+    fx_auto_update: bool | None = None
+
+class OrganizationSettingsResponse(BaseModel):
+    id: UUID
+    name: str
+    country: str
+    currency: str
+    tax_regime: str
+    sst_registration_no: str | None
+    einvoice_enabled: bool
+    einvoice_supplier_tin: str | None
+    einvoice_sandbox: bool
+    base_currency: str
+    fx_auto_update: bool
+    model_config = {"from_attributes": True}
+
+
+# ── Tax Rates ──
+class TaxRateCreate(BaseModel):
+    name: str
+    code: str
+    rate: float
+    tax_type: str                          # SST | GST | VAT | NONE
+    is_default: bool = False
+    sst_category: str | None = None        # service_tax | sales_tax
+
+class TaxRateUpdate(BaseModel):
+    name: str | None = None
+    rate: float | None = None
+    is_default: bool | None = None
+    is_active: bool | None = None
+    sst_category: str | None = None
+
+class TaxRateResponse(BaseModel):
+    id: UUID
+    organization_id: UUID
+    name: str
+    code: str
+    rate: float
+    tax_type: str
+    is_default: bool
+    is_active: bool
+    sst_category: str | None
+    created_at: datetime
+    model_config = {"from_attributes": True}
+
+
+# ── Exchange Rates ──
+class ExchangeRateCreate(BaseModel):
+    from_currency: str
+    to_currency: str
+    rate: float
+    rate_date: datetime
+    source: str = "manual"
+
+class ExchangeRateResponse(BaseModel):
+    id: UUID
+    organization_id: UUID
+    from_currency: str
+    to_currency: str
+    rate: float
+    rate_date: datetime
+    source: str
+    created_at: datetime
+    model_config = {"from_attributes": True}
+
+
+# ── Products ──
+class ProductCreate(BaseModel):
+    code: str | None = None
+    name: str
+    description: str | None = None
+    product_type: str = "service"          # service | inventory | non_inventory
+    unit: str | None = None
+    unit_price: float = 0.0
+    cost_price: float = 0.0
+    currency: str = "MYR"
+    tax_rate_id: UUID | None = None
+    income_account_id: UUID | None = None
+    expense_account_id: UUID | None = None
+    inventory_account_id: UUID | None = None
+    track_inventory: bool = False
+    qty_on_hand: float = 0.0
+    reorder_point: float | None = None
+    image_url: str | None = None
+
+class ProductUpdate(BaseModel):
+    code: str | None = None
+    name: str | None = None
+    description: str | None = None
+    product_type: str | None = None
+    unit: str | None = None
+    unit_price: float | None = None
+    cost_price: float | None = None
+    currency: str | None = None
+    tax_rate_id: UUID | None = None
+    income_account_id: UUID | None = None
+    expense_account_id: UUID | None = None
+    inventory_account_id: UUID | None = None
+    track_inventory: bool | None = None
+    qty_on_hand: float | None = None
+    reorder_point: float | None = None
+    is_active: bool | None = None
+    image_url: str | None = None
+
+class ProductResponse(BaseModel):
+    id: UUID
+    organization_id: UUID
+    code: str | None
+    name: str
+    description: str | None
+    product_type: str
+    unit: str | None
+    unit_price: float
+    cost_price: float
+    currency: str
+    tax_rate_id: UUID | None
+    income_account_id: UUID | None
+    expense_account_id: UUID | None
+    inventory_account_id: UUID | None
+    track_inventory: bool
+    qty_on_hand: float
+    reorder_point: float | None
+    is_active: bool
+    image_url: str | None
+    created_at: datetime
+    updated_at: datetime
+    model_config = {"from_attributes": True}
+
+
+# ── Manual Journals ──
+class ManualJournalLineCreate(BaseModel):
+    account_id: UUID
+    description: str | None = None
+    debit: float = 0.0
+    credit: float = 0.0
+    contact_id: UUID | None = None
+
+class ManualJournalLineResponse(BaseModel):
+    id: UUID
+    journal_id: UUID
+    account_id: UUID
+    description: str | None
+    debit: float
+    credit: float
+    contact_id: UUID | None
+    model_config = {"from_attributes": True}
+
+class ManualJournalCreate(BaseModel):
+    journal_number: str | None = None
+    date: datetime
+    reference: str | None = None
+    description: str | None = None
+    currency: str = "MYR"
+    lines: list[ManualJournalLineCreate]
+
+class ManualJournalResponse(BaseModel):
+    id: UUID
+    organization_id: UUID
+    journal_number: str
+    date: datetime
+    reference: str | None
+    description: str | None
+    status: str
+    currency: str
+    created_at: datetime
+    lines: list[ManualJournalLineResponse] = []
+    model_config = {"from_attributes": True}
+
+
+# ── Bank Rules ──
+class BankRuleCreate(BaseModel):
+    name: str
+    conditions: list[dict]                 # [{"field": "description", "operator": "contains", "value": "..."}]
+    condition_logic: str = "AND"
+    action_account_id: UUID | None = None
+    action_contact_id: UUID | None = None
+    action_description: str | None = None
+    priority: int = 0
+
+class BankRuleResponse(BaseModel):
+    id: UUID
+    organization_id: UUID
+    name: str
+    is_active: bool
+    priority: int
+    conditions: list[dict]
+    condition_logic: str
+    action_account_id: UUID | None
+    action_contact_id: UUID | None
+    action_description: str | None
+    times_applied: int
+    last_applied_at: datetime | None
+    created_at: datetime
+    model_config = {"from_attributes": True}
+
+
+# ── Vendor Credits ──
+class VendorCreditLineItem(BaseModel):
+    description: str
+    quantity: float = 1.0
+    unit_price: float
+    tax_rate: float = 0.0
+    amount: float
+
+class VendorCreditCreate(BaseModel):
+    contact_id: UUID
+    bill_id: UUID | None = None
+    issue_date: datetime
+    currency: str = "MYR"
+    notes: str | None = None
+    line_items: list[VendorCreditLineItem]
+
+class VendorCreditResponse(BaseModel):
+    id: UUID
+    organization_id: UUID
+    vendor_credit_number: str
+    contact_id: UUID
+    bill_id: UUID | None
+    issue_date: datetime
+    status: str
+    currency: str
+    subtotal: float
+    tax_amount: float
+    total: float
+    amount_applied: float
+    notes: str | None
+    line_items: list[dict]
+    created_at: datetime
+    model_config = {"from_attributes": True}
+
+
+# ── Sale Receipts ──
+class SaleReceiptLineItem(BaseModel):
+    description: str
+    quantity: float = 1.0
+    unit_price: float
+    tax_rate: float = 0.0
+    amount: float
+
+class SaleReceiptCreate(BaseModel):
+    contact_id: UUID | None = None
+    receipt_date: datetime
+    currency: str = "MYR"
+    payment_method: str = "cash"
+    bank_account_id: UUID | None = None
+    notes: str | None = None
+    line_items: list[SaleReceiptLineItem]
+
+class SaleReceiptResponse(BaseModel):
+    id: UUID
+    organization_id: UUID
+    receipt_number: str
+    contact_id: UUID | None
+    receipt_date: datetime
+    status: str
+    currency: str
+    subtotal: float
+    tax_amount: float
+    total: float
+    notes: str | None
+    line_items: list[dict]
+    payment_method: str
+    bank_account_id: UUID | None
+    created_at: datetime
+    model_config = {"from_attributes": True}

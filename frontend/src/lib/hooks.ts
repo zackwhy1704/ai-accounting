@@ -473,3 +473,169 @@ export function useRestoreFirmClient() {
     },
   })
 }
+
+// ── Products ──
+export function useProducts(activeOnly = true) {
+  return useQuery<Array<{
+    id: string; organization_id: string; code: string | null; name: string;
+    description: string | null; product_type: string; unit: string | null;
+    unit_price: number; cost_price: number; currency: string;
+    tax_rate_id: string | null; income_account_id: string | null;
+    expense_account_id: string | null; inventory_account_id: string | null;
+    track_inventory: boolean; qty_on_hand: number; reorder_point: number | null;
+    is_active: boolean; image_url: string | null; created_at: string; updated_at: string;
+  }>>({
+    queryKey: ['products', activeOnly],
+    queryFn: () => api.get('/products', { params: { active_only: activeOnly } }).then(r => r.data),
+  })
+}
+
+export function useCreateProduct() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (data: Record<string, unknown>) => api.post('/products', data).then(r => r.data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['products'] }),
+  })
+}
+
+export function useUpdateProduct() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, ...data }: { id: string } & Record<string, unknown>) =>
+      api.patch(`/products/${id}`, data).then(r => r.data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['products'] }),
+  })
+}
+
+// ── Tax Rates ──
+export function useTaxRates() {
+  return useQuery<Array<{
+    id: string; organization_id: string; name: string; code: string; rate: number;
+    tax_type: string; is_default: boolean; is_active: boolean;
+    sst_category: string | null; created_at: string;
+  }>>({
+    queryKey: ['tax-rates'],
+    queryFn: () => api.get('/tax-rates').then(r => r.data),
+  })
+}
+
+export function useCreateTaxRate() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (data: Record<string, unknown>) => api.post('/tax-rates', data).then(r => r.data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['tax-rates'] }),
+  })
+}
+
+// ── Exchange Rates ──
+export function useExchangeRates() {
+  return useQuery<Array<{
+    id: string; organization_id: string; from_currency: string; to_currency: string;
+    rate: number; rate_date: string; source: string; created_at: string;
+  }>>({
+    queryKey: ['exchange-rates'],
+    queryFn: () => api.get('/exchange-rates').then(r => r.data),
+  })
+}
+
+export function useSyncExchangeRates() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: () => api.post('/exchange-rates/sync').then(r => r.data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['exchange-rates'] }),
+  })
+}
+
+export function useCreateExchangeRate() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (data: Record<string, unknown>) => api.post('/exchange-rates', data).then(r => r.data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['exchange-rates'] }),
+  })
+}
+
+// ── Manual Journals ──
+export function useManualJournals(status?: string) {
+  return useQuery<Array<{
+    id: string; organization_id: string; journal_number: string; date: string;
+    reference: string | null; description: string | null; status: string;
+    currency: string; created_at: string;
+    lines: Array<{ id: string; account_id: string; description: string | null; debit: number; credit: number; contact_id: string | null }>;
+  }>>({
+    queryKey: ['manual-journals', status],
+    queryFn: () => api.get('/manual-journals', { params: status ? { status } : {} }).then(r => r.data),
+  })
+}
+
+export function useCreateManualJournal() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (data: Record<string, unknown>) => api.post('/manual-journals', data).then(r => r.data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['manual-journals'] }),
+  })
+}
+
+// ── Bank Rules ──
+export function useBankRules() {
+  return useQuery<Array<{
+    id: string; organization_id: string; name: string; is_active: boolean; priority: number;
+    conditions: Array<Record<string, string>>; condition_logic: string;
+    action_account_id: string | null; action_contact_id: string | null;
+    action_description: string | null; times_applied: number;
+    last_applied_at: string | null; created_at: string;
+  }>>({
+    queryKey: ['bank-rules'],
+    queryFn: () => api.get('/bank-rules').then(r => r.data),
+  })
+}
+
+export function useCreateBankRule() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (data: Record<string, unknown>) => api.post('/bank-rules', data).then(r => r.data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['bank-rules'] }),
+  })
+}
+
+// ── Vendor Credits ──
+export function useVendorCredits(status?: string) {
+  return useQuery<Array<{
+    id: string; organization_id: string; vendor_credit_number: string; contact_id: string;
+    bill_id: string | null; issue_date: string; status: string; currency: string;
+    subtotal: number; tax_amount: number; total: number; amount_applied: number;
+    notes: string | null; line_items: Array<Record<string, unknown>>; created_at: string;
+  }>>({
+    queryKey: ['vendor-credits', status],
+    queryFn: () => api.get('/vendor-credits', { params: status ? { status } : {} }).then(r => r.data),
+  })
+}
+
+export function useCreateVendorCredit() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (data: Record<string, unknown>) => api.post('/vendor-credits', data).then(r => r.data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['vendor-credits'] }),
+  })
+}
+
+// ── Sale Receipts ──
+export function useSaleReceipts(status?: string) {
+  return useQuery<Array<{
+    id: string; organization_id: string; receipt_number: string; contact_id: string | null;
+    receipt_date: string; status: string; currency: string; subtotal: number;
+    tax_amount: number; total: number; notes: string | null;
+    line_items: Array<Record<string, unknown>>; payment_method: string;
+    bank_account_id: string | null; created_at: string;
+  }>>({
+    queryKey: ['sale-receipts', status],
+    queryFn: () => api.get('/sale-receipts', { params: status ? { status } : {} }).then(r => r.data),
+  })
+}
+
+export function useCreateSaleReceipt() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (data: Record<string, unknown>) => api.post('/sale-receipts', data).then(r => r.data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['sale-receipts'] }),
+  })
+}
