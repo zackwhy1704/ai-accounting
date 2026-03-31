@@ -14,7 +14,7 @@ from datetime import datetime, timezone
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
@@ -28,7 +28,7 @@ router = APIRouter(prefix="/invitations", tags=["invitations"])
 # ── Schemas ──────────────────────────────────────────────────────────────────
 
 class SendInviteRequest(BaseModel):
-    client_email: EmailStr
+    client_email: str
     note: str | None = None
 
 
