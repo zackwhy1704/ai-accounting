@@ -45,77 +45,80 @@
 }
 
 :root {
-  --background: #f5f7ff;
-  --foreground: #0f172a;
+  /* ── Light mode ─────────────────────────────── */
+  --background: #f8fafc;        /* slate-50 — clean page background */
+  --foreground: #0f172a;        /* slate-900 */
   --card: #ffffff;
   --card-foreground: #0f172a;
   --popover: #ffffff;
   --popover-foreground: #0f172a;
-  --primary: #4D63FF;
+  --primary: #0069ff;           /* BigCapital-style crisp blue */
   --primary-foreground: #ffffff;
-  --secondary: #f1f5f9;
+  --secondary: #f1f5f9;         /* slate-100 */
   --secondary-foreground: #0f172a;
   --muted: #f1f5f9;
-  --muted-foreground: #64748b;
-  --accent: #f1f5f9;
-  --accent-foreground: #0f172a;
+  --muted-foreground: #64748b;  /* slate-500 */
+  --accent: #eff6ff;            /* blue-50 — subtle blue tint on hover */
+  --accent-foreground: #1d4ed8;
   --destructive: #ef4444;
-  --border: #e2e8f0;
+  --border: #e2e8f0;            /* slate-200 */
   --input: #e2e8f0;
-  --ring: #4D63FF;
-  --chart-1: #7C9DFF;
-  --chart-2: #4D63FF;
-  --chart-3: #8b5cf6;
-  --chart-4: #a78bfa;
-  --chart-5: #6366f1;
+  --ring: #0069ff;
+  --chart-1: #0069ff;
+  --chart-2: #0ea5e9;
+  --chart-3: #6366f1;
+  --chart-4: #8b5cf6;
+  --chart-5: #10b981;
   --radius: 0.625rem;
 
-  /* Dark purple sidebar */
-  --sidebar: #1a0b2e;
-  --sidebar-foreground: rgba(255, 255, 255, 0.7);
-  --sidebar-primary: #4D63FF;
+  /* Sidebar — slate-800 dark panel (Invoice Ninja style) */
+  --sidebar: #1e293b;
+  --sidebar-foreground: rgba(255, 255, 255, 0.75);
+  --sidebar-primary: #0069ff;
   --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: rgba(139, 92, 246, 0.2);
+  --sidebar-accent: rgba(0, 105, 255, 0.18);
   --sidebar-accent-foreground: #ffffff;
-  --sidebar-border: rgba(255, 255, 255, 0.1);
-  --sidebar-ring: rgba(139, 92, 246, 0.35);
-  --sidebar-active: rgba(139, 92, 246, 0.2);
+  --sidebar-border: rgba(255, 255, 255, 0.08);
+  --sidebar-ring: rgba(0, 105, 255, 0.35);
+  --sidebar-active: rgba(0, 105, 255, 0.18);
 }
 
 .dark {
-  --background: #0f0a1a;
-  --foreground: #e2e8f0;
-  --card: #1a1128;
-  --card-foreground: #e2e8f0;
-  --popover: #1a1128;
-  --popover-foreground: #e2e8f0;
-  --primary: #7C9DFF;
-  --primary-foreground: #0f0a1a;
-  --secondary: #1e1533;
-  --secondary-foreground: #e2e8f0;
-  --muted: #1e1533;
-  --muted-foreground: #94a3b8;
-  --accent: #1e1533;
-  --accent-foreground: #e2e8f0;
+  /* ── Dark mode ──────────────────────────────── */
+  --background: #0f172a;        /* slate-900 — true dark, no purple */
+  --foreground: #f1f5f9;        /* slate-100 */
+  --card: #1e293b;              /* slate-800 */
+  --card-foreground: #f1f5f9;
+  --popover: #1e293b;
+  --popover-foreground: #f1f5f9;
+  --primary: #3b82f6;           /* blue-500 — slightly lighter for dark bg */
+  --primary-foreground: #ffffff;
+  --secondary: #334155;         /* slate-700 */
+  --secondary-foreground: #f1f5f9;
+  --muted: #334155;
+  --muted-foreground: #94a3b8;  /* slate-400 */
+  --accent: #1e3a5f;            /* dark blue tint on hover */
+  --accent-foreground: #93c5fd;
   --destructive: #f87171;
-  --border: #2d1f45;
-  --input: #2d1f45;
-  --ring: #7C9DFF;
-  --chart-1: #7C9DFF;
-  --chart-2: #4D63FF;
-  --chart-3: #8b5cf6;
+  --border: #334155;            /* slate-700 */
+  --input: #334155;
+  --ring: #3b82f6;
+  --chart-1: #3b82f6;
+  --chart-2: #0ea5e9;
+  --chart-3: #818cf8;
   --chart-4: #a78bfa;
-  --chart-5: #6366f1;
+  --chart-5: #34d399;
 
-  --sidebar: #0d0618;
-  --sidebar-foreground: rgba(255, 255, 255, 0.7);
-  --sidebar-primary: #7C9DFF;
+  /* Sidebar — slightly deeper than card */
+  --sidebar: #0f172a;
+  --sidebar-foreground: rgba(255, 255, 255, 0.75);
+  --sidebar-primary: #3b82f6;
   --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: rgba(139, 92, 246, 0.2);
+  --sidebar-accent: rgba(59, 130, 246, 0.18);
   --sidebar-accent-foreground: #ffffff;
-  --sidebar-border: rgba(255, 255, 255, 0.08);
-  --sidebar-ring: rgba(139, 92, 246, 0.35);
-  --sidebar-active: rgba(139, 92, 246, 0.2);
+  --sidebar-border: rgba(255, 255, 255, 0.07);
+  --sidebar-ring: rgba(59, 130, 246, 0.35);
+  --sidebar-active: rgba(59, 130, 246, 0.18);
 }
 
 @layer base {

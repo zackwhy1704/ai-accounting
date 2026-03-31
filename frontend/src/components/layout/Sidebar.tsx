@@ -107,14 +107,14 @@ export function Sidebar() {
                   className={cn(
                     'group flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-[13px] font-medium transition-colors',
                     parentActive
-                      ? 'bg-[#8b5cf6]/20 text-[#c4b5fd] shadow-[0_0_0_1px_rgba(139,92,246,0.25)]'
+                      ? 'bg-blue-500/20 text-blue-300 shadow-[0_0_0_1px_rgba(59,130,246,0.25)]'
                       : 'text-white/70 hover:bg-white/5 hover:text-white/90'
                   )}
                 >
                   <Icon
                     className={cn(
                       'h-4 w-4',
-                      parentActive ? 'text-[#a78bfa]' : 'text-white/60 group-hover:text-white/80'
+                      parentActive ? 'text-blue-400' : 'text-white/60 group-hover:text-white/80'
                     )}
                   />
                   <span className="truncate">{t(item.labelKey)}</span>
@@ -122,7 +122,7 @@ export function Sidebar() {
                 </button>
 
                 {isOpen && (
-                  <div className="rounded-2xl border border-white/10 bg-[#2a0f4a]/70 py-2 shadow-[0_16px_50px_rgba(0,0,0,0.45)]">
+                  <div className="rounded-2xl border border-white/8 bg-white/[0.04] py-2 shadow-[0_8px_24px_rgba(0,0,0,0.3)]">
                     {item.children!.map((child) => {
                       const childActive = location.pathname === child.href || location.pathname.startsWith(`${child.href}/`)
                       return (
@@ -132,7 +132,7 @@ export function Sidebar() {
                           className={cn(
                             'block rounded-xl px-5 py-3 text-[13px] font-medium transition-colors',
                             childActive
-                              ? 'bg-white/5 text-[#c4b5fd]'
+                              ? 'bg-blue-500/15 text-blue-300'
                               : 'text-white/55 hover:bg-white/5 hover:text-white/85'
                           )}
                         >
@@ -155,12 +155,12 @@ export function Sidebar() {
                 cn(
                   'group flex items-center gap-3 rounded-xl px-3 py-2.5 text-[13px] font-medium transition-colors',
                   isActive
-                    ? 'bg-[#8b5cf6]/20 text-[#c4b5fd] shadow-[0_0_0_1px_rgba(139,92,246,0.25)]'
+                    ? 'bg-blue-500/20 text-blue-300 shadow-[0_0_0_1px_rgba(59,130,246,0.25)]'
                     : 'text-white/70 hover:bg-white/5 hover:text-white/90'
                 )
               }
             >
-              <Icon className={cn('h-4 w-4', isActive ? 'text-[#a78bfa]' : 'text-white/60 group-hover:text-white/80')} />
+              <Icon className={cn('h-4 w-4', isActive ? 'text-blue-400' : 'text-white/60 group-hover:text-white/80')} />
               <span className="truncate">{t(item.labelKey)}</span>
             </NavLink>
           )
