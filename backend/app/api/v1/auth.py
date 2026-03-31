@@ -7,8 +7,7 @@ from app.core.security import hash_password, verify_password, create_access_toke
 from app.models.models import User, Organization, Account, UserOrganization
 from app.schemas.schemas import (
     UserRegister, UserLogin, TokenResponse, UserResponse,
-    OnboardingRequest, OrganizationResponse, UserOrgMembership,
-    SwitchOrgRequest, CreateOrgRequest,
+    OnboardingRequest, OrganizationResponse,
 )
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
@@ -254,102 +253,5 @@ async def complete_onboarding(
     org.previous_tool = data.previous_tool
     org.onboarding_completed = True
     await db.commit()
-    await db.refresh(org)
-    return org
-
-
-# ──────────────────────────────────────────────
-# Multi-org: list, switch, create
-# ──────────────────────────────────────────────
-@router.get("/organizations")
-async def list_user_organizations(
-    current_user: dict = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
-):
-    """List all organizations the current user belongs to."""
-    result = await db.execute(
-        select(UserOrganization, Organization)
-        .join(Organization, UserOrganization.organization_id == Organization.id)
-        .where(UserOrganization.user_id == current_user["sub"])
-    )
-    rows = result.all()
-    return [
-        {
-            "organization_id": str(uo.organization_id),
-            "organization_name": org.name,
-            "org_type": org.org_type,
-            "role": uo.role,
-            "is_default": uo.is_default,
-            "currency": org.currency,
-            "country": org.country,
-            "onboarding_completed": org.onboarding_completed,
-        }
-        for uo, org in rows
-    ]
-
-
-@router.post("/switch-org", response_model=TokenResponse)
-async def switch_organization(
-    data: SwitchOrgRequest,
-    current_user: dict = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
-):
-    """Switch to a different organization. Returns new JWT scoped to that org."""
-    # Verify membership
-    result = await db.execute(
-        select(UserOrganization).where(
-            UserOrganization.user_id == current_user["sub"],
-            UserOrganization.organization_id == data.organization_id,
-        )
-    )
-    membership = result.scalar_one_or_none()
-    if not membership:
-        raise HTTPException(status_code=403, detail="You don't have access to this organization")
-
-    # Update user's current org
-    user_result = await db.execute(select(User).where(User.id == current_user["sub"]))
-    user = user_result.scalar_one()
-    user.organization_id = data.organization_id
-    await db.commit()
-
-    token = create_access_token(
-        {"sub": str(user.id), "org_id": str(data.organization_id), "role": membership.role}
-    )
-    return TokenResponse(access_token=token)
-
-
-@router.post("/organizations", response_model=OrganizationResponse)
-async def create_organization(
-    data: CreateOrgRequest,
-    current_user: dict = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
-):
-    """Create a new organization (for firms/accountants adding client orgs)."""
-    # Create org
-    org = Organization(
-        name=data.name,
-        org_type=data.org_type,
-        country=data.country,
-        currency=data.currency,
-        industry=data.industry,
-    )
-    db.add(org)
-    await db.flush()
-
-    # Create default chart of accounts
-    for code, name, acc_type, subtype in DEFAULT_ACCOUNTS:
-        db.add(Account(
-            organization_id=org.id, code=code, name=name,
-            type=acc_type, subtype=subtype, is_system=True,
-        ))
-
-    # Add user as owner of new org
-    db.add(UserOrganization(
-        user_id=current_user["sub"],
-        organization_id=org.id,
-        role="owner",
-        is_default=False,
-    ))
-    await db.flush()
     await db.refresh(org)
     return org

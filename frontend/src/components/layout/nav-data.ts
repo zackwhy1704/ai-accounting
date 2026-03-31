@@ -43,6 +43,7 @@ export const navItems: NavItem[] = [
     ],
   },
   { labelKey: "nav.uploadDocuments", href: "/upload", icon: "upload" },
+  { labelKey: "nav.sharedWithMe", href: "/shared-with-me", icon: "share-2" },
   {
     labelKey: "nav.bank",
     href: "/bank",

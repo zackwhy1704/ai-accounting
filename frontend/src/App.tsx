@@ -1,7 +1,6 @@
 import { Routes, Route, Navigate } from 'react-router-dom'
 import { AppLayout } from './components/layout/AppLayout'
 import { useAuth } from './lib/auth'
-import { useUserOrganizations } from './lib/hooks'
 import LoginPage from './pages/auth/LoginPage'
 import OnboardingPage from './pages/auth/OnboardingPage'
 import DashboardPage from './pages/dashboard/DashboardPage'
@@ -71,6 +70,7 @@ import ReportsIndexPage from './pages/reports/ReportsIndexPage'
 import ContactGroupsPage from './pages/contacts/ContactGroupsPage'
 import CompanySettingsPage from './pages/settings/CompanySettingsPage'
 import MyInvoisPage from './pages/myinvois/MyInvoisPage'
+import SharedDocumentsPage from './pages/documents/SharedDocumentsPage'
 
 function ProtectedRoute({ children, allowOnboarding }: { children: React.ReactNode; allowOnboarding?: boolean }) {
   const { token, isLoading, onboardingCompleted } = useAuth()
@@ -82,10 +82,6 @@ function ProtectedRoute({ children, allowOnboarding }: { children: React.ReactNo
 }
 
 function SmartRedirect() {
-  const { user } = useAuth()
-  const { data: orgs } = useUserOrganizations()
-  const currentOrg = orgs?.find(o => o.organization_id === user?.organization_id)
-  if (currentOrg?.org_type === 'firm') return <Navigate to="/firm/dashboard" replace />
   return <Navigate to="/dashboard" replace />
 }
 
@@ -189,6 +185,9 @@ function App() {
         {/* Firm / Practice */}
         <Route path="/firm/settings" element={<FirmSettingsPage />} />
         <Route path="/firm/dashboard" element={<PracticeDashboardPage />} />
+
+        {/* Shared Documents */}
+        <Route path="/shared-with-me" element={<SharedDocumentsPage />} />
 
         {/* Catch-all: redirect unknown routes to dashboard */}
         <Route path="*" element={<Navigate to="/dashboard" replace />} />

@@ -718,6 +718,24 @@ class Document(Base):
     )
 
 
+class DocumentShare(Base):
+    """SME shares specific documents with an accountant/bookkeeper."""
+    __tablename__ = "document_shares"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=new_uuid)
+    document_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("documents.id", ondelete="CASCADE"), index=True)
+    owner_org_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("organizations.id", ondelete="CASCADE"), index=True)
+    shared_with_email: Mapped[str] = mapped_column(String(255), index=True)
+    shared_with_user_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("users.id"), nullable=True)
+    shared_by_user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id"))
+    note: Mapped[str | None] = mapped_column(Text, nullable=True)
+    shared_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+    __table_args__ = (
+        UniqueConstraint("document_id", "shared_with_email", name="uq_doc_share"),
+        Index("ix_doc_shares_email", "shared_with_email"),
+    )
+
 
 # ──────────────────────────────────────────────
 # Audit Log (immutable, append-only)
