@@ -3,7 +3,7 @@
  * Rule: update when FirmSettingsPage or portal logic changes.
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest"
-import { render, screen, waitFor } from "@testing-library/react"
+import { render, waitFor } from "@testing-library/react"
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { MemoryRouter, Route, Routes } from "react-router-dom"
 import { mockPortalInfo, mockFirmOrg } from "./mocks/data"
