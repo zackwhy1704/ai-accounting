@@ -40,6 +40,7 @@ import VendorCreditsPage from './pages/purchases/VendorCreditsPage'
 import SaleReceiptsPage from './pages/sales/receipts/SaleReceiptsPage'
 import BankRulesPage from './pages/bank/BankRulesPage'
 import ManualJournalsPage from './pages/accounting/ManualJournalsPage'
+import ReportsPage from './pages/reports/ReportsPage'
 import NewManualJournalPage from './pages/accounting/NewManualJournalPage'
 import NewProductPage from './pages/products/NewProductPage'
 
@@ -119,7 +120,7 @@ function App() {
         <Route path="/products" element={<ProductsPage />} />
         <Route path="/products/new" element={<NewProductPage />} />
         <Route path="/stocks" element={<GenericPage title="Stocks" category="Inventory" />} />
-        <Route path="/reports" element={<GenericPage title="Reports" category="Analytics" />} />
+        <Route path="/reports" element={<ReportsPage />} />
         <Route path="/accounting" element={<AccountingPage />} />
         <Route path="/ai-assistant" element={<AIAssistantPage />} />
         <Route path="/billing" element={<BillingPage />} />
