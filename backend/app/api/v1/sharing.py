@@ -1,13 +1,13 @@
 """Document sharing: SMEs share files with accountants/bookkeepers."""
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, func, desc
 from pydantic import BaseModel
 import uuid
 
 from app.core.database import get_db
 from app.core.security import get_current_user
-from app.models.models import Document, DocumentShare, User
+from app.models.models import Document, DocumentShare, User, Organization
 
 router = APIRouter(prefix="/sharing", tags=["sharing"])
 
@@ -149,4 +149,123 @@ async def list_document_shares(
             "shared_at": s.shared_at.isoformat(),
         }
         for s in shares
+    ]
+
+
+@router.get("/clients")
+async def list_clients_who_shared_with_me(
+    search: str = "",
+    page: int = 1,
+    limit: int = 50,
+    current_user: dict = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Accountant: list unique clients (by org) who have shared documents with me.
+    Paginated, supports search by org name. Handles 100-1000+ clients.
+    """
+    user_result = await db.execute(
+        select(User).where(User.id == uuid.UUID(current_user["sub"]))
+    )
+    me = user_result.scalar_one_or_none()
+    if not me:
+        raise HTTPException(status_code=401, detail="User not found")
+
+    # Base subquery: distinct owner orgs that shared docs with this accountant's email
+    base = (
+        select(
+            DocumentShare.owner_org_id,
+            func.count(DocumentShare.id).label("doc_count"),
+            func.max(DocumentShare.shared_at).label("last_shared"),
+        )
+        .where(DocumentShare.shared_with_email == me.email)
+        .group_by(DocumentShare.owner_org_id)
+        .subquery()
+    )
+
+    # Join with org for name/type, wrap as subquery for search filtering
+    org_alias = (
+        select(
+            base.c.owner_org_id,
+            base.c.doc_count,
+            base.c.last_shared,
+            Organization.name.label("org_name"),
+            Organization.org_type,
+        )
+        .join(Organization, base.c.owner_org_id == Organization.id)
+        .subquery()
+    )
+
+    count_q = select(func.count()).select_from(org_alias)
+    if search:
+        count_q = count_q.where(func.lower(org_alias.c.org_name).contains(search.lower()))
+
+    total_result = await db.execute(count_q)
+    total = total_result.scalar() or 0
+
+    data_q = select(org_alias)
+    if search:
+        data_q = data_q.where(func.lower(org_alias.c.org_name).contains(search.lower()))
+    data_q = data_q.order_by(desc(org_alias.c.last_shared)).offset((page - 1) * limit).limit(limit)
+
+    rows = await db.execute(data_q)
+    clients = rows.all()
+
+    return {
+        "clients": [
+            {
+                "org_id": str(c.owner_org_id),
+                "org_name": c.org_name,
+                "org_type": c.org_type,
+                "document_count": c.doc_count,
+                "last_shared_at": c.last_shared.isoformat() if c.last_shared else None,
+            }
+            for c in clients
+        ],
+        "total": total,
+        "page": page,
+        "pages": max(1, (total + limit - 1) // limit),
+    }
+
+
+@router.get("/client/{org_id}/documents")
+async def get_documents_from_client(
+    org_id: str,
+    current_user: dict = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Accountant: list all documents a specific client org has shared with me.
+    """
+    user_result = await db.execute(
+        select(User).where(User.id == uuid.UUID(current_user["sub"]))
+    )
+    me = user_result.scalar_one_or_none()
+    if not me:
+        raise HTTPException(status_code=401, detail="User not found")
+
+    result = await db.execute(
+        select(DocumentShare, Document)
+        .join(Document, DocumentShare.document_id == Document.id)
+        .where(
+            DocumentShare.shared_with_email == me.email,
+            DocumentShare.owner_org_id == uuid.UUID(org_id),
+        )
+        .order_by(DocumentShare.shared_at.desc())
+    )
+    rows = result.all()
+    return [
+        {
+            "share_id": str(share.id),
+            "document_id": str(doc.id),
+            "filename": doc.filename,
+            "file_type": doc.file_type,
+            "file_url": doc.file_url,
+            "file_size": doc.file_size,
+            "category": doc.category,
+            "status": doc.status,
+            "shared_at": share.shared_at.isoformat(),
+            "note": share.note,
+        }
+        for share, doc in rows
     ]

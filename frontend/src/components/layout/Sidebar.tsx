@@ -3,6 +3,7 @@ import { ChevronDown, ChevronUp, LogOut, Building2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/lib/auth'
 import { useTheme } from '@/lib/theme'
+import { useFeatureFlags } from '@/lib/features'
 import { useState, useEffect, useMemo } from 'react'
 import { navItems } from './nav-data'
 import { navIconMap } from './icons'
@@ -12,9 +13,20 @@ export function Sidebar() {
   const { logout, user } = useAuth()
   const { t } = useTheme()
 
+  const { has } = useFeatureFlags()
+
+  const filteredNavItems = useMemo(
+    () => navItems.filter((item) => {
+      if (item.feature && !has(item.feature)) return false
+      return true
+    }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [user?.org_type]
+  )
+
   const expandableItems = useMemo(
-    () => navItems.filter((i) => Boolean(i.children?.length)),
-    []
+    () => filteredNavItems.filter((i) => Boolean(i.children?.length)),
+    [filteredNavItems]
   )
 
   const shouldExpandByHref = useMemo(() => {
@@ -70,7 +82,7 @@ export function Sidebar() {
 
       {/* Navigation */}
       <nav className="flex-1 overflow-y-auto px-4 space-y-1">
-        {navItems.map((item) => {
+        {filteredNavItems.map((item) => {
           const Icon = navIconMap[item.icon]
           const hasChildren = Boolean(item.children?.length)
           const isActive = location.pathname === item.href || location.pathname.startsWith(`${item.href}/`)

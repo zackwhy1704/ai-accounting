@@ -1,20 +1,23 @@
 import type { NavIcon } from "./icons"
 import type { TranslationKey } from "../../lib/i18n"
+import type { Feature } from "../../lib/features"
 
-export type NavChildItem = { labelKey: TranslationKey; href: string }
+export type NavChildItem = { labelKey: TranslationKey; href: string; feature?: Feature }
 export type NavItem = {
   labelKey: TranslationKey
   href: string
   icon: NavIcon
+  feature?: Feature
   children?: NavChildItem[]
 }
 
 export const navItems: NavItem[] = [
-  { labelKey: "nav.dashboard", href: "/dashboard", icon: "layout-dashboard" },
+  { labelKey: "nav.dashboard", href: "/dashboard", icon: "layout-dashboard", feature: "dashboard" },
   {
     labelKey: "nav.sales",
     href: "/sales",
     icon: "receipt",
+    feature: "sales",
     children: [
       { labelKey: "nav.quotations", href: "/sales/quotations" },
       { labelKey: "nav.saleOrders", href: "/sales/orders" },
@@ -32,6 +35,7 @@ export const navItems: NavItem[] = [
     labelKey: "nav.purchases",
     href: "/purchases",
     icon: "shopping-cart",
+    feature: "purchases",
     children: [
       { labelKey: "nav.purchaseOrders", href: "/purchases/purchase-orders" },
       { labelKey: "nav.goodsReceivedNotes", href: "/purchases/goods-received-notes" },
@@ -42,12 +46,13 @@ export const navItems: NavItem[] = [
       { labelKey: "nav.purchaseRefunds", href: "/purchases/refunds" },
     ],
   },
-  { labelKey: "nav.uploadDocuments", href: "/upload", icon: "upload" },
-  { labelKey: "nav.sharedWithMe", href: "/shared-with-me", icon: "share-2" },
+  { labelKey: "nav.uploadDocuments", href: "/upload", icon: "upload", feature: "upload_documents" },
+  { labelKey: "nav.sharedWithMe", href: "/shared-with-me", icon: "share-2", feature: "shared_with_me" },
   {
     labelKey: "nav.bank",
     href: "/bank",
     icon: "landmark",
+    feature: "bank",
     children: [
       { labelKey: "nav.accounts", href: "/bank/accounts" },
       { labelKey: "nav.moneyIn", href: "/bank/money-in" },
@@ -60,40 +65,44 @@ export const navItems: NavItem[] = [
     labelKey: "nav.contacts",
     href: "/contacts",
     icon: "users",
+    feature: "contacts",
     children: [
       { labelKey: "nav.contacts", href: "/contacts" },
       { labelKey: "nav.contactGroups", href: "/contacts/groups" },
     ],
   },
-  { labelKey: "nav.productsServices", href: "/products", icon: "package" },
+  { labelKey: "nav.productsServices", href: "/products", icon: "package", feature: "products" },
   {
     labelKey: "nav.stocks",
     href: "/stocks",
     icon: "boxes",
+    feature: "stocks",
     children: [
       { labelKey: "nav.stockAdjustments", href: "/stock/adjustments" },
       { labelKey: "nav.stockTransfers", href: "/stock/transfers" },
       { labelKey: "nav.stockValues", href: "/stock/values" },
     ],
   },
-  { labelKey: "nav.reports", href: "/reports", icon: "bar-chart" },
+  { labelKey: "nav.reports", href: "/reports", icon: "bar-chart", feature: "reports" },
   {
     labelKey: "nav.accounting",
     href: "/accounting",
     icon: "calculator",
+    feature: "accounting",
     children: [
       { labelKey: "nav.chartOfAccounts", href: "/accounting/accounts" },
       { labelKey: "nav.manualJournals", href: "/accounting/journals" },
       { labelKey: "nav.fixedAssets", href: "/accounting/fixed-assets" },
     ],
   },
-  { labelKey: "nav.myInvois", href: "/myinvois", icon: "file-chart" },
-  { labelKey: "nav.aiAssistant", href: "/ai-assistant", icon: "bot" },
-  { labelKey: "nav.billing", href: "/billing", icon: "credit-card" },
+  { labelKey: "nav.myInvois", href: "/myinvois", icon: "file-chart", feature: "myinvois" },
+  { labelKey: "nav.aiAssistant", href: "/ai-assistant", icon: "bot", feature: "ai_assistant" },
+  { labelKey: "nav.billing", href: "/billing", icon: "credit-card", feature: "billing" },
   {
     labelKey: "nav.firmDashboard",
     href: "/firm",
     icon: "briefcase",
+    feature: "client_dashboard",
     children: [
       { labelKey: "nav.firmDashboard", href: "/firm/dashboard" },
       { labelKey: "nav.firmSettings", href: "/firm/settings" },
@@ -103,6 +112,7 @@ export const navItems: NavItem[] = [
     labelKey: "nav.controlPanel",
     href: "/settings",
     icon: "settings",
+    feature: "settings",
     children: [
       { labelKey: "nav.companySettings", href: "/settings/company" },
       { labelKey: "nav.invoiceTemplates", href: "/settings/invoice-templates" },
