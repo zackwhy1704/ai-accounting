@@ -1,7 +1,7 @@
 import { useMemo, useState, useRef, useEffect, useCallback } from "react"
-import { useQueryClient } from "@tanstack/react-query"
-import { CircleAlert, CloudUpload, FileText, Loader2, Search, CheckCircle2, Link2, PlusCircle, Pencil, Save, X, Check, AlertTriangle, Trash2, HelpCircle } from "lucide-react"
-import { useDocuments, useBills, useAttachDocumentToBill, useCreateBillFromDocument, useUpdateExtractedData, useDeleteDocument } from "../../lib/hooks"
+import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query"
+import { CircleAlert, CloudUpload, FileText, Loader2, Search, CheckCircle2, Link2, PlusCircle, Pencil, Save, X, Check, AlertTriangle, Trash2, HelpCircle, Share2, Tag, UserCheck, Building2 } from "lucide-react"
+import { useDocuments, useBills, useAttachDocumentToBill, useCreateBillFromDocument, useUpdateExtractedData, useDeleteDocument, useCategoriseDocument } from "../../lib/hooks"
 import api from "../../lib/api"
 import { cn, formatDate } from "../../lib/utils"
 import { useTheme } from "../../lib/theme"
@@ -10,7 +10,160 @@ import { Card } from "../../components/ui/card"
 import { Button } from "../../components/ui/button"
 import { Input } from "../../components/ui/input"
 import { Tabs, TabsList, TabsTrigger } from "../../components/ui/tabs"
-import type { Bill } from "../../types"
+import type { Bill, Document } from "../../types"
+
+interface LinkedFirm {
+  link_id: string
+  firm_org_id: string
+  firm_name: string
+  firm_logo_url: string | null
+  contact_email: string
+}
+
+const CATEGORIES = ["invoice", "receipt", "bill", "bank_statement", "other"] as const
+type Category = typeof CATEGORIES[number]
+
+const categoryLabel: Record<Category, string> = {
+  invoice: "Invoice",
+  receipt: "Receipt",
+  bill: "Bill",
+  bank_statement: "Bank Statement",
+  other: "Other",
+}
+
+function ShareModal({ doc, onClose }: { doc: Document; onClose: () => void }) {
+  const [mode, setMode] = useState<"firm" | "email">("firm")
+  const [selectedFirm, setSelectedFirm] = useState<LinkedFirm | null>(null)
+  const [email, setEmail] = useState("")
+  const [note, setNote] = useState("")
+  const { toast } = useToast()
+  const qc = useQueryClient()
+
+  const { data: linkedFirms = [] } = useQuery<LinkedFirm[]>({
+    queryKey: ["linked-firms"],
+    queryFn: () => api.get("/sharing/linked-firms").then(r => r.data),
+  })
+
+  const { data: existingShares = [] } = useQuery<{ share_id: string; shared_with_email: string; note: string | null; shared_at: string }[]>({
+    queryKey: ["doc-shares", doc.id],
+    queryFn: () => api.get("/sharing/my-shared-docs").then(r => {
+      const found = r.data.find((d: { document_id: string; shares: unknown[] }) => d.document_id === doc.id)
+      return found?.shares ?? []
+    }),
+  })
+
+  const alreadySharedEmails = new Set(existingShares.map(s => s.shared_with_email))
+  const availableFirms = linkedFirms.filter(f => !alreadySharedEmails.has(f.contact_email))
+
+  const share = useMutation({
+    mutationFn: (accountantEmail: string) =>
+      api.post("/sharing/share", { document_id: doc.id, accountant_email: accountantEmail, note: note.trim() || null }),
+    onSuccess: () => {
+      toast("Document shared", "success")
+      qc.invalidateQueries({ queryKey: ["doc-shares", doc.id] })
+      qc.invalidateQueries({ queryKey: ["my-shared-docs"] })
+      onClose()
+    },
+    onError: (e: any) => toast(e?.response?.data?.detail || "Failed to share", "warning"),
+  })
+
+  const revoke = useMutation({
+    mutationFn: (shareEmail: string) =>
+      api.delete("/sharing/share", { data: { document_id: doc.id, accountant_email: shareEmail } }),
+    onSuccess: () => {
+      toast("Share removed", "success")
+      qc.invalidateQueries({ queryKey: ["doc-shares", doc.id] })
+      qc.invalidateQueries({ queryKey: ["my-shared-docs"] })
+    },
+    onError: () => toast("Failed to remove share", "warning"),
+  })
+
+  const handleShare = () => {
+    const target = mode === "firm" ? selectedFirm?.contact_email : email.trim()
+    if (!target) return
+    share.mutate(target)
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
+      <div className="w-full max-w-md rounded-2xl bg-card border border-border shadow-xl p-6">
+        <div className="flex items-start justify-between mb-4">
+          <div>
+            <div className="text-sm font-semibold text-foreground truncate max-w-[300px]">{doc.filename}</div>
+            <div className="text-xs text-muted-foreground mt-0.5">Manage who can see this document</div>
+          </div>
+          <button onClick={onClose} className="text-muted-foreground hover:text-foreground ml-2 shrink-0"><X className="h-4 w-4" /></button>
+        </div>
+
+        {existingShares.length > 0 && (
+          <div className="mb-4 space-y-2">
+            <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Currently shared with</div>
+            {existingShares.map(s => (
+              <div key={s.share_id} className="flex items-center gap-3 rounded-xl bg-muted/40 px-3 py-2.5">
+                <UserCheck className="h-4 w-4 text-green-500 shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <div className="text-sm font-medium text-foreground truncate">{s.shared_with_email}</div>
+                  {s.note && <div className="text-xs text-muted-foreground italic">"{s.note}"</div>}
+                  <div className="text-xs text-muted-foreground">{formatDate(s.shared_at)}</div>
+                </div>
+                <button onClick={() => revoke.mutate(s.shared_with_email)} disabled={revoke.isPending} className="shrink-0 rounded-lg p-1.5 text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors">
+                  <Trash2 className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <div className="space-y-3">
+          <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Share with</div>
+          {linkedFirms.length > 0 ? (
+            <>
+              <div className="flex rounded-lg border border-border overflow-hidden">
+                <button onClick={() => setMode("firm")} className={`flex-1 py-2 text-xs font-medium transition-colors ${mode === "firm" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted/50"}`}>My Accountants</button>
+                <button onClick={() => setMode("email")} className={`flex-1 py-2 text-xs font-medium transition-colors ${mode === "email" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted/50"}`}>Other Email</button>
+              </div>
+              {mode === "firm" ? (
+                availableFirms.length === 0 ? (
+                  <div className="rounded-xl bg-muted/40 px-3 py-4 text-center text-xs text-muted-foreground">All linked accountants already have access.</div>
+                ) : (
+                  <div className="space-y-2">
+                    {availableFirms.map(f => (
+                      <button key={f.link_id} onClick={() => setSelectedFirm(f)} className={cn("w-full flex items-center gap-3 rounded-xl border px-3 py-2.5 text-left transition-colors", selectedFirm?.link_id === f.link_id ? "border-primary bg-primary/5" : "border-border hover:bg-muted/50")}>
+                        <Building2 className="h-4 w-4 text-blue-500 shrink-0" />
+                        <div className="flex-1 min-w-0">
+                          <div className="text-sm font-medium text-foreground">{f.firm_name}</div>
+                          <div className="text-xs text-muted-foreground">{f.contact_email}</div>
+                        </div>
+                        {selectedFirm?.link_id === f.link_id && <Check className="h-4 w-4 text-primary shrink-0" />}
+                      </button>
+                    ))}
+                  </div>
+                )
+              ) : (
+                <input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="accountant@firm.com" className="w-full rounded-lg border border-border bg-background px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30" />
+              )}
+            </>
+          ) : (
+            <input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="accountant@firm.com" className="w-full rounded-lg border border-border bg-background px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30" />
+          )}
+          <textarea value={note} onChange={e => setNote(e.target.value)} placeholder="Optional note..." rows={2} className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 resize-none" />
+        </div>
+
+        <div className="mt-5 flex gap-3">
+          <button onClick={onClose} className="flex-1 rounded-xl border border-border py-2.5 text-sm font-medium text-muted-foreground hover:bg-muted/50 transition-colors">Cancel</button>
+          <button
+            onClick={handleShare}
+            disabled={share.isPending || (mode === "firm" ? !selectedFirm : !email.trim())}
+            className="flex-1 flex items-center justify-center gap-2 rounded-xl bg-primary py-2.5 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50 transition-colors"
+          >
+            {share.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Share2 className="h-4 w-4" />}
+            Share
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
 
 const statusIconMap = { processed: FileText, processing: Loader2, failed: CircleAlert, uploaded: FileText, done: CheckCircle2, unrecognized: HelpCircle } as const
 
@@ -23,8 +176,10 @@ type UploadItem = {
 
 export default function DocumentsPage() {
   const [tab, setTab] = useState("processed")
+  const [categoryFilter, setCategoryFilter] = useState<string>("all")
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [attachModalOpen, setAttachModalOpen] = useState(false)
+  const [shareDocId, setShareDocId] = useState<string | null>(null)
   const [editing, setEditing] = useState(false)
   const [editData, setEditData] = useState<Record<string, unknown> | null>(null)
   const [uploadQueue, setUploadQueue] = useState<UploadItem[]>([])
@@ -35,6 +190,7 @@ export default function DocumentsPage() {
   const createBillMutation = useCreateBillFromDocument()
   const updateExtractedMutation = useUpdateExtractedData()
   const deleteMutation = useDeleteDocument()
+  const categorizeMutation = useCategoriseDocument()
   const qc = useQueryClient()
   const fileRef = useRef<HTMLInputElement>(null)
   const { t } = useTheme()
@@ -45,15 +201,32 @@ export default function DocumentsPage() {
     { label: t("documents.done"), value: "done" },
   ]
 
+  const categoryTabs = [
+    { label: "All", value: "all" },
+    { label: "Invoices", value: "invoice" },
+    { label: "Receipts", value: "receipt" },
+    { label: "Bills", value: "bill" },
+    { label: "Bank Statements", value: "bank_statement" },
+    { label: "Other", value: "other" },
+  ]
+
   const queueDesc: Record<string, string> = {
     processed: t("documents.readyForReview"),
     done: t("documents.doneQueue"),
   }
 
+  const setManualCategory = useMutation({
+    mutationFn: ({ id, category }: { id: string; category: string }) =>
+      api.patch(`/documents/${id}`, { category }).then(r => r.data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["documents"] }),
+    onError: () => toast("Failed to update category", "warning"),
+  })
+
   const rows = useMemo(() => {
-    if (tab === "done") return documents.filter(d => d.status === "done")
-    return documents.filter(d => d.status !== "done")
-  }, [documents, tab])
+    let base = tab === "done" ? documents.filter(d => d.status === "done") : documents.filter(d => d.status !== "done")
+    if (categoryFilter !== "all") base = base.filter(d => d.category === categoryFilter)
+    return base
+  }, [documents, tab, categoryFilter])
 
   const selected = rows.find(r => r.id === selectedId) ?? null
 
@@ -302,13 +475,38 @@ export default function DocumentsPage() {
       )}
 
       <Card className="rounded-2xl border-border bg-card p-4 shadow-[0_0_0_1px_rgba(15,23,42,0.06),0_18px_55px_rgba(2,6,23,0.08)]">
-        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-          <Tabs value={tab} onValueChange={(v) => { setTab(v); setSelectedId(null) }}>
-            <TabsList className="h-auto flex-wrap justify-start gap-1 rounded-xl bg-muted p-1">
-              {statusTabs.map(st => (<TabsTrigger key={st.value} value={st.value} className="rounded-lg px-3 py-1.5 text-xs">{st.label}</TabsTrigger>))}
-            </TabsList>
-          </Tabs>
-          <div className="relative w-full lg:max-w-sm"><Search className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" /><Input placeholder={t("documents.searchFileName")} className="h-10 rounded-xl pl-9 text-sm" /></div>
+        <div className="flex flex-col gap-3">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <Tabs value={tab} onValueChange={(v) => { setTab(v); setSelectedId(null) }}>
+              <TabsList className="h-auto flex-wrap justify-start gap-1 rounded-xl bg-muted p-1">
+                {statusTabs.map(st => (<TabsTrigger key={st.value} value={st.value} className="rounded-lg px-3 py-1.5 text-xs">{st.label}</TabsTrigger>))}
+              </TabsList>
+            </Tabs>
+            <div className="relative w-full sm:max-w-sm"><Search className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" /><Input placeholder={t("documents.searchFileName")} className="h-10 rounded-xl pl-9 text-sm" /></div>
+          </div>
+          {/* Category filter */}
+          <div className="flex flex-wrap gap-1.5">
+            {categoryTabs.map(ct => (
+              <button
+                key={ct.value}
+                type="button"
+                onClick={() => { setCategoryFilter(ct.value); setSelectedId(null) }}
+                className={cn(
+                  "rounded-lg px-3 py-1.5 text-xs font-medium transition-colors",
+                  categoryFilter === ct.value
+                    ? "bg-primary text-primary-foreground"
+                    : "bg-muted text-muted-foreground hover:bg-muted/70 hover:text-foreground"
+                )}
+              >
+                {ct.label}
+                {ct.value !== "all" && (
+                  <span className="ml-1.5 text-[10px] opacity-70">
+                    {documents.filter(d => d.category === ct.value).length}
+                  </span>
+                )}
+              </button>
+            ))}
+          </div>
         </div>
 
         <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-12">
@@ -338,7 +536,7 @@ export default function DocumentsPage() {
                         </div>
                         <div className="min-w-0 flex-1">
                           <div className="truncate text-sm font-semibold text-foreground">{r.filename}</div>
-                          <div className="mt-0.5 flex items-center gap-2 text-xs text-muted-foreground">
+                          <div className="mt-0.5 flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
                             <span>{formatDate(r.uploaded_at)}</span>
                             {badge && (
                               <span className={cn("rounded-md px-1.5 py-0.5 text-[10px] font-medium",
@@ -347,6 +545,11 @@ export default function DocumentsPage() {
                                 r.status === "unrecognized" ? "bg-amber-100 text-amber-700" :
                                 "bg-gray-100 text-gray-600"
                               )}>{badge}</span>
+                            )}
+                            {r.category && (
+                              <span className="rounded-md bg-blue-50 px-1.5 py-0.5 text-[10px] font-medium text-blue-600 dark:bg-blue-900/30 dark:text-blue-400">
+                                {categoryLabel[r.category as Category] ?? r.category}
+                              </span>
                             )}
                           </div>
                         </div>
@@ -540,9 +743,39 @@ export default function DocumentsPage() {
                       </div>
                     )}
 
+                    {/* Category picker */}
+                    {!editing && (
+                      <div className="mt-5 flex items-center gap-2 flex-wrap">
+                        <Tag className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                        <span className="text-xs text-muted-foreground">Category:</span>
+                        <select
+                          value={selected.category ?? ""}
+                          onChange={e => {
+                            if (e.target.value) setManualCategory.mutate({ id: selected.id, category: e.target.value })
+                          }}
+                          className="rounded-lg border border-border bg-background px-2 py-1 text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
+                        >
+                          <option value="">— not set —</option>
+                          {CATEGORIES.map(c => <option key={c} value={c}>{categoryLabel[c]}</option>)}
+                        </select>
+                        <button
+                          type="button"
+                          onClick={() => categorizeMutation.mutate(selected.id, {
+                            onSuccess: () => toast("Category detected by AI", "success"),
+                            onError: () => toast("Could not detect category", "warning"),
+                          })}
+                          disabled={categorizeMutation.isPending}
+                          className="inline-flex items-center gap-1 rounded-lg border border-border px-2.5 py-1 text-xs font-medium text-muted-foreground hover:bg-muted/60 disabled:opacity-50 transition-colors"
+                        >
+                          {categorizeMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Tag className="h-3 w-3" />}
+                          Auto-detect
+                        </button>
+                      </div>
+                    )}
+
                     {/* Action buttons for processed docs */}
                     {selected.status === "processed" && !editing && (
-                      <div className="mt-6 flex items-center gap-2">
+                      <div className="mt-4 flex items-center gap-2 flex-wrap">
                         <Button type="button" onClick={handleCreateBill} disabled={createBillMutation.isPending || !selected.ai_extracted_data} className="h-9 rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-600 px-3 text-xs font-semibold text-white hover:opacity-95 disabled:opacity-50">
                           {createBillMutation.isPending ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <PlusCircle className="mr-1.5 h-3.5 w-3.5" />}
                           {t("documents.createBill")}
@@ -550,12 +783,24 @@ export default function DocumentsPage() {
                         <Button type="button" onClick={() => setAttachModalOpen(true)} variant="secondary" className="h-9 rounded-xl px-3 text-xs font-semibold">
                           <Link2 className="mr-1.5 h-3.5 w-3.5" />{t("documents.attachToBill")}
                         </Button>
+                        <Button type="button" onClick={() => setShareDocId(selected.id)} variant="secondary" className="h-9 rounded-xl px-3 text-xs font-semibold">
+                          <Share2 className="mr-1.5 h-3.5 w-3.5" />Share
+                        </Button>
+                      </div>
+                    )}
+
+                    {/* Share button for non-processed docs */}
+                    {selected.status !== "processed" && selected.status !== "processing" && !editing && (
+                      <div className="mt-4">
+                        <Button type="button" onClick={() => setShareDocId(selected.id)} variant="secondary" className="h-9 rounded-xl px-3 text-xs font-semibold">
+                          <Share2 className="mr-1.5 h-3.5 w-3.5" />Share with Accountant
+                        </Button>
                       </div>
                     )}
 
                     {/* Delete button for ALL non-done statuses */}
                     {selected.status !== "done" && selected.status !== "unrecognized" && !editing && (
-                      <div className={selected.status === "processed" ? "mt-2" : "mt-6"}>
+                      <div className={selected.status === "processed" ? "mt-2" : "mt-2"}>
                         <Button type="button" onClick={handleDelete} disabled={deleteMutation.isPending} variant="secondary" className="h-9 rounded-xl px-3 text-xs font-semibold text-rose-600 hover:text-rose-700 hover:bg-rose-50">
                           {deleteMutation.isPending ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <Trash2 className="mr-1.5 h-3.5 w-3.5" />}
                           Delete
@@ -577,6 +822,12 @@ export default function DocumentsPage() {
           </div>
         </div>
       </Card>
+
+      {/* Share Modal */}
+      {shareDocId && (() => {
+        const doc = documents.find(d => d.id === shareDocId)
+        return doc ? <ShareModal doc={doc} onClose={() => setShareDocId(null)} /> : null
+      })()}
 
       {/* Attach to Bill Modal */}
       {attachModalOpen && (

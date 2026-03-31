@@ -235,6 +235,34 @@ async def update_extracted_data(
     return doc
 
 
+# ── Set category manually ──
+class CategoryUpdate(BaseModel):
+    category: str
+
+@router.patch("/{document_id}", response_model=DocumentResponse)
+async def update_document(
+    document_id: UUID,
+    body: CategoryUpdate,
+    current_user: dict = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    valid_categories = {"invoice", "receipt", "bill", "bank_statement", "other"}
+    if body.category not in valid_categories:
+        raise HTTPException(status_code=400, detail=f"Invalid category. Must be one of: {valid_categories}")
+
+    result = await db.execute(
+        select(Document).where(Document.id == document_id, Document.organization_id == current_user["org_id"])
+    )
+    doc = result.scalar_one_or_none()
+    if not doc:
+        raise HTTPException(status_code=404, detail="Document not found")
+
+    doc.category = body.category
+    await db.commit()
+    await db.refresh(doc)
+    return doc
+
+
 # ── Mark as done ──
 class StatusUpdate(BaseModel):
     status: str
