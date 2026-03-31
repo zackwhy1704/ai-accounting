@@ -130,15 +130,11 @@ export default function ClientPortalPage() {
     )
   }
 
-  const primary = portal.brand_primary_color || "#4D63FF"
-  const secondary = portal.brand_secondary_color || "#7C9DFF"
-
   return (
     <div className="flex min-h-screen flex-col bg-slate-50">
       {/* Header with firm branding */}
       <header
-        className="flex items-center justify-between px-6 py-4"
-        style={{ background: `linear-gradient(135deg, ${primary}, ${secondary})` }}
+        className="flex items-center justify-between px-6 py-4 bg-primary"
       >
         <div className="flex items-center gap-3">
           {portal.logo_url ? (
