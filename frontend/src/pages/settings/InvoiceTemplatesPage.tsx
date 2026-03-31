@@ -1,5 +1,5 @@
 import { useState } from "react"
-import { Plus, Check, Palette, Eye, Trash2, Loader2 } from "lucide-react"
+import { Plus, Palette, Trash2, Loader2 } from "lucide-react"
 import { Card } from "../../components/ui/card"
 import { Button } from "../../components/ui/button"
 import { Input } from "../../components/ui/input"

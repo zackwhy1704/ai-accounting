@@ -4,7 +4,7 @@ import { Card } from "../../components/ui/card"
 import { Button } from "../../components/ui/button"
 import { Input } from "../../components/ui/input"
 import { formatCurrency } from "../../lib/utils"
-import api from "../../lib/axios"
+import api from "../../lib/api"
 
 type ReportType = "profit_loss" | "ar_aging" | "ap_aging" | "trial_balance"
 
