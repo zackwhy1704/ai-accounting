@@ -33,6 +33,11 @@ const translations = {
     "nav.moneyOut": "Money Out",
     "nav.transfers": "Transfers",
     "nav.accounts": "Accounts",
+    "nav.saleReceipts": "Sale Receipts",
+    "nav.recurringInvoices": "Recurring Invoices",
+    "nav.vendorCredits": "Vendor Credits",
+    "nav.bankRules": "Bank Rules",
+    "nav.manualJournals": "Manual Journals",
 
     // Header
     "header.search": "Search invoices, contacts, documents...",
@@ -516,6 +521,11 @@ const translations = {
     "nav.moneyOut": "支出",
     "nav.transfers": "转账",
     "nav.accounts": "账户",
+    "nav.saleReceipts": "销售收据",
+    "nav.recurringInvoices": "定期发票",
+    "nav.vendorCredits": "供应商信用单",
+    "nav.bankRules": "银行规则",
+    "nav.manualJournals": "手工日记账",
 
     "header.search": "搜索发票、联系人、文件...",
     "header.switchDark": "切换到深色模式",
@@ -775,6 +785,11 @@ const translations = {
     "header.switchDark": "Tukar ke mod gelap",
     "header.switchLight": "Tukar ke mod cerah",
     "header.changeLang": "Tukar bahasa",
+    "nav.saleReceipts": "Resit Jualan",
+    "nav.recurringInvoices": "Invois Berulang",
+    "nav.vendorCredits": "Kredit Vendor",
+    "nav.bankRules": "Peraturan Bank",
+    "nav.manualJournals": "Jurnal Manual",
 
     "user.settings": "Tetapan Pengguna",
     "user.profile": "Profil",
