@@ -486,6 +486,7 @@ const translations = {
     "nav.firmDashboard": "Client Dashboard",
     "nav.firmSettings": "White-Label Settings",
     "nav.sharedWithMe": "Shared with Me",
+    "nav.sharedDocuments": "Shared Documents",
 
     "login.appName": "AI Accounting",
     "login.appDesc": "Cloud accounting powered by AI",
@@ -759,6 +760,7 @@ const translations = {
     "nav.firmDashboard": "客户仪表板",
     "nav.firmSettings": "白标设置",
     "nav.sharedWithMe": "与我共享",
+    "nav.sharedDocuments": "共享文件",
 
     "login.appName": "AI 会计",
     "login.appDesc": "AI驱动的云会计",
@@ -1032,6 +1034,7 @@ const translations = {
     "nav.firmDashboard": "Papan Pemuka Pelanggan",
     "nav.firmSettings": "Tetapan Label Putih",
     "nav.sharedWithMe": "Dikongsi Dengan Saya",
+    "nav.sharedDocuments": "Dokumen Dikongsi",
 
     "login.appName": "AI Perakaunan",
     "login.appDesc": "Perakaunan awan dikuasakan AI",

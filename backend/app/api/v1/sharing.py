@@ -90,6 +90,48 @@ async def revoke_share(
     return {"status": "revoked"}
 
 
+@router.get("/my-shared")
+async def list_my_shared_documents(
+    current_user: dict = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """SME owner: list all documents they have shared with accountants, grouped by document."""
+    org_id = uuid.UUID(current_user["org_id"])
+
+    result = await db.execute(
+        select(Document, DocumentShare)
+        .join(DocumentShare, DocumentShare.document_id == Document.id)
+        .where(DocumentShare.owner_org_id == org_id)
+        .order_by(DocumentShare.shared_at.desc())
+    )
+    rows = result.all()
+
+    # Group shares by document
+    docs: dict[str, dict] = {}
+    for doc, share in rows:
+        doc_id = str(doc.id)
+        if doc_id not in docs:
+            docs[doc_id] = {
+                "document_id": doc_id,
+                "filename": doc.filename,
+                "file_type": doc.file_type,
+                "file_url": doc.file_url,
+                "file_size": doc.file_size,
+                "category": doc.category,
+                "status": doc.status,
+                "uploaded_at": doc.uploaded_at.isoformat(),
+                "shares": [],
+            }
+        docs[doc_id]["shares"].append({
+            "share_id": str(share.id),
+            "shared_with_email": share.shared_with_email,
+            "note": share.note,
+            "shared_at": share.shared_at.isoformat(),
+        })
+
+    return list(docs.values())
+
+
 @router.get("/shared-with-me")
 async def get_documents_shared_with_me(
     current_user: dict = Depends(get_current_user),

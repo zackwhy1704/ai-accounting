@@ -14,6 +14,7 @@ export type Feature =
   | "purchases"
   | "upload_documents"
   | "shared_with_me"      // accountant-only: see documents clients shared
+  | "shared_documents"    // sme/client: manage documents shared with their accountant
   | "client_dashboard"    // accountant-only: manage clients
   | "bank"
   | "contacts"
@@ -51,6 +52,7 @@ const ORG_FEATURES: Record<string, Feature[]> = {
     "sales",
     "purchases",
     "upload_documents",
+    "shared_documents",
     "bank",
     "contacts",
     "products",
@@ -67,6 +69,7 @@ const ORG_FEATURES: Record<string, Feature[]> = {
     "sales",
     "purchases",
     "upload_documents",
+    "shared_documents",
     "bank",
     "contacts",
     "reports",
@@ -78,6 +81,7 @@ const ORG_FEATURES: Record<string, Feature[]> = {
     "dashboard",
     "sales",
     "upload_documents",
+    "shared_documents",
     "bank",
     "contacts",
     "reports",

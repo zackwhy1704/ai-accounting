@@ -71,6 +71,7 @@ import ContactGroupsPage from './pages/contacts/ContactGroupsPage'
 import CompanySettingsPage from './pages/settings/CompanySettingsPage'
 import MyInvoisPage from './pages/myinvois/MyInvoisPage'
 import SharedDocumentsPage from './pages/documents/SharedDocumentsPage'
+import SharedDocumentsOwnerPage from './pages/documents/SharedDocumentsOwnerPage'
 
 function ProtectedRoute({ children, allowOnboarding }: { children: React.ReactNode; allowOnboarding?: boolean }) {
   const { token, isLoading, onboardingCompleted } = useAuth()
@@ -187,6 +188,7 @@ function App() {
         <Route path="/firm/dashboard" element={<PracticeDashboardPage />} />
 
         {/* Shared Documents */}
+        <Route path="/shared-documents" element={<SharedDocumentsOwnerPage />} />
         <Route path="/shared-with-me" element={<SharedDocumentsPage />} />
 
         {/* Catch-all: redirect unknown routes to dashboard */}
