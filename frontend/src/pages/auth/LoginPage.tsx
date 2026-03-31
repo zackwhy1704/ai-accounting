@@ -7,6 +7,7 @@ import { Button } from "../../components/ui/button"
 import { Input } from "../../components/ui/input"
 import { Card } from "../../components/ui/card"
 import { Loader2, ArrowLeft, CheckCircle2 } from "lucide-react"
+import accrulyLogo from "../../assets/accruly-logo.svg"
 
 type View = "login" | "register" | "forgot" | "reset"
 
@@ -147,10 +148,10 @@ export default function LoginPage() {
       <div className="pointer-events-none fixed inset-0 bg-[radial-gradient(600px_circle_at_50%_30%,rgba(124,157,255,0.3),transparent_60%)]" />
       <Card className="relative w-full max-w-md rounded-2xl border-white/10 bg-white/5 p-8 shadow-2xl backdrop-blur-md">
         <div className="flex items-center gap-3 mb-6">
-          <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-[#7C9DFF] to-[#4D63FF] shadow-[0_0_0_1px_rgba(124,157,255,0.35),0_10px_30px_rgba(0,0,0,0.35)]" />
+          <img src={accrulyLogo} alt="Accruly" className="h-10 w-10 shrink-0" />
           <div>
-            <div className="text-lg font-semibold text-white">{t("login.appName")}</div>
-            <div className="text-xs text-white/50">{t("login.appDesc")}</div>
+            <div className="text-lg font-bold text-white tracking-tight">Accruly</div>
+            <div className="text-xs text-white/50">Smart accounting for modern businesses</div>
           </div>
         </div>
 
