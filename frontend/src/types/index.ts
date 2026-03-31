@@ -2,8 +2,11 @@ export interface User {
   id: string
   email: string
   full_name: string
+  phone?: string | null
   role: string
   organization_id: string
+  onboarding_completed: boolean
+  org_type: string
 }
 
 export interface Contact {

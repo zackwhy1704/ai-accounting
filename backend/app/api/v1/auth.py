@@ -104,16 +104,30 @@ async def login(data: UserLogin, db: AsyncSession = Depends(get_db)):
     return TokenResponse(access_token=token)
 
 
-@router.get("/me", response_model=UserResponse)
+@router.get("/me")
 async def get_me(
     current_user: dict = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    result = await db.execute(select(User).where(User.id == current_user["sub"]))
-    user = result.scalar_one_or_none()
-    if not user:
+    result = await db.execute(
+        select(User, Organization)
+        .join(Organization, User.organization_id == Organization.id)
+        .where(User.id == current_user["sub"])
+    )
+    row = result.first()
+    if not row:
         raise HTTPException(status_code=404, detail="User not found")
-    return user
+    user, org = row
+    return {
+        "id": str(user.id),
+        "email": user.email,
+        "full_name": user.full_name,
+        "phone": user.phone,
+        "role": user.role,
+        "organization_id": str(user.organization_id),
+        "onboarding_completed": org.onboarding_completed,
+        "org_type": org.org_type,
+    }
 
 
 class ForgotPasswordRequest(BaseModel):

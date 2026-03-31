@@ -23,16 +23,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (token) {
-      Promise.all([
-        api.get('/auth/me'),
-        api.get('/auth/organizations'),
-      ])
-        .then(([meRes, orgsRes]) => {
+      api.get('/auth/me')
+        .then((meRes) => {
           setUser(meRes.data)
-          // Check if current org has completed onboarding
-          const orgs = orgsRes.data as Array<{ organization_id: string; onboarding_completed: boolean }>
-          const currentOrg = orgs.find(o => o.organization_id === meRes.data.organization_id)
-          setOnboardingCompleted(currentOrg?.onboarding_completed ?? true)
+          setOnboardingCompleted(meRes.data.onboarding_completed ?? true)
         })
         .catch(() => {
           localStorage.removeItem('access_token')
@@ -49,17 +43,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const accessToken = res.data.access_token
     localStorage.setItem('access_token', accessToken)
     setToken(accessToken)
-    // Fetch org status to determine redirect
-    const [meRes, orgsRes] = await Promise.all([
-      api.get('/auth/me', { headers: { Authorization: `Bearer ${accessToken}` } }),
-      api.get('/auth/organizations', { headers: { Authorization: `Bearer ${accessToken}` } }),
-    ])
+    const meRes = await api.get('/auth/me', { headers: { Authorization: `Bearer ${accessToken}` } })
     setUser(meRes.data)
-    const orgs = orgsRes.data as Array<{ organization_id: string; onboarding_completed: boolean; org_type: string }>
-    const currentOrg = orgs.find(o => o.organization_id === meRes.data.organization_id)
-    const completed = currentOrg?.onboarding_completed ?? true
+    const completed = meRes.data.onboarding_completed ?? true
     setOnboardingCompleted(completed)
-    return { onboarding_completed: completed, org_type: currentOrg?.org_type ?? null }
+    return { onboarding_completed: completed, org_type: meRes.data.org_type ?? null }
   }
 
   const register = async (email: string, password: string, fullName: string, companyName: string, phone?: string) => {
