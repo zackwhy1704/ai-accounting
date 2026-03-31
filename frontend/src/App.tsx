@@ -33,6 +33,8 @@ import FirmSettingsPage from './pages/firm/FirmSettingsPage'
 import PracticeDashboardPage from './pages/firm/PracticeDashboardPage'
 import ClientPortalPage from './pages/firm/ClientPortalPage'
 import AcceptInvitePage from './pages/firm/AcceptInvitePage'
+import ProductsPage from './pages/products/ProductsPage'
+import NewProductPage from './pages/products/NewProductPage'
 
 function ProtectedRoute({ children, allowOnboarding }: { children: React.ReactNode; allowOnboarding?: boolean }) {
   const { token, isLoading, onboardingCompleted } = useAuth()
@@ -100,7 +102,8 @@ function App() {
 
         {/* Other */}
         <Route path="/contacts" element={<ContactsPage />} />
-        <Route path="/products" element={<GenericPage title="Products & Services" category="Inventory" />} />
+        <Route path="/products" element={<ProductsPage />} />
+        <Route path="/products/new" element={<NewProductPage />} />
         <Route path="/stocks" element={<GenericPage title="Stocks" category="Inventory" />} />
         <Route path="/reports" element={<GenericPage title="Reports" category="Analytics" />} />
         <Route path="/accounting" element={<AccountingPage />} />
