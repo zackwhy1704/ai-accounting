@@ -4,6 +4,7 @@ from app.core.config import get_settings
 from app.api.v1 import (
     auth, invoices, bills, documents, contacts, accounts, dashboard, billing, firm, sales,
     products, tax_rates, exchange_rates, manual_journals, bank_rules, vendor_credits, sale_receipts, recurring_invoices, einvoice, payment_links, reports, custom_fields, invoice_templates, ai_assist,
+    bank_accounts, bank_transactions, bank_transfers_router, stock, fixed_assets, purchase_payments, purchase_refunds, contact_groups, settings_data,
 )
 
 settings = get_settings()
@@ -68,3 +69,13 @@ app.include_router(reports.router, prefix=settings.API_V1_PREFIX)
 app.include_router(custom_fields.router, prefix=settings.API_V1_PREFIX)
 app.include_router(invoice_templates.router, prefix=settings.API_V1_PREFIX)
 app.include_router(ai_assist.router, prefix=settings.API_V1_PREFIX)
+app.include_router(bank_accounts.router, prefix=settings.API_V1_PREFIX)
+app.include_router(bank_transactions.router, prefix=settings.API_V1_PREFIX)
+app.include_router(bank_transfers_router.router, prefix=settings.API_V1_PREFIX)
+app.include_router(stock.adjustments_router, prefix=settings.API_V1_PREFIX)
+app.include_router(stock.transfers_router, prefix=settings.API_V1_PREFIX)
+app.include_router(fixed_assets.router, prefix=settings.API_V1_PREFIX)
+app.include_router(purchase_payments.router, prefix=settings.API_V1_PREFIX)
+app.include_router(purchase_refunds.router, prefix=settings.API_V1_PREFIX)
+app.include_router(contact_groups.router, prefix=settings.API_V1_PREFIX)
+app.include_router(settings_data.router, prefix=settings.API_V1_PREFIX)

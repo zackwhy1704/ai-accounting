@@ -1092,3 +1092,186 @@ class InvoiceTemplate(Base):
     bank_details_text: Mapped[str | None] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
+
+
+# ── Bank Accounts ──────────────────────────────
+class BankAccount(Base):
+    __tablename__ = "bank_accounts"
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=new_uuid)
+    organization_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("organizations.id", ondelete="CASCADE"), index=True)
+    name: Mapped[str] = mapped_column(String(200))
+    account_type: Mapped[str] = mapped_column(String(30), default="current")  # current | savings | credit | cash
+    bank_name: Mapped[str | None] = mapped_column(String(200))
+    account_number: Mapped[str | None] = mapped_column(String(50))
+    currency: Mapped[str] = mapped_column(String(3), default="MYR")
+    opening_balance: Mapped[float] = mapped_column(Numeric(18,4), default=0)
+    current_balance: Mapped[float] = mapped_column(Numeric(18,4), default=0)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+# ── Bank Transactions (money in/out) ───────────
+class BankTransaction(Base):
+    __tablename__ = "bank_transactions"
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=new_uuid)
+    organization_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("organizations.id", ondelete="CASCADE"), index=True)
+    bank_account_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("bank_accounts.id"))
+    contact_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("contacts.id"))
+    transaction_type: Mapped[str] = mapped_column(String(20))  # income | expense | transfer
+    transaction_date: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    reference_no: Mapped[str | None] = mapped_column(String(100))
+    description: Mapped[str] = mapped_column(String(500))
+    amount: Mapped[float] = mapped_column(Numeric(18,4), default=0)
+    currency: Mapped[str] = mapped_column(String(3), default="MYR")
+    payment_method: Mapped[str] = mapped_column(String(30), default="bank_transfer")
+    category: Mapped[str | None] = mapped_column(String(100))
+    notes: Mapped[str | None] = mapped_column(Text)
+    status: Mapped[str] = mapped_column(String(20), default="completed")  # completed | void
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    __table_args__ = (Index("ix_bank_txn_org_date", "organization_id", "transaction_date"),)
+
+# ── Bank Transfers ─────────────────────────────
+class BankTransfer(Base):
+    __tablename__ = "bank_transfers"
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=new_uuid)
+    organization_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("organizations.id", ondelete="CASCADE"), index=True)
+    from_account_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("bank_accounts.id"))
+    to_account_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("bank_accounts.id"))
+    transfer_date: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    amount: Mapped[float] = mapped_column(Numeric(18,4), default=0)
+    reference_no: Mapped[str | None] = mapped_column(String(100))
+    notes: Mapped[str | None] = mapped_column(Text)
+    status: Mapped[str] = mapped_column(String(20), default="completed")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+# ── Stock Adjustments ──────────────────────────
+class StockAdjustment(Base):
+    __tablename__ = "stock_adjustments"
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=new_uuid)
+    organization_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("organizations.id", ondelete="CASCADE"), index=True)
+    adjustment_no: Mapped[str] = mapped_column(String(50))
+    adjustment_date: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    reference_no: Mapped[str | None] = mapped_column(String(100))
+    reason: Mapped[str] = mapped_column(String(200), default="Inventory Adjustment")
+    notes: Mapped[str | None] = mapped_column(Text)
+    status: Mapped[str] = mapped_column(String(20), default="draft")  # draft | confirmed | void
+    lines: Mapped[list] = mapped_column(JSONB, default=list)  # [{product_id, product_name, qty, unit_cost, location}]
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    __table_args__ = (UniqueConstraint("organization_id", "adjustment_no", name="uq_org_adj_no"),)
+
+# ── Stock Transfers ────────────────────────────
+class StockTransfer(Base):
+    __tablename__ = "stock_transfers"
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=new_uuid)
+    organization_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("organizations.id", ondelete="CASCADE"), index=True)
+    transfer_no: Mapped[str] = mapped_column(String(50))
+    transfer_date: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    from_location: Mapped[str | None] = mapped_column(String(100))
+    to_location: Mapped[str | None] = mapped_column(String(100))
+    notes: Mapped[str | None] = mapped_column(Text)
+    status: Mapped[str] = mapped_column(String(20), default="draft")  # draft | completed | void
+    lines: Mapped[list] = mapped_column(JSONB, default=list)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    __table_args__ = (UniqueConstraint("organization_id", "transfer_no", name="uq_org_transfer_no"),)
+
+# ── Fixed Assets ───────────────────────────────
+class FixedAsset(Base):
+    __tablename__ = "fixed_assets"
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=new_uuid)
+    organization_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("organizations.id", ondelete="CASCADE"), index=True)
+    code: Mapped[str | None] = mapped_column(String(50))
+    name: Mapped[str] = mapped_column(String(200))
+    asset_type: Mapped[str] = mapped_column(String(100), default="Equipment")
+    serial_no: Mapped[str | None] = mapped_column(String(100))
+    purchase_date: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    purchase_cost: Mapped[float] = mapped_column(Numeric(18,4), default=0)
+    salvage_value: Mapped[float] = mapped_column(Numeric(18,4), default=0)
+    useful_life_years: Mapped[int] = mapped_column(Integer, default=5)
+    depreciation_method: Mapped[str] = mapped_column(String(30), default="straight_line")
+    current_value: Mapped[float] = mapped_column(Numeric(18,4), default=0)
+    status: Mapped[str] = mapped_column(String(20), default="registered")  # registered | disposed
+    notes: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
+
+# ── Purchase Payments ──────────────────────────
+class PurchasePayment(Base):
+    __tablename__ = "purchase_payments"
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=new_uuid)
+    organization_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("organizations.id", ondelete="CASCADE"), index=True)
+    payment_no: Mapped[str] = mapped_column(String(50))
+    contact_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("contacts.id"))
+    payment_date: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    amount: Mapped[float] = mapped_column(Numeric(18,4), default=0)
+    currency: Mapped[str] = mapped_column(String(3), default="MYR")
+    payment_method: Mapped[str] = mapped_column(String(30), default="bank_transfer")
+    reference_no: Mapped[str | None] = mapped_column(String(100))
+    notes: Mapped[str | None] = mapped_column(Text)
+    status: Mapped[str] = mapped_column(String(20), default="completed")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    __table_args__ = (UniqueConstraint("organization_id", "payment_no", name="uq_org_pur_payment_no"),)
+
+# ── Purchase Refunds ───────────────────────────
+class PurchaseRefund(Base):
+    __tablename__ = "purchase_refunds"
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=new_uuid)
+    organization_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("organizations.id", ondelete="CASCADE"), index=True)
+    refund_no: Mapped[str] = mapped_column(String(50))
+    contact_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("contacts.id"))
+    refund_date: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    amount: Mapped[float] = mapped_column(Numeric(18,4), default=0)
+    currency: Mapped[str] = mapped_column(String(3), default="MYR")
+    payment_method: Mapped[str] = mapped_column(String(30), default="bank_transfer")
+    reference_no: Mapped[str | None] = mapped_column(String(100))
+    notes: Mapped[str | None] = mapped_column(Text)
+    status: Mapped[str] = mapped_column(String(20), default="completed")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    __table_args__ = (UniqueConstraint("organization_id", "refund_no", name="uq_org_pur_refund_no"),)
+
+# ── Contact Groups ─────────────────────────────
+class ContactGroup(Base):
+    __tablename__ = "contact_groups"
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=new_uuid)
+    organization_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("organizations.id", ondelete="CASCADE"), index=True)
+    name: Mapped[str] = mapped_column(String(100))
+    description: Mapped[str | None] = mapped_column(String(500))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    __table_args__ = (UniqueConstraint("organization_id", "name", name="uq_org_contact_group"),)
+
+# ── Tags ───────────────────────────────────────
+class Tag(Base):
+    __tablename__ = "tags"
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=new_uuid)
+    organization_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("organizations.id", ondelete="CASCADE"), index=True)
+    name: Mapped[str] = mapped_column(String(100))
+    color: Mapped[str] = mapped_column(String(7), default="#6366F1")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    __table_args__ = (UniqueConstraint("organization_id", "name", name="uq_org_tag"),)
+
+# ── Locations ──────────────────────────────────
+class Location(Base):
+    __tablename__ = "locations"
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=new_uuid)
+    organization_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("organizations.id", ondelete="CASCADE"), index=True)
+    name: Mapped[str] = mapped_column(String(100))
+    address: Mapped[str | None] = mapped_column(Text)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+# ── Payment Terms ──────────────────────────────
+class PaymentTerm(Base):
+    __tablename__ = "payment_terms"
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=new_uuid)
+    organization_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("organizations.id", ondelete="CASCADE"), index=True)
+    name: Mapped[str] = mapped_column(String(100))
+    due_days: Mapped[int] = mapped_column(Integer, default=30)
+    is_default: Mapped[bool] = mapped_column(Boolean, default=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+# ── Payment Methods ────────────────────────────
+class PaymentMethod(Base):
+    __tablename__ = "payment_methods"
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=new_uuid)
+    organization_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("organizations.id", ondelete="CASCADE"), index=True)
+    name: Mapped[str] = mapped_column(String(100))
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)

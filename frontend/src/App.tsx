@@ -45,6 +45,34 @@ import NewManualJournalPage from './pages/accounting/NewManualJournalPage'
 import NewProductPage from './pages/products/NewProductPage'
 import InvoiceTemplatesPage from './pages/settings/InvoiceTemplatesPage'
 import CustomFieldsPage from './pages/settings/CustomFieldsPage'
+import BankAccountsPage from './pages/bank/BankAccountsPage'
+import NewBankAccountPage from './pages/bank/NewBankAccountPage'
+import BankTransactionsPage from './pages/bank/BankTransactionsPage'
+import NewBankTransactionPage from './pages/bank/NewBankTransactionPage'
+import BankTransfersPage from './pages/bank/BankTransfersPage'
+import NewBankTransferPage from './pages/bank/NewBankTransferPage'
+import StockAdjustmentsPage from './pages/stock/StockAdjustmentsPage'
+import NewStockAdjustmentPage from './pages/stock/NewStockAdjustmentPage'
+import StockTransfersPage from './pages/stock/StockTransfersPage'
+import NewStockTransferPage from './pages/stock/NewStockTransferPage'
+import StockValuesPage from './pages/stock/StockValuesPage'
+import PurchaseOrdersPage from './pages/purchases/PurchaseOrdersPage'
+import GoodsReceivedNotesPage from './pages/purchases/GoodsReceivedNotesPage'
+import PurchaseCreditNotesPage from './pages/purchases/PurchaseCreditNotesPage'
+import PurchasePaymentsPage from './pages/purchases/PurchasePaymentsPage'
+import PurchaseRefundsPage from './pages/purchases/PurchaseRefundsPage'
+import ChartOfAccountsPage from './pages/accounting/ChartOfAccountsPage'
+import FixedAssetsPage from './pages/accounting/FixedAssetsPage'
+import NewFixedAssetPage from './pages/accounting/NewFixedAssetPage'
+import AgedReceivablesPage from './pages/reports/AgedReceivablesPage'
+import AgedPayablesPage from './pages/reports/AgedPayablesPage'
+import TrialBalancePage from './pages/reports/TrialBalancePage'
+import GeneralLedgerPage from './pages/reports/GeneralLedgerPage'
+import SST02Page from './pages/reports/SST02Page'
+import ReportsIndexPage from './pages/reports/ReportsIndexPage'
+import ContactGroupsPage from './pages/contacts/ContactGroupsPage'
+import CompanySettingsPage from './pages/settings/CompanySettingsPage'
+import MyInvoisPage from './pages/myinvois/MyInvoisPage'
 
 function ProtectedRoute({ children, allowOnboarding }: { children: React.ReactNode; allowOnboarding?: boolean }) {
   const { token, isLoading, onboardingCompleted } = useAuth()
@@ -100,33 +128,63 @@ function App() {
 
         {/* Purchases */}
         <Route path="/purchases/bills" element={<BillsPage />} />
-        <Route path="/purchases/purchase-orders" element={<GenericPage title="Purchase Orders" category="Purchases" />} />
-        <Route path="/purchases/goods-received-notes" element={<GenericPage title="Goods Received Notes" category="Purchases" />} />
-        <Route path="/purchases/credit-notes" element={<GenericPage title="Credit Notes" category="Purchases" />} />
+        <Route path="/purchases/purchase-orders" element={<PurchaseOrdersPage />} />
+        <Route path="/purchases/goods-received-notes" element={<GoodsReceivedNotesPage />} />
+        <Route path="/purchases/credit-notes" element={<PurchaseCreditNotesPage />} />
         <Route path="/purchases/vendor-credits" element={<VendorCreditsPage />} />
-        <Route path="/purchases/payments" element={<GenericPage title="Payments" category="Purchases" />} />
-        <Route path="/purchases/refunds" element={<GenericPage title="Refunds" category="Purchases" />} />
+        <Route path="/purchases/payments" element={<PurchasePaymentsPage />} />
+        <Route path="/purchases/refunds" element={<PurchaseRefundsPage />} />
 
         {/* Upload */}
         <Route path="/upload" element={<DocumentsPage />} />
 
         {/* Bank */}
-        <Route path="/bank/money-in" element={<GenericPage title="Money In" category="Bank" />} />
-        <Route path="/bank/money-out" element={<GenericPage title="Money Out" category="Bank" />} />
-        <Route path="/bank/transfers" element={<GenericPage title="Transfers" category="Bank" />} />
-        <Route path="/bank/accounts" element={<GenericPage title="Bank Accounts" category="Bank" />} />
+        <Route path="/bank/accounts" element={<BankAccountsPage />} />
+        <Route path="/bank/accounts/new" element={<NewBankAccountPage />} />
+        <Route path="/bank/money-in" element={<BankTransactionsPage type="income" />} />
+        <Route path="/bank/money-in/new" element={<NewBankTransactionPage />} />
+        <Route path="/bank/money-out" element={<BankTransactionsPage type="expense" />} />
+        <Route path="/bank/money-out/new" element={<NewBankTransactionPage />} />
+        <Route path="/bank/transfers" element={<BankTransfersPage />} />
+        <Route path="/bank/transfers/new" element={<NewBankTransferPage />} />
         <Route path="/bank/rules" element={<BankRulesPage />} />
 
-        {/* Other */}
+        {/* Contacts */}
         <Route path="/contacts" element={<ContactsPage />} />
+        <Route path="/contacts/groups" element={<ContactGroupsPage />} />
+
+        {/* Products */}
         <Route path="/products" element={<ProductsPage />} />
         <Route path="/products/new" element={<NewProductPage />} />
-        <Route path="/stocks" element={<GenericPage title="Stocks" category="Inventory" />} />
-        <Route path="/reports" element={<ReportsPage />} />
+
+        {/* Stock */}
+        <Route path="/stock/adjustments" element={<StockAdjustmentsPage />} />
+        <Route path="/stock/adjustments/new" element={<NewStockAdjustmentPage />} />
+        <Route path="/stock/transfers" element={<StockTransfersPage />} />
+        <Route path="/stock/transfers/new" element={<NewStockTransferPage />} />
+        <Route path="/stock/values" element={<StockValuesPage />} />
+
+        {/* Accounting */}
         <Route path="/accounting" element={<AccountingPage />} />
+        <Route path="/accounting/accounts" element={<ChartOfAccountsPage />} />
+        <Route path="/accounting/fixed-assets" element={<FixedAssetsPage />} />
+        <Route path="/accounting/fixed-assets/new" element={<NewFixedAssetPage />} />
+
+        {/* Reports */}
+        <Route path="/reports" element={<ReportsIndexPage />} />
+        <Route path="/reports/aged-receivables" element={<AgedReceivablesPage />} />
+        <Route path="/reports/aged-payables" element={<AgedPayablesPage />} />
+        <Route path="/reports/trial-balance" element={<TrialBalancePage />} />
+        <Route path="/reports/general-ledger" element={<GeneralLedgerPage />} />
+        <Route path="/reports/sst-02" element={<SST02Page />} />
+
+        {/* MyInvois */}
+        <Route path="/myinvois" element={<MyInvoisPage />} />
+
         <Route path="/ai-assistant" element={<AIAssistantPage />} />
         <Route path="/billing" element={<BillingPage />} />
         <Route path="/settings" element={<SettingsPage />} />
+        <Route path="/settings/company" element={<CompanySettingsPage />} />
         <Route path="/settings/invoice-templates" element={<InvoiceTemplatesPage />} />
         <Route path="/settings/custom-fields" element={<CustomFieldsPage />} />
 
