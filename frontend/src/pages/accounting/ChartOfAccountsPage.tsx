@@ -138,8 +138,8 @@ export default function ChartOfAccountsPage() {
                           {type}
                         </span>
                       </td>
-                      <td className={`px-4 py-2.5 text-right text-sm tabular-nums ${a.balance < 0 ? "text-rose-600" : "text-foreground"}`}>
-                        {formatCurrency(a.balance, a.currency)}
+                      <td className={`px-4 py-2.5 text-right text-sm tabular-nums ${(a.balance ?? 0) < 0 ? "text-rose-600" : "text-foreground"}`}>
+                        {formatCurrency(a.balance ?? 0, a.currency)}
                       </td>
                       <td className="px-4 py-2.5 text-right">
                         <button
