@@ -203,7 +203,7 @@ async def get_org_settings(
     org = result.scalar_one_or_none()
     if not org:
         raise HTTPException(status_code=404, detail="Organization not found")
-    return {"currency": org.currency, "name": org.name}
+    return {"currency": org.currency, "name": org.name, "country": org.country, "tax_regime": getattr(org, "tax_regime", "MY_SST"), "einvoice_enabled": getattr(org, "einvoice_enabled", False), "einvoice_supplier_tin": getattr(org, "einvoice_supplier_tin", None), "einvoice_sandbox": getattr(org, "einvoice_sandbox", True), "sst_registration_no": getattr(org, "sst_registration_no", None)}
 
 
 class CurrencyUpdate(BaseModel):

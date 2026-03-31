@@ -299,7 +299,7 @@ export function useResetPassword() {
 
 // Org Settings
 export function useOrgSettings() {
-  return useQuery<{ currency: string; name: string; country: string; tax_regime: string }>({
+  return useQuery<{ currency: string; name: string; country: string; tax_regime: string; einvoice_enabled: boolean; einvoice_supplier_tin: string | null; einvoice_sandbox: boolean; sst_registration_no: string | null }>({
     queryKey: ['org-settings'],
     queryFn: () => api.get('/auth/org-settings').then(r => r.data),
   })

@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import get_settings
 from app.api.v1 import (
     auth, invoices, bills, documents, contacts, accounts, dashboard, billing, firm, sales,
-    products, tax_rates, exchange_rates, manual_journals, bank_rules, vendor_credits, sale_receipts, recurring_invoices,
+    products, tax_rates, exchange_rates, manual_journals, bank_rules, vendor_credits, sale_receipts, recurring_invoices, einvoice,
 )
 
 settings = get_settings()
@@ -62,3 +62,4 @@ async def health_db():
     except Exception as e:
         return {"status": "unhealthy", "db": "failed", "error": str(e)}
 app.include_router(recurring_invoices.router, prefix=settings.API_V1_PREFIX)
+app.include_router(einvoice.router, prefix=settings.API_V1_PREFIX)

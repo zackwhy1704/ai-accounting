@@ -360,6 +360,63 @@ export default function SettingsPage() {
           </div>
         )}
       </Card>
+
+      {/* e-Invoice / Compliance */}
+      {(currentRegime === "MY_SST" || currentRegime === "SG_GST") && (
+        <Card className="rounded-2xl border-border bg-card p-5 shadow-[0_0_0_1px_rgba(15,23,42,0.06),0_18px_55px_rgba(2,6,23,0.08)]">
+          <div className="flex items-center gap-2 mb-4">
+            <span className="text-base">{currentRegime === "MY_SST" ? "🇲🇾" : "🇸🇬"}</span>
+            <div className="text-sm font-semibold text-foreground">
+              {currentRegime === "MY_SST" ? "MyInvois (LHDN) e-Invoice" : "IRAS GST Compliance"}
+            </div>
+          </div>
+          {currentRegime === "MY_SST" ? (
+            <div className="space-y-3">
+              <div className="rounded-xl bg-amber-50 border border-amber-200 px-4 py-3 text-xs text-amber-800">
+                <strong>Malaysia MyInvois:</strong> LHDN mandates e-invoice submission for businesses above RM100M (from Aug 2024), RM25M (Jan 2025), and all businesses (Jul 2025). Configure your Supplier TIN below to enable.
+              </div>
+              <div className="grid grid-cols-2 gap-4 text-sm">
+                <div>
+                  <div className="text-xs text-muted-foreground mb-1">Supplier TIN</div>
+                  <div className="font-medium text-foreground">{orgSettings?.einvoice_supplier_tin ?? "Not configured"}</div>
+                </div>
+                <div>
+                  <div className="text-xs text-muted-foreground mb-1">e-Invoice Status</div>
+                  <div className={`font-medium ${orgSettings?.einvoice_enabled ? "text-emerald-700" : "text-muted-foreground"}`}>
+                    {orgSettings?.einvoice_enabled ? "Enabled" : "Disabled"}
+                  </div>
+                </div>
+                <div>
+                  <div className="text-xs text-muted-foreground mb-1">Environment</div>
+                  <div className="font-medium text-foreground">{orgSettings?.einvoice_sandbox !== false ? "Sandbox (Preprod)" : "Production"}</div>
+                </div>
+                <div>
+                  <div className="text-xs text-muted-foreground mb-1">SST Registration No.</div>
+                  <div className="font-medium text-foreground">{orgSettings?.sst_registration_no ?? "Not configured"}</div>
+                </div>
+              </div>
+              <div className="text-xs text-muted-foreground">To configure e-invoice credentials, contact your administrator or update via API.</div>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              <div className="rounded-xl bg-purple-50 border border-purple-200 px-4 py-3 text-xs text-purple-800">
+                <strong>Singapore IRAS GST:</strong> GST-registered businesses must file GST returns quarterly (F5/F7). Current rate is 9% (from Jan 2024). Ensure your tax rates are configured correctly.
+              </div>
+              <div className="grid grid-cols-2 gap-4 text-sm">
+                <div>
+                  <div className="text-xs text-muted-foreground mb-1">GST Rate</div>
+                  <div className="font-medium text-foreground">9%</div>
+                </div>
+                <div>
+                  <div className="text-xs text-muted-foreground mb-1">Filing Frequency</div>
+                  <div className="font-medium text-foreground">Quarterly</div>
+                </div>
+              </div>
+              <div className="text-xs text-muted-foreground">GST F5 return generation and IRAS API submission coming soon.</div>
+            </div>
+          )}
+        </Card>
+      )}
     </div>
   )
 }
