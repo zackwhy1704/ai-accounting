@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import api from './api'
-import type { Invoice, Bill, Contact, Document, DashboardData, Account, BillingUsage, BillingPlan, OnboardingData, FirmSettings, FirmClientOrg, FirmDashboard, SlugCheck, Quotation, SalesOrder, DeliveryOrder, CreditNote, DebitNote, SalesPayment, SalesRefund } from '../types'
+import type { Invoice, Bill, Contact, Document, DashboardData, Account, BillingUsage, BillingPlan, OnboardingData, FirmSettings, FirmClientOrg, FirmDashboard, SlugCheck, Quotation, SalesOrder, DeliveryOrder, CreditNote, DebitNote, SalesPayment, SalesRefund, Organization } from '../types'
 
 // Dashboard
 export function useDashboard() {

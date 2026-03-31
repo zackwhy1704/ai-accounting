@@ -6,7 +6,6 @@ import {
   useInviteClient,
   useFirmInvitations,
   useArchiveFirmClient,
-  useSwitchOrg,
 } from "../../lib/hooks"
 import { formatCurrency } from "../../lib/utils"
 import {
@@ -24,7 +23,6 @@ export default function PracticeDashboardPage() {
   const { data: invitations } = useFirmInvitations()
   const inviteClient = useInviteClient()
   const archiveClient = useArchiveFirmClient()
-  const switchOrg = useSwitchOrg()
   const { toast } = useToast()
 
   const [search, setSearch] = useState("")
@@ -40,15 +38,6 @@ export default function PracticeDashboardPage() {
         setInvite({ contact_name: "", business_name: "", email: "" })
       },
       onError: (e: any) => toast(e?.response?.data?.detail || "Failed to send invitation", "warning"),
-    })
-  }
-
-  const handleSwitch = (orgId: string) => {
-    switchOrg.mutate(orgId, {
-      onSuccess: () => {
-        window.location.href = "/dashboard"
-      },
-      onError: () => toast("Failed to switch", "warning"),
     })
   }
 
@@ -173,7 +162,7 @@ export default function PracticeDashboardPage() {
             <Card
               key={client.id}
               className="group rounded-2xl border-border bg-card p-4 shadow-sm hover:shadow-md transition-shadow cursor-pointer"
-              onClick={() => handleSwitch(client.id)}
+              onClick={() => {}}
             >
               <div className="flex items-start justify-between">
                 <div className="flex items-center gap-3">

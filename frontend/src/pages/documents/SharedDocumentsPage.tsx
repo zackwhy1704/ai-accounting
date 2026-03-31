@@ -1,7 +1,6 @@
 import { useQuery } from "@tanstack/react-query"
 import { FileText, Download } from "lucide-react"
 import { Card } from "../../components/ui/card"
-import { Button } from "../../components/ui/button"
 import api from "../../lib/api"
 import { formatDate } from "../../lib/utils"
 
@@ -53,11 +52,14 @@ export default function SharedDocumentsPage() {
                   </div>
                   {doc.note && <div className="text-xs text-muted-foreground italic mt-0.5">"{doc.note}"</div>}
                 </div>
-                <Button variant="ghost" size="sm" asChild>
-                  <a href={doc.file_url} target="_blank" rel="noopener noreferrer">
-                    <Download className="h-4 w-4" />
-                  </a>
-                </Button>
+                <a
+                  href={doc.file_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
+                >
+                  <Download className="h-4 w-4" />
+                </a>
               </div>
             ))}
           </div>
