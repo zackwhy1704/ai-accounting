@@ -1,4 +1,5 @@
 import { Outlet } from 'react-router-dom'
+import { ErrorBoundary } from '../ErrorBoundary'
 import { Sidebar } from './Sidebar'
 import { Bell, Search, User, Sun, Moon, Globe, Check, X, Settings } from 'lucide-react'
 import { Input } from '@/components/ui/input'
@@ -212,7 +213,9 @@ export function AppLayout() {
 
         {/* Main content */}
         <main className="flex-1 p-6">
-          <Outlet />
+          <ErrorBoundary>
+            <Outlet />
+          </ErrorBoundary>
         </main>
       </div>
     </div>
