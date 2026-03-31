@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import api from './api'
-import type { Invoice, Bill, Contact, Document, DashboardData, Account, BillingUsage, BillingPlan, OnboardingData, FirmSettings, FirmClientOrg, FirmDashboard, SlugCheck, Quotation, SalesOrder, DeliveryOrder, CreditNote, DebitNote, SalesPayment, SalesRefund, Organization } from '../types'
+import type { Invoice, Bill, Contact, Document, DashboardData, Account, BillingUsage, BillingPlan, OnboardingData, FirmSettings, FirmClientOrg, FirmDashboard, SlugCheck, Quotation, SalesOrder, DeliveryOrder, CreditNote, DebitNote, SalesPayment, SalesRefund, Organization, PurchaseOrder, GoodsReceivedNote, PurchasePayment, PurchaseRefund } from '../types'
 
 // Dashboard
 export function useDashboard() {
@@ -637,5 +637,78 @@ export function useResumeRecurringInvoice() {
   return useMutation({
     mutationFn: (id: string) => api.patch(`/recurring-invoices/${id}/resume`).then(r => r.data),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['recurring-invoices'] }),
+  })
+}
+
+// Purchase Orders
+export function usePurchaseOrders(status?: string) {
+  return useQuery<PurchaseOrder[]>({
+    queryKey: ['purchase-orders', status],
+    queryFn: () => api.get('/purchase-orders', { params: status ? { status } : {} }).then(r => r.data),
+  })
+}
+
+export function useCreatePurchaseOrder() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (data: Record<string, unknown>) => api.post('/purchase-orders', data).then(r => r.data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['purchase-orders'] }),
+  })
+}
+
+// GRN
+export function useGoodsReceivedNotes(status?: string) {
+  return useQuery<GoodsReceivedNote[]>({
+    queryKey: ['goods-received-notes', status],
+    queryFn: () => api.get('/goods-received-notes', { params: status ? { status } : {} }).then(r => r.data),
+  })
+}
+
+export function useCreateGoodsReceivedNote() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (data: Record<string, unknown>) => api.post('/goods-received-notes', data).then(r => r.data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['goods-received-notes'] }),
+  })
+}
+
+// Bills
+export function useCreateBill() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (data: Record<string, unknown>) => api.post('/bills', data).then(r => r.data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['bills'] }),
+  })
+}
+
+// Purchase Payments
+export function usePurchasePayments() {
+  return useQuery<PurchasePayment[]>({
+    queryKey: ['purchase-payments'],
+    queryFn: () => api.get('/purchase-payments').then(r => r.data),
+  })
+}
+
+export function useCreatePurchasePayment() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (data: Record<string, unknown>) => api.post('/purchase-payments', data).then(r => r.data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['purchase-payments'] }),
+  })
+}
+
+// Purchase Refunds
+export function usePurchaseRefunds() {
+  return useQuery<PurchaseRefund[]>({
+    queryKey: ['purchase-refunds'],
+    queryFn: () => api.get('/purchase-refunds').then(r => r.data),
+  })
+}
+
+export function useCreatePurchaseRefund() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (data: Record<string, unknown>) => api.post('/purchase-refunds', data).then(r => r.data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['purchase-refunds'] }),
   })
 }

@@ -99,6 +99,7 @@ async def update_bill_status(
     current_user: dict = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
+    org_id = current_user["org_id"]
     result = await db.execute(
         select(Bill).where(Bill.id == bill_id, Bill.organization_id == current_user["org_id"])
     )

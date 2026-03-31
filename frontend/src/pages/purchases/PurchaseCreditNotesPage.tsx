@@ -51,12 +51,12 @@ export default function PurchaseCreditNotesPage() {
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <div className="text-xs text-muted-foreground">Purchases</div>
-          <div className="mt-1 text-2xl font-semibold tracking-tight text-foreground">Credit Notes</div>
+          <div className="mt-1 text-2xl font-semibold tracking-tight text-foreground">Credit Notes from Suppliers</div>
           <div className="mt-1 max-w-2xl text-sm text-muted-foreground">Credit notes received from suppliers</div>
         </div>
         <Button
           type="button"
-          onClick={() => navigate("/purchases/credit-notes/new")}
+          onClick={() => navigate("/purchases/vendor-credits/new")}
           className="h-9 rounded-xl bg-gradient-to-r from-[#7C9DFF] to-[#4D63FF] px-3 text-xs font-semibold text-white shadow-[0_0_0_1px_rgba(124,157,255,0.25),0_16px_40px_rgba(0,0,0,0.35)] hover:opacity-95"
         >
           <Plus className="mr-2 h-4 w-4" /> New Credit Note
@@ -85,7 +85,7 @@ export default function PurchaseCreditNotesPage() {
             <div className="mt-1 text-sm text-muted-foreground">Record credit notes received from your suppliers</div>
             <Button
               type="button"
-              onClick={() => navigate("/purchases/credit-notes/new")}
+              onClick={() => navigate("/purchases/vendor-credits/new")}
               className="mt-6 h-9 rounded-xl bg-gradient-to-r from-[#7C9DFF] to-[#4D63FF] px-3 text-xs font-semibold text-white"
             >
               <Plus className="mr-2 h-4 w-4" /> New Credit Note

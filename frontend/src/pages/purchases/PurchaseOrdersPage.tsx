@@ -1,20 +1,42 @@
+import { useMemo, useState } from "react"
 import { useNavigate } from "react-router-dom"
-import { Plus, ShoppingCart } from "lucide-react"
+import { Plus, ShoppingCart, MoreHorizontal } from "lucide-react"
+import { usePurchaseOrders, useContacts } from "../../lib/hooks"
+import { formatCurrency, formatDate, cn } from "../../lib/utils"
 import { Card } from "../../components/ui/card"
 import { Button } from "../../components/ui/button"
 import { Badge } from "../../components/ui/badge"
-import { cn } from "../../lib/utils"
+import { Tabs, TabsList, TabsTrigger } from "../../components/ui/tabs"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../../components/ui/table"
 
 const statusColors: Record<string, string> = {
   draft: "bg-slate-500/10 text-slate-700 border-slate-400/20",
   sent: "bg-blue-500/10 text-blue-700 border-blue-400/20",
   received: "bg-emerald-500/10 text-emerald-700 border-emerald-400/20",
+  billed: "bg-violet-500/10 text-violet-700 border-violet-400/20",
   cancelled: "bg-rose-500/10 text-rose-700 border-rose-400/20",
 }
 
+const STATUS_TABS = [
+  { label: "All", value: "all" },
+  { label: "Draft", value: "draft" },
+  { label: "Sent", value: "sent" },
+  { label: "Received", value: "received" },
+  { label: "Billed", value: "billed" },
+  { label: "Cancelled", value: "cancelled" },
+]
+
 export default function PurchaseOrdersPage() {
   const navigate = useNavigate()
+  const [tab, setTab] = useState("all")
+  const { data: purchaseOrders = [], isLoading } = usePurchaseOrders(tab === "all" ? undefined : tab)
+  const { data: contacts = [] } = useContacts()
+
+  const contactMap = useMemo(() => {
+    const m = new Map<string, string>()
+    contacts.forEach(c => m.set(c.id, c.name))
+    return m
+  }, [contacts])
 
   return (
     <div className="flex flex-col gap-4">
@@ -34,47 +56,90 @@ export default function PurchaseOrdersPage() {
       </div>
 
       <Card className="rounded-2xl border-border bg-card p-4 shadow-[0_0_0_1px_rgba(15,23,42,0.06),0_18px_55px_rgba(2,6,23,0.08)]">
-        <div className="overflow-hidden rounded-2xl border border-border bg-card">
-          <Table>
-            <TableHeader>
-              <TableRow className="border-border hover:bg-transparent">
-                <TableHead className="text-muted-foreground">No.</TableHead>
-                <TableHead className="text-muted-foreground">Date</TableHead>
-                <TableHead className="text-muted-foreground">Supplier</TableHead>
-                <TableHead className="text-right text-muted-foreground">Total</TableHead>
-                <TableHead className="text-muted-foreground">Status</TableHead>
-                <TableHead className="w-[60px]" />
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              <TableRow>
-                <TableCell colSpan={6}>
-                  <div className="py-8 text-center">
-                    <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-muted">
-                      <ShoppingCart className="h-6 w-6 text-muted-foreground" />
+        <Tabs value={tab} onValueChange={setTab}>
+          <TabsList className="h-auto flex-wrap justify-start gap-1 rounded-xl bg-muted p-1 mb-4">
+            {STATUS_TABS.map(st => (
+              <TabsTrigger key={st.value} value={st.value} className="rounded-lg px-3 py-1.5 text-xs">{st.label}</TabsTrigger>
+            ))}
+          </TabsList>
+        </Tabs>
+
+        {isLoading ? (
+          <div className="py-10 text-center text-sm text-muted-foreground">Loading...</div>
+        ) : purchaseOrders.length === 0 ? (
+          <div className="overflow-hidden rounded-2xl border border-border bg-card">
+            <Table>
+              <TableHeader>
+                <TableRow className="border-border hover:bg-transparent">
+                  <TableHead className="text-muted-foreground">No.</TableHead>
+                  <TableHead className="text-muted-foreground">Date</TableHead>
+                  <TableHead className="text-muted-foreground">Supplier</TableHead>
+                  <TableHead className="text-muted-foreground">Expected Date</TableHead>
+                  <TableHead className="text-right text-muted-foreground">Total</TableHead>
+                  <TableHead className="text-muted-foreground">Status</TableHead>
+                  <TableHead className="w-[60px]" />
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                <TableRow>
+                  <TableCell colSpan={7}>
+                    <div className="py-8 text-center">
+                      <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-muted">
+                        <ShoppingCart className="h-6 w-6 text-muted-foreground" />
+                      </div>
+                      <div className="mt-4 text-base font-semibold text-foreground">No purchase orders yet</div>
+                      <div className="mt-1 text-sm text-muted-foreground">Create purchase orders to track what you order from suppliers</div>
+                      <Button
+                        type="button"
+                        onClick={() => navigate("/purchases/purchase-orders/new")}
+                        className="mt-6 h-9 rounded-xl bg-gradient-to-r from-[#7C9DFF] to-[#4D63FF] px-3 text-xs font-semibold text-white"
+                      >
+                        <Plus className="mr-2 h-4 w-4" /> New Order
+                      </Button>
                     </div>
-                    <div className="mt-4 text-base font-semibold text-foreground">No purchase orders yet</div>
-                    <div className="mt-1 text-sm text-muted-foreground">Create purchase orders to track what you order from suppliers</div>
-                    <div className="mt-3 flex flex-wrap justify-center gap-2">
-                      {(["draft", "sent", "received", "cancelled"] as const).map(s => (
-                        <Badge key={s} variant="outline" className={cn("rounded-lg px-2 py-0.5 text-[11px] font-semibold", statusColors[s])}>
-                          {s.charAt(0).toUpperCase() + s.slice(1)}
-                        </Badge>
-                      ))}
-                    </div>
-                    <Button
-                      type="button"
-                      onClick={() => navigate("/purchases/purchase-orders/new")}
-                      className="mt-6 h-9 rounded-xl bg-gradient-to-r from-[#7C9DFF] to-[#4D63FF] px-3 text-xs font-semibold text-white"
-                    >
-                      <Plus className="mr-2 h-4 w-4" /> New Order
-                    </Button>
-                  </div>
-                </TableCell>
-              </TableRow>
-            </TableBody>
-          </Table>
-        </div>
+                  </TableCell>
+                </TableRow>
+              </TableBody>
+            </Table>
+          </div>
+        ) : (
+          <div className="overflow-hidden rounded-2xl border border-border bg-card">
+            <Table>
+              <TableHeader>
+                <TableRow className="border-border hover:bg-transparent">
+                  <TableHead className="text-muted-foreground">No.</TableHead>
+                  <TableHead className="text-muted-foreground">Date</TableHead>
+                  <TableHead className="text-muted-foreground">Supplier</TableHead>
+                  <TableHead className="text-muted-foreground">Expected Date</TableHead>
+                  <TableHead className="text-right text-muted-foreground">Total</TableHead>
+                  <TableHead className="text-muted-foreground">Status</TableHead>
+                  <TableHead className="w-[60px]" />
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {purchaseOrders.map(po => (
+                  <TableRow key={po.id} className="border-border hover:bg-muted/50">
+                    <TableCell className="font-medium text-foreground">{po.po_number}</TableCell>
+                    <TableCell className="text-muted-foreground">{formatDate(po.issue_date)}</TableCell>
+                    <TableCell className="text-foreground">{contactMap.get(po.contact_id) ?? "—"}</TableCell>
+                    <TableCell className="text-muted-foreground">{po.expected_date ? formatDate(po.expected_date) : "—"}</TableCell>
+                    <TableCell className="text-right text-foreground">{formatCurrency(po.total, po.currency)}</TableCell>
+                    <TableCell>
+                      <Badge variant="outline" className={cn("rounded-lg px-2 py-0.5 text-[11px] font-semibold", statusColors[po.status] ?? "")}>
+                        {po.status.charAt(0).toUpperCase() + po.status.slice(1)}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <Button type="button" variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground">
+                        <MoreHorizontal className="h-4 w-4" />
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        )}
       </Card>
     </div>
   )

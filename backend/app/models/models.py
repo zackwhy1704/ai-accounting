@@ -82,6 +82,8 @@ class Organization(Base):
     bills: Mapped[list["Bill"]] = relationship(back_populates="organization")
     documents: Mapped[list["Document"]] = relationship(back_populates="organization")
     transactions: Mapped[list["Transaction"]] = relationship(back_populates="organization")
+    purchase_orders: Mapped[list["PurchaseOrder"]] = relationship(back_populates="organization")
+    goods_received_notes: Mapped[list["GoodsReceivedNote"]] = relationship(back_populates="organization")
 
 
 # ──────────────────────────────────────────────
@@ -1297,3 +1299,90 @@ class PaymentMethod(Base):
     name: Mapped[str] = mapped_column(String(100))
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+# ──────────────────────────────────────────────
+# Purchase Orders
+# ──────────────────────────────────────────────
+class PurchaseOrder(Base):
+    __tablename__ = "purchase_orders"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=new_uuid)
+    organization_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("organizations.id"))
+    contact_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("contacts.id"))
+    po_number: Mapped[str] = mapped_column(String(50))
+    status: Mapped[str] = mapped_column(String(20), default="draft")  # draft, sent, received, billed, cancelled
+    issue_date: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    expected_date: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    subtotal: Mapped[float] = mapped_column(Numeric(15, 2), default=0)
+    tax_amount: Mapped[float] = mapped_column(Numeric(15, 2), default=0)
+    total: Mapped[float] = mapped_column(Numeric(15, 2), default=0)
+    currency: Mapped[str] = mapped_column(String(3), default="SGD")
+    notes: Mapped[str | None] = mapped_column(Text)
+    delivery_address: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
+
+    organization: Mapped["Organization"] = relationship(back_populates="purchase_orders")
+    contact: Mapped["Contact"] = relationship()
+    line_items: Mapped[list["PurchaseOrderLineItem"]] = relationship(back_populates="purchase_order", cascade="all, delete-orphan")
+
+    __table_args__ = (
+        Index("ix_po_org_status", "organization_id", "status"),
+    )
+
+
+class PurchaseOrderLineItem(Base):
+    __tablename__ = "purchase_order_line_items"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=new_uuid)
+    purchase_order_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("purchase_orders.id", ondelete="CASCADE"))
+    description: Mapped[str] = mapped_column(String(500))
+    quantity: Mapped[float] = mapped_column(Numeric(10, 2), default=1)
+    unit_price: Mapped[float] = mapped_column(Numeric(15, 2))
+    tax_rate: Mapped[float] = mapped_column(Numeric(5, 2), default=0)
+    amount: Mapped[float] = mapped_column(Numeric(15, 2))
+    account_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("accounts.id"))
+    sort_order: Mapped[int] = mapped_column(Integer, default=0)
+
+    purchase_order: Mapped["PurchaseOrder"] = relationship(back_populates="line_items")
+
+
+# ──────────────────────────────────────────────
+# Goods Received Notes (GRN)
+# ──────────────────────────────────────────────
+class GoodsReceivedNote(Base):
+    __tablename__ = "goods_received_notes"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=new_uuid)
+    organization_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("organizations.id"))
+    contact_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("contacts.id"))
+    grn_number: Mapped[str] = mapped_column(String(50))
+    purchase_order_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("purchase_orders.id"))
+    status: Mapped[str] = mapped_column(String(20), default="draft")  # draft, received, billed
+    received_date: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    currency: Mapped[str] = mapped_column(String(3), default="SGD")
+    notes: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+    organization: Mapped["Organization"] = relationship(back_populates="goods_received_notes")
+    contact: Mapped["Contact"] = relationship()
+    line_items: Mapped[list["GRNLineItem"]] = relationship(back_populates="grn", cascade="all, delete-orphan")
+
+    __table_args__ = (
+        Index("ix_grn_org_status", "organization_id", "status"),
+    )
+
+
+class GRNLineItem(Base):
+    __tablename__ = "grn_line_items"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=new_uuid)
+    grn_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("goods_received_notes.id", ondelete="CASCADE"))
+    description: Mapped[str] = mapped_column(String(500))
+    quantity_ordered: Mapped[float] = mapped_column(Numeric(10, 2), default=0)
+    quantity_received: Mapped[float] = mapped_column(Numeric(10, 2), default=0)
+    unit_price: Mapped[float] = mapped_column(Numeric(15, 2))
+    sort_order: Mapped[int] = mapped_column(Integer, default=0)
+
+    grn: Mapped["GoodsReceivedNote"] = relationship(back_populates="line_items")

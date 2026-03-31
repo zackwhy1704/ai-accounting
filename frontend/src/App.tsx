@@ -35,6 +35,12 @@ import PayPage from './pages/public/PayPage'
 import ProductsPage from './pages/products/ProductsPage'
 import RecurringInvoicesPage from './pages/sales/recurring/RecurringInvoicesPage'
 import VendorCreditsPage from './pages/purchases/VendorCreditsPage'
+import NewBillPage from './pages/purchases/NewBillPage'
+import NewPurchaseOrderPage from './pages/purchases/NewPurchaseOrderPage'
+import NewGoodsReceivedNotePage from './pages/purchases/NewGoodsReceivedNotePage'
+import NewVendorCreditPage from './pages/purchases/NewVendorCreditPage'
+import NewPurchasePaymentPage from './pages/purchases/NewPurchasePaymentPage'
+import NewPurchaseRefundPage from './pages/purchases/NewPurchaseRefundPage'
 import SaleReceiptsPage from './pages/sales/receipts/SaleReceiptsPage'
 import BankRulesPage from './pages/bank/BankRulesPage'
 import ManualJournalsPage from './pages/accounting/ManualJournalsPage'
@@ -129,12 +135,18 @@ function App() {
 
         {/* Purchases */}
         <Route path="/purchases/bills" element={<BillsPage />} />
+        <Route path="/purchases/bills/new" element={<NewBillPage />} />
         <Route path="/purchases/purchase-orders" element={<PurchaseOrdersPage />} />
+        <Route path="/purchases/purchase-orders/new" element={<NewPurchaseOrderPage />} />
         <Route path="/purchases/goods-received-notes" element={<GoodsReceivedNotesPage />} />
+        <Route path="/purchases/goods-received-notes/new" element={<NewGoodsReceivedNotePage />} />
         <Route path="/purchases/credit-notes" element={<PurchaseCreditNotesPage />} />
         <Route path="/purchases/vendor-credits" element={<VendorCreditsPage />} />
+        <Route path="/purchases/vendor-credits/new" element={<NewVendorCreditPage />} />
         <Route path="/purchases/payments" element={<PurchasePaymentsPage />} />
+        <Route path="/purchases/payments/new" element={<NewPurchasePaymentPage />} />
         <Route path="/purchases/refunds" element={<PurchaseRefundsPage />} />
+        <Route path="/purchases/refunds/new" element={<NewPurchaseRefundPage />} />
 
         {/* Upload */}
         <Route path="/upload" element={<DocumentsPage />} />

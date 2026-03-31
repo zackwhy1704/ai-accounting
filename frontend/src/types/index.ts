@@ -396,3 +396,85 @@ export interface OnboardingData {
   has_employees: boolean
   previous_tool: string | null
 }
+
+export interface POLineItem {
+  id: string
+  description: string
+  quantity: number
+  unit_price: number
+  tax_rate: number
+  amount: number
+  account_id: string | null
+  sort_order: number
+}
+
+export interface PurchaseOrder {
+  id: string
+  organization_id: string
+  contact_id: string
+  po_number: string
+  status: string
+  issue_date: string
+  expected_date: string | null
+  subtotal: number
+  tax_amount: number
+  total: number
+  currency: string
+  notes: string | null
+  delivery_address: string | null
+  created_at: string
+  line_items: POLineItem[]
+}
+
+export interface GRNLineItem {
+  id: string
+  description: string
+  quantity_ordered: number
+  quantity_received: number
+  unit_price: number
+  sort_order: number
+}
+
+export interface GoodsReceivedNote {
+  id: string
+  organization_id: string
+  contact_id: string
+  grn_number: string
+  purchase_order_id: string | null
+  status: string
+  received_date: string
+  currency: string
+  notes: string | null
+  created_at: string
+  line_items: GRNLineItem[]
+}
+
+export interface PurchasePayment {
+  id: string
+  organization_id: string
+  payment_no: string
+  contact_id: string | null
+  payment_date: string
+  amount: number
+  currency: string
+  payment_method: string
+  reference_no: string | null
+  notes: string | null
+  status: string
+  created_at: string
+}
+
+export interface PurchaseRefund {
+  id: string
+  organization_id: string
+  refund_no: string
+  contact_id: string | null
+  payment_date: string
+  amount: number
+  currency: string
+  payment_method: string
+  reference_no: string | null
+  notes: string | null
+  status: string
+  created_at: string
+}
