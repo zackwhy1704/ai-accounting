@@ -66,7 +66,7 @@ export default function AccountingPage() {
                     <TableRow key={a.id} className="border-border hover:bg-muted/50">
                       <TableCell className="font-medium text-foreground">{a.code}</TableCell>
                       <TableCell className="text-foreground">{a.name}</TableCell>
-                      <TableCell><Badge variant="outline" className={cn("rounded-lg px-2 py-0.5 text-[11px] font-semibold", typeColors[a.type] ?? "")}>{a.type.charAt(0).toUpperCase() + a.type.slice(1)}</Badge></TableCell>
+                      <TableCell><Badge variant="outline" className={cn("rounded-lg px-2 py-0.5 text-[11px] font-semibold", typeColors[a.type] ?? "")}>{a.type ? a.type.charAt(0).toUpperCase() + a.type.slice(1) : "—"}</Badge></TableCell>
                       <TableCell className="text-muted-foreground">{a.subtype ?? "—"}</TableCell>
                       <TableCell className="text-muted-foreground">{a.currency}</TableCell>
                     </TableRow>

@@ -24,7 +24,8 @@ interface TrialBalanceReport {
 
 const TYPE_ORDER = ["Assets", "Liabilities", "Equity", "Revenue", "Expenses"]
 
-const normaliseType = (t: string) => {
+const normaliseType = (t: string | undefined | null) => {
+  if (!t) return "Other"
   const map: Record<string, string> = {
     asset: "Assets", assets: "Assets",
     liability: "Liabilities", liabilities: "Liabilities",

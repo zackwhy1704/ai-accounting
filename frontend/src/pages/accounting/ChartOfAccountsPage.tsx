@@ -50,7 +50,8 @@ export default function ChartOfAccountsPage() {
     queryFn: () => api.get("/accounts").then(r => r.data),
   })
 
-  const normaliseType = (t: string): string => TYPE_LABEL_MAP[t.toLowerCase()] ?? t
+  const normaliseType = (t: string | undefined | null): string =>
+    t ? (TYPE_LABEL_MAP[t.toLowerCase()] ?? t) : "Other"
 
   const filtered = activeFilter === "All"
     ? accounts

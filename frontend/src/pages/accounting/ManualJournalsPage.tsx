@@ -73,7 +73,7 @@ export default function ManualJournalsPage() {
                     <TableCell className="text-right text-foreground">{formatCurrency(totalDebit(j), j.currency)}</TableCell>
                     <TableCell>
                       <Badge variant="outline" className={cn("rounded-lg px-2 py-0.5 text-[11px] font-semibold", statusColors[j.status] ?? "")}>
-                        {j.status.charAt(0).toUpperCase() + j.status.slice(1)}
+                        {j.status ? j.status.charAt(0).toUpperCase() + j.status.slice(1) : "—"}
                       </Badge>
                     </TableCell>
                     <TableCell className="text-right">
