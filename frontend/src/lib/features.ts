@@ -120,10 +120,30 @@ export function getFeaturesForUser(orgType: string, country: string): Set<Featur
 }
 
 import { useAuth } from './auth'
+import { useQuery } from '@tanstack/react-query'
+import api from './api'
+
+const SME_TYPES = new Set(["sme", "individual", "freelancer"])
 
 export function useFeatureFlags() {
   const { user } = useAuth()
+  const isSME = SME_TYPES.has(user?.org_type ?? "")
+
+  const { data: linkedFirms = [] } = useQuery<{ link_id: string }[]>({
+    queryKey: ["my-links-count"],
+    queryFn: () => api.get("/invitations/my-links").then(r => r.data),
+    enabled: !!user && isSME,
+    staleTime: 60_000,
+  })
+
   const features = getFeaturesForUser(user?.org_type ?? 'sme', user?.country ?? '')
+
+  // Hide sharing nav items for SMEs until they have at least one linked accountant
+  if (isSME && linkedFirms.length === 0) {
+    features.delete("shared_documents")
+    features.delete("my_accountants")
+  }
+
   return {
     has: (f: Feature) => features.has(f),
     features,

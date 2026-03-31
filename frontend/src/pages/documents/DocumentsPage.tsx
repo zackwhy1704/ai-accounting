@@ -2,6 +2,7 @@ import { useMemo, useState, useRef, useEffect, useCallback } from "react"
 import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query"
 import { CircleAlert, CloudUpload, FileText, Loader2, Search, CheckCircle2, Link2, PlusCircle, Pencil, Save, X, Check, AlertTriangle, Trash2, HelpCircle, Share2, Tag, UserCheck, Building2 } from "lucide-react"
 import { useDocuments, useBills, useAttachDocumentToBill, useCreateBillFromDocument, useUpdateExtractedData, useDeleteDocument, useCategoriseDocument } from "../../lib/hooks"
+import { useFeatureFlags } from "../../lib/features"
 import api from "../../lib/api"
 import { cn, formatDate } from "../../lib/utils"
 import { useTheme } from "../../lib/theme"
@@ -195,6 +196,8 @@ export default function DocumentsPage() {
   const fileRef = useRef<HTMLInputElement>(null)
   const { t } = useTheme()
   const { toast } = useToast()
+  const { has } = useFeatureFlags()
+  const canShare = has("shared_documents")
 
   const statusTabs = [
     { label: t("documents.preview"), value: "processed" },
@@ -783,14 +786,16 @@ export default function DocumentsPage() {
                         <Button type="button" onClick={() => setAttachModalOpen(true)} variant="secondary" className="h-9 rounded-xl px-3 text-xs font-semibold">
                           <Link2 className="mr-1.5 h-3.5 w-3.5" />{t("documents.attachToBill")}
                         </Button>
-                        <Button type="button" onClick={() => setShareDocId(selected.id)} variant="secondary" className="h-9 rounded-xl px-3 text-xs font-semibold">
-                          <Share2 className="mr-1.5 h-3.5 w-3.5" />Share
-                        </Button>
+                        {canShare && (
+                          <Button type="button" onClick={() => setShareDocId(selected.id)} variant="secondary" className="h-9 rounded-xl px-3 text-xs font-semibold">
+                            <Share2 className="mr-1.5 h-3.5 w-3.5" />Share
+                          </Button>
+                        )}
                       </div>
                     )}
 
                     {/* Share button for non-processed docs */}
-                    {selected.status !== "processed" && selected.status !== "processing" && !editing && (
+                    {canShare && selected.status !== "processed" && selected.status !== "processing" && !editing && (
                       <div className="mt-4">
                         <Button type="button" onClick={() => setShareDocId(selected.id)} variant="secondary" className="h-9 rounded-xl px-3 text-xs font-semibold">
                           <Share2 className="mr-1.5 h-3.5 w-3.5" />Share with Accountant
