@@ -97,6 +97,7 @@ export const navItems: NavItem[] = [
     ],
   },
   { labelKey: "nav.myInvois", href: "/myinvois", icon: "file-chart", feature: "myinvois" },
+  { labelKey: "nav.sgCompliance", href: "/sg-compliance", icon: "file-chart", feature: "sg_compliance" },
   { labelKey: "nav.aiAssistant", href: "/ai-assistant", icon: "bot", feature: "ai_assistant" },
   { labelKey: "nav.billing", href: "/billing", icon: "credit-card", feature: "billing" },
   {

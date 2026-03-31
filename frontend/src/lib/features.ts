@@ -22,12 +22,17 @@ export type Feature =
   | "stocks"
   | "reports"
   | "accounting"
-  | "myinvois"
+  | "myinvois"          // MY only: LHDN e-invoice
+  | "sg_compliance"     // SG only: IRAS / MAS e-invoice
   | "ai_assistant"
   | "billing"
   | "settings"
 
-/** Features available to each org_type (all plans). */
+/**
+ * Base feature lists per org_type.
+ * Country-specific compliance modules (myinvois / sg_compliance) are injected
+ * at runtime by getFeaturesForUser() based on org country.
+ */
 const ORG_FEATURES: Record<string, Feature[]> = {
   firm: [
     "dashboard",
@@ -42,7 +47,6 @@ const ORG_FEATURES: Record<string, Feature[]> = {
     "stocks",
     "reports",
     "accounting",
-    "myinvois",
     "ai_assistant",
     "billing",
     "settings",
@@ -59,7 +63,6 @@ const ORG_FEATURES: Record<string, Feature[]> = {
     "stocks",
     "reports",
     "accounting",
-    "myinvois",
     "ai_assistant",
     "billing",
     "settings",
@@ -91,9 +94,22 @@ const ORG_FEATURES: Record<string, Feature[]> = {
   ],
 }
 
-/** Return enabled features for a given org_type. Falls back to sme if unknown. */
-export function getFeaturesForOrgType(orgType: string): Set<Feature> {
-  const list = ORG_FEATURES[orgType] ?? ORG_FEATURES["sme"]
+/** org_types that get compliance modules (exclude basic roles that don't file taxes) */
+const COMPLIANCE_ORG_TYPES = new Set(["firm", "sme", "individual"])
+
+/** Return enabled features for a given org_type + country combination. */
+export function getFeaturesForUser(orgType: string, country: string): Set<Feature> {
+  const list = [...(ORG_FEATURES[orgType] ?? ORG_FEATURES["sme"])]
+
+  if (COMPLIANCE_ORG_TYPES.has(orgType)) {
+    if (country === "SG") {
+      list.push("sg_compliance")
+    } else if (country === "MY") {
+      list.push("myinvois")
+    }
+    // Other countries: neither module shown until supported
+  }
+
   return new Set(list)
 }
 
@@ -101,7 +117,7 @@ import { useAuth } from './auth'
 
 export function useFeatureFlags() {
   const { user } = useAuth()
-  const features = getFeaturesForOrgType(user?.org_type ?? 'sme')
+  const features = getFeaturesForUser(user?.org_type ?? 'sme', user?.country ?? '')
   return {
     has: (f: Feature) => features.has(f),
     features,

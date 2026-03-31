@@ -70,6 +70,7 @@ import ReportsIndexPage from './pages/reports/ReportsIndexPage'
 import ContactGroupsPage from './pages/contacts/ContactGroupsPage'
 import CompanySettingsPage from './pages/settings/CompanySettingsPage'
 import MyInvoisPage from './pages/myinvois/MyInvoisPage'
+import SgCompliancePage from './pages/sg/SgCompliancePage'
 import SharedDocumentsPage from './pages/documents/SharedDocumentsPage'
 import SharedDocumentsOwnerPage from './pages/documents/SharedDocumentsOwnerPage'
 
@@ -173,8 +174,9 @@ function App() {
         <Route path="/reports/general-ledger" element={<GeneralLedgerPage />} />
         <Route path="/reports/sst-02" element={<SST02Page />} />
 
-        {/* MyInvois */}
+        {/* MyInvois (MY) / SG Compliance */}
         <Route path="/myinvois" element={<MyInvoisPage />} />
+        <Route path="/sg-compliance" element={<SgCompliancePage />} />
 
         <Route path="/ai-assistant" element={<AIAssistantPage />} />
         <Route path="/billing" element={<BillingPage />} />

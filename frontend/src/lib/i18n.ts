@@ -49,7 +49,8 @@ const translations = {
     "nav.purchasePayments": "Payments",
     "nav.purchaseRefunds": "Refunds",
     "nav.purchaseCreditNotes": "Credit Notes",
-    "nav.myInvois": "MyInvois",
+    "nav.myInvois": "MyInvois (LHDN)",
+    "nav.sgCompliance": "IRAS E-Invoice",
     "nav.companySettings": "Company Settings",
 
     // Header
@@ -552,7 +553,8 @@ const translations = {
     "nav.purchasePayments": "付款",
     "nav.purchaseRefunds": "退款",
     "nav.purchaseCreditNotes": "贷项通知单",
-    "nav.myInvois": "MyInvois",
+    "nav.myInvois": "MyInvois (LHDN)",
+    "nav.sgCompliance": "IRAS 电子发票",
     "nav.companySettings": "公司设置",
 
     "header.search": "搜索发票、联系人、文件...",
@@ -831,7 +833,8 @@ const translations = {
     "nav.purchasePayments": "Pembayaran",
     "nav.purchaseRefunds": "Bayaran Balik",
     "nav.purchaseCreditNotes": "Nota Kredit",
-    "nav.myInvois": "MyInvois",
+    "nav.myInvois": "MyInvois (LHDN)",
+    "nav.sgCompliance": "IRAS E-Invois",
     "nav.companySettings": "Tetapan Syarikat",
 
     "user.settings": "Tetapan Pengguna",

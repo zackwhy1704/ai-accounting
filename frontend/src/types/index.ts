@@ -7,6 +7,7 @@ export interface User {
   organization_id: string
   onboarding_completed: boolean
   org_type: string
+  country: string
 }
 
 export interface Contact {

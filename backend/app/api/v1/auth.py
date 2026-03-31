@@ -127,6 +127,7 @@ async def get_me(
         "organization_id": str(user.organization_id),
         "onboarding_completed": org.onboarding_completed,
         "org_type": org.org_type,
+        "country": org.country,
     }
 
 
