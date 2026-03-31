@@ -86,14 +86,16 @@ function SelectContent({ className, children, ...props }: React.ComponentProps<"
   )
 }
 
-function SelectItem({ value, children, className, ...props }: React.ComponentProps<"div"> & { value: string }) {
+function SelectItem({ value, children, className, disabled, ...props }: React.ComponentProps<"div"> & { value: string; disabled?: boolean }) {
   const ctx = React.useContext(SelectContext)
   const isSelected = ctx.value === value
   return (
     <div
-      onClick={() => ctx.onValueChange(value)}
+      onClick={() => !disabled && ctx.onValueChange(value)}
+      aria-disabled={disabled}
       className={cn(
         "relative flex w-full cursor-default items-center gap-1.5 rounded-md py-1.5 pr-8 pl-2 text-sm outline-hidden select-none hover:bg-accent hover:text-accent-foreground",
+        disabled && "pointer-events-none opacity-40",
         className
       )}
       {...props}

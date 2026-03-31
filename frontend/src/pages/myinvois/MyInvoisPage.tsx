@@ -3,7 +3,6 @@ import { Loader2, Send, FileText, CheckCircle2, XCircle, Clock, AlertCircle } fr
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { Card } from "../../components/ui/card"
 import { Button } from "../../components/ui/button"
-import { Badge } from "../../components/ui/badge"
 import { useToast } from "../../components/ui/toast"
 import { formatCurrency, formatDate } from "../../lib/utils"
 import api from "../../lib/api"

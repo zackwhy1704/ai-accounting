@@ -679,6 +679,125 @@ def test_edge_cases():
 
 
 # ══════════════════════════════════════════════════════════
+#  11. WHITE-LABEL: Client document upload visible to firm
+# ══════════════════════════════════════════════════════════
+def test_whitelabel_document_upload():
+    section("11. White-Label: Client document upload → firm can see it")
+
+    portal_token = state.get("portal_client_token")
+    portal_org_id = state.get("portal_client_org_id")
+    firm_token = state.get("firm_token")
+
+    if not portal_token or not portal_org_id:
+        check("SKIP: portal client not created in test_client_portal", False, "missing portal_client_token")
+        return
+
+    # --- Upload a document as portal client ---
+    fake_pdf = b"%PDF-1.4 fake content"
+    r = api("POST", "/documents/upload", token=portal_token,
+            files={"file": ("test-invoice.pdf", fake_pdf, "application/pdf")})
+    check("Portal client can upload document", r.status_code in (200, 201), f"status={r.status_code} body={r.text[:200]}")
+
+    if r.status_code not in (200, 201):
+        return
+
+    doc = r.json()
+    doc_id = doc.get("id")
+    check("Upload returns document id", doc_id is not None, "")
+
+    # --- Portal client can see their own document ---
+    r = api("GET", "/documents", token=portal_token)
+    check("Portal client sees their documents", r.status_code == 200, f"status={r.status_code}")
+    if r.status_code == 200:
+        doc_ids = [d.get("id") for d in r.json()]
+        check("Uploaded doc appears in client's list", doc_id in doc_ids, f"doc_ids={doc_ids}")
+
+    # --- Firm user switches to client org and sees the document ---
+    r = api("POST", "/auth/switch-org", token=firm_token, json={"organization_id": portal_org_id})
+    check("Firm switches to portal client org", r.status_code == 200, f"status={r.status_code}")
+    firm_as_client_token = r.json().get("access_token")
+
+    r = api("GET", "/documents", token=firm_as_client_token)
+    check("Firm (in client ctx) sees client documents", r.status_code == 200, f"status={r.status_code}")
+    if r.status_code == 200:
+        firm_doc_ids = [d.get("id") for d in r.json()]
+        check("Firm sees uploaded doc from client", doc_id in firm_doc_ids, f"looking for {doc_id}")
+
+    # --- Switch firm back ---
+    r = api("POST", "/auth/switch-org", token=firm_as_client_token, json={"organization_id": state["firm_org_id"]})
+    if r.status_code == 200:
+        state["firm_token"] = r.json()["access_token"]
+
+
+# ══════════════════════════════════════════════════════════
+#  12. WHITE-LABEL: Client cannot see bookkeeper data
+# ══════════════════════════════════════════════════════════
+def test_client_cannot_see_bookkeeper_data():
+    section("12. White-Label: Client cannot see bookkeeper financial data")
+
+    portal_token = state.get("portal_client_token")
+    firm_token = state.get("firm_token")
+    firm_org_id = state.get("firm_org_id")
+
+    if not portal_token:
+        check("SKIP: no portal client token", False, "")
+        return
+
+    # --- Create an invoice in the FIRM org context ---
+    r = api("POST", "/auth/switch-org", token=firm_token, json={"organization_id": firm_org_id})
+    firm_ctx_token = r.json()["access_token"] if r.status_code == 200 else firm_token
+
+    r = api("GET", "/accounts", token=firm_ctx_token)
+    accounts = r.json() if r.status_code == 200 else []
+    revenue = next((a for a in accounts if a.get("type") == "revenue"), None)
+
+    firm_invoice_id = None
+    if revenue:
+        from datetime import date as _date
+        today = _date.today().isoformat() + "T00:00:00Z"
+        r = api("POST", "/invoices", token=firm_ctx_token, json={
+            "issue_date": today,
+            "due_date": today,
+            "line_items": [{"description": "Bookkeeper fee", "quantity": 1, "unit_price": 500, "account_id": revenue["id"]}],
+        })
+        if r.status_code in (200, 201):
+            firm_invoice_id = r.json().get("id")
+
+    # --- Portal client (different org) should NOT see the firm's invoices ---
+    r = api("GET", "/invoices", token=portal_token)
+    check("Portal client can list own invoices", r.status_code == 200, f"status={r.status_code}")
+    if r.status_code == 200 and firm_invoice_id:
+        client_invoice_ids = [i.get("id") for i in r.json()]
+        check("Firm invoice NOT visible to portal client", firm_invoice_id not in client_invoice_ids,
+              f"ISOLATION BREACH: firm invoice {firm_invoice_id} appeared in client list")
+
+    # --- Portal client cannot access firm settings (firm-only route) ---
+    r = api("GET", "/firm/settings", token=portal_token)
+    check("Portal client blocked from /firm/settings", r.status_code == 403, f"status={r.status_code}")
+
+    # --- Portal client cannot access firm dashboard ---
+    r = api("GET", "/firm/dashboard", token=portal_token)
+    check("Portal client blocked from /firm/dashboard", r.status_code == 403, f"status={r.status_code}")
+
+    # --- Portal client cannot list firm's client orgs ---
+    r = api("GET", "/firm/clients", token=portal_token)
+    check("Portal client blocked from /firm/clients", r.status_code == 403, f"status={r.status_code}")
+
+    # --- Portal client cannot switch to firm org ---
+    r = api("POST", "/auth/switch-org", token=portal_token, json={"organization_id": firm_org_id})
+    check("Portal client cannot switch to firm org", r.status_code in (403, 404), f"status={r.status_code}")
+
+    # --- Portal client cannot switch to unrelated client org ---
+    r = api("POST", "/auth/switch-org", token=portal_token, json={"organization_id": state.get("client_a_id")})
+    check("Portal client cannot switch to unrelated client org", r.status_code in (403, 404), f"status={r.status_code}")
+
+    # --- Restore firm token ---
+    r = api("POST", "/auth/switch-org", token=firm_ctx_token, json={"organization_id": firm_org_id})
+    if r.status_code == 200:
+        state["firm_token"] = r.json()["access_token"]
+
+
+# ══════════════════════════════════════════════════════════
 #  RUN ALL
 # ══════════════════════════════════════════════════════════
 def main():
@@ -702,6 +821,8 @@ def main():
     test_data_isolation()
     test_crud_per_org()
     test_edge_cases()
+    test_whitelabel_document_upload()
+    test_client_cannot_see_bookkeeper_data()
 
     # ── Summary ──
     total = PASS + FAIL
