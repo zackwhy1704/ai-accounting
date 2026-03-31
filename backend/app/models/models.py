@@ -718,31 +718,6 @@ class Document(Base):
     )
 
 
-# ──────────────────────────────────────────────
-# Bank Transaction (for reconciliation)
-# ──────────────────────────────────────────────
-class BankTransaction(Base):
-    __tablename__ = "bank_transactions"
-
-    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=new_uuid)
-    organization_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("organizations.id"))
-    date: Mapped[datetime] = mapped_column(DateTime(timezone=True))
-    description: Mapped[str] = mapped_column(String(500))
-    amount: Mapped[float] = mapped_column(Numeric(15, 2))
-    type: Mapped[str] = mapped_column(String(10))  # credit, debit
-    category: Mapped[str | None] = mapped_column(String(100))
-    matched_transaction_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("transactions.id"))
-    is_reconciled: Mapped[bool] = mapped_column(Boolean, default=False)
-    ai_suggested_category: Mapped[str | None] = mapped_column(String(100))
-    ai_confidence: Mapped[float | None] = mapped_column(Numeric(3, 2))
-    raw_data: Mapped[dict | None] = mapped_column(JSONB)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
-
-    __table_args__ = (
-        Index("ix_bank_txn_org_date", "organization_id", "date"),
-        Index("ix_bank_txn_reconciled", "organization_id", "is_reconciled"),
-    )
-
 
 # ──────────────────────────────────────────────
 # Audit Log (immutable, append-only)

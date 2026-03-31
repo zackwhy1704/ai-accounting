@@ -15,6 +15,12 @@ depends_on = None
 
 
 def upgrade() -> None:
+    # Drop the old bank_transactions table (created in initial migration with legacy schema)
+    # so we can recreate it with the richer schema needed by the bank transactions router.
+    op.drop_index("ix_bank_txn_org_date", table_name="bank_transactions", if_exists=True)
+    op.drop_index("ix_bank_txn_reconciled", table_name="bank_transactions", if_exists=True)
+    op.drop_table("bank_transactions")
+
     op.create_table("bank_accounts",
         sa.Column("id", UUID(as_uuid=True), primary_key=True),
         sa.Column("organization_id", UUID(as_uuid=True), sa.ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True),
