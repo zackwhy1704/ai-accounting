@@ -639,3 +639,42 @@ export function useCreateSaleReceipt() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ['sale-receipts'] }),
   })
 }
+
+// ── Recurring Invoices ──
+export function useRecurringInvoices(status?: string) {
+  return useQuery<Array<{
+    id: string; organization_id: string; contact_id: string; status: string;
+    frequency: string; frequency_interval: number; start_date: string;
+    end_date: string | null; next_run_date: string; last_run_date: string | null;
+    run_count: number; max_runs: number | null; currency: string; due_days: number;
+    notes: string | null; line_items: Array<Record<string, unknown>>;
+    tax_inclusive: boolean; auto_send: boolean; created_at: string;
+  }>>({
+    queryKey: ['recurring-invoices', status],
+    queryFn: () => api.get('/recurring-invoices', { params: status ? { status } : {} }).then(r => r.data),
+  })
+}
+
+export function useCreateRecurringInvoice() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (data: Record<string, unknown>) => api.post('/recurring-invoices', data).then(r => r.data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['recurring-invoices'] }),
+  })
+}
+
+export function usePauseRecurringInvoice() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) => api.patch(`/recurring-invoices/${id}/pause`).then(r => r.data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['recurring-invoices'] }),
+  })
+}
+
+export function useResumeRecurringInvoice() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) => api.patch(`/recurring-invoices/${id}/resume`).then(r => r.data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['recurring-invoices'] }),
+  })
+}

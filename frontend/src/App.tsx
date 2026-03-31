@@ -34,6 +34,9 @@ import PracticeDashboardPage from './pages/firm/PracticeDashboardPage'
 import ClientPortalPage from './pages/firm/ClientPortalPage'
 import AcceptInvitePage from './pages/firm/AcceptInvitePage'
 import ProductsPage from './pages/products/ProductsPage'
+import RecurringInvoicesPage from './pages/sales/recurring/RecurringInvoicesPage'
+import ManualJournalsPage from './pages/accounting/ManualJournalsPage'
+import NewManualJournalPage from './pages/accounting/NewManualJournalPage'
 import NewProductPage from './pages/products/NewProductPage'
 
 function ProtectedRoute({ children, allowOnboarding }: { children: React.ReactNode; allowOnboarding?: boolean }) {
@@ -82,6 +85,9 @@ function App() {
         <Route path="/sales/payments/new" element={<NewPaymentPage />} />
         <Route path="/sales/refunds" element={<RefundsPage />} />
         <Route path="/sales/refunds/new" element={<NewRefundPage />} />
+        <Route path="/sales/recurring" element={<RecurringInvoicesPage />} />
+        <Route path="/accounting/journals" element={<ManualJournalsPage />} />
+        <Route path="/accounting/journals/new" element={<NewManualJournalPage />} />
 
         {/* Purchases */}
         <Route path="/purchases/bills" element={<BillsPage />} />
