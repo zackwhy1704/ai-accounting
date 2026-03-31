@@ -52,10 +52,6 @@ const translations = {
     "nav.myInvois": "MyInvois (LHDN)",
     "nav.sgCompliance": "IRAS E-Invoice",
     "nav.companySettings": "Company Settings",
-    "nav.myAccountants": "My Accountants",
-    "nav.firmClients": "Clients",
-    "nav.sharedDocuments": "Shared Documents",
-    "nav.sharedWithMe": "Shared With Me",
 
     // Header
     "header.search": "Search invoices, contacts, documents...",
@@ -494,7 +490,6 @@ const translations = {
     "nav.sharedDocuments": "Shared Documents",
     "nav.myAccountants": "My Accountants",
     "nav.firmClients": "Clients",
-
     "login.appName": "AI Accounting",
     "login.appDesc": "Cloud accounting powered by AI",
     "login.createAccount": "Create account",

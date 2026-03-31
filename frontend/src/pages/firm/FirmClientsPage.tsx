@@ -2,7 +2,7 @@ import { useState } from "react"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import {
   Building2, UserPlus, Link2Off, Loader2, Clock, CheckCircle2,
-  Mail, X, Send, ChevronRight,
+  Mail, X, Send,
 } from "lucide-react"
 import { Card } from "../../components/ui/card"
 import api from "../../lib/api"
