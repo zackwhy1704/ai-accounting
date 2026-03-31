@@ -4,7 +4,6 @@ import { useAuth } from "../../lib/auth"
 import { useTheme } from "../../lib/theme"
 import { useForgotPassword, useResetPassword } from "../../lib/hooks"
 import { Button } from "../../components/ui/button"
-import { Input } from "../../components/ui/input"
 import { Loader2, ArrowLeft, CheckCircle2, TrendingUp, Shield, Zap } from "lucide-react"
 import accrulyLogo from "../../assets/accruly-logo.svg"
 
