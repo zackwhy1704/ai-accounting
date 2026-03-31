@@ -35,6 +35,9 @@ import ClientPortalPage from './pages/firm/ClientPortalPage'
 import AcceptInvitePage from './pages/firm/AcceptInvitePage'
 import ProductsPage from './pages/products/ProductsPage'
 import RecurringInvoicesPage from './pages/sales/recurring/RecurringInvoicesPage'
+import VendorCreditsPage from './pages/purchases/VendorCreditsPage'
+import SaleReceiptsPage from './pages/sales/receipts/SaleReceiptsPage'
+import BankRulesPage from './pages/bank/BankRulesPage'
 import ManualJournalsPage from './pages/accounting/ManualJournalsPage'
 import NewManualJournalPage from './pages/accounting/NewManualJournalPage'
 import NewProductPage from './pages/products/NewProductPage'
@@ -86,6 +89,7 @@ function App() {
         <Route path="/sales/refunds" element={<RefundsPage />} />
         <Route path="/sales/refunds/new" element={<NewRefundPage />} />
         <Route path="/sales/recurring" element={<RecurringInvoicesPage />} />
+        <Route path="/sales/receipts" element={<SaleReceiptsPage />} />
         <Route path="/accounting/journals" element={<ManualJournalsPage />} />
         <Route path="/accounting/journals/new" element={<NewManualJournalPage />} />
 
@@ -94,6 +98,7 @@ function App() {
         <Route path="/purchases/purchase-orders" element={<GenericPage title="Purchase Orders" category="Purchases" />} />
         <Route path="/purchases/goods-received-notes" element={<GenericPage title="Goods Received Notes" category="Purchases" />} />
         <Route path="/purchases/credit-notes" element={<GenericPage title="Credit Notes" category="Purchases" />} />
+        <Route path="/purchases/vendor-credits" element={<VendorCreditsPage />} />
         <Route path="/purchases/payments" element={<GenericPage title="Payments" category="Purchases" />} />
         <Route path="/purchases/refunds" element={<GenericPage title="Refunds" category="Purchases" />} />
 
@@ -105,6 +110,7 @@ function App() {
         <Route path="/bank/money-out" element={<GenericPage title="Money Out" category="Bank" />} />
         <Route path="/bank/transfers" element={<GenericPage title="Transfers" category="Bank" />} />
         <Route path="/bank/accounts" element={<GenericPage title="Bank Accounts" category="Bank" />} />
+        <Route path="/bank/rules" element={<BankRulesPage />} />
 
         {/* Other */}
         <Route path="/contacts" element={<ContactsPage />} />
