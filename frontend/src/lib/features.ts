@@ -59,8 +59,9 @@ const ORG_FEATURES: Record<string, Feature[]> = {
     "sales",
     "purchases",
     "upload_documents",
-    "shared_documents",
-    "my_accountants",
+    // shared_documents + my_accountants are NOT included by default —
+    // they are added dynamically in useFeatureFlags() only when the org
+    // has at least one confirmed linked accountant firm.
     "bank",
     "contacts",
     "products",
@@ -76,8 +77,6 @@ const ORG_FEATURES: Record<string, Feature[]> = {
     "sales",
     "purchases",
     "upload_documents",
-    "shared_documents",
-    "my_accountants",
     "bank",
     "contacts",
     "reports",
@@ -89,8 +88,6 @@ const ORG_FEATURES: Record<string, Feature[]> = {
     "dashboard",
     "sales",
     "upload_documents",
-    "shared_documents",
-    "my_accountants",
     "bank",
     "contacts",
     "reports",
@@ -138,12 +135,12 @@ export function useFeatureFlags() {
 
   const features = getFeaturesForUser(user?.org_type ?? 'sme', user?.country ?? '')
 
-  // Hide sharing nav items for SMEs with no linked accountants.
-  // Only apply after the query has resolved — while loading keep the features
-  // visible so they don't flicker away for users who do have linked firms.
-  if (isSME && !linksLoading && linkedFirms.length === 0) {
-    features.delete("shared_documents")
-    features.delete("my_accountants")
+  // shared_documents + my_accountants are gated behind having a linked accountant firm.
+  // They are absent from ORG_FEATURES by default and only unlocked here once the
+  // links query has resolved with at least one result — no flicker, no leak.
+  if (isSME && !linksLoading && linkedFirms.length > 0) {
+    features.add("shared_documents")
+    features.add("my_accountants")
   }
 
   return {
