@@ -1,6 +1,6 @@
 import { useMemo, useState, useRef, useEffect, useCallback } from "react"
 import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query"
-import { CircleAlert, CloudUpload, FileText, Loader2, Search, CheckCircle2, Link2, BookOpen, Pencil, Save, X, Check, AlertTriangle, Trash2, HelpCircle, Share2, Tag, Bot } from "lucide-react"
+import { CircleAlert, CloudUpload, FileText, Loader2, Search, CheckCircle2, Link2, BookOpen, Pencil, Save, X, Check, AlertTriangle, Trash2, HelpCircle, Share2, Tag, Bot, UserCheck, Building2 } from "lucide-react"
 import { useDocuments, useUpdateExtractedData, useDeleteDocument, useCategoriseDocument } from "../../lib/hooks"
 import { useFeatureFlags } from "../../lib/features"
 import api from "../../lib/api"
