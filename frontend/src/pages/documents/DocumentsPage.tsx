@@ -212,7 +212,6 @@ type UploadItem = {
 }
 
 export default function DocumentsPage() {
-  const [tab, setTab] = useState("processed")
   const [categoryFilter, setCategoryFilter] = useState<string>("all")
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [shareDocId, setShareDocId] = useState<string | null>(null)
@@ -231,22 +230,12 @@ export default function DocumentsPage() {
   const { has } = useFeatureFlags()
   const canShare = has("shared_documents")
 
-  const statusTabs = [
-    { label: t("documents.preview"), value: "processed" },
-    { label: t("documents.done"), value: "done" },
-  ]
-
   const categoryTabs = [
     { label: "All", value: "all" },
     { label: "Unclassified", value: "unclassified" },
     ...CATEGORIES.filter(c => c !== "other").map(c => ({ label: categoryLabel[c], value: c })),
     { label: "Other", value: "other" },
   ]
-
-  const queueDesc: Record<string, string> = {
-    processed: t("documents.readyForReview"),
-    done: t("documents.doneQueue"),
-  }
 
   const setManualCategory = useMutation({
     mutationFn: ({ id, category }: { id: string; category: string }) =>
@@ -256,11 +245,11 @@ export default function DocumentsPage() {
   })
 
   const rows = useMemo(() => {
-    let base = tab === "done" ? documents.filter(d => d.status === "done") : documents.filter(d => d.status !== "done")
+    let base = [...documents]
     if (categoryFilter === "unclassified") base = base.filter(d => !d.category)
     else if (categoryFilter !== "all") base = base.filter(d => d.category === categoryFilter)
     return base
-  }, [documents, tab, categoryFilter])
+  }, [documents, categoryFilter])
 
   const selected = rows.find(r => r.id === selectedId) ?? null
 
@@ -299,7 +288,6 @@ export default function DocumentsPage() {
         })
         setUploadQueue(prev => prev.map(i => i.id === item.id ? { ...i, status: "done" as const } : i))
         qc.invalidateQueries({ queryKey: ["documents"] })
-        setTab("processed")
         setSelectedId(data.id)
       } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : "Upload failed"
@@ -482,11 +470,6 @@ export default function DocumentsPage() {
       <Card className="rounded-2xl border-border bg-card p-4 shadow-[0_0_0_1px_rgba(15,23,42,0.06),0_18px_55px_rgba(2,6,23,0.08)]">
         <div className="flex flex-col gap-3">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <Tabs value={tab} onValueChange={(v) => { setTab(v); setSelectedId(null) }}>
-              <TabsList className="h-auto flex-wrap justify-start gap-1 rounded-xl bg-muted p-1">
-                {statusTabs.map(st => (<TabsTrigger key={st.value} value={st.value} className="rounded-lg px-3 py-1.5 text-xs">{st.label}</TabsTrigger>))}
-              </TabsList>
-            </Tabs>
             <div className="relative w-full sm:max-w-sm"><Search className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" /><Input placeholder={t("documents.searchFileName")} className="h-10 rounded-xl pl-9 text-sm" /></div>
           </div>
           {/* Category filter */}
@@ -612,7 +595,7 @@ export default function DocumentsPage() {
                       {selected.status === "done" && (
                         <div className="flex items-center gap-1.5 text-emerald-600">
                           <CheckCircle2 className="h-4 w-4" />
-                          <span className="text-xs font-medium">{t("documents.done")}</span>
+                          <span className="text-xs font-medium">Posted to GL</span>
                         </div>
                       )}
                     </div>
@@ -651,11 +634,9 @@ export default function DocumentsPage() {
                       <div className="mt-4">
                         <div className="flex items-center justify-between mb-2">
                           <div className="text-xs font-semibold text-foreground">{t("documents.aiExtractedData")}</div>
-                          {selected.status !== "done" && (
-                            <button type="button" onClick={handleStartEdit} className="inline-flex items-center gap-1 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors">
-                              <Pencil className="h-3 w-3" /> Edit
-                            </button>
-                          )}
+                          <button type="button" onClick={handleStartEdit} className="inline-flex items-center gap-1 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors">
+                            <Pencil className="h-3 w-3" /> Edit
+                          </button>
                         </div>
                         <div className="space-y-2">
                           {renderExtractedFields(selected.ai_extracted_data)}
@@ -790,7 +771,7 @@ export default function DocumentsPage() {
                     )}
 
                     {/* Inline Journal Entry Preview — auto-loads when category is set */}
-                    {!editing && selected.category && (selected.status === "processed" || selected.status === "done") && (
+                    {!editing && selected.category && selected.status === "processed" && (
                       <InlineJournalPreview documentId={selected.id} category={selected.category} />
                     )}
 
@@ -803,8 +784,8 @@ export default function DocumentsPage() {
                       </div>
                     )}
 
-                    {/* Delete button for ALL non-done statuses */}
-                    {selected.status !== "done" && selected.status !== "unrecognized" && !editing && (
+                    {/* Delete button */}
+                    {selected.status !== "unrecognized" && !editing && (
                       <div className={selected.status === "processed" ? "mt-2" : "mt-2"}>
                         <Button type="button" onClick={handleDelete} disabled={deleteMutation.isPending} variant="secondary" className="h-9 rounded-xl px-3 text-xs font-semibold text-rose-600 hover:text-rose-700 hover:bg-rose-50">
                           {deleteMutation.isPending ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <Trash2 className="mr-1.5 h-3.5 w-3.5" />}
