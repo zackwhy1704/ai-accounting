@@ -10,7 +10,6 @@ import { useToast } from "../../components/ui/toast"
 import { Card } from "../../components/ui/card"
 import { Button } from "../../components/ui/button"
 import { Input } from "../../components/ui/input"
-import { Tabs, TabsList, TabsTrigger } from "../../components/ui/tabs"
 import type { Document } from "../../types"
 
 interface LinkedFirm {
@@ -504,7 +503,7 @@ export default function DocumentsPage() {
             <div className="overflow-hidden rounded-2xl border border-border bg-card">
               <div className="border-b border-border bg-muted px-4 py-3">
                 <div className="text-xs font-semibold text-foreground">{t("documents.queue")}</div>
-                <div className="mt-1 text-xs text-muted-foreground">{queueDesc[tab]}</div>
+                <div className="mt-1 text-xs text-muted-foreground">{t("documents.readyForReview")}</div>
               </div>
               {isLoading ? (<div className="px-4 py-10 text-center text-sm text-muted-foreground">{t("common.loading")}</div>
               ) : rows.length === 0 ? (
