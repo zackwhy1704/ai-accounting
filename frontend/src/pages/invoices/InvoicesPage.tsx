@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react"
 import { useNavigate } from "react-router-dom"
-import { Plus, Download, Search, CalendarDays, SlidersHorizontal, Filter, CreditCard, FileText, Copy, RefreshCw, Printer, Share2, Lock, XCircle, Truck } from "lucide-react"
+import { Plus, Search, CalendarDays, SlidersHorizontal, Filter, CreditCard, FileText, Copy, RefreshCw, Printer, Share2, Lock, XCircle, Truck } from "lucide-react"
 import { useInvoices, useContacts } from "../../lib/hooks"
 import { formatCurrency, formatDate, cn } from "../../lib/utils"
 import { useTheme } from "../../lib/theme"
@@ -27,6 +27,7 @@ export default function InvoicesPage() {
   const navigate = useNavigate()
   const [tab, setTab] = useState("all")
   const [search, setSearch] = useState("")
+  const [contactFilter, setContactFilter] = useState("all")
 
   const { data: invoices = [], isLoading } = useInvoices(tab === "all" ? undefined : tab)
   const { data: contacts = [] } = useContacts()
@@ -48,13 +49,17 @@ export default function InvoicesPage() {
   }, [contacts])
 
   const rows = useMemo(() => {
-    if (!search.trim()) return invoices
-    const q = search.toLowerCase()
-    return invoices.filter(i =>
-      i.invoice_number.toLowerCase().includes(q) ||
-      (contactMap.get(i.contact_id) ?? "").toLowerCase().includes(q)
-    )
-  }, [invoices, search, contactMap])
+    let filtered = invoices
+    if (search.trim()) {
+      const q = search.toLowerCase()
+      filtered = filtered.filter(i =>
+        i.invoice_number.toLowerCase().includes(q) ||
+        (contactMap.get(i.contact_id) ?? "").toLowerCase().includes(q)
+      )
+    }
+    if (contactFilter !== "all") filtered = filtered.filter(i => i.contact_id === contactFilter)
+    return filtered
+  }, [invoices, search, contactMap, contactFilter])
 
   return (
     <div className="flex flex-col gap-4">
@@ -65,10 +70,7 @@ export default function InvoicesPage() {
           <div className="mt-1 max-w-2xl text-sm text-muted-foreground">{t("invoices.desc")}</div>
         </div>
         <div className="flex items-center gap-2">
-          <Button type="button" variant="secondary" className="h-9 rounded-xl px-3 text-xs font-semibold shadow-sm">
-            <Download className="mr-2 h-4 w-4" /> {t("common.export")}
-          </Button>
-          <Button type="button" onClick={() => navigate("/sales/invoices/new")} className="h-9 rounded-xl bg-gradient-to-r from-[#7C9DFF] to-[#4D63FF] px-3 text-xs font-semibold text-white shadow-[0_0_0_1px_rgba(124,157,255,0.25),0_16px_40px_rgba(0,0,0,0.35)] hover:opacity-95">
+<Button type="button" onClick={() => navigate("/sales/invoices/new")} className="h-9 rounded-xl bg-gradient-to-r from-[#7C9DFF] to-[#4D63FF] px-3 text-xs font-semibold text-white shadow-[0_0_0_1px_rgba(124,157,255,0.25),0_16px_40px_rgba(0,0,0,0.35)] hover:opacity-95">
             <Plus className="mr-2 h-4 w-4" /> {t("invoices.new")}
           </Button>
         </div>
@@ -107,7 +109,7 @@ export default function InvoicesPage() {
             </div>
             <div className="lg:col-span-4">
               <div className="text-xs font-medium text-muted-foreground">{t("invoices.customer")}</div>
-              <Select defaultValue="all">
+              <Select value={contactFilter} onValueChange={setContactFilter}>
                 <SelectTrigger className="mt-2 h-10 rounded-xl"><SelectValue placeholder={t("invoices.allCustomers")} /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">{t("invoices.allCustomers")}</SelectItem>

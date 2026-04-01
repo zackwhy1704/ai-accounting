@@ -125,7 +125,7 @@ export default function NewDebitNotePage() {
             <div className="grid grid-cols-1 gap-4 lg:grid-cols-4">
               <div>
                 <label className="text-xs font-medium text-muted-foreground">Customer</label>
-                <Select value={customerId} onValueChange={v => { setCustomerId(v); setLinkedInvoiceId("") }}>
+                <Select value={customerId} onValueChange={v => { if (v === "__add_new__") { navigate("/contacts/new"); return } setCustomerId(v); setLinkedInvoiceId("") }}>
                   <SelectTrigger className="mt-1.5 h-10 rounded-xl">
                     <SelectValue placeholder="Select customer" />
                   </SelectTrigger>
@@ -133,6 +133,7 @@ export default function NewDebitNotePage() {
                     {customers.map(c => (
                       <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
                     ))}
+                    <SelectItem value="__add_new__" className="text-primary font-medium">+ Add New Customer</SelectItem>
                   </SelectContent>
                 </Select>
               </div>

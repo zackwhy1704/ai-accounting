@@ -130,7 +130,7 @@ export default function NewDeliveryOrderPage() {
               <div className="space-y-3">
                 <div>
                   <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Customer</label>
-                  <Select value={contactId} onValueChange={setContactId}>
+                  <Select value={contactId} onValueChange={v => v === "__add_new__" ? navigate("/contacts/new") : setContactId(v)}>
                     <SelectTrigger className="h-10 rounded-xl">
                       <SelectValue placeholder="Select customer" />
                     </SelectTrigger>
@@ -142,6 +142,7 @@ export default function NewDeliveryOrderPage() {
                             {c.name}
                           </SelectItem>
                         ))}
+                      <SelectItem value="__add_new__" className="text-primary font-medium">+ Add New Customer</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>

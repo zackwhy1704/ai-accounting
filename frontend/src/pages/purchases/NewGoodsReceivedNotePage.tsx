@@ -77,7 +77,7 @@ export default function NewGoodsReceivedNotePage() {
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
           <div>
             <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Supplier *</label>
-            <Select value={contactId} onValueChange={setContactId}>
+            <Select value={contactId} onValueChange={v => v === "__add_new__" ? navigate("/contacts/new") : setContactId(v)}>
               <SelectTrigger className="h-10 rounded-xl">
                 <SelectValue placeholder="Select supplier" />
               </SelectTrigger>
@@ -85,6 +85,7 @@ export default function NewGoodsReceivedNotePage() {
                 {contacts.map(c => (
                   <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
                 ))}
+                <SelectItem value="__add_new__" className="text-primary font-medium">+ Add New Supplier</SelectItem>
               </SelectContent>
             </Select>
           </div>

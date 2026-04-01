@@ -90,7 +90,7 @@ export default function NewPaymentPage() {
           {/* Customer */}
           <div className="space-y-1.5">
             <label className="text-sm font-medium text-foreground">Customer</label>
-            <Select value={customerId} onValueChange={setCustomerId}>
+            <Select value={customerId} onValueChange={v => v === "__add_new__" ? navigate("/contacts/new") : setCustomerId(v)}>
               <SelectTrigger>
                 <SelectValue placeholder="Select customer" />
               </SelectTrigger>
@@ -100,6 +100,7 @@ export default function NewPaymentPage() {
                     {c.name}
                   </SelectItem>
                 ))}
+                <SelectItem value="__add_new__" className="text-primary font-medium">+ Add New Customer</SelectItem>
               </SelectContent>
             </Select>
           </div>

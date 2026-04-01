@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react"
 import { useNavigate } from "react-router-dom"
-import { Download, Plus, Search, Users, Eye, Pencil, Trash2 } from "lucide-react"
+import { Plus, Search, Users, Eye, Pencil, Trash2 } from "lucide-react"
 import { useContacts } from "../../lib/hooks"
 import { cn } from "../../lib/utils"
 import { useTheme } from "../../lib/theme"
@@ -58,7 +58,6 @@ export default function ContactsPage() {
               {contactTabs.map(ct => (<TabsTrigger key={ct.value} value={ct.value} className="rounded-lg px-3 py-1.5 text-xs">{ct.label}</TabsTrigger>))}
             </TabsList>
           </Tabs>
-          <Button type="button" variant="secondary" className="h-9 rounded-xl px-3 text-xs font-semibold shadow-sm"><Download className="mr-2 h-4 w-4" /> {t("common.export")}</Button>
         </div>
         <div className="mt-4"><div className="text-xs font-medium text-muted-foreground">{t("common.search")}</div>
           <div className="relative mt-2 max-w-md"><Search className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" /><Input value={query} onChange={e => { setQuery(e.target.value); setPage(1) }} placeholder={t("contacts.nameEmail")} className="h-10 rounded-xl pl-9 text-sm" /></div>

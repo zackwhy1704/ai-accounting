@@ -1,5 +1,5 @@
 import { useState } from "react"
-import { TrendingUp, Users, Building2, Scale, Loader2, Download } from "lucide-react"
+import { TrendingUp, Users, Building2, Scale, Loader2 } from "lucide-react"
 import { Card } from "../../components/ui/card"
 import { Button } from "../../components/ui/button"
 import { Input } from "../../components/ui/input"
@@ -218,11 +218,6 @@ export default function ReportsPage() {
             <div className="text-sm font-semibold text-foreground">
               {REPORTS.find(r => r.id === selected)?.title}
             </div>
-            {!loading && result && !("error" in result) && (
-              <Button type="button" variant="secondary" className="h-7 rounded-lg px-2 text-xs">
-                <Download className="mr-1 h-3.5 w-3.5" /> Export CSV
-              </Button>
-            )}
           </div>
           {loading ? (
             <div className="flex items-center gap-2 text-sm text-muted-foreground">

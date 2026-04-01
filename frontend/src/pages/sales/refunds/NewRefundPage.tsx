@@ -76,7 +76,7 @@ export default function NewRefundPage() {
           {/* Customer */}
           <div className="space-y-1.5">
             <label className="text-sm font-medium text-foreground">Customer</label>
-            <Select value={contactId} onValueChange={setContactId}>
+            <Select value={contactId} onValueChange={v => v === "__add_new__" ? navigate("/contacts/new") : setContactId(v)}>
               <SelectTrigger>
                 <SelectValue placeholder="Select customer" />
               </SelectTrigger>
@@ -86,6 +86,7 @@ export default function NewRefundPage() {
                     {c.name}
                   </SelectItem>
                 ))}
+                <SelectItem value="__add_new__" className="text-primary font-medium">+ Add New Customer</SelectItem>
               </SelectContent>
             </Select>
           </div>

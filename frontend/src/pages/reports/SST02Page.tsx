@@ -1,5 +1,5 @@
 import { useState } from "react"
-import { Download, Loader2 } from "lucide-react"
+import { Loader2 } from "lucide-react"
 import { useQuery } from "@tanstack/react-query"
 import { Card } from "../../components/ui/card"
 import { Button } from "../../components/ui/button"
@@ -85,9 +85,6 @@ export default function SST02Page() {
           <div className="mt-1 text-2xl font-semibold tracking-tight text-foreground">SST-02</div>
           <div className="mt-1 text-sm text-muted-foreground">Sales & Service Tax Return</div>
         </div>
-        <Button type="button" variant="secondary" className="h-9 rounded-xl px-3 text-xs">
-          <Download className="mr-2 h-4 w-4" /> Download PDF
-        </Button>
       </div>
 
       {/* Filter panel */}

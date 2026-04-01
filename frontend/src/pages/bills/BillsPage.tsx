@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react"
 import { useNavigate } from "react-router-dom"
-import { Plus, Download, Search, CalendarDays, FileText, Copy, Printer, XCircle, CreditCard } from "lucide-react"
+import { Plus, Search, CalendarDays, FileText, Copy, Printer, XCircle, CreditCard } from "lucide-react"
 import { useBills, useContacts } from "../../lib/hooks"
 import { formatCurrency, formatDate, cn } from "../../lib/utils"
 import { useTheme } from "../../lib/theme"
@@ -26,6 +26,7 @@ export default function BillsPage() {
   const navigate = useNavigate()
   const [tab, setTab] = useState("all")
   const [search, setSearch] = useState("")
+  const [contactFilter, setContactFilter] = useState("all")
   const { data: bills = [], isLoading } = useBills(tab === "all" ? undefined : tab)
   const { data: contacts = [] } = useContacts()
   const { t } = useTheme()
@@ -45,10 +46,14 @@ export default function BillsPage() {
   }, [contacts])
 
   const rows = useMemo(() => {
-    if (!search.trim()) return bills
-    const q = search.toLowerCase()
-    return bills.filter(b => b.bill_number.toLowerCase().includes(q) || (contactMap.get(b.contact_id) ?? "").toLowerCase().includes(q))
-  }, [bills, search, contactMap])
+    let filtered = bills
+    if (search.trim()) {
+      const q = search.toLowerCase()
+      filtered = filtered.filter(b => b.bill_number.toLowerCase().includes(q) || (contactMap.get(b.contact_id) ?? "").toLowerCase().includes(q))
+    }
+    if (contactFilter !== "all") filtered = filtered.filter(b => b.contact_id === contactFilter)
+    return filtered
+  }, [bills, search, contactMap, contactFilter])
 
   return (
     <div className="flex flex-col gap-4">
@@ -59,7 +64,6 @@ export default function BillsPage() {
           <div className="mt-1 max-w-2xl text-sm text-muted-foreground">{t("bills.desc")}</div>
         </div>
         <div className="flex items-center gap-2">
-          <Button type="button" variant="secondary" className="h-9 rounded-xl px-3 text-xs font-semibold shadow-sm"><Download className="mr-2 h-4 w-4" /> {t("common.export")}</Button>
           <Button type="button" onClick={() => navigate("/purchases/bills/new")} className="h-9 rounded-xl bg-gradient-to-r from-[#7C9DFF] to-[#4D63FF] px-3 text-xs font-semibold text-white shadow-[0_0_0_1px_rgba(124,157,255,0.25),0_16px_40px_rgba(0,0,0,0.35)] hover:opacity-95"><Plus className="mr-2 h-4 w-4" /> {t("bills.new")}</Button>
         </div>
       </div>
@@ -82,7 +86,7 @@ export default function BillsPage() {
                 </div>
                 <div className="lg:col-span-4">
                   <div className="text-xs font-medium text-muted-foreground">{t("bills.contact")}</div>
-                  <Select defaultValue="all">
+                  <Select value={contactFilter} onValueChange={setContactFilter}>
                     <SelectTrigger className="mt-2 h-10 rounded-xl"><SelectValue placeholder={t("bills.allContacts")} /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="all">{t("bills.allContacts")}</SelectItem>

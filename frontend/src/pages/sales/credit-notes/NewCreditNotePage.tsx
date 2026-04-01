@@ -182,7 +182,7 @@ export default function NewCreditNotePage() {
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
             <div>
               <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Customer</label>
-              <Select value={contactId} onValueChange={handleContactChange}>
+              <Select value={contactId} onValueChange={v => v === "__add_new__" ? navigate("/contacts/new") : handleContactChange(v)}>
                 <SelectTrigger className="h-10 rounded-xl">
                   <SelectValue placeholder="Select customer" />
                 </SelectTrigger>
@@ -194,6 +194,7 @@ export default function NewCreditNotePage() {
                         {c.name}
                       </SelectItem>
                     ))}
+                  <SelectItem value="__add_new__" className="text-primary font-medium">+ Add New Customer</SelectItem>
                 </SelectContent>
               </Select>
             </div>

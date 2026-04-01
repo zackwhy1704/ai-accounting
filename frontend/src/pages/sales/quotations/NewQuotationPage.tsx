@@ -48,6 +48,7 @@ export default function NewQuotationPage() {
   const [reference, setReference] = useState("")
   const [currency, setCurrency] = useState("MYR")
   const [taxInclusive, setTaxInclusive] = useState(false)
+  const [paymentTerms, setPaymentTerms] = useState("net30")
   const [discountGiven, setDiscountGiven] = useState(0)
   const [roundingAdjustment, setRoundingAdjustment] = useState(false)
   const [quickShareEmail, setQuickShareEmail] = useState(false)
@@ -143,7 +144,7 @@ export default function NewQuotationPage() {
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
             <div>
               <label className="mb-1.5 block text-xs font-medium text-muted-foreground">{t("quotations.customer")}</label>
-              <Select value={contactId} onValueChange={setContactId}>
+              <Select value={contactId} onValueChange={v => v === "__add_new__" ? navigate("/contacts/new") : setContactId(v)}>
                 <SelectTrigger className="h-10 rounded-xl">
                   <SelectValue placeholder="Select customer" />
                 </SelectTrigger>
@@ -155,6 +156,7 @@ export default function NewQuotationPage() {
                         {c.name}
                       </SelectItem>
                     ))}
+                  <SelectItem value="__add_new__" className="text-primary font-medium">+ Add New Customer</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -492,7 +494,7 @@ export default function NewQuotationPage() {
           <div className="max-w-lg space-y-4">
             <div>
               <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Payment Terms</label>
-              <Select defaultValue="net30">
+              <Select value={paymentTerms} onValueChange={setPaymentTerms}>
                 <SelectTrigger className="h-10 rounded-xl">
                   <SelectValue />
                 </SelectTrigger>
