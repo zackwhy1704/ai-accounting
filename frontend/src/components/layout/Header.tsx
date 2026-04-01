@@ -1,4 +1,4 @@
-import { Bell, CircleHelp, Menu, Search } from "lucide-react"
+import { CircleHelp, Menu, Search } from "lucide-react"
 import { Button } from "../ui/button"
 import { useAuth } from "../../lib/auth"
 
@@ -23,9 +23,7 @@ export function Header({ onMenuClick }: { onMenuClick: () => void }) {
         <Button type="button" variant="ghost" size="icon" className="text-white/70 hover:bg-white/10 hover:text-white">
           <Search className="h-5 w-5" />
         </Button>
-        <Button type="button" variant="ghost" size="icon" className="text-white/70 hover:bg-white/10 hover:text-white">
-          <Bell className="h-5 w-5" />
-        </Button>
+
         <Button type="button" variant="ghost" size="icon" className="text-white/70 hover:bg-white/10 hover:text-white">
           <CircleHelp className="h-5 w-5" />
         </Button>
