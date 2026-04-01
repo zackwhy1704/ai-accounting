@@ -1,7 +1,7 @@
 import { Outlet } from 'react-router-dom'
 import { ErrorBoundary } from '../ErrorBoundary'
 import { Sidebar } from './Sidebar'
-import { Bell, Search, User, Sun, Moon, Globe, Check, X, Settings } from 'lucide-react'
+import { Search, User, Sun, Moon, Globe, Check, X, Settings } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { useAuth } from '@/lib/auth'
@@ -188,10 +188,7 @@ export function AppLayout() {
           <div className="flex items-center gap-2">
             <LanguageSelector />
             <ThemeToggle />
-            <button type="button" className="relative flex h-9 w-9 items-center justify-center rounded-lg hover:bg-muted transition-colors">
-              <Bell className="h-5 w-5 text-muted-foreground" />
-              <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-destructive" />
-            </button>
+
             <div className="relative ml-2">
               <button
                 type="button"
