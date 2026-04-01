@@ -105,10 +105,10 @@ export default function GoodsReceivedNotesPage() {
                     </TableCell>
                     <TableCell className="text-right">
                       <RowActionsMenu actions={[
-                        { label: "View", icon: FileText, onClick: () => navigate(`/purchases/goods-received-notes/${grn.id}`) },
-                        { label: "Edit", icon: Pencil, onClick: () => navigate(`/purchases/goods-received-notes/${grn.id}/edit`) },
-                        { label: "Mark as Billed", icon: CheckCircle2, onClick: () => {}, disabled: grn.status !== "received", dividerBefore: true },
-                        { label: "Delete", icon: Trash2, onClick: () => {}, danger: true, dividerBefore: true },
+                        { label: "View", icon: <FileText className="h-3.5 w-3.5" />, onClick: () => navigate(`/purchases/goods-received-notes/${grn.id}`) },
+                        { label: "Edit", icon: <Pencil className="h-3.5 w-3.5" />, onClick: () => navigate(`/purchases/goods-received-notes/${grn.id}/edit`) },
+                        { label: "Mark as Billed", icon: <CheckCircle2 className="h-3.5 w-3.5" />, onClick: () => {}, disabled: grn.status !== "received", dividerBefore: true },
+                        { label: "Delete", icon: <Trash2 className="h-3.5 w-3.5" />, onClick: () => {}, danger: true, dividerBefore: true },
                       ]} />
                     </TableCell>
                   </TableRow>

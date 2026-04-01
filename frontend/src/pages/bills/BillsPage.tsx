@@ -126,11 +126,11 @@ export default function BillsPage() {
                             <TableCell><Badge variant="outline" className={cn("rounded-lg px-2 py-0.5 text-[11px] font-semibold", statusColors[bill.status] ?? "")}>{bill.status.charAt(0).toUpperCase() + bill.status.slice(1)}</Badge></TableCell>
                             <TableCell className="text-right">
                               <RowActionsMenu actions={[
-                                { label: t("bills.view"), icon: <FileText className="h-3.5 w-3.5" />, onClick: () => navigate(`/purchases/bills/${bill.id}`) },
-                                { label: t("bills.addPayment"), icon: <CreditCard className="h-3.5 w-3.5" />, onClick: () => navigate(`/purchases/payments/new?bill_id=${bill.id}`), dividerBefore: true },
-                                { label: t("bills.duplicate"), icon: <Copy className="h-3.5 w-3.5" />, onClick: () => navigate(`/purchases/bills/new?copy=${bill.id}`) },
-                                { label: t("bills.printPdf"), icon: <Printer className="h-3.5 w-3.5" />, onClick: () => window.print() },
-                                { label: t("bills.void"), icon: <XCircle className="h-3.5 w-3.5" />, onClick: () => {}, danger: true, dividerBefore: true, disabled: bill.status === "void" },
+                                { label: "View", icon: <FileText className="h-3.5 w-3.5" />, onClick: () => navigate(`/purchases/bills/${bill.id}`) },
+                                { label: t("invoices.addPayment"), icon: <CreditCard className="h-3.5 w-3.5" />, onClick: () => navigate(`/purchases/payments/new?bill_id=${bill.id}`), dividerBefore: true },
+                                { label: t("invoices.duplicate"), icon: <Copy className="h-3.5 w-3.5" />, onClick: () => navigate(`/purchases/bills/new?copy=${bill.id}`) },
+                                { label: t("invoices.printPdf"), icon: <Printer className="h-3.5 w-3.5" />, onClick: () => window.print() },
+                                { label: t("invoices.void"), icon: <XCircle className="h-3.5 w-3.5" />, onClick: () => {}, danger: true, dividerBefore: true, disabled: bill.status === "void" },
                               ]} />
                             </TableCell>
                           </TableRow>

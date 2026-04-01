@@ -132,11 +132,11 @@ export default function PurchaseOrdersPage() {
                     </TableCell>
                     <TableCell className="text-right">
                       <RowActionsMenu actions={[
-                        { label: "View", icon: FileText, onClick: () => navigate(`/purchases/orders/${po.id}`) },
-                        { label: "Edit", icon: Pencil, onClick: () => navigate(`/purchases/orders/${po.id}/edit`) },
-                        { label: "Convert to Bill", icon: ArrowRightLeft, onClick: () => navigate(`/purchases/bills/new?from_po=${po.id}`), dividerBefore: true },
-                        { label: "Duplicate", icon: Copy, onClick: () => navigate(`/purchases/orders/new?copy=${po.id}`) },
-                        { label: "Void", icon: XCircle, onClick: () => {}, danger: true, dividerBefore: true, disabled: po.status === "void" },
+                        { label: "View", icon: <FileText className="h-3.5 w-3.5" />, onClick: () => navigate(`/purchases/orders/${po.id}`) },
+                        { label: "Edit", icon: <Pencil className="h-3.5 w-3.5" />, onClick: () => navigate(`/purchases/orders/${po.id}/edit`) },
+                        { label: "Convert to Bill", icon: <ArrowRightLeft className="h-3.5 w-3.5" />, onClick: () => navigate(`/purchases/bills/new?from_po=${po.id}`), dividerBefore: true },
+                        { label: "Duplicate", icon: <Copy className="h-3.5 w-3.5" />, onClick: () => navigate(`/purchases/orders/new?copy=${po.id}`) },
+                        { label: "Void", icon: <XCircle className="h-3.5 w-3.5" />, onClick: () => {}, danger: true, dividerBefore: true, disabled: po.status === "void" },
                       ]} />
                     </TableCell>
                   </TableRow>

@@ -100,9 +100,9 @@ export default function VendorCreditsPage() {
                     </TableCell>
                     <TableCell className="text-right">
                       <RowActionsMenu actions={[
-                        { label: "View", icon: FileText, onClick: () => navigate(`/purchases/vendor-credits/${vc.id}`) },
-                        { label: "Apply to Bill", icon: ArrowRightLeft, onClick: () => navigate(`/purchases/bills/new?credit_id=${vc.id}`), dividerBefore: true },
-                        { label: "Void", icon: XCircle, onClick: () => {}, danger: true, dividerBefore: true },
+                        { label: "View", icon: <FileText className="h-3.5 w-3.5" />, onClick: () => navigate(`/purchases/vendor-credits/${vc.id}`) },
+                        { label: "Apply to Bill", icon: <ArrowRightLeft className="h-3.5 w-3.5" />, onClick: () => navigate(`/purchases/bills/new?credit_id=${vc.id}`), dividerBefore: true },
+                        { label: "Void", icon: <XCircle className="h-3.5 w-3.5" />, onClick: () => {}, danger: true, dividerBefore: true },
                       ]} />
                     </TableCell>
                   </TableRow>

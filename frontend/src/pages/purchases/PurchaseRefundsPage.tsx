@@ -130,9 +130,9 @@ export default function PurchaseRefundsPage() {
                     </TableCell>
                     <TableCell className="text-right">
                       <RowActionsMenu actions={[
-                        { label: "View", icon: FileText, onClick: () => navigate(`/purchases/refunds/${r.id}`) },
-                        { label: "Download Receipt", icon: Download, onClick: () => window.print(), dividerBefore: true },
-                        { label: "Void", icon: XCircle, onClick: () => {}, danger: true, dividerBefore: true },
+                        { label: "View", icon: <FileText className="h-3.5 w-3.5" />, onClick: () => navigate(`/purchases/refunds/${r.id}`) },
+                        { label: "Download Receipt", icon: <Download className="h-3.5 w-3.5" />, onClick: () => window.print(), dividerBefore: true },
+                        { label: "Void", icon: <XCircle className="h-3.5 w-3.5" />, onClick: () => {}, danger: true, dividerBefore: true },
                       ]} />
                     </TableCell>
                   </TableRow>
