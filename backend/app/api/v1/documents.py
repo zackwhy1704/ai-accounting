@@ -10,7 +10,8 @@ from uuid import UUID
 from datetime import datetime, timezone, timedelta
 from app.core.database import get_db, async_session
 from app.core.security import get_current_user
-from app.models.models import Document, Organization, Bill, BillLineItem, Contact, Account, Transaction, JournalEntry
+from app.models.models import Document, Organization, Bill, BillLineItem, Contact, Account, Transaction, JournalEntry, GoodsReceivedNote, GRNLineItem
+from .gl_helpers import post_gl as do_post_gl
 from app.schemas.schemas import DocumentResponse, BillResponse
 from app.services.document_service import document_processor, storage_service
 
@@ -457,12 +458,226 @@ async def create_bill_from_document(
     return bill
 
 
+# ── Suggest GRN from extracted data (no DB writes — preview only) ──
+@router.get("/{document_id}/suggest-grn")
+async def suggest_grn_from_document(
+    document_id: UUID,
+    current_user: dict = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Returns a preview of the GRN + journal entries that would be created
+    from this document's AI-extracted data. No side effects.
+    """
+    org_id = current_user["org_id"]
+    result = await db.execute(
+        select(Document).where(Document.id == document_id, Document.organization_id == org_id)
+    )
+    doc = result.scalar_one_or_none()
+    if not doc:
+        raise HTTPException(status_code=404, detail="Document not found")
+    if not doc.ai_extracted_data:
+        raise HTTPException(status_code=400, detail="No AI extracted data available")
+
+    data = doc.ai_extracted_data
+    vendor_name = data.get("vendor_name", "Unknown Vendor")
+    now = datetime.now(timezone.utc)
+
+    def parse_date(val, fallback):
+        if not val:
+            return fallback
+        try:
+            return datetime.fromisoformat(str(val).replace("/", "-")).isoformat()
+        except (ValueError, AttributeError):
+            return fallback.isoformat()
+
+    received_date = parse_date(data.get("invoice_date") or data.get("delivery_date"), now)
+    currency = str(data.get("currency", "SGD") or "SGD")
+
+    # Build suggested line items
+    extracted_items = data.get("line_items", []) or []
+    line_items = []
+    subtotal = 0.0
+    for item in extracted_items:
+        qty = float(item.get("quantity", 1) or 1)
+        unit_price = float(item.get("unit_price", 0) or item.get("amount", 0) or 0)
+        if unit_price == 0 and item.get("amount"):
+            unit_price = float(item["amount"]) / qty
+        amt = qty * unit_price
+        subtotal += amt
+        line_items.append({
+            "description": item.get("description", "Item"),
+            "quantity_ordered": qty,
+            "quantity_received": qty,
+            "unit_price": round(unit_price, 2),
+        })
+
+    if not line_items:
+        total = float(data.get("total", 0) or data.get("subtotal", 0) or 0)
+        subtotal = total
+        line_items.append({
+            "description": f"Goods from {doc.filename}",
+            "quantity_ordered": 1.0,
+            "quantity_received": 1.0,
+            "unit_price": round(total, 2),
+        })
+
+    tax_amount = float(data.get("tax_amount", 0) or 0)
+    total = subtotal + tax_amount
+
+    # Suggested journal entries for user to confirm
+    journal_preview = [
+        {
+            "account_code": "5000",
+            "account_name": "Purchases / Expense",
+            "debit": round(subtotal, 2),
+            "credit": 0.0,
+            "description": "Goods/services received",
+        },
+        {
+            "account_code": "2000",
+            "account_name": "Accounts Payable",
+            "debit": 0.0,
+            "credit": round(total, 2),
+            "description": "Amount owed to supplier",
+        },
+    ]
+    if tax_amount > 0:
+        journal_preview.insert(1, {
+            "account_code": "1200",
+            "account_name": "GST / SST Input Tax",
+            "debit": round(tax_amount, 2),
+            "credit": 0.0,
+            "description": f"Input tax {round(tax_amount/subtotal*100 if subtotal else 0, 1)}%",
+        })
+
+    # Look up existing contact
+    contact_result = await db.execute(
+        select(Contact).where(Contact.organization_id == org_id, Contact.name == vendor_name)
+    )
+    existing_contact = contact_result.scalar_one_or_none()
+
+    return {
+        "document_id": str(document_id),
+        "vendor_name": vendor_name,
+        "contact_id": str(existing_contact.id) if existing_contact else None,
+        "received_date": received_date,
+        "currency": currency,
+        "subtotal": round(subtotal, 2),
+        "tax_amount": round(tax_amount, 2),
+        "total": round(total, 2),
+        "line_items": line_items,
+        "journal_preview": journal_preview,
+    }
+
+
+class CreateGRNRequest(BaseModel):
+    contact_id: UUID
+    received_date: datetime
+    currency: str = "SGD"
+    notes: str | None = None
+    line_items: list[dict]  # [{description, quantity_ordered, quantity_received, unit_price}]
+    post_gl: bool = True
+
+
+@router.post("/{document_id}/create-grn")
+async def create_grn_from_document(
+    document_id: UUID,
+    body: CreateGRNRequest,
+    current_user: dict = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Create a GRN from a document's extracted data.
+    Optionally posts Dr Inventory/Expense + Dr GST Input / Cr AP.
+    """
+    import random
+
+    org_id = current_user["org_id"]
+
+    result = await db.execute(
+        select(Document).where(Document.id == document_id, Document.organization_id == org_id)
+    )
+    doc = result.scalar_one_or_none()
+    if not doc:
+        raise HTTPException(status_code=404, detail="Document not found")
+
+    if doc.linked_grn_id:
+        raise HTTPException(status_code=409, detail="Document already linked to a GRN")
+
+    now = datetime.now(timezone.utc)
+    grn_number = f"GRN-{now.strftime('%Y%m')}-{random.randint(1000, 9999)}"
+
+    grn = GoodsReceivedNote(
+        organization_id=org_id,
+        contact_id=body.contact_id,
+        grn_number=grn_number,
+        received_date=body.received_date,
+        currency=body.currency,
+        notes=body.notes,
+        status="received",
+    )
+    db.add(grn)
+    await db.flush()
+
+    subtotal = 0.0
+    for i, item in enumerate(body.line_items):
+        qty_recv = float(item.get("quantity_received", item.get("quantity_ordered", 1)))
+        unit_price = float(item.get("unit_price", 0))
+        subtotal += qty_recv * unit_price
+
+        line = GRNLineItem(
+            grn_id=grn.id,
+            description=item.get("description", "Item"),
+            quantity_ordered=float(item.get("quantity_ordered", qty_recv)),
+            quantity_received=qty_recv,
+            unit_price=unit_price,
+            sort_order=i,
+        )
+        db.add(line)
+
+    # GL posting
+    if body.post_gl:
+        data = doc.ai_extracted_data or {}
+        tax_amount = float(data.get("tax_amount", 0) or 0)
+        total = subtotal + tax_amount
+
+        entries = [
+            ("5000", round(subtotal, 2), 0),   # Dr Purchases/Expense
+            ("2000", 0, round(total, 2)),        # Cr Accounts Payable
+        ]
+        if tax_amount > 0:
+            entries.append(("1200", round(tax_amount, 2), 0))  # Dr GST Input
+
+        await do_post_gl(
+            db, org_id, body.received_date,
+            f"GRN {grn_number} — goods received",
+            grn_number, "grn", grn.id, entries,
+        )
+
+    # Link document to GRN + mark done
+    doc.linked_grn_id = grn.id
+    doc.status = "done"
+
+    await db.commit()
+    await db.refresh(grn)
+
+    return {
+        "grn_id": str(grn.id),
+        "grn_number": grn_number,
+        "status": grn.status,
+        "gl_posted": body.post_gl,
+        "document_id": str(document_id),
+    }
+
+
 # ── Auto-categorise ──
 CATEGORY_KEYWORDS = {
     "invoice": ["invoice", "inv", "bill to", "payment terms", "due date", "invoice number", "invoice_number"],
     "receipt": ["receipt", "paid", "payment received", "thank you for your payment", "transaction"],
     "bill": ["bill", "amount due", "payable", "supplier", "vendor"],
     "bank_statement": ["bank", "statement", "account summary", "opening balance", "closing balance"],
+    "delivery_note": ["delivery note", "delivery order", "do number", "ship to", "deliver to", "despatch", "consignment", "grn"],
 }
 
 @router.post("/{document_id}/categorise", response_model=DocumentResponse)
@@ -499,6 +714,11 @@ async def categorise_document(
         for kw in keywords:
             if kw in search_text:
                 scores[cat] += 1
+
+    # Delivery note scoring hints
+    filename_lower = doc.filename.lower()
+    if "delivery" in filename_lower or "grn" in filename_lower:
+        scores["delivery_note"] = scores.get("delivery_note", 0) + 3
 
     best = max(scores, key=lambda k: scores[k])
     doc.category = best if scores[best] > 0 else "other"

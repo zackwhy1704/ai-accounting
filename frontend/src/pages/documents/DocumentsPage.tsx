@@ -1,7 +1,8 @@
 import { useMemo, useState, useRef, useEffect, useCallback } from "react"
 import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query"
-import { CircleAlert, CloudUpload, FileText, Loader2, Search, CheckCircle2, Link2, PlusCircle, Pencil, Save, X, Check, AlertTriangle, Trash2, HelpCircle, Share2, Tag, UserCheck, Building2 } from "lucide-react"
+import { CircleAlert, CloudUpload, FileText, Loader2, Search, CheckCircle2, Link2, PlusCircle, Pencil, Save, X, Check, AlertTriangle, Trash2, HelpCircle, Share2, Tag, UserCheck, Building2, PackageCheck } from "lucide-react"
 import { useDocuments, useBills, useAttachDocumentToBill, useCreateBillFromDocument, useUpdateExtractedData, useDeleteDocument, useCategoriseDocument } from "../../lib/hooks"
+import CreateGRNModal from "./CreateGRNModal"
 import { useFeatureFlags } from "../../lib/features"
 import api from "../../lib/api"
 import { cn, formatDate } from "../../lib/utils"
@@ -181,6 +182,7 @@ export default function DocumentsPage() {
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [attachModalOpen, setAttachModalOpen] = useState(false)
   const [shareDocId, setShareDocId] = useState<string | null>(null)
+  const [grnDocId, setGrnDocId] = useState<string | null>(null)
   const [editing, setEditing] = useState(false)
   const [editData, setEditData] = useState<Record<string, unknown> | null>(null)
   const [uploadQueue, setUploadQueue] = useState<UploadItem[]>([])
@@ -575,6 +577,11 @@ export default function DocumentsPage() {
                           <Link2 className="h-3.5 w-3.5" />{t("documents.linkedToBill")}
                         </span>
                       )}
+                      {selected.linked_grn_id && (
+                        <span className="inline-flex items-center gap-1.5 text-xs font-medium text-emerald-600">
+                          <PackageCheck className="h-3.5 w-3.5" />Linked to GRN
+                        </span>
+                      )}
                       {selected.status === "unrecognized" && (
                         <div className="flex items-center gap-1.5 text-amber-600">
                           <AlertTriangle className="h-4 w-4" />
@@ -791,6 +798,12 @@ export default function DocumentsPage() {
                             <Share2 className="mr-1.5 h-3.5 w-3.5" />Share
                           </Button>
                         )}
+                        {selected.status === "processed" && !editing && !selected.linked_grn_id &&
+                          (selected.ai_extracted_data?.line_items as unknown[])?.length > 0 && (
+                          <Button type="button" onClick={() => setGrnDocId(selected.id)} variant="secondary" className="h-9 rounded-xl px-3 text-xs font-semibold">
+                            <PackageCheck className="mr-1.5 h-3.5 w-3.5" />Create GRN
+                          </Button>
+                        )}
                       </div>
                     )}
 
@@ -833,6 +846,11 @@ export default function DocumentsPage() {
         const doc = documents.find(d => d.id === shareDocId)
         return doc ? <ShareModal doc={doc} onClose={() => setShareDocId(null)} /> : null
       })()}
+
+      {/* Create GRN Modal */}
+      {grnDocId && (
+        <CreateGRNModal documentId={grnDocId} onClose={() => setGrnDocId(null)} />
+      )}
 
       {/* Attach to Bill Modal */}
       {attachModalOpen && (

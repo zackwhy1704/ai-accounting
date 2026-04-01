@@ -255,6 +255,7 @@ export interface Document {
   ai_confidence: number | null
   linked_bill_id: string | null
   linked_invoice_id: string | null
+  linked_grn_id: string | null
   uploaded_at: string
   processed_at: string | null
 }

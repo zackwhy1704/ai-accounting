@@ -459,6 +459,7 @@ class DocumentResponse(BaseModel):
     ai_confidence: float | None = None
     linked_bill_id: UUID | None = None
     linked_invoice_id: UUID | None = None
+    linked_grn_id: UUID | None = None
     uploaded_at: datetime
     processed_at: datetime | None
     model_config = {"from_attributes": True}

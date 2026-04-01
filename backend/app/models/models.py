@@ -708,6 +708,7 @@ class Document(Base):
     ai_confidence: Mapped[float | None] = mapped_column(Numeric(3, 2))
     linked_invoice_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("invoices.id"))
     linked_bill_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("bills.id"))
+    linked_grn_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("goods_received_notes.id"), nullable=True)
     error_message: Mapped[str | None] = mapped_column(Text)
     uploaded_by: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("users.id"))
     uploaded_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
