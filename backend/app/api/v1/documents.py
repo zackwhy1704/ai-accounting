@@ -672,13 +672,74 @@ async def create_grn_from_document(
 
 
 # ── Auto-categorise ──
-CATEGORY_KEYWORDS = {
-    "invoice": ["invoice", "inv", "bill to", "payment terms", "due date", "invoice number", "invoice_number"],
-    "receipt": ["receipt", "paid", "payment received", "thank you for your payment", "transaction"],
-    "bill": ["bill", "amount due", "payable", "supplier", "vendor"],
-    "bank_statement": ["bank", "statement", "account summary", "opening balance", "closing balance"],
-    "delivery_note": ["delivery note", "delivery order", "do number", "ship to", "deliver to", "despatch", "consignment", "grn"],
+# Each key is a valid document category value stored in documents.category.
+# Keywords are matched against filename + AI-extracted text (lowercased).
+CATEGORY_KEYWORDS: dict[str, list[str]] = {
+    # Sales-side
+    "invoice":         ["invoice", "inv no", "tax invoice", "bill to", "payment terms", "due date", "invoice number", "invoice_number", "sold to"],
+    "receipt":         ["receipt", "official receipt", "payment received", "paid", "thank you for your payment", "cash receipt"],
+    "credit_note":     ["credit note", "credit memo", "cn no", "cn number", "adjustment note", "refund note"],
+    "debit_note":      ["debit note", "debit memo", "dn no", "dn number"],
+    # Purchase-side
+    "bill":            ["bill", "amount due", "vendor invoice", "supplier invoice", "purchase invoice"],
+    "purchase_order":  ["purchase order", "po number", "po no", "order no", "order number", "p.o.", "procurement order"],
+    "delivery_note":   ["delivery note", "delivery order", "do number", "do no", "ship to", "deliver to", "despatch", "consignment", "goods received", "grn"],
+    "vendor_credit":   ["vendor credit", "supplier credit", "credit received", "return to supplier", "supplier return"],
+    # Payments & refunds
+    "payment":         ["payment voucher", "payment advice", "remittance", "bank transfer", "payment confirmation", "receipt of payment"],
+    "refund":          ["refund", "reimbursement", "return of payment", "money back"],
+    # Inventory & stock
+    "stock_adjustment":["stock adjustment", "inventory adjustment", "write-off", "stock count", "physical count", "variance report"],
+    "stock_transfer":  ["stock transfer", "warehouse transfer", "inter-branch transfer", "transfer note"],
+    "stock_value":     ["stock valuation", "inventory value", "costing report", "stock ledger"],
+    # Bank / financial
+    "bank_statement":  ["bank statement", "account statement", "account summary", "opening balance", "closing balance", "transaction history", "e-statement"],
+    # Other
+    "quotation":       ["quotation", "quote", "estimate", "proposal", "proforma", "pro forma"],
+    "other":           [],
 }
+
+# Structural scoring hints — applied AFTER keyword scan
+# Maps a field present in ai_extracted_data → (category, bonus_score)
+STRUCTURAL_HINTS: list[tuple[str, str, int]] = [
+    ("invoice_number",  "invoice",        3),
+    ("po_number",       "purchase_order", 4),
+    ("grn_number",      "delivery_note",  4),
+    ("credit_note_no",  "credit_note",    4),
+    ("debit_note_no",   "debit_note",     4),
+    ("vendor_name",     "bill",           2),
+    ("vendor_name",     "delivery_note",  1),
+    ("line_items",      "invoice",        2),
+    ("line_items",      "bill",           1),
+    ("line_items",      "delivery_note",  1),
+    ("bank_name",       "bank_statement", 3),
+    ("account_number",  "bank_statement", 3),
+    ("payment_method",  "payment",        3),
+    ("sku",             "stock_adjustment", 2),
+    ("product_code",    "stock_adjustment", 2),
+]
+
+# Filename pattern scoring — (substring, category, bonus_score)
+FILENAME_HINTS: list[tuple[str, str, int]] = [
+    ("invoice",   "invoice",        3),
+    ("inv",       "invoice",        2),
+    ("receipt",   "receipt",        3),
+    ("credit",    "credit_note",    3),
+    ("debit",     "debit_note",     3),
+    ("bill",      "bill",           3),
+    ("po",        "purchase_order", 2),
+    ("purchase_order", "purchase_order", 4),
+    ("delivery",  "delivery_note",  3),
+    ("grn",       "delivery_note",  4),
+    ("payment",   "payment",        3),
+    ("refund",    "refund",         3),
+    ("bank",      "bank_statement", 2),
+    ("statement", "bank_statement", 2),
+    ("stock",     "stock_adjustment", 2),
+    ("inventory", "stock_adjustment", 2),
+    ("quote",     "quotation",      3),
+    ("quotation", "quotation",      4),
+]
 
 @router.post("/{document_id}/categorise", response_model=DocumentResponse)
 async def categorise_document(
@@ -693,34 +754,38 @@ async def categorise_document(
     if not doc:
         raise HTTPException(status_code=404, detail="Document not found")
 
-    # Score based on extracted data + filename
     scores: dict[str, int] = {cat: 0 for cat in CATEGORY_KEYWORDS}
-    search_text = doc.filename.lower()
+    filename_lower = doc.filename.lower()
 
+    # 1. Keyword scan across filename + AI-extracted text
+    search_text = filename_lower
     if doc.ai_extracted_data:
         search_text += " " + " ".join(
             str(v).lower() for v in doc.ai_extracted_data.values() if isinstance(v, str)
         )
-        # Structural hints
-        if doc.ai_extracted_data.get("invoice_number"):
-            scores["invoice"] += 3
-        if doc.ai_extracted_data.get("vendor_name"):
-            scores["bill"] += 2
-        if doc.ai_extracted_data.get("line_items"):
-            scores["invoice"] += 2
-            scores["bill"] += 1
 
     for cat, keywords in CATEGORY_KEYWORDS.items():
         for kw in keywords:
             if kw in search_text:
                 scores[cat] += 1
 
-    # Delivery note scoring hints
-    filename_lower = doc.filename.lower()
-    if "delivery" in filename_lower or "grn" in filename_lower:
-        scores["delivery_note"] = scores.get("delivery_note", 0) + 3
+    # 2. Structural hints — field presence in AI data
+    if doc.ai_extracted_data:
+        for field, cat, bonus in STRUCTURAL_HINTS:
+            val = doc.ai_extracted_data.get(field)
+            if val and (not isinstance(val, list) or len(val) > 0):
+                scores[cat] = scores.get(cat, 0) + bonus
+
+    # 3. Filename pattern hints
+    for substr, cat, bonus in FILENAME_HINTS:
+        if substr in filename_lower:
+            scores[cat] = scores.get(cat, 0) + bonus
 
     best = max(scores, key=lambda k: scores[k])
-    doc.category = best if scores[best] > 0 else "other"
+    if scores[best] > 0:
+        doc.category = best
+    # If score is 0 (no matches at all), leave category as None so UI prompts user
 
+    await db.commit()
+    await db.refresh(doc)
     return doc

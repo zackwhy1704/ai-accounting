@@ -22,15 +22,51 @@ interface LinkedFirm {
   contact_email: string
 }
 
-const CATEGORIES = ["invoice", "receipt", "bill", "bank_statement", "other"] as const
+const CATEGORIES = [
+  "invoice", "receipt", "credit_note", "debit_note",
+  "bill", "purchase_order", "delivery_note", "vendor_credit",
+  "payment", "refund",
+  "stock_adjustment", "stock_transfer", "stock_value",
+  "bank_statement", "quotation", "other",
+] as const
 type Category = typeof CATEGORIES[number]
 
 const categoryLabel: Record<Category, string> = {
-  invoice: "Invoice",
-  receipt: "Receipt",
-  bill: "Bill",
-  bank_statement: "Bank Statement",
-  other: "Other",
+  invoice:          "Invoice",
+  receipt:          "Receipt",
+  credit_note:      "Credit Note",
+  debit_note:       "Debit Note",
+  bill:             "Bill",
+  purchase_order:   "Purchase Order",
+  delivery_note:    "Delivery Note / GRN",
+  vendor_credit:    "Vendor Credit",
+  payment:          "Payment",
+  refund:           "Refund",
+  stock_adjustment: "Stock Adjustment",
+  stock_transfer:   "Stock Transfer",
+  stock_value:      "Stock Value",
+  bank_statement:   "Bank Statement",
+  quotation:        "Quotation",
+  other:            "Other",
+}
+
+const categoryColor: Record<Category, string> = {
+  invoice:          "bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400",
+  receipt:          "bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400",
+  credit_note:      "bg-purple-50 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400",
+  debit_note:       "bg-orange-50 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400",
+  bill:             "bg-red-50 text-red-700 dark:bg-red-900/30 dark:text-red-400",
+  purchase_order:   "bg-indigo-50 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400",
+  delivery_note:    "bg-teal-50 text-teal-700 dark:bg-teal-900/30 dark:text-teal-400",
+  vendor_credit:    "bg-pink-50 text-pink-700 dark:bg-pink-900/30 dark:text-pink-400",
+  payment:          "bg-green-50 text-green-700 dark:bg-green-900/30 dark:text-green-400",
+  refund:           "bg-amber-50 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400",
+  stock_adjustment: "bg-cyan-50 text-cyan-700 dark:bg-cyan-900/30 dark:text-cyan-400",
+  stock_transfer:   "bg-sky-50 text-sky-700 dark:bg-sky-900/30 dark:text-sky-400",
+  stock_value:      "bg-lime-50 text-lime-700 dark:bg-lime-900/30 dark:text-lime-400",
+  bank_statement:   "bg-slate-50 text-slate-700 dark:bg-slate-900/30 dark:text-slate-400",
+  quotation:        "bg-violet-50 text-violet-700 dark:bg-violet-900/30 dark:text-violet-400",
+  other:            "bg-gray-50 text-gray-600 dark:bg-gray-900/30 dark:text-gray-400",
 }
 
 function ShareModal({ doc, onClose }: { doc: Document; onClose: () => void }) {
@@ -208,10 +244,8 @@ export default function DocumentsPage() {
 
   const categoryTabs = [
     { label: "All", value: "all" },
-    { label: "Invoices", value: "invoice" },
-    { label: "Receipts", value: "receipt" },
-    { label: "Bills", value: "bill" },
-    { label: "Bank Statements", value: "bank_statement" },
+    { label: "Unclassified", value: "unclassified" },
+    ...CATEGORIES.filter(c => c !== "other").map(c => ({ label: categoryLabel[c], value: c })),
     { label: "Other", value: "other" },
   ]
 
@@ -229,7 +263,8 @@ export default function DocumentsPage() {
 
   const rows = useMemo(() => {
     let base = tab === "done" ? documents.filter(d => d.status === "done") : documents.filter(d => d.status !== "done")
-    if (categoryFilter !== "all") base = base.filter(d => d.category === categoryFilter)
+    if (categoryFilter === "unclassified") base = base.filter(d => !d.category)
+    else if (categoryFilter !== "all") base = base.filter(d => d.category === categoryFilter)
     return base
   }, [documents, tab, categoryFilter])
 
@@ -506,7 +541,9 @@ export default function DocumentsPage() {
                 {ct.label}
                 {ct.value !== "all" && (
                   <span className="ml-1.5 text-[10px] opacity-70">
-                    {documents.filter(d => d.category === ct.value).length}
+                    {ct.value === "unclassified"
+                      ? documents.filter(d => !d.category).length
+                      : documents.filter(d => d.category === ct.value).length}
                   </span>
                 )}
               </button>

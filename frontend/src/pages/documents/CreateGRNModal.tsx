@@ -4,7 +4,6 @@ import { X, Loader2, CheckCircle2, AlertTriangle, Bot, BookOpen } from "lucide-r
 import api from "../../lib/api"
 import { useToast } from "../../components/ui/toast"
 import { useContacts } from "../../lib/hooks"
-import { formatDate } from "../../lib/utils"
 
 interface JournalLine {
   account_code: string
