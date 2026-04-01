@@ -247,7 +247,12 @@ async def update_document(
     current_user: dict = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    valid_categories = {"invoice", "receipt", "bill", "bank_statement", "other"}
+    valid_categories = {
+        "invoice", "receipt", "credit_note", "debit_note",
+        "bill", "purchase_order", "delivery_note", "vendor_credit",
+        "payment", "refund", "stock_adjustment", "stock_transfer",
+        "stock_value", "bank_statement", "quotation", "other",
+    }
     if body.category not in valid_categories:
         raise HTTPException(status_code=400, detail=f"Invalid category. Must be one of: {valid_categories}")
 
@@ -668,6 +673,188 @@ async def create_grn_from_document(
         "status": grn.status,
         "gl_posted": body.post_gl,
         "document_id": str(document_id),
+    }
+
+
+# ── Suggest journal entry from document category + extracted data ──
+
+# Per-category double-entry templates.
+# Placeholder values: "{subtotal}", "{total}", "{tax}" are replaced at runtime.
+_JOURNAL_TEMPLATES: dict[str, list[dict]] = {
+    "invoice": [
+        {"account_code": "1100", "account_name": "Accounts Receivable",  "debit": "{total}",    "credit": 0,           "description": "Amount owed by customer"},
+        {"account_code": "4000", "account_name": "Sales Revenue",        "debit": 0,            "credit": "{subtotal}", "description": "Revenue from sale"},
+        {"account_code": "2100", "account_name": "GST / SST Output Tax", "debit": 0,            "credit": "{tax}",      "description": "Output tax collected", "tax_only": True},
+    ],
+    "receipt": [
+        {"account_code": "1000", "account_name": "Cash / Bank",          "debit": "{total}",    "credit": 0,           "description": "Cash received"},
+        {"account_code": "1100", "account_name": "Accounts Receivable",  "debit": 0,            "credit": "{total}",    "description": "Settlement of AR"},
+    ],
+    "credit_note": [
+        {"account_code": "4000", "account_name": "Sales Revenue",        "debit": "{subtotal}", "credit": 0,           "description": "Sales reversal"},
+        {"account_code": "2100", "account_name": "GST / SST Output Tax", "debit": "{tax}",      "credit": 0,           "description": "Output tax reversal", "tax_only": True},
+        {"account_code": "1100", "account_name": "Accounts Receivable",  "debit": 0,            "credit": "{total}",    "description": "Customer credit note"},
+    ],
+    "debit_note": [
+        {"account_code": "2000", "account_name": "Accounts Payable",     "debit": "{total}",    "credit": 0,           "description": "Debit note to supplier"},
+        {"account_code": "5000", "account_name": "Purchases / Expense",  "debit": 0,            "credit": "{subtotal}", "description": "Purchase return"},
+        {"account_code": "1200", "account_name": "GST / SST Input Tax",  "debit": 0,            "credit": "{tax}",      "description": "Input tax reversal", "tax_only": True},
+    ],
+    "bill": [
+        {"account_code": "5000", "account_name": "Purchases / Expense",  "debit": "{subtotal}", "credit": 0,           "description": "Goods / services purchased"},
+        {"account_code": "1200", "account_name": "GST / SST Input Tax",  "debit": "{tax}",      "credit": 0,           "description": "Input tax claimable", "tax_only": True},
+        {"account_code": "2000", "account_name": "Accounts Payable",     "debit": 0,            "credit": "{total}",    "description": "Amount owed to supplier"},
+    ],
+    "purchase_order": [
+        {"account_code": "5000", "account_name": "Purchases / Expense",  "debit": "{subtotal}", "credit": 0,           "description": "Goods / services ordered"},
+        {"account_code": "1200", "account_name": "GST / SST Input Tax",  "debit": "{tax}",      "credit": 0,           "description": "Input tax claimable", "tax_only": True},
+        {"account_code": "2000", "account_name": "Accounts Payable",     "debit": 0,            "credit": "{total}",    "description": "Amount owed to supplier"},
+    ],
+    "delivery_note": [
+        {"account_code": "5000", "account_name": "Purchases / Expense",  "debit": "{subtotal}", "credit": 0,           "description": "Goods received"},
+        {"account_code": "1200", "account_name": "GST / SST Input Tax",  "debit": "{tax}",      "credit": 0,           "description": "Input tax claimable", "tax_only": True},
+        {"account_code": "2000", "account_name": "Accounts Payable",     "debit": 0,            "credit": "{total}",    "description": "Amount owed to supplier"},
+    ],
+    "vendor_credit": [
+        {"account_code": "2000", "account_name": "Accounts Payable",     "debit": "{total}",    "credit": 0,           "description": "Vendor credit received"},
+        {"account_code": "5000", "account_name": "Purchases / Expense",  "debit": 0,            "credit": "{subtotal}", "description": "Purchase reversal"},
+        {"account_code": "1200", "account_name": "GST / SST Input Tax",  "debit": 0,            "credit": "{tax}",      "description": "Input tax reversal", "tax_only": True},
+    ],
+    "payment": [
+        {"account_code": "2000", "account_name": "Accounts Payable",     "debit": "{total}",    "credit": 0,           "description": "Settlement of AP"},
+        {"account_code": "1000", "account_name": "Cash / Bank",          "debit": 0,            "credit": "{total}",    "description": "Payment made"},
+    ],
+    "refund": [
+        {"account_code": "1000", "account_name": "Cash / Bank",          "debit": "{total}",    "credit": 0,           "description": "Refund received"},
+        {"account_code": "4000", "account_name": "Sales Revenue",        "debit": 0,            "credit": "{total}",    "description": "Refund adjustment"},
+    ],
+    "stock_adjustment": [
+        {"account_code": "5100", "account_name": "Stock Adjustment",     "debit": "{total}",    "credit": 0,           "description": "Inventory write-off / adjustment"},
+        {"account_code": "1500", "account_name": "Inventory / Stock",    "debit": 0,            "credit": "{total}",    "description": "Stock reduced"},
+    ],
+    "stock_transfer": [],   # No financial impact — memo only
+    "stock_value":    [],
+    "bank_statement": [],
+    "quotation":      [],
+    "other": [],
+}
+
+
+def _build_journal_lines(category: str, subtotal: float, tax: float, total: float) -> list[dict]:
+    template = _JOURNAL_TEMPLATES.get(category, [])
+    lines = []
+    for t in template:
+        if t.get("tax_only") and tax == 0:
+            continue
+        def _resolve(v):
+            if v == "{subtotal}": return round(subtotal, 2)
+            if v == "{total}":    return round(total, 2)
+            if v == "{tax}":      return round(tax, 2)
+            return v
+        lines.append({
+            "account_code": t["account_code"],
+            "account_name": t["account_name"],
+            "description":  t["description"],
+            "debit":  _resolve(t["debit"]),
+            "credit": _resolve(t["credit"]),
+        })
+    return lines
+
+
+@router.get("/{document_id}/suggest-journal")
+async def suggest_journal_from_document(
+    document_id: UUID,
+    current_user: dict = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Return a suggested journal entry based on the document's category and
+    AI-extracted amounts. No side effects — preview only.
+    """
+    org_id = current_user["org_id"]
+    result = await db.execute(
+        select(Document).where(Document.id == document_id, Document.organization_id == org_id)
+    )
+    doc = result.scalar_one_or_none()
+    if not doc:
+        raise HTTPException(status_code=404, detail="Document not found")
+
+    data = doc.ai_extracted_data or {}
+    subtotal = float(data.get("subtotal", 0) or 0)
+    tax     = float(data.get("tax_amount", 0) or 0)
+    total   = float(data.get("total", 0) or 0) or (subtotal + tax)
+    if subtotal == 0:
+        subtotal = total - tax
+
+    category = doc.category or "other"
+    lines = _build_journal_lines(category, subtotal, tax, total)
+
+    return {
+        "document_id": str(document_id),
+        "category": category,
+        "subtotal": round(subtotal, 2),
+        "tax_amount": round(tax, 2),
+        "total": round(total, 2),
+        "journal_lines": lines,
+        "memo_only": len(lines) == 0,
+    }
+
+
+class JournalLineIn(BaseModel):
+    account_code: str
+    account_name: str
+    description: str
+    debit: float
+    credit: float
+
+
+class CreateJournalRequest(BaseModel):
+    journal_lines: list[JournalLineIn]
+    date: datetime | None = None
+    reference: str | None = None
+
+
+@router.post("/{document_id}/create-journal")
+async def create_journal_from_document(
+    document_id: UUID,
+    body: CreateJournalRequest,
+    current_user: dict = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Post the user-confirmed journal entry to the GL and mark the document done.
+    """
+    org_id = current_user["org_id"]
+    result = await db.execute(
+        select(Document).where(Document.id == document_id, Document.organization_id == org_id)
+    )
+    doc = result.scalar_one_or_none()
+    if not doc:
+        raise HTTPException(status_code=404, detail="Document not found")
+
+    entries = [(ln.account_code, ln.debit, ln.credit) for ln in body.journal_lines]
+    total_debit  = sum(ln.debit  for ln in body.journal_lines)
+    total_credit = sum(ln.credit for ln in body.journal_lines)
+    if abs(total_debit - total_credit) > 0.01:
+        raise HTTPException(status_code=400, detail=f"Journal does not balance: debit {total_debit:.2f} ≠ credit {total_credit:.2f}")
+
+    ref = body.reference or doc.filename or str(document_id)[:8]
+    date = body.date or datetime.now(timezone.utc)
+
+    txn = await do_post_gl(
+        db, org_id, date,
+        f"Journal entry — {doc.category or 'document'}: {ref}",
+        ref, "document", document_id, entries,
+    )
+
+    doc.status = "done"
+    await db.commit()
+
+    return {
+        "document_id": str(document_id),
+        "transaction_id": str(txn.id) if txn else None,
+        "gl_posted": txn is not None,
+        "lines_posted": len(entries),
     }
 
 

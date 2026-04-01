@@ -1,8 +1,7 @@
 import { useMemo, useState, useRef, useEffect, useCallback } from "react"
 import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query"
-import { CircleAlert, CloudUpload, FileText, Loader2, Search, CheckCircle2, Link2, PlusCircle, Pencil, Save, X, Check, AlertTriangle, Trash2, HelpCircle, Share2, Tag, UserCheck, Building2, PackageCheck } from "lucide-react"
-import { useDocuments, useBills, useAttachDocumentToBill, useCreateBillFromDocument, useUpdateExtractedData, useDeleteDocument, useCategoriseDocument } from "../../lib/hooks"
-import CreateGRNModal from "./CreateGRNModal"
+import { CircleAlert, CloudUpload, FileText, Loader2, Search, CheckCircle2, Link2, BookOpen, Pencil, Save, X, Check, AlertTriangle, Trash2, HelpCircle, Share2, Tag, Bot } from "lucide-react"
+import { useDocuments, useUpdateExtractedData, useDeleteDocument, useCategoriseDocument } from "../../lib/hooks"
 import { useFeatureFlags } from "../../lib/features"
 import api from "../../lib/api"
 import { cn, formatDate } from "../../lib/utils"
@@ -12,7 +11,7 @@ import { Card } from "../../components/ui/card"
 import { Button } from "../../components/ui/button"
 import { Input } from "../../components/ui/input"
 import { Tabs, TabsList, TabsTrigger } from "../../components/ui/tabs"
-import type { Bill, Document } from "../../types"
+import type { Document } from "../../types"
 
 interface LinkedFirm {
   link_id: string
@@ -216,17 +215,12 @@ export default function DocumentsPage() {
   const [tab, setTab] = useState("processed")
   const [categoryFilter, setCategoryFilter] = useState<string>("all")
   const [selectedId, setSelectedId] = useState<string | null>(null)
-  const [attachModalOpen, setAttachModalOpen] = useState(false)
   const [shareDocId, setShareDocId] = useState<string | null>(null)
-  const [grnDocId, setGrnDocId] = useState<string | null>(null)
   const [editing, setEditing] = useState(false)
   const [editData, setEditData] = useState<Record<string, unknown> | null>(null)
   const [uploadQueue, setUploadQueue] = useState<UploadItem[]>([])
   const processingRef = useRef(false)
   const { data: documents = [], isLoading } = useDocuments()
-  const { data: bills = [] } = useBills()
-  const attachMutation = useAttachDocumentToBill()
-  const createBillMutation = useCreateBillFromDocument()
   const updateExtractedMutation = useUpdateExtractedData()
   const deleteMutation = useDeleteDocument()
   const categorizeMutation = useCategoriseDocument()
@@ -356,35 +350,6 @@ export default function DocumentsPage() {
 
     setUploadQueue(prev => [...prev, ...newItems])
     if (fileRef.current) fileRef.current.value = ""
-  }
-
-  const handleCreateBill = () => {
-    if (!selected) return
-    if (!selected.ai_extracted_data) {
-      toast(t("documents.noBillData"), "warning")
-      return
-    }
-    createBillMutation.mutate(selected.id, {
-      onSuccess: () => {
-        toast(t("documents.billCreated"), "success")
-        setTab("done")
-        setSelectedId(selected.id)
-      },
-      onError: () => toast("Failed to create bill", "warning"),
-    })
-  }
-
-  const handleAttachToBill = (bill: Bill) => {
-    if (!selected) return
-    attachMutation.mutate({ documentId: selected.id, billId: bill.id }, {
-      onSuccess: () => {
-        toast(t("documents.attached"), "success")
-        setAttachModalOpen(false)
-        setTab("done")
-        setSelectedId(selected.id)
-      },
-      onError: () => toast("Failed to attach document", "warning"),
-    })
   }
 
   const handleStartEdit = () => {
@@ -614,11 +579,6 @@ export default function DocumentsPage() {
                           <Link2 className="h-3.5 w-3.5" />{t("documents.linkedToBill")}
                         </span>
                       )}
-                      {selected.linked_grn_id && (
-                        <span className="inline-flex items-center gap-1.5 text-xs font-medium text-emerald-600">
-                          <PackageCheck className="h-3.5 w-3.5" />Linked to GRN
-                        </span>
-                      )}
                       {selected.status === "unrecognized" && (
                         <div className="flex items-center gap-1.5 text-amber-600">
                           <AlertTriangle className="h-4 w-4" />
@@ -820,31 +780,21 @@ export default function DocumentsPage() {
                       </div>
                     )}
 
-                    {/* Action buttons for processed docs */}
-                    {selected.status === "processed" && !editing && (
-                      <div className="mt-4 flex items-center gap-2 flex-wrap">
-                        <Button type="button" onClick={handleCreateBill} disabled={createBillMutation.isPending || !selected.ai_extracted_data} className="h-9 rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-600 px-3 text-xs font-semibold text-white hover:opacity-95 disabled:opacity-50">
-                          {createBillMutation.isPending ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <PlusCircle className="mr-1.5 h-3.5 w-3.5" />}
-                          {t("documents.createBill")}
+                    {/* Share button for processed docs */}
+                    {selected.status === "processed" && !editing && canShare && (
+                      <div className="mt-4">
+                        <Button type="button" onClick={() => setShareDocId(selected.id)} variant="secondary" className="h-9 rounded-xl px-3 text-xs font-semibold">
+                          <Share2 className="mr-1.5 h-3.5 w-3.5" />Share with Accountant
                         </Button>
-                        <Button type="button" onClick={() => setAttachModalOpen(true)} variant="secondary" className="h-9 rounded-xl px-3 text-xs font-semibold">
-                          <Link2 className="mr-1.5 h-3.5 w-3.5" />{t("documents.attachToBill")}
-                        </Button>
-                        {canShare && (
-                          <Button type="button" onClick={() => setShareDocId(selected.id)} variant="secondary" className="h-9 rounded-xl px-3 text-xs font-semibold">
-                            <Share2 className="mr-1.5 h-3.5 w-3.5" />Share
-                          </Button>
-                        )}
-                        {selected.status === "processed" && !editing && !selected.linked_grn_id &&
-                          (selected.ai_extracted_data?.line_items as unknown[])?.length > 0 && (
-                          <Button type="button" onClick={() => setGrnDocId(selected.id)} variant="secondary" className="h-9 rounded-xl px-3 text-xs font-semibold">
-                            <PackageCheck className="mr-1.5 h-3.5 w-3.5" />Create GRN
-                          </Button>
-                        )}
                       </div>
                     )}
 
-                    {/* Share button for non-processed docs */}
+                    {/* Inline Journal Entry Preview — auto-loads when category is set */}
+                    {!editing && selected.category && (selected.status === "processed" || selected.status === "done") && (
+                      <InlineJournalPreview documentId={selected.id} category={selected.category} />
+                    )}
+
+                    {/* Share for non-processed docs */}
                     {canShare && selected.status !== "processed" && selected.status !== "processing" && !editing && (
                       <div className="mt-4">
                         <Button type="button" onClick={() => setShareDocId(selected.id)} variant="secondary" className="h-9 rounded-xl px-3 text-xs font-semibold">
@@ -884,48 +834,193 @@ export default function DocumentsPage() {
         return doc ? <ShareModal doc={doc} onClose={() => setShareDocId(null)} /> : null
       })()}
 
-      {/* Create GRN Modal */}
-      {grnDocId && (
-        <CreateGRNModal documentId={grnDocId} onClose={() => setGrnDocId(null)} />
-      )}
+    </div>
+  )
+}
 
-      {/* Attach to Bill Modal */}
-      {attachModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm" onClick={() => setAttachModalOpen(false)}>
-          <div className="w-full max-w-md rounded-2xl border border-border bg-card p-6 shadow-2xl" onClick={e => e.stopPropagation()}>
-            <div className="flex items-center justify-between mb-4">
-              <div className="text-sm font-semibold text-foreground">{t("documents.attachToBillTitle")}</div>
-              <button type="button" onClick={() => setAttachModalOpen(false)} className="rounded-lg p-1 hover:bg-muted"><X className="h-4 w-4 text-muted-foreground" /></button>
-            </div>
-            <div className="text-xs text-muted-foreground mb-3">{t("documents.selectBill")}</div>
-            {bills.length === 0 ? (
-              <div className="py-8 text-center text-sm text-muted-foreground">{t("documents.noBillsAvailable")}</div>
-            ) : (
-              <div className="max-h-64 overflow-y-auto divide-y divide-border rounded-xl border border-border">
-                {bills.map((bill: Bill) => (
-                  <button
-                    key={bill.id}
-                    type="button"
-                    onClick={() => handleAttachToBill(bill)}
-                    disabled={attachMutation.isPending}
-                    className="flex w-full items-center justify-between px-4 py-3 text-left hover:bg-muted/50 transition-colors"
-                  >
-                    <div>
-                      <div className="text-sm font-semibold text-foreground">{bill.bill_number}</div>
-                      <div className="text-xs text-muted-foreground">{formatDate(bill.issue_date)} &middot; {bill.currency} {bill.total.toFixed(2)}</div>
-                    </div>
-                    <span className={cn("rounded-lg px-2 py-0.5 text-[10px] font-medium",
-                      bill.status === "paid" ? "bg-emerald-100 text-emerald-700" :
-                      bill.status === "draft" ? "bg-gray-100 text-gray-700" :
-                      "bg-amber-100 text-amber-700"
-                    )}>{bill.status}</span>
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
-      )}
+/* ── Inline Journal Preview ── */
+
+interface JournalLine {
+  account_code: string
+  account_name: string
+  description: string
+  debit: number
+  credit: number
+}
+
+interface JournalSuggestion {
+  category: string
+  subtotal: number
+  tax_amount: number
+  total: number
+  journal_lines: JournalLine[]
+  memo_only: boolean
+}
+
+function InlineJournalPreview({ documentId, category }: { documentId: string; category: string }) {
+  const { toast } = useToast()
+  const qc = useQueryClient()
+  const [lines, setLines] = useState<JournalLine[]>([])
+  const [initialised, setInitialised] = useState(false)
+
+  const { data, isLoading, error } = useQuery<JournalSuggestion>({
+    queryKey: ["suggest-journal", documentId],
+    queryFn: () => api.get(`/documents/${documentId}/suggest-journal`).then(r => r.data),
+  })
+
+  if (data && !initialised) {
+    setLines(data.journal_lines.map(l => ({ ...l })))
+    setInitialised(true)
+  }
+
+  // Re-initialise if category changes (new query result)
+  const prevCategory = useRef(category)
+  if (prevCategory.current !== category) {
+    prevCategory.current = category
+    setInitialised(false)
+  }
+
+  const updateLine = (i: number, field: keyof JournalLine, value: string) => {
+    setLines(prev => {
+      const updated = [...prev]
+      updated[i] = {
+        ...updated[i],
+        [field]: field === "debit" || field === "credit" ? parseFloat(value) || 0 : value,
+      }
+      return updated
+    })
+  }
+
+  const post = useMutation({
+    mutationFn: () =>
+      api.post(`/documents/${documentId}/create-journal`, { journal_lines: lines }),
+    onSuccess: () => {
+      toast("Journal entry posted to GL", "success")
+      qc.invalidateQueries({ queryKey: ["documents"] })
+    },
+    onError: (e: unknown) => {
+      const err = e as { response?: { data?: { detail?: string } } }
+      toast(err?.response?.data?.detail || "Failed to post journal entry", "warning")
+    },
+  })
+
+  const totalDebit  = lines.reduce((s, l) => s + l.debit, 0)
+  const totalCredit = lines.reduce((s, l) => s + l.credit, 0)
+  const balanced = Math.abs(totalDebit - totalCredit) < 0.01
+
+  if (isLoading) {
+    return (
+      <div className="mt-5 flex items-center gap-2 text-xs text-muted-foreground">
+        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+        Loading journal suggestion...
+      </div>
+    )
+  }
+
+  if (error || !data) return null
+
+  if (data.memo_only) {
+    return (
+      <div className="mt-5 rounded-xl border border-border bg-muted/30 p-3 text-xs text-muted-foreground">
+        No double-entry journal is generated for <strong>{category.replace(/_/g, " ")}</strong> documents (memo record only).
+      </div>
+    )
+  }
+
+  return (
+    <div className="mt-5 space-y-3">
+      <div className="flex items-center gap-2">
+        <BookOpen className="h-4 w-4 text-blue-500 shrink-0" />
+        <span className="text-xs font-semibold text-foreground">Journal Entry Preview</span>
+        <span className="rounded-md bg-blue-50 px-1.5 py-0.5 text-[10px] font-medium text-blue-600 dark:bg-blue-900/30 dark:text-blue-400 flex items-center gap-1">
+          <Bot className="h-3 w-3" />AI Suggested
+        </span>
+        {!balanced && (
+          <span className="rounded-md bg-rose-50 px-1.5 py-0.5 text-[10px] font-medium text-rose-600">Unbalanced</span>
+        )}
+      </div>
+
+      <div className="rounded-xl border border-blue-200/60 dark:border-blue-800/30 overflow-hidden">
+        <table className="w-full text-xs">
+          <thead className="bg-blue-50/50 dark:bg-blue-900/10">
+            <tr>
+              <th className="text-left px-3 py-2 font-medium text-muted-foreground w-20">Code</th>
+              <th className="text-left px-3 py-2 font-medium text-muted-foreground">Account</th>
+              <th className="text-left px-3 py-2 font-medium text-muted-foreground">Description</th>
+              <th className="text-right px-3 py-2 font-medium text-muted-foreground w-24">Debit</th>
+              <th className="text-right px-3 py-2 font-medium text-muted-foreground w-24">Credit</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-border">
+            {lines.map((l, i) => (
+              <tr key={i} className="hover:bg-muted/20">
+                <td className="px-3 py-1.5">
+                  <input
+                    value={l.account_code}
+                    onChange={e => updateLine(i, "account_code", e.target.value)}
+                    className="w-full bg-transparent font-mono text-foreground focus:outline-none focus:ring-1 focus:ring-primary/30 rounded px-1 py-0.5"
+                  />
+                </td>
+                <td className="px-3 py-1.5">
+                  <input
+                    value={l.account_name}
+                    onChange={e => updateLine(i, "account_name", e.target.value)}
+                    className="w-full bg-transparent text-foreground focus:outline-none focus:ring-1 focus:ring-primary/30 rounded px-1 py-0.5"
+                  />
+                </td>
+                <td className="px-3 py-1.5">
+                  <input
+                    value={l.description}
+                    onChange={e => updateLine(i, "description", e.target.value)}
+                    className="w-full bg-transparent text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary/30 rounded px-1 py-0.5"
+                  />
+                </td>
+                <td className="px-3 py-1.5 text-right">
+                  <input
+                    type="number"
+                    value={l.debit || ""}
+                    onChange={e => updateLine(i, "debit", e.target.value)}
+                    className="w-full bg-transparent text-right text-emerald-600 font-medium focus:outline-none focus:ring-1 focus:ring-primary/30 rounded px-1 py-0.5"
+                    placeholder="—"
+                  />
+                </td>
+                <td className="px-3 py-1.5 text-right">
+                  <input
+                    type="number"
+                    value={l.credit || ""}
+                    onChange={e => updateLine(i, "credit", e.target.value)}
+                    className="w-full bg-transparent text-right text-rose-600 font-medium focus:outline-none focus:ring-1 focus:ring-primary/30 rounded px-1 py-0.5"
+                    placeholder="—"
+                  />
+                </td>
+              </tr>
+            ))}
+          </tbody>
+          <tfoot className="bg-muted/20 border-t border-border">
+            <tr>
+              <td colSpan={3} className="px-3 py-2 text-right text-xs font-semibold text-foreground">Total</td>
+              <td className={`px-3 py-2 text-right text-xs font-semibold ${balanced ? "text-emerald-600" : "text-rose-600"}`}>{totalDebit.toFixed(2)}</td>
+              <td className={`px-3 py-2 text-right text-xs font-semibold ${balanced ? "text-rose-600" : "text-rose-600"}`}>{totalCredit.toFixed(2)}</td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+
+      <p className="text-[11px] text-amber-600 dark:text-amber-400 flex items-center gap-1">
+        <AlertTriangle className="h-3 w-3 shrink-0" />
+        Review before posting — GL entries cannot be undone without a manual reversal.
+      </p>
+
+      <button
+        onClick={() => post.mutate()}
+        disabled={!balanced || post.isPending || lines.length === 0}
+        className="flex items-center gap-2 rounded-xl bg-primary px-4 py-2 text-xs font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-50 transition-colors"
+      >
+        {post.isPending
+          ? <><Loader2 className="h-3.5 w-3.5 animate-spin" />Posting...</>
+          : <><CheckCircle2 className="h-3.5 w-3.5" />Post Journal Entry</>
+        }
+      </button>
     </div>
   )
 }
