@@ -129,7 +129,7 @@ export function useFeatureFlags() {
   const { user } = useAuth()
   const isSME = SME_TYPES.has(user?.org_type ?? "")
 
-  const { data: linkedFirms = [] } = useQuery<{ link_id: string }[]>({
+  const { data: linkedFirms = [], isLoading: linksLoading } = useQuery<{ link_id: string }[]>({
     queryKey: ["my-links-count"],
     queryFn: () => api.get("/invitations/my-links").then(r => r.data),
     enabled: !!user && isSME,
@@ -138,8 +138,10 @@ export function useFeatureFlags() {
 
   const features = getFeaturesForUser(user?.org_type ?? 'sme', user?.country ?? '')
 
-  // Hide sharing nav items for SMEs until they have at least one linked accountant
-  if (isSME && linkedFirms.length === 0) {
+  // Hide sharing nav items for SMEs with no linked accountants.
+  // Only apply after the query has resolved — while loading keep the features
+  // visible so they don't flicker away for users who do have linked firms.
+  if (isSME && !linksLoading && linkedFirms.length === 0) {
     features.delete("shared_documents")
     features.delete("my_accountants")
   }
