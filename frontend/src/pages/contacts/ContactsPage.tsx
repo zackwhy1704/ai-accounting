@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react"
-import { Download, Plus, Search, Users, MoreHorizontal } from "lucide-react"
+import { useNavigate } from "react-router-dom"
+import { Download, Plus, Search, Users, Eye, Pencil, Trash2 } from "lucide-react"
 import { useContacts } from "../../lib/hooks"
 import { cn } from "../../lib/utils"
 import { useTheme } from "../../lib/theme"
@@ -9,8 +10,10 @@ import { Input } from "../../components/ui/input"
 import { Tabs, TabsList, TabsTrigger } from "../../components/ui/tabs"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../../components/ui/table"
 import { Badge } from "../../components/ui/badge"
+import { RowActionsMenu } from "../../components/ui/row-actions"
 
 export default function ContactsPage() {
+  const navigate = useNavigate()
   const [tab, setTab] = useState("all")
   const [query, setQuery] = useState("")
   const [page, setPage] = useState(1)
@@ -83,7 +86,11 @@ export default function ContactsPage() {
                         <TableCell className="text-muted-foreground">{c.phone ?? "—"}</TableCell>
                         <TableCell><Badge variant="outline" className={cn("rounded-lg px-2 py-0.5 text-[11px] font-semibold", c.type === "customer" ? "bg-sky-500/10 text-sky-700 border-sky-400/20" : c.type === "vendor" ? "bg-amber-500/10 text-amber-700 border-amber-400/20" : "bg-violet-500/10 text-violet-700 border-violet-400/20")}>{c.type.charAt(0).toUpperCase() + c.type.slice(1)}</Badge></TableCell>
                         <TableCell className="text-muted-foreground">{c.company ?? "—"}</TableCell>
-                        <TableCell className="text-right"><Button type="button" variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground"><MoreHorizontal className="h-4 w-4" /></Button></TableCell>
+                        <TableCell className="text-right"><RowActionsMenu actions={[
+                          { label: "View", icon: <Eye className="h-4 w-4" />, onClick: () => navigate(`/contacts/${c.id}`) },
+                          { label: "Edit", icon: <Pencil className="h-4 w-4" />, onClick: () => navigate(`/contacts/${c.id}/edit`) },
+                          { label: "Delete", icon: <Trash2 className="h-4 w-4" />, onClick: () => {}, danger: true, dividerBefore: true },
+                        ]} /></TableCell>
                       </TableRow>
                     ))}
                   </TableBody>

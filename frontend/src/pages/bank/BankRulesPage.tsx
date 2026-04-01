@@ -1,5 +1,6 @@
 import { useState } from "react"
-import { Plus, Zap, MoreHorizontal } from "lucide-react"
+import { useNavigate } from "react-router-dom"
+import { Plus, Zap, Pencil, Trash2 } from "lucide-react"
 import { useBankRules, useAccounts, useContacts } from "../../lib/hooks"
 import { formatDate } from "../../lib/utils"
 import { Card } from "../../components/ui/card"
@@ -8,6 +9,7 @@ import { Input } from "../../components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../components/ui/select"
 import { useToast } from "../../components/ui/toast"
 import { useCreateBankRule } from "../../lib/hooks"
+import { RowActionsMenu } from "../../components/ui/row-actions"
 
 interface ConditionRow {
   field: string
@@ -28,6 +30,7 @@ const OPERATORS: Record<string, string[]> = {
 }
 
 export default function BankRulesPage() {
+  const navigate = useNavigate()
   const { toast } = useToast()
   const { data: rules = [], isLoading } = useBankRules()
   const { data: accounts = [] } = useAccounts()
@@ -184,9 +187,10 @@ export default function BankRulesPage() {
                     {r.last_applied_at ? ` · Last: ${formatDate(r.last_applied_at)}` : ""}
                   </div>
                 </div>
-                <Button type="button" variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground">
-                  <MoreHorizontal className="h-4 w-4" />
-                </Button>
+                <RowActionsMenu actions={[
+                  { label: "Edit", icon: <Pencil className="h-4 w-4" />, onClick: () => navigate(`/bank/rules/${r.id}/edit`) },
+                  { label: "Delete", icon: <Trash2 className="h-4 w-4" />, onClick: () => {}, danger: true, dividerBefore: true },
+                ]} />
               </div>
             ))}
           </div>

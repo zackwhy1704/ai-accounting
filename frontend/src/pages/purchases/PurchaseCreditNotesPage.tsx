@@ -1,13 +1,14 @@
 import { useState } from "react"
 import { useNavigate } from "react-router-dom"
 import { useQuery } from "@tanstack/react-query"
-import { Plus, Search, MoreHorizontal, FileX } from "lucide-react"
+import { Plus, Search, FileX, FileText, ArrowRightLeft, XCircle } from "lucide-react"
 import api from "../../lib/api"
 import { formatCurrency, formatDate, cn } from "../../lib/utils"
 import { Card } from "../../components/ui/card"
 import { Button } from "../../components/ui/button"
 import { Input } from "../../components/ui/input"
 import { Badge } from "../../components/ui/badge"
+import { RowActionsMenu } from "../../components/ui/row-actions"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../../components/ui/table"
 
 interface VendorCredit {
@@ -117,9 +118,11 @@ export default function PurchaseCreditNotesPage() {
                       </Badge>
                     </TableCell>
                     <TableCell className="text-right">
-                      <Button type="button" variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground">
-                        <MoreHorizontal className="h-4 w-4" />
-                      </Button>
+                      <RowActionsMenu actions={[
+                        { label: "View", icon: FileText, onClick: () => navigate(`/purchases/credit-notes/${c.id}`) },
+                        { label: "Apply to Bill", icon: ArrowRightLeft, onClick: () => navigate(`/purchases/bills/new?credit_id=${c.id}`), dividerBefore: true },
+                        { label: "Void", icon: XCircle, onClick: () => {}, danger: true, dividerBefore: true },
+                      ]} />
                     </TableCell>
                   </TableRow>
                 ))}

@@ -1,7 +1,7 @@
 import { useState } from "react"
 import { useNavigate } from "react-router-dom"
 import { useQuery } from "@tanstack/react-query"
-import { Plus, Search, MoreHorizontal, ArrowDownCircle, ArrowUpCircle } from "lucide-react"
+import { Plus, Search, ArrowDownCircle, ArrowUpCircle, FileText, Tag, ArrowRightLeft, Trash2 } from "lucide-react"
 import api from "../../lib/api"
 import { formatCurrency, formatDate, cn } from "../../lib/utils"
 import { Card } from "../../components/ui/card"
@@ -10,6 +10,7 @@ import { Input } from "../../components/ui/input"
 import { Badge } from "../../components/ui/badge"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../../components/ui/table"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../components/ui/select"
+import { RowActionsMenu } from "../../components/ui/row-actions"
 
 interface BankTransaction {
   id: string
@@ -196,9 +197,12 @@ export default function BankTransactionsPage({ type }: Props) {
                       </Badge>
                     </TableCell>
                     <TableCell className="text-right">
-                      <Button type="button" variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground">
-                        <MoreHorizontal className="h-4 w-4" />
-                      </Button>
+                      <RowActionsMenu actions={[
+                        { label: "View", icon: <FileText className="h-4 w-4" />, onClick: () => navigate(`/bank/transactions/${t.id}`) },
+                        { label: "Categorise", icon: <Tag className="h-4 w-4" />, onClick: () => navigate(`/bank/transactions/${t.id}/categorise`), dividerBefore: true },
+                        { label: "Match to Invoice", icon: <ArrowRightLeft className="h-4 w-4" />, onClick: () => navigate(`/bank/transactions/${t.id}/match`) },
+                        { label: "Delete", icon: <Trash2 className="h-4 w-4" />, onClick: () => {}, danger: true, dividerBefore: true },
+                      ]} />
                     </TableCell>
                   </TableRow>
                 ))}

@@ -1,7 +1,8 @@
 import { useState } from "react"
 import { useNavigate } from "react-router-dom"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
-import { Plus, Search, MoreHorizontal, Landmark } from "lucide-react"
+import { Plus, Search, Landmark } from "lucide-react"
+import { RowActionsMenu } from "../../components/ui/row-actions"
 import api from "../../lib/api"
 import { formatCurrency, cn } from "../../lib/utils"
 import { Card } from "../../components/ui/card"
@@ -148,19 +149,9 @@ export default function BankAccountsPage() {
                       </Badge>
                     </TableCell>
                     <TableCell className="text-right">
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 text-muted-foreground"
-                        onClick={() => {
-                          if (window.confirm(`Delete "${a.name}"?`)) {
-                            deleteMutation.mutate(a.id)
-                          }
-                        }}
-                      >
-                        <MoreHorizontal className="h-4 w-4" />
-                      </Button>
+                      <RowActionsMenu actions={[
+                        { label: "Delete", onClick: () => { if (window.confirm(`Delete "${a.name}"?`)) { deleteMutation.mutate(a.id) } }, danger: true },
+                      ]} />
                     </TableCell>
                   </TableRow>
                 ))}

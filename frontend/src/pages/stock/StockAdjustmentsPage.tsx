@@ -1,7 +1,7 @@
 import { useState } from "react"
 import { useNavigate } from "react-router-dom"
 import { useQuery } from "@tanstack/react-query"
-import { Plus, Search, MoreHorizontal, SlidersHorizontal } from "lucide-react"
+import { Plus, Search, SlidersHorizontal, FileText, CheckCircle2, XCircle } from "lucide-react"
 import api from "../../lib/api"
 import { formatDate, cn } from "../../lib/utils"
 import { Card } from "../../components/ui/card"
@@ -10,6 +10,7 @@ import { Input } from "../../components/ui/input"
 import { Badge } from "../../components/ui/badge"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../../components/ui/table"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../components/ui/select"
+import { RowActionsMenu } from "../../components/ui/row-actions"
 
 interface StockAdjustment {
   id: string
@@ -152,9 +153,11 @@ export default function StockAdjustmentsPage() {
                       </Badge>
                     </TableCell>
                     <TableCell className="text-right">
-                      <Button type="button" variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground">
-                        <MoreHorizontal className="h-4 w-4" />
-                      </Button>
+                      <RowActionsMenu actions={[
+                        { label: "View", icon: <FileText className="h-4 w-4" />, onClick: () => navigate(`/stock/adjustments/${a.id}`) },
+                        { label: "Confirm", icon: <CheckCircle2 className="h-4 w-4" />, onClick: () => {}, disabled: a.status !== "draft", dividerBefore: true },
+                        { label: "Void", icon: <XCircle className="h-4 w-4" />, onClick: () => {}, danger: true, dividerBefore: true, disabled: a.status === "void" },
+                      ]} />
                     </TableCell>
                   </TableRow>
                 ))}

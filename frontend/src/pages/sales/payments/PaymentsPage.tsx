@@ -1,6 +1,7 @@
-import { useMemo, useState, useRef } from "react"
+import { useMemo, useState } from "react"
 import { useNavigate } from "react-router-dom"
-import { Plus, Download, Search, CalendarDays, SlidersHorizontal, Filter, MoreHorizontal, FileText, Copy, XCircle } from "lucide-react"
+import { Plus, Download, Search, CalendarDays, SlidersHorizontal, Filter, FileText, Copy, XCircle } from "lucide-react"
+import { RowActionsMenu } from "../../../components/ui/row-actions"
 import { useSalesPayments, useContacts } from "../../../lib/hooks"
 import { formatCurrency, formatDate, cn } from "../../../lib/utils"
 import { useTheme } from "../../../lib/theme"
@@ -22,8 +23,6 @@ export default function PaymentsPage() {
   const navigate = useNavigate()
   const [tab, setTab] = useState("all")
   const [search, setSearch] = useState("")
-  const [openMenu, setOpenMenu] = useState<string | null>(null)
-  const menuRef = useRef<HTMLDivElement>(null)
   const { data: payments = [], isLoading } = useSalesPayments(tab === "all" ? undefined : tab)
   const { data: contacts = [] } = useContacts()
   const { t } = useTheme()
@@ -149,25 +148,12 @@ export default function PaymentsPage() {
                           <Badge variant="outline" className={cn("rounded-lg px-2 py-0.5 text-[11px] font-semibold", statusColors[p.status] ?? "")}>{p.status.charAt(0).toUpperCase() + p.status.slice(1)}</Badge>
                         </TableCell>
                         <TableCell className="text-right">
-                          <div className="relative" ref={menuRef}>
-                            <Button type="button" variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground" onClick={() => setOpenMenu(openMenu === p.id ? null : p.id)}>
-                              <MoreHorizontal className="h-4 w-4" />
-                            </Button>
-                            {openMenu === p.id && (
-                              <div className="absolute right-0 top-8 z-50 w-56 rounded-xl border border-border bg-card p-1 shadow-lg" onMouseLeave={() => setOpenMenu(null)}>
-                                <button className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-xs text-foreground hover:bg-muted">
-                                  <Copy className="h-3.5 w-3.5" /> {t("payments.duplicate")}
-                                </button>
-                                <button className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-xs text-foreground hover:bg-muted">
-                                  <FileText className="h-3.5 w-3.5" /> {t("payments.printPdf")}
-                                </button>
-                                <div className="my-1 h-px bg-border" />
-                                <button className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-xs text-rose-600 hover:bg-muted">
-                                  <XCircle className="h-3.5 w-3.5" /> {t("payments.void")}
-                                </button>
-                              </div>
-                            )}
-                          </div>
+                          <RowActionsMenu actions={[
+                            { label: t("payments.duplicate"), icon: <Copy className="h-3.5 w-3.5" />, onClick: () => {} },
+                            { label: t("payments.printPdf"), icon: <FileText className="h-3.5 w-3.5" />, onClick: () => {} },
+                            { label: "Download Receipt", icon: <FileText className="h-3.5 w-3.5" />, onClick: () => window.print() },
+                            { label: t("payments.void"), icon: <XCircle className="h-3.5 w-3.5" />, onClick: () => {}, danger: true, dividerBefore: true },
+                          ]} />
                         </TableCell>
                       </TableRow>
                     ))}

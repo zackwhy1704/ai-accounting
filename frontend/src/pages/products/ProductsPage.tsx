@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react"
 import { useNavigate } from "react-router-dom"
-import { Plus, Search, Download, MoreHorizontal, Package } from "lucide-react"
+import { Plus, Search, Download, Package, Eye, Pencil, ArrowUpDown, Trash2 } from "lucide-react"
 import { useProducts } from "../../lib/hooks"
 import { formatCurrency } from "../../lib/utils"
 import { Card } from "../../components/ui/card"
@@ -8,6 +8,7 @@ import { Button } from "../../components/ui/button"
 import { Input } from "../../components/ui/input"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../../components/ui/table"
 import { Badge } from "../../components/ui/badge"
+import { RowActionsMenu } from "../../components/ui/row-actions"
 
 const typeColors: Record<string, string> = {
   service: "bg-blue-500/10 text-blue-700 border-blue-400/20",
@@ -100,9 +101,12 @@ export default function ProductsPage() {
                       {p.track_inventory ? Number(p.qty_on_hand).toFixed(2) : "—"}
                     </TableCell>
                     <TableCell className="text-right">
-                      <Button type="button" variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground" onClick={e => { e.stopPropagation() }}>
-                        <MoreHorizontal className="h-4 w-4" />
-                      </Button>
+                      <RowActionsMenu actions={[
+                        { label: "View", icon: <Eye className="h-4 w-4" />, onClick: () => navigate(`/products/${p.id}`) },
+                        { label: "Edit", icon: <Pencil className="h-4 w-4" />, onClick: () => navigate(`/products/${p.id}/edit`) },
+                        { label: "Adjust Stock", icon: <ArrowUpDown className="h-4 w-4" />, onClick: () => navigate(`/stock/adjustments/new?product_id=${p.id}`), dividerBefore: true },
+                        { label: "Delete", icon: <Trash2 className="h-4 w-4" />, onClick: () => {}, danger: true, dividerBefore: true },
+                      ]} />
                     </TableCell>
                   </TableRow>
                 ))}

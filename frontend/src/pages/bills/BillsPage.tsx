@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react"
 import { useNavigate } from "react-router-dom"
-import { Plus, Download, Search, CalendarDays, FileText, MoreHorizontal } from "lucide-react"
+import { Plus, Download, Search, CalendarDays, FileText, Copy, Printer, XCircle, CreditCard } from "lucide-react"
 import { useBills, useContacts } from "../../lib/hooks"
 import { formatCurrency, formatDate, cn } from "../../lib/utils"
 import { useTheme } from "../../lib/theme"
@@ -11,6 +11,7 @@ import { Tabs, TabsList, TabsTrigger } from "../../components/ui/tabs"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../components/ui/select"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../../components/ui/table"
 import { Badge } from "../../components/ui/badge"
+import { RowActionsMenu } from "../../components/ui/row-actions"
 
 const statusColors: Record<string, string> = {
   draft: "bg-slate-500/10 text-slate-600 border-slate-300/20",
@@ -123,7 +124,15 @@ export default function BillsPage() {
                             <TableCell className="text-right text-foreground">{formatCurrency(bill.total)}</TableCell>
                             <TableCell className="text-right text-muted-foreground">{formatCurrency(bill.total - (bill.amount_paid ?? 0))}</TableCell>
                             <TableCell><Badge variant="outline" className={cn("rounded-lg px-2 py-0.5 text-[11px] font-semibold", statusColors[bill.status] ?? "")}>{bill.status.charAt(0).toUpperCase() + bill.status.slice(1)}</Badge></TableCell>
-                            <TableCell className="text-right"><Button type="button" variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground"><MoreHorizontal className="h-4 w-4" /></Button></TableCell>
+                            <TableCell className="text-right">
+                              <RowActionsMenu actions={[
+                                { label: t("bills.view"), icon: <FileText className="h-3.5 w-3.5" />, onClick: () => navigate(`/purchases/bills/${bill.id}`) },
+                                { label: t("bills.addPayment"), icon: <CreditCard className="h-3.5 w-3.5" />, onClick: () => navigate(`/purchases/payments/new?bill_id=${bill.id}`), dividerBefore: true },
+                                { label: t("bills.duplicate"), icon: <Copy className="h-3.5 w-3.5" />, onClick: () => navigate(`/purchases/bills/new?copy=${bill.id}`) },
+                                { label: t("bills.printPdf"), icon: <Printer className="h-3.5 w-3.5" />, onClick: () => window.print() },
+                                { label: t("bills.void"), icon: <XCircle className="h-3.5 w-3.5" />, onClick: () => {}, danger: true, dividerBefore: true, disabled: bill.status === "void" },
+                              ]} />
+                            </TableCell>
                           </TableRow>
                         ))}
                       </TableBody>

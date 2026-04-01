@@ -1,6 +1,7 @@
-import { useMemo, useState } from "react"
+import { useMemo } from "react"
 import { useNavigate } from "react-router-dom"
-import { Plus, RefreshCw, Pause, Play, MoreHorizontal } from "lucide-react"
+import { Plus, RefreshCw, Pause, Play } from "lucide-react"
+import { RowActionsMenu } from "../../../components/ui/row-actions"
 import { useRecurringInvoices, useContacts, usePauseRecurringInvoice, useResumeRecurringInvoice } from "../../../lib/hooks"
 import { formatDate, cn } from "../../../lib/utils"
 import { Card } from "../../../components/ui/card"
@@ -27,8 +28,6 @@ export default function RecurringInvoicesPage() {
   const { data: contacts = [] } = useContacts()
   const pause = usePauseRecurringInvoice()
   const resume = useResumeRecurringInvoice()
-  const [openMenu, setOpenMenu] = useState<string | null>(null)
-
   const contactMap = useMemo(() => {
     const m = new Map<string, string>()
     contacts.forEach(c => m.set(c.id, c.name))
@@ -37,12 +36,10 @@ export default function RecurringInvoicesPage() {
 
   const handlePause = (id: string) => {
     pause.mutate(id, { onSuccess: () => toast("Recurring invoice paused", "success") })
-    setOpenMenu(null)
   }
 
   const handleResume = (id: string) => {
     resume.mutate(id, { onSuccess: () => toast("Recurring invoice resumed", "success") })
-    setOpenMenu(null)
   }
 
   return (
@@ -102,24 +99,10 @@ export default function RecurringInvoicesPage() {
                       </Badge>
                     </TableCell>
                     <TableCell className="text-right">
-                      <div className="relative inline-block">
-                        <Button type="button" variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground" onClick={() => setOpenMenu(openMenu === r.id ? null : r.id)}>
-                          <MoreHorizontal className="h-4 w-4" />
-                        </Button>
-                        {openMenu === r.id && (
-                          <div className="absolute right-0 top-8 z-50 w-48 rounded-xl border border-border bg-card p-1 shadow-lg" onMouseLeave={() => setOpenMenu(null)}>
-                            {r.status === "active" ? (
-                              <button className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-xs text-foreground hover:bg-muted" onClick={() => handlePause(r.id)}>
-                                <Pause className="h-3.5 w-3.5" /> Pause
-                              </button>
-                            ) : r.status === "paused" ? (
-                              <button className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-xs text-foreground hover:bg-muted" onClick={() => handleResume(r.id)}>
-                                <Play className="h-3.5 w-3.5" /> Resume
-                              </button>
-                            ) : null}
-                          </div>
-                        )}
-                      </div>
+                      <RowActionsMenu actions={[
+                        ...(r.status === "active" ? [{ label: "Pause", icon: <Pause className="h-3.5 w-3.5" />, onClick: () => handlePause(r.id) }] : []),
+                        ...(r.status === "paused" ? [{ label: "Resume", icon: <Play className="h-3.5 w-3.5" />, onClick: () => handleResume(r.id) }] : []),
+                      ]} />
                     </TableCell>
                   </TableRow>
                 ))}

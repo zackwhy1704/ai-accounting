@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react"
 import { useNavigate } from "react-router-dom"
-import { Plus, Search, Download, MoreHorizontal, Receipt } from "lucide-react"
+import { Plus, Search, Download, Receipt, FileText, XCircle } from "lucide-react"
 import { useSaleReceipts, useContacts } from "../../../lib/hooks"
 import { formatCurrency, formatDate, cn } from "../../../lib/utils"
 import { Card } from "../../../components/ui/card"
@@ -8,6 +8,7 @@ import { Button } from "../../../components/ui/button"
 import { Input } from "../../../components/ui/input"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../../../components/ui/table"
 import { Badge } from "../../../components/ui/badge"
+import { RowActionsMenu } from "../../../components/ui/row-actions"
 
 const statusColors: Record<string, string> = {
   completed: "bg-emerald-500/10 text-emerald-700 border-emerald-400/20",
@@ -105,9 +106,11 @@ export default function SaleReceiptsPage() {
                       </Badge>
                     </TableCell>
                     <TableCell className="text-right">
-                      <Button type="button" variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground">
-                        <MoreHorizontal className="h-4 w-4" />
-                      </Button>
+                      <RowActionsMenu actions={[
+                        { label: "View", icon: <FileText className="h-4 w-4" />, onClick: () => navigate(`/sales/receipts/${r.id}`) },
+                        { label: "Download Receipt", icon: <Download className="h-4 w-4" />, onClick: () => window.print(), dividerBefore: true },
+                        { label: "Void", icon: <XCircle className="h-4 w-4" />, onClick: () => {}, danger: true, dividerBefore: true },
+                      ]} />
                     </TableCell>
                   </TableRow>
                 ))}

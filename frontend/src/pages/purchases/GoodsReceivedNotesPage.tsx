@@ -1,11 +1,12 @@
 import { useMemo } from "react"
 import { useNavigate } from "react-router-dom"
-import { Plus, ClipboardList, MoreHorizontal } from "lucide-react"
+import { Plus, ClipboardList, FileText, Pencil, CheckCircle2, Trash2 } from "lucide-react"
 import { useGoodsReceivedNotes, useContacts } from "../../lib/hooks"
 import { formatDate, cn } from "../../lib/utils"
 import { Card } from "../../components/ui/card"
 import { Button } from "../../components/ui/button"
 import { Badge } from "../../components/ui/badge"
+import { RowActionsMenu } from "../../components/ui/row-actions"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../../components/ui/table"
 
 const statusColors: Record<string, string> = {
@@ -103,9 +104,12 @@ export default function GoodsReceivedNotesPage() {
                       </Badge>
                     </TableCell>
                     <TableCell className="text-right">
-                      <Button type="button" variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground">
-                        <MoreHorizontal className="h-4 w-4" />
-                      </Button>
+                      <RowActionsMenu actions={[
+                        { label: "View", icon: FileText, onClick: () => navigate(`/purchases/goods-received-notes/${grn.id}`) },
+                        { label: "Edit", icon: Pencil, onClick: () => navigate(`/purchases/goods-received-notes/${grn.id}/edit`) },
+                        { label: "Mark as Billed", icon: CheckCircle2, onClick: () => {}, disabled: grn.status !== "received", dividerBefore: true },
+                        { label: "Delete", icon: Trash2, onClick: () => {}, danger: true, dividerBefore: true },
+                      ]} />
                     </TableCell>
                   </TableRow>
                 ))}

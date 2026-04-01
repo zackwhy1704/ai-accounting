@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react"
 import { useNavigate } from "react-router-dom"
-import { Plus, Download, Search, MoreHorizontal } from "lucide-react"
+import { Plus, Download, Search, FileText, ArrowRightLeft, XCircle } from "lucide-react"
 import { useVendorCredits, useContacts } from "../../lib/hooks"
 import { formatCurrency, formatDate, cn } from "../../lib/utils"
 import { Card } from "../../components/ui/card"
@@ -8,6 +8,7 @@ import { Button } from "../../components/ui/button"
 import { Input } from "../../components/ui/input"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../../components/ui/table"
 import { Badge } from "../../components/ui/badge"
+import { RowActionsMenu } from "../../components/ui/row-actions"
 
 const statusColors: Record<string, string> = {
   open: "bg-blue-500/10 text-blue-700 border-blue-400/20",
@@ -98,9 +99,11 @@ export default function VendorCreditsPage() {
                       </Badge>
                     </TableCell>
                     <TableCell className="text-right">
-                      <Button type="button" variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground">
-                        <MoreHorizontal className="h-4 w-4" />
-                      </Button>
+                      <RowActionsMenu actions={[
+                        { label: "View", icon: FileText, onClick: () => navigate(`/purchases/vendor-credits/${vc.id}`) },
+                        { label: "Apply to Bill", icon: ArrowRightLeft, onClick: () => navigate(`/purchases/bills/new?credit_id=${vc.id}`), dividerBefore: true },
+                        { label: "Void", icon: XCircle, onClick: () => {}, danger: true, dividerBefore: true },
+                      ]} />
                     </TableCell>
                   </TableRow>
                 ))}

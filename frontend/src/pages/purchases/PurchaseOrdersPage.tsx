@@ -1,11 +1,12 @@
 import { useMemo, useState } from "react"
 import { useNavigate } from "react-router-dom"
-import { Plus, ShoppingCart, MoreHorizontal } from "lucide-react"
+import { Plus, ShoppingCart, FileText, Pencil, ArrowRightLeft, Copy, XCircle } from "lucide-react"
 import { usePurchaseOrders, useContacts } from "../../lib/hooks"
 import { formatCurrency, formatDate, cn } from "../../lib/utils"
 import { Card } from "../../components/ui/card"
 import { Button } from "../../components/ui/button"
 import { Badge } from "../../components/ui/badge"
+import { RowActionsMenu } from "../../components/ui/row-actions"
 import { Tabs, TabsList, TabsTrigger } from "../../components/ui/tabs"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../../components/ui/table"
 
@@ -130,9 +131,13 @@ export default function PurchaseOrdersPage() {
                       </Badge>
                     </TableCell>
                     <TableCell className="text-right">
-                      <Button type="button" variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground">
-                        <MoreHorizontal className="h-4 w-4" />
-                      </Button>
+                      <RowActionsMenu actions={[
+                        { label: "View", icon: FileText, onClick: () => navigate(`/purchases/orders/${po.id}`) },
+                        { label: "Edit", icon: Pencil, onClick: () => navigate(`/purchases/orders/${po.id}/edit`) },
+                        { label: "Convert to Bill", icon: ArrowRightLeft, onClick: () => navigate(`/purchases/bills/new?from_po=${po.id}`), dividerBefore: true },
+                        { label: "Duplicate", icon: Copy, onClick: () => navigate(`/purchases/orders/new?copy=${po.id}`) },
+                        { label: "Void", icon: XCircle, onClick: () => {}, danger: true, dividerBefore: true, disabled: po.status === "void" },
+                      ]} />
                     </TableCell>
                   </TableRow>
                 ))}

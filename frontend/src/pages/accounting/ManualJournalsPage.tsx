@@ -1,6 +1,6 @@
 
 import { useNavigate } from "react-router-dom"
-import { Plus, BookOpen, MoreHorizontal } from "lucide-react"
+import { Plus, BookOpen, FileText, ArrowRightLeft, XCircle } from "lucide-react"
 import { useManualJournals } from "../../lib/hooks"
 import { formatDate, formatCurrency } from "../../lib/utils"
 import { Card } from "../../components/ui/card"
@@ -8,6 +8,7 @@ import { Button } from "../../components/ui/button"
 import { Badge } from "../../components/ui/badge"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../../components/ui/table"
 import { cn } from "../../lib/utils"
+import { RowActionsMenu } from "../../components/ui/row-actions"
 
 const statusColors: Record<string, string> = {
   draft: "bg-slate-500/10 text-slate-600 border-slate-300/20",
@@ -77,9 +78,11 @@ export default function ManualJournalsPage() {
                       </Badge>
                     </TableCell>
                     <TableCell className="text-right">
-                      <Button type="button" variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground" onClick={e => e.stopPropagation()}>
-                        <MoreHorizontal className="h-4 w-4" />
-                      </Button>
+                      <RowActionsMenu actions={[
+                        { label: "View", icon: <FileText className="h-4 w-4" />, onClick: () => navigate(`/accounting/journals/${j.id}`) },
+                        { label: "Reverse Entry", icon: <ArrowRightLeft className="h-4 w-4" />, onClick: () => {}, dividerBefore: true },
+                        { label: "Void", icon: <XCircle className="h-4 w-4" />, onClick: () => {}, danger: true, dividerBefore: true, disabled: j.status === "void" },
+                      ]} />
                     </TableCell>
                   </TableRow>
                 ))}

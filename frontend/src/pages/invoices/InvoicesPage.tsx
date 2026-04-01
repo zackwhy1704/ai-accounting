@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react"
 import { useNavigate } from "react-router-dom"
-import { Plus, Download, Search, CalendarDays, SlidersHorizontal, Filter, MoreHorizontal, CreditCard, FileText, Copy, RefreshCw, Printer, Share2, Lock, XCircle, Truck } from "lucide-react"
+import { Plus, Download, Search, CalendarDays, SlidersHorizontal, Filter, CreditCard, FileText, Copy, RefreshCw, Printer, Share2, Lock, XCircle, Truck } from "lucide-react"
 import { useInvoices, useContacts } from "../../lib/hooks"
 import { formatCurrency, formatDate, cn } from "../../lib/utils"
 import { useTheme } from "../../lib/theme"
@@ -11,6 +11,7 @@ import { Tabs, TabsList, TabsTrigger } from "../../components/ui/tabs"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../components/ui/select"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../../components/ui/table"
 import { Badge } from "../../components/ui/badge"
+import { RowActionsMenu } from "../../components/ui/row-actions"
 
 const statusColors: Record<string, string> = {
   draft: "bg-slate-500/10 text-slate-600 border-slate-300/20",
@@ -26,7 +27,7 @@ export default function InvoicesPage() {
   const navigate = useNavigate()
   const [tab, setTab] = useState("all")
   const [search, setSearch] = useState("")
-  const [openMenu, setOpenMenu] = useState<string | null>(null)
+
   const { data: invoices = [], isLoading } = useInvoices(tab === "all" ? undefined : tab)
   const { data: contacts = [] } = useContacts()
   const { t } = useTheme()
@@ -152,44 +153,17 @@ export default function InvoicesPage() {
                           <Badge variant="outline" className={cn("rounded-lg px-2 py-0.5 text-[11px] font-semibold", statusColors[inv.status] ?? "")}>{inv.status.charAt(0).toUpperCase() + inv.status.slice(1)}</Badge>
                         </TableCell>
                         <TableCell className="text-right">
-                          <div className="relative">
-                            <Button type="button" variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground" onClick={() => setOpenMenu(openMenu === inv.id ? null : inv.id)}>
-                              <MoreHorizontal className="h-4 w-4" />
-                            </Button>
-                            {openMenu === inv.id && (
-                              <div className="absolute right-0 top-8 z-50 w-56 rounded-xl border border-border bg-card p-1 shadow-lg" onMouseLeave={() => setOpenMenu(null)}>
-                                <button className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-xs font-medium text-foreground hover:bg-muted" onClick={() => { setOpenMenu(null); navigate("/sales/payments/new") }}>
-                                  <CreditCard className="h-3.5 w-3.5" /> {t("invoices.addPayment")}
-                                </button>
-                                <button className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-xs text-foreground hover:bg-muted" onClick={() => { setOpenMenu(null); navigate("/sales/credit-notes/new") }}>
-                                  <FileText className="h-3.5 w-3.5" /> {t("invoices.creditNote")}
-                                </button>
-                                <div className="my-1 h-px bg-border" />
-                                <button className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-xs text-foreground hover:bg-muted">
-                                  <RefreshCw className="h-3.5 w-3.5" /> {t("invoices.createRecurring")}
-                                </button>
-                                <button className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-xs text-foreground hover:bg-muted">
-                                  <Copy className="h-3.5 w-3.5" /> {t("invoices.duplicate")}
-                                </button>
-                                <button className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-xs text-foreground hover:bg-muted">
-                                  <Printer className="h-3.5 w-3.5" /> {t("invoices.printPdf")}
-                                </button>
-                                <button className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-xs text-foreground hover:bg-muted">
-                                  <Share2 className="h-3.5 w-3.5" /> {t("invoices.quickShare")}
-                                </button>
-                                <div className="my-1 h-px bg-border" />
-                                <button className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-xs text-foreground hover:bg-muted" onClick={() => { setOpenMenu(null); navigate("/sales/delivery-orders/new") }}>
-                                  <Truck className="h-3.5 w-3.5" /> {t("invoices.convertToDelivery")}
-                                </button>
-                                <button className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-xs text-foreground hover:bg-muted">
-                                  <Lock className="h-3.5 w-3.5" /> {t("invoices.lock")}
-                                </button>
-                                <button className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-xs text-rose-600 hover:bg-muted">
-                                  <XCircle className="h-3.5 w-3.5" /> {t("invoices.void")}
-                                </button>
-                              </div>
-                            )}
-                          </div>
+                          <RowActionsMenu actions={[
+                            { label: t("invoices.addPayment"), icon: <CreditCard className="h-3.5 w-3.5" />, onClick: () => navigate(`/sales/payments/new?invoice_id=${inv.id}`) },
+                            { label: t("invoices.creditNote"), icon: <FileText className="h-3.5 w-3.5" />, onClick: () => navigate(`/sales/credit-notes/new?invoice_id=${inv.id}`) },
+                            { label: t("invoices.createRecurring"), icon: <RefreshCw className="h-3.5 w-3.5" />, onClick: () => {}, dividerBefore: true },
+                            { label: t("invoices.duplicate"), icon: <Copy className="h-3.5 w-3.5" />, onClick: () => navigate(`/sales/invoices/new?copy=${inv.id}`) },
+                            { label: t("invoices.printPdf"), icon: <Printer className="h-3.5 w-3.5" />, onClick: () => window.print() },
+                            { label: t("invoices.quickShare"), icon: <Share2 className="h-3.5 w-3.5" />, onClick: () => {} },
+                            { label: t("invoices.convertToDelivery"), icon: <Truck className="h-3.5 w-3.5" />, onClick: () => navigate(`/sales/delivery-orders/new?invoice_id=${inv.id}`), dividerBefore: true },
+                            { label: t("invoices.lock"), icon: <Lock className="h-3.5 w-3.5" />, onClick: () => {} },
+                            { label: t("invoices.void"), icon: <XCircle className="h-3.5 w-3.5" />, onClick: () => {}, danger: true, dividerBefore: true, disabled: inv.status === "void" },
+                          ]} />
                         </TableCell>
                       </TableRow>
                     ))}
