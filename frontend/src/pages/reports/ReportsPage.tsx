@@ -1,7 +1,7 @@
 import { useState } from "react"
 import { TrendingUp, Users, Building2, Scale, Loader2 } from "lucide-react"
 import { Card } from "../../components/ui/card"
-import { Button } from "../../components/ui/button"
+
 import { Input } from "../../components/ui/input"
 import { formatCurrency } from "../../lib/utils"
 import api from "../../lib/api"
