@@ -589,7 +589,7 @@ export default function DocumentsPage() {
                               )}>{badge}</span>
                             )}
                             {r.category && (
-                              <span className="rounded-md bg-blue-50 px-1.5 py-0.5 text-[10px] font-medium text-blue-600 dark:bg-blue-900/30 dark:text-blue-400">
+                              <span className={`rounded-md px-1.5 py-0.5 text-[10px] font-medium ${categoryColor[r.category as Category] ?? "bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400"}`}>
                                 {categoryLabel[r.category as Category] ?? r.category}
                               </span>
                             )}
