@@ -12,6 +12,7 @@ from app.core.database import get_db, async_session
 from app.core.security import get_current_user
 from app.models.models import Document, Organization, Bill, BillLineItem, Contact, Account, Transaction, JournalEntry, GoodsReceivedNote, GRNLineItem
 from .gl_helpers import post_gl as do_post_gl
+from .document_router import route_document_to_module, CONFIRM_LABELS
 from app.schemas.schemas import DocumentResponse, BillResponse
 from app.services.document_service import document_processor, storage_service
 
@@ -822,9 +823,13 @@ async def create_journal_from_document(
     db: AsyncSession = Depends(get_db),
 ):
     """
-    Post the user-confirmed journal entry to the GL and mark the document done.
+    Route the confirmed journal entry to the correct accounting module:
+    delivery_note → GRN, bill → Bill, credit_note → CreditNote, etc.
+    Creates the module record, posts GL tied to it, marks document done.
     """
     org_id = current_user["org_id"]
+    user_id = current_user.get("user_id")
+
     result = await db.execute(
         select(Document).where(Document.id == document_id, Document.organization_id == org_id)
     )
@@ -832,29 +837,46 @@ async def create_journal_from_document(
     if not doc:
         raise HTTPException(status_code=404, detail="Document not found")
 
-    entries = [(ln.account_code, ln.debit, ln.credit) for ln in body.journal_lines]
+    lines = [ln.model_dump() for ln in body.journal_lines]
     total_debit  = sum(ln.debit  for ln in body.journal_lines)
     total_credit = sum(ln.credit for ln in body.journal_lines)
-    if abs(total_debit - total_credit) > 0.01:
-        raise HTTPException(status_code=400, detail=f"Journal does not balance: debit {total_debit:.2f} ≠ credit {total_credit:.2f}")
+    if lines and abs(total_debit - total_credit) > 0.01:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Journal does not balance: debit {total_debit:.2f} ≠ credit {total_credit:.2f}",
+        )
 
     ref = body.reference or doc.filename or str(document_id)[:8]
     date = body.date or datetime.now(timezone.utc)
+    category = doc.category or "other"
+    data = doc.ai_extracted_data or {}
 
-    txn = await do_post_gl(
-        db, org_id, date,
-        f"Journal entry — {doc.category or 'document'}: {ref}",
-        ref, "document", document_id, entries,
+    result_info = await route_document_to_module(
+        db, org_id, category, data, lines, date, ref, user_id
     )
+
+    # Link the document to the created module record
+    if category in ("bill", "purchase_order"):
+        doc.linked_bill_id = result_info["record_id"]
+    elif category == "delivery_note":
+        doc.linked_grn_id = result_info["record_id"]
+    elif category == "invoice":
+        doc.linked_invoice_id = result_info["record_id"]
+    else:
+        doc.linked_record_id = result_info["record_id"]
+        doc.linked_record_type = result_info["record_type"]
 
     doc.status = "done"
     await db.commit()
 
     return {
         "document_id": str(document_id),
-        "transaction_id": str(txn.id) if txn else None,
-        "gl_posted": txn is not None,
-        "lines_posted": len(entries),
+        "record_id": result_info["record_id"],
+        "record_number": result_info["record_number"],
+        "record_type": result_info["record_type"],
+        "module_url": result_info["module_url"],
+        "friendly_name": result_info["friendly_name"],
+        "gl_posted": True,
     }
 
 

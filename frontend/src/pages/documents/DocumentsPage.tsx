@@ -857,11 +857,33 @@ interface JournalSuggestion {
   memo_only: boolean
 }
 
+const CONFIRM_LABEL: Record<string, string> = {
+  invoice:          "Confirm & Create Invoice",
+  receipt:          "Confirm & Create Receipt",
+  credit_note:      "Confirm & Create Credit Note",
+  debit_note:       "Confirm & Create Vendor Credit",
+  bill:             "Confirm & Create Bill",
+  purchase_order:   "Confirm & Create Bill",
+  delivery_note:    "Confirm & Create GRN",
+  vendor_credit:    "Confirm & Create Vendor Credit",
+  payment:          "Confirm & Record Payment",
+  refund:           "Confirm & Record Refund",
+  stock_adjustment: "Confirm & Record Adjustment",
+}
+
+interface PostResult {
+  record_number: string
+  record_type: string
+  module_url: string
+  friendly_name: string
+}
+
 function InlineJournalPreview({ documentId, category }: { documentId: string; category: string }) {
   const { toast } = useToast()
   const qc = useQueryClient()
   const [lines, setLines] = useState<JournalLine[]>([])
   const [initialised, setInitialised] = useState(false)
+  const [posted, setPosted] = useState<PostResult | null>(null)
 
   const { data, isLoading, error } = useQuery<JournalSuggestion>({
     queryKey: ["suggest-journal", documentId],
@@ -873,11 +895,11 @@ function InlineJournalPreview({ documentId, category }: { documentId: string; ca
     setInitialised(true)
   }
 
-  // Re-initialise if category changes (new query result)
   const prevCategory = useRef(category)
   if (prevCategory.current !== category) {
     prevCategory.current = category
     setInitialised(false)
+    setPosted(null)
   }
 
   const updateLine = (i: number, field: keyof JournalLine, value: string) => {
@@ -894,8 +916,10 @@ function InlineJournalPreview({ documentId, category }: { documentId: string; ca
   const post = useMutation({
     mutationFn: () =>
       api.post(`/documents/${documentId}/create-journal`, { journal_lines: lines }),
-    onSuccess: () => {
-      toast("Journal entry posted to GL", "success")
+    onSuccess: (res) => {
+      const r = res.data as PostResult
+      setPosted(r)
+      toast(`${r.friendly_name} ${r.record_number} created — GL posted`, "success")
       qc.invalidateQueries({ queryKey: ["documents"] })
     },
     onError: (e: unknown) => {
@@ -919,10 +943,35 @@ function InlineJournalPreview({ documentId, category }: { documentId: string; ca
 
   if (error || !data) return null
 
+  if (posted) {
+    return (
+      <div className="mt-5 rounded-xl border border-emerald-200 bg-emerald-50 dark:bg-emerald-900/20 dark:border-emerald-800/30 p-4">
+        <div className="flex items-start gap-3">
+          <CheckCircle2 className="h-5 w-5 text-emerald-600 shrink-0 mt-0.5" />
+          <div className="flex-1">
+            <div className="text-sm font-semibold text-emerald-900 dark:text-emerald-300">
+              {posted.friendly_name} <span className="font-mono">{posted.record_number}</span> created
+            </div>
+            <div className="mt-0.5 text-xs text-emerald-700 dark:text-emerald-400">
+              GL journal entry posted. Document marked as done.
+            </div>
+            <a
+              href={posted.module_url}
+              className="mt-2 inline-flex items-center gap-1.5 rounded-lg border border-emerald-300 bg-white dark:bg-emerald-900/30 px-3 py-1.5 text-xs font-medium text-emerald-700 dark:text-emerald-300 hover:bg-emerald-50 transition-colors"
+            >
+              <Link2 className="h-3.5 w-3.5" />
+              View {posted.friendly_name}
+            </a>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   if (data.memo_only) {
     return (
       <div className="mt-5 rounded-xl border border-border bg-muted/30 p-3 text-xs text-muted-foreground">
-        No double-entry journal is generated for <strong>{category.replace(/_/g, " ")}</strong> documents (memo record only).
+        No double-entry journal for <strong>{category.replace(/_/g, " ")}</strong> — memo record only.
       </div>
     )
   }
@@ -955,43 +1004,24 @@ function InlineJournalPreview({ documentId, category }: { documentId: string; ca
             {lines.map((l, i) => (
               <tr key={i} className="hover:bg-muted/20">
                 <td className="px-3 py-1.5">
-                  <input
-                    value={l.account_code}
-                    onChange={e => updateLine(i, "account_code", e.target.value)}
-                    className="w-full bg-transparent font-mono text-foreground focus:outline-none focus:ring-1 focus:ring-primary/30 rounded px-1 py-0.5"
-                  />
+                  <input value={l.account_code} onChange={e => updateLine(i, "account_code", e.target.value)}
+                    className="w-full bg-transparent font-mono text-foreground focus:outline-none focus:ring-1 focus:ring-primary/30 rounded px-1 py-0.5" />
                 </td>
                 <td className="px-3 py-1.5">
-                  <input
-                    value={l.account_name}
-                    onChange={e => updateLine(i, "account_name", e.target.value)}
-                    className="w-full bg-transparent text-foreground focus:outline-none focus:ring-1 focus:ring-primary/30 rounded px-1 py-0.5"
-                  />
+                  <input value={l.account_name} onChange={e => updateLine(i, "account_name", e.target.value)}
+                    className="w-full bg-transparent text-foreground focus:outline-none focus:ring-1 focus:ring-primary/30 rounded px-1 py-0.5" />
                 </td>
                 <td className="px-3 py-1.5">
-                  <input
-                    value={l.description}
-                    onChange={e => updateLine(i, "description", e.target.value)}
-                    className="w-full bg-transparent text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary/30 rounded px-1 py-0.5"
-                  />
+                  <input value={l.description} onChange={e => updateLine(i, "description", e.target.value)}
+                    className="w-full bg-transparent text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary/30 rounded px-1 py-0.5" />
                 </td>
                 <td className="px-3 py-1.5 text-right">
-                  <input
-                    type="number"
-                    value={l.debit || ""}
-                    onChange={e => updateLine(i, "debit", e.target.value)}
-                    className="w-full bg-transparent text-right text-emerald-600 font-medium focus:outline-none focus:ring-1 focus:ring-primary/30 rounded px-1 py-0.5"
-                    placeholder="—"
-                  />
+                  <input type="number" value={l.debit || ""} onChange={e => updateLine(i, "debit", e.target.value)}
+                    className="w-full bg-transparent text-right text-emerald-600 font-medium focus:outline-none focus:ring-1 focus:ring-primary/30 rounded px-1 py-0.5" placeholder="—" />
                 </td>
                 <td className="px-3 py-1.5 text-right">
-                  <input
-                    type="number"
-                    value={l.credit || ""}
-                    onChange={e => updateLine(i, "credit", e.target.value)}
-                    className="w-full bg-transparent text-right text-rose-600 font-medium focus:outline-none focus:ring-1 focus:ring-primary/30 rounded px-1 py-0.5"
-                    placeholder="—"
-                  />
+                  <input type="number" value={l.credit || ""} onChange={e => updateLine(i, "credit", e.target.value)}
+                    className="w-full bg-transparent text-right text-rose-600 font-medium focus:outline-none focus:ring-1 focus:ring-primary/30 rounded px-1 py-0.5" placeholder="—" />
                 </td>
               </tr>
             ))}
@@ -1017,8 +1047,8 @@ function InlineJournalPreview({ documentId, category }: { documentId: string; ca
         className="flex items-center gap-2 rounded-xl bg-primary px-4 py-2 text-xs font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-50 transition-colors"
       >
         {post.isPending
-          ? <><Loader2 className="h-3.5 w-3.5 animate-spin" />Posting...</>
-          : <><CheckCircle2 className="h-3.5 w-3.5" />Post Journal Entry</>
+          ? <><Loader2 className="h-3.5 w-3.5 animate-spin" />Creating...</>
+          : <><CheckCircle2 className="h-3.5 w-3.5" />{CONFIRM_LABEL[category] ?? "Confirm & Post Journal"}</>
         }
       </button>
     </div>
