@@ -1,7 +1,9 @@
 
+import { useQueryClient } from "@tanstack/react-query"
 import { useNavigate } from "react-router-dom"
 import { Plus, BookOpen, FileText, ArrowRightLeft, XCircle } from "lucide-react"
 import { useManualJournals } from "../../lib/hooks"
+import api from "../../lib/api"
 import { formatDate, formatCurrency } from "../../lib/utils"
 import { Card } from "../../components/ui/card"
 import { Button } from "../../components/ui/button"
@@ -18,6 +20,7 @@ const statusColors: Record<string, string> = {
 
 export default function ManualJournalsPage() {
   const navigate = useNavigate()
+  const queryClient = useQueryClient()
   const { data: journals = [], isLoading } = useManualJournals()
 
   const totalDebit = (j: typeof journals[0]) =>
@@ -81,7 +84,7 @@ export default function ManualJournalsPage() {
                       <RowActionsMenu actions={[
                         { label: "View", icon: <FileText className="h-4 w-4" />, onClick: () => navigate(`/accounting/journals/${j.id}`) },
                         { label: "Reverse Entry", icon: <ArrowRightLeft className="h-4 w-4" />, onClick: () => {}, dividerBefore: true },
-                        { label: "Void", icon: <XCircle className="h-4 w-4" />, onClick: () => {}, danger: true, dividerBefore: true, disabled: j.status === "void" },
+                        { label: "Void", icon: <XCircle className="h-4 w-4" />, onClick: () => { if (confirm("Void this journal entry?")) api.patch(`/accounting/journals/${j.id}`, { status: "void" }).then(() => queryClient.invalidateQueries({ queryKey: ["manual-journals"] })) }, danger: true, dividerBefore: true, disabled: j.status === "void" },
                       ]} />
                     </TableCell>
                   </TableRow>

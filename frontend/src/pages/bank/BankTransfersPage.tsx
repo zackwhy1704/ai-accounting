@@ -1,6 +1,6 @@
 import { useState } from "react"
 import { useNavigate } from "react-router-dom"
-import { useQuery } from "@tanstack/react-query"
+import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { Plus, Search, ArrowLeftRight, FileText, Trash2 } from "lucide-react"
 import api from "../../lib/api"
 import { formatCurrency, formatDate, cn } from "../../lib/utils"
@@ -31,6 +31,7 @@ const statusColors: Record<string, string> = {
 
 export default function BankTransfersPage() {
   const navigate = useNavigate()
+  const queryClient = useQueryClient()
   const [search, setSearch] = useState("")
 
   const { data: transfers = [], isLoading } = useQuery<BankTransfer[]>({
@@ -127,7 +128,7 @@ export default function BankTransfersPage() {
                     <TableCell className="text-right">
                       <RowActionsMenu actions={[
                         { label: "View", icon: <FileText className="h-4 w-4" />, onClick: () => navigate(`/bank/transfers/${t.id}`) },
-                        { label: "Delete", icon: <Trash2 className="h-4 w-4" />, onClick: () => {}, danger: true, dividerBefore: true },
+                        { label: "Delete", icon: <Trash2 className="h-4 w-4" />, onClick: () => { if (confirm("Delete this transfer?")) api.delete(`/bank-transfers/${t.id}`).then(() => queryClient.invalidateQueries({ queryKey: ["bank-transfers"] })) }, danger: true, dividerBefore: true },
                       ]} />
                     </TableCell>
                   </TableRow>

@@ -1,7 +1,9 @@
 import { useMemo, useState } from "react"
+import { useQueryClient } from "@tanstack/react-query"
 import { useNavigate } from "react-router-dom"
 import { Plus, Search, FileText, ArrowRightLeft, XCircle } from "lucide-react"
 import { useVendorCredits, useContacts } from "../../lib/hooks"
+import api from "../../lib/api"
 import { formatCurrency, formatDate, cn } from "../../lib/utils"
 import { Card } from "../../components/ui/card"
 import { Button } from "../../components/ui/button"
@@ -18,6 +20,7 @@ const statusColors: Record<string, string> = {
 
 export default function VendorCreditsPage() {
   const navigate = useNavigate()
+  const queryClient = useQueryClient()
   const [search, setSearch] = useState("")
   const { data: vendorCredits = [], isLoading } = useVendorCredits()
   const { data: contacts = [] } = useContacts()
@@ -99,7 +102,7 @@ export default function VendorCreditsPage() {
                       <RowActionsMenu actions={[
                         { label: "View", icon: <FileText className="h-3.5 w-3.5" />, onClick: () => navigate(`/purchases/vendor-credits/${vc.id}`) },
                         { label: "Apply to Bill", icon: <ArrowRightLeft className="h-3.5 w-3.5" />, onClick: () => navigate(`/purchases/bills/new?credit_id=${vc.id}`), dividerBefore: true },
-                        { label: "Void", icon: <XCircle className="h-3.5 w-3.5" />, onClick: () => {}, danger: true, dividerBefore: true },
+                        { label: "Void", icon: <XCircle className="h-3.5 w-3.5" />, onClick: () => { if (confirm("Void this vendor credit?")) api.patch(`/vendor-credits/${vc.id}`, { status: "void" }).then(() => queryClient.invalidateQueries({ queryKey: ["vendor-credits"] })) }, danger: true, dividerBefore: true },
                       ]} />
                     </TableCell>
                   </TableRow>

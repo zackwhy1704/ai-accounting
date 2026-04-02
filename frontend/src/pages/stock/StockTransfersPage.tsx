@@ -1,6 +1,6 @@
 import { useState } from "react"
 import { useNavigate } from "react-router-dom"
-import { useQuery } from "@tanstack/react-query"
+import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { Plus, Search, MoveRight, FileText, CheckCircle2, XCircle } from "lucide-react"
 import api from "../../lib/api"
 import { formatDate, cn } from "../../lib/utils"
@@ -28,6 +28,7 @@ const statusColors: Record<string, string> = {
 
 export default function StockTransfersPage() {
   const navigate = useNavigate()
+  const queryClient = useQueryClient()
   const [search, setSearch] = useState("")
 
   const { data: transfers = [], isLoading } = useQuery<StockTransfer[]>({
@@ -120,7 +121,7 @@ export default function StockTransfersPage() {
                       <RowActionsMenu actions={[
                         { label: "View", icon: <FileText className="h-4 w-4" />, onClick: () => navigate(`/stock/transfers/${t.id}`) },
                         { label: "Confirm", icon: <CheckCircle2 className="h-4 w-4" />, onClick: () => {}, disabled: t.status !== "draft", dividerBefore: true },
-                        { label: "Void", icon: <XCircle className="h-4 w-4" />, onClick: () => {}, danger: true, dividerBefore: true, disabled: t.status === "void" },
+                        { label: "Void", icon: <XCircle className="h-4 w-4" />, onClick: () => { if (confirm("Void this transfer?")) api.patch(`/stock/transfers/${t.id}`, { status: "void" }).then(() => queryClient.invalidateQueries({ queryKey: ["stock-transfers"] })) }, danger: true, dividerBefore: true, disabled: t.status === "void" },
                       ]} />
                     </TableCell>
                   </TableRow>

@@ -1,7 +1,9 @@
 import { useMemo, useState } from "react"
+import { useQueryClient } from "@tanstack/react-query"
 import { useNavigate } from "react-router-dom"
 import { Plus, ShoppingCart, FileText, Pencil, ArrowRightLeft, Copy, XCircle } from "lucide-react"
 import { usePurchaseOrders, useContacts } from "../../lib/hooks"
+import api from "../../lib/api"
 import { formatCurrency, formatDate, cn } from "../../lib/utils"
 import { Card } from "../../components/ui/card"
 import { Button } from "../../components/ui/button"
@@ -29,6 +31,7 @@ const STATUS_TABS = [
 
 export default function PurchaseOrdersPage() {
   const navigate = useNavigate()
+  const queryClient = useQueryClient()
   const [tab, setTab] = useState("all")
   const { data: purchaseOrders = [], isLoading } = usePurchaseOrders(tab === "all" ? undefined : tab)
   const { data: contacts = [] } = useContacts()
@@ -136,7 +139,7 @@ export default function PurchaseOrdersPage() {
                         { label: "Edit", icon: <Pencil className="h-3.5 w-3.5" />, onClick: () => navigate(`/purchases/orders/${po.id}/edit`) },
                         { label: "Convert to Bill", icon: <ArrowRightLeft className="h-3.5 w-3.5" />, onClick: () => navigate(`/purchases/bills/new?from_po=${po.id}`), dividerBefore: true },
                         { label: "Duplicate", icon: <Copy className="h-3.5 w-3.5" />, onClick: () => navigate(`/purchases/orders/new?copy=${po.id}`) },
-                        { label: "Void", icon: <XCircle className="h-3.5 w-3.5" />, onClick: () => {}, danger: true, dividerBefore: true, disabled: po.status === "void" },
+                        { label: "Void", icon: <XCircle className="h-3.5 w-3.5" />, onClick: () => { if (confirm("Void this purchase order?")) api.patch(`/purchase-orders/${po.id}`, { status: "void" }).then(() => queryClient.invalidateQueries({ queryKey: ["purchase-orders"] })) }, danger: true, dividerBefore: true, disabled: po.status === "void" },
                       ]} />
                     </TableCell>
                   </TableRow>

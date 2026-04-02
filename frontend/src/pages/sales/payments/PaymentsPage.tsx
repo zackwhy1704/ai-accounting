@@ -1,8 +1,10 @@
 import { useMemo, useState } from "react"
+import { useQueryClient } from "@tanstack/react-query"
 import { useNavigate } from "react-router-dom"
 import { Plus, Search, CalendarDays, SlidersHorizontal, Filter, FileText, Copy, XCircle } from "lucide-react"
 import { RowActionsMenu } from "../../../components/ui/row-actions"
 import { useSalesPayments, useContacts } from "../../../lib/hooks"
+import api from "../../../lib/api"
 import { formatCurrency, formatDate, cn } from "../../../lib/utils"
 import { useTheme } from "../../../lib/theme"
 import { Card } from "../../../components/ui/card"
@@ -21,6 +23,7 @@ const statusColors: Record<string, string> = {
 
 export default function PaymentsPage() {
   const navigate = useNavigate()
+  const queryClient = useQueryClient()
   const [tab, setTab] = useState("all")
   const [search, setSearch] = useState("")
   const [contactFilter, setContactFilter] = useState("all")
@@ -154,7 +157,7 @@ export default function PaymentsPage() {
                             { label: t("payments.duplicate"), icon: <Copy className="h-3.5 w-3.5" />, onClick: () => {} },
                             { label: t("payments.printPdf"), icon: <FileText className="h-3.5 w-3.5" />, onClick: () => {} },
                             { label: "Download Receipt", icon: <FileText className="h-3.5 w-3.5" />, onClick: () => window.print() },
-                            { label: t("payments.void"), icon: <XCircle className="h-3.5 w-3.5" />, onClick: () => {}, danger: true, dividerBefore: true },
+                            { label: t("payments.void"), icon: <XCircle className="h-3.5 w-3.5" />, onClick: () => { if (confirm("Void this payment?")) api.patch(`/sales/payments/${p.id}`, { status: "void" }).then(() => queryClient.invalidateQueries({ queryKey: ["sales-payments"] })) }, danger: true, dividerBefore: true },
                           ]} />
                         </TableCell>
                       </TableRow>

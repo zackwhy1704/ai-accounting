@@ -1,7 +1,9 @@
 import { useMemo } from "react"
+import { useQueryClient } from "@tanstack/react-query"
 import { useNavigate } from "react-router-dom"
 import { Plus, ClipboardList, FileText, Pencil, CheckCircle2, Trash2 } from "lucide-react"
 import { useGoodsReceivedNotes, useContacts } from "../../lib/hooks"
+import api from "../../lib/api"
 import { formatDate, cn } from "../../lib/utils"
 import { Card } from "../../components/ui/card"
 import { Button } from "../../components/ui/button"
@@ -17,6 +19,7 @@ const statusColors: Record<string, string> = {
 
 export default function GoodsReceivedNotesPage() {
   const navigate = useNavigate()
+  const queryClient = useQueryClient()
   const { data: grns = [], isLoading } = useGoodsReceivedNotes()
   const { data: contacts = [] } = useContacts()
 
@@ -108,7 +111,7 @@ export default function GoodsReceivedNotesPage() {
                         { label: "View", icon: <FileText className="h-3.5 w-3.5" />, onClick: () => navigate(`/purchases/goods-received-notes/${grn.id}`) },
                         { label: "Edit", icon: <Pencil className="h-3.5 w-3.5" />, onClick: () => navigate(`/purchases/goods-received-notes/${grn.id}/edit`) },
                         { label: "Mark as Billed", icon: <CheckCircle2 className="h-3.5 w-3.5" />, onClick: () => {}, disabled: grn.status !== "received", dividerBefore: true },
-                        { label: "Delete", icon: <Trash2 className="h-3.5 w-3.5" />, onClick: () => {}, danger: true, dividerBefore: true },
+                        { label: "Delete", icon: <Trash2 className="h-3.5 w-3.5" />, onClick: () => { if (confirm("Delete this GRN?")) api.delete(`/purchases/goods-received-notes/${grn.id}`).then(() => queryClient.invalidateQueries({ queryKey: ["goods-received-notes"] })) }, danger: true, dividerBefore: true },
                       ]} />
                     </TableCell>
                   </TableRow>

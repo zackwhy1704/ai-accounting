@@ -1,7 +1,9 @@
 import { useState } from "react"
+import { useQueryClient } from "@tanstack/react-query"
 import { useNavigate } from "react-router-dom"
 import { Plus, Zap, Pencil, Trash2 } from "lucide-react"
 import { useBankRules, useAccounts, useContacts } from "../../lib/hooks"
+import api from "../../lib/api"
 import { formatDate } from "../../lib/utils"
 import { Card } from "../../components/ui/card"
 import { Button } from "../../components/ui/button"
@@ -31,6 +33,7 @@ const OPERATORS: Record<string, string[]> = {
 
 export default function BankRulesPage() {
   const navigate = useNavigate()
+  const queryClient = useQueryClient()
   const { toast } = useToast()
   const { data: rules = [], isLoading } = useBankRules()
   const { data: accounts = [] } = useAccounts()
@@ -189,7 +192,7 @@ export default function BankRulesPage() {
                 </div>
                 <RowActionsMenu actions={[
                   { label: "Edit", icon: <Pencil className="h-4 w-4" />, onClick: () => navigate(`/bank/rules/${r.id}/edit`) },
-                  { label: "Delete", icon: <Trash2 className="h-4 w-4" />, onClick: () => {}, danger: true, dividerBefore: true },
+                  { label: "Delete", icon: <Trash2 className="h-4 w-4" />, onClick: () => { if (confirm("Delete this rule?")) api.delete(`/bank-rules/${r.id}`).then(() => queryClient.invalidateQueries({ queryKey: ["bank-rules"] })) }, danger: true, dividerBefore: true },
                 ]} />
               </div>
             ))}

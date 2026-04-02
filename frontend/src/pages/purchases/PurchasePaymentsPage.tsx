@@ -1,6 +1,6 @@
 import { useState } from "react"
 import { useNavigate } from "react-router-dom"
-import { useQuery } from "@tanstack/react-query"
+import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { Plus, Search, CreditCard, FileText, Download, XCircle } from "lucide-react"
 import api from "../../lib/api"
 import { formatCurrency, formatDate, cn } from "../../lib/utils"
@@ -39,6 +39,7 @@ const methodLabel: Record<string, string> = {
 
 export default function PurchasePaymentsPage() {
   const navigate = useNavigate()
+  const queryClient = useQueryClient()
   const [search, setSearch] = useState("")
 
   const { data: payments = [], isLoading } = useQuery<PurchasePayment[]>({
@@ -132,7 +133,7 @@ export default function PurchasePaymentsPage() {
                       <RowActionsMenu actions={[
                         { label: "View", icon: <FileText className="h-3.5 w-3.5" />, onClick: () => navigate(`/purchases/payments/${p.id}`) },
                         { label: "Download Receipt", icon: <Download className="h-3.5 w-3.5" />, onClick: () => window.print(), dividerBefore: true },
-                        { label: "Void", icon: <XCircle className="h-3.5 w-3.5" />, onClick: () => {}, danger: true, dividerBefore: true },
+                        { label: "Void", icon: <XCircle className="h-3.5 w-3.5" />, onClick: () => { if (confirm("Void this payment?")) api.patch(`/purchase-payments/${p.id}`, { status: "void" }).then(() => queryClient.invalidateQueries({ queryKey: ["purchase-payments"] })) }, danger: true, dividerBefore: true },
                       ]} />
                     </TableCell>
                   </TableRow>

@@ -1,8 +1,10 @@
 import { useMemo, useState } from "react"
+import { useQueryClient } from "@tanstack/react-query"
 import { useNavigate } from "react-router-dom"
 import { Plus, Search, CalendarDays, SlidersHorizontal, Filter, FileText, Copy, XCircle } from "lucide-react"
 import { RowActionsMenu } from "../../../components/ui/row-actions"
 import { useSalesRefunds, useContacts } from "../../../lib/hooks"
+import api from "../../../lib/api"
 import { formatCurrency, formatDate, cn } from "../../../lib/utils"
 import { useTheme } from "../../../lib/theme"
 import { Card } from "../../../components/ui/card"
@@ -21,6 +23,7 @@ const statusColors: Record<string, string> = {
 
 export default function RefundsPage() {
   const navigate = useNavigate()
+  const queryClient = useQueryClient()
   const [tab, setTab] = useState("all")
   const [search, setSearch] = useState("")
   const [contactFilter, setContactFilter] = useState("all")
@@ -155,7 +158,7 @@ export default function RefundsPage() {
                           <RowActionsMenu actions={[
                             { label: t("refunds.duplicate"), icon: <Copy className="h-3.5 w-3.5" />, onClick: () => {} },
                             { label: t("refunds.printPdf"), icon: <FileText className="h-3.5 w-3.5" />, onClick: () => {} },
-                            { label: t("refunds.void"), icon: <XCircle className="h-3.5 w-3.5" />, onClick: () => {}, danger: true, dividerBefore: true },
+                            { label: t("refunds.void"), icon: <XCircle className="h-3.5 w-3.5" />, onClick: () => { if (confirm("Void this refund?")) api.patch(`/sales/refunds/${r.id}`, { status: "void" }).then(() => queryClient.invalidateQueries({ queryKey: ["sales-refunds"] })) }, danger: true, dividerBefore: true },
                           ]} />
                         </TableCell>
                       </TableRow>
