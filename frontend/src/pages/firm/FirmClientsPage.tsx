@@ -42,23 +42,25 @@ function InviteModal({ onClose }: { onClose: () => void }) {
   const [email, setEmail] = useState("")
   const [note, setNote] = useState("")
   const [error, setError] = useState<string | null>(null)
-  const [sent, setSent] = useState(false)
   const { toast } = useToast()
   const qc = useQueryClient()
 
   const send = useMutation({
     mutationFn: () => api.post("/invitations", { client_email: email.trim(), note: note.trim() || null }),
     onSuccess: () => {
-      setSent(true)
-      setError(null)
       qc.invalidateQueries({ queryKey: ["firm-clients-linked"] })
-      setTimeout(() => {
-        toast("Invitation sent", "success")
-        onClose()
-      }, 1200)
+      toast("Invitation sent", "success")
+      onClose()
     },
     onError: (e: any) => {
-      setError(e?.response?.data?.detail || "Failed to send invitation. Please try again.")
+      const detail: string = e?.response?.data?.detail ?? ""
+      // Already linked = treat as success and close
+      if (e?.response?.status === 409 && detail.includes("already linked")) {
+        toast("Client is already linked to your firm", "success")
+        onClose()
+        return
+      }
+      setError(detail || "Failed to send invitation. Please try again.")
     },
   })
 
@@ -84,19 +86,7 @@ function InviteModal({ onClose }: { onClose: () => void }) {
           </button>
         </div>
 
-        {sent ? (
-          <div className="py-6 flex flex-col items-center gap-3 text-center">
-            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-emerald-100 dark:bg-emerald-900/30">
-              <Send className="h-5 w-5 text-emerald-600" />
-            </div>
-            <div className="text-sm font-semibold text-foreground">Invitation sent!</div>
-            <div className="text-xs text-muted-foreground">
-              An email has been sent to <span className="font-medium">{email}</span>
-            </div>
-          </div>
-        ) : (
-          <>
-            <div className="space-y-3">
+        <div className="space-y-3">
               <div>
                 <label className="block text-xs font-medium text-muted-foreground mb-1.5">
                   Client email address <span className="text-rose-500">*</span>
@@ -155,8 +145,6 @@ function InviteModal({ onClose }: { onClose: () => void }) {
                 )}
               </button>
             </div>
-          </>
-        )}
       </div>
     </div>
   )

@@ -72,29 +72,34 @@ async def send_invite(
         raise HTTPException(status_code=403, detail="Only accounting firms can send client invitations")
 
     # Check if already invited / linked
-    existing = await db.execute(
+    existing_result = await db.execute(
         select(FirmClientLink).where(
             FirmClientLink.firm_org_id == org_id,
             FirmClientLink.invited_email == data.client_email.lower(),
             FirmClientLink.status.in_(["pending", "active"]),
         )
     )
-    if existing.scalar_one_or_none():
-        raise HTTPException(status_code=409, detail="Invitation already sent or client already linked")
+    existing_link = existing_result.scalar_one_or_none()
 
-    token = secrets.token_urlsafe(32)
-    link = FirmClientLink(
-        firm_org_id=org_id,
-        status="pending",
-        invited_email=data.client_email.lower(),
-        invited_by=UUID(current_user["sub"]),
-        token=token,
-        note=data.note,
-        created_at=datetime.now(timezone.utc),
-    )
-    db.add(link)
-    await db.commit()
-    await db.refresh(link)
+    if existing_link:
+        if existing_link.status == "active":
+            raise HTTPException(status_code=409, detail="This client is already linked to your firm")
+        # status == "pending": resend the email with the existing token instead of blocking
+        link = existing_link
+    else:
+        token = secrets.token_urlsafe(32)
+        link = FirmClientLink(
+            firm_org_id=org_id,
+            status="pending",
+            invited_email=data.client_email.lower(),
+            invited_by=UUID(current_user["sub"]),
+            token=token,
+            note=data.note,
+            created_at=datetime.now(timezone.utc),
+        )
+        db.add(link)
+        await db.commit()
+        await db.refresh(link)
 
     # Send branded invitation email
     from app.core.config import get_settings

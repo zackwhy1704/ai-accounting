@@ -74,25 +74,24 @@ function LinkAccountantModal({ onClose }: { onClose: () => void }) {
   }
 
   const [linkError, setLinkError] = useState<string | null>(null)
-  const [linked, setLinked] = useState(false)
-  const [linkedFirmName, setLinkedFirmName] = useState("")
 
   const link = useMutation({
     mutationFn: () =>
       api.post("/invitations/link-by-slug", { firm_slug: slug.trim().toLowerCase(), note: note.trim() || null }),
     onSuccess: (res) => {
-      setLinked(true)
-      setLinkedFirmName(res.data.firm_name)
-      setLinkError(null)
       qc.invalidateQueries({ queryKey: ["my-linked-firms"] })
       qc.invalidateQueries({ queryKey: ["my-links-count"] })
-      setTimeout(() => {
-        toast(`Linked to ${res.data.firm_name}`, "success")
-        onClose()
-      }, 1200)
+      toast(`Linked to ${res.data.firm_name}`, "success")
+      onClose()
     },
     onError: (e: any) => {
-      setLinkError(e?.response?.data?.detail ?? "Failed to link. Please try again.")
+      const detail: string = e?.response?.data?.detail ?? ""
+      if (e?.response?.status === 409) {
+        toast("Already linked to this firm", "success")
+        onClose()
+        return
+      }
+      setLinkError(detail || "Failed to link. Please try again.")
     },
   })
 
@@ -200,36 +199,26 @@ function LinkAccountantModal({ onClose }: { onClose: () => void }) {
           </div>
         )}
 
-        {linked ? (
-          <div className="mt-5 py-4 flex flex-col items-center gap-3 text-center">
-            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-emerald-100 dark:bg-emerald-900/30">
-              <Link2 className="h-5 w-5 text-emerald-600" />
-            </div>
-            <div className="text-sm font-semibold text-foreground">Linked to {linkedFirmName}!</div>
-            <div className="text-xs text-muted-foreground">Closing…</div>
-          </div>
-        ) : (
-          <div className="mt-5 flex gap-3">
-            <button
-              onClick={onClose}
-              disabled={link.isPending}
-              className="flex-1 rounded-xl border border-border py-2.5 text-sm font-medium text-muted-foreground hover:bg-muted/50 disabled:opacity-50 transition-colors"
-            >
-              Cancel
-            </button>
-            <button
-              onClick={() => { setLinkError(null); link.mutate() }}
-              disabled={!preview || link.isPending}
-              className="flex-1 flex items-center justify-center gap-2 rounded-xl bg-primary py-2.5 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-60 transition-colors"
-            >
-              {link.isPending ? (
-                <><Loader2 className="h-4 w-4 animate-spin" /> Linking…</>
-              ) : (
-                <><Link2 className="h-4 w-4" /> Link Accountant</>
-              )}
-            </button>
-          </div>
-        )}
+        <div className="mt-5 flex gap-3">
+          <button
+            onClick={onClose}
+            disabled={link.isPending}
+            className="flex-1 rounded-xl border border-border py-2.5 text-sm font-medium text-muted-foreground hover:bg-muted/50 disabled:opacity-50 transition-colors"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={() => { setLinkError(null); link.mutate() }}
+            disabled={!preview || link.isPending}
+            className="flex-1 flex items-center justify-center gap-2 rounded-xl bg-primary py-2.5 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-60 transition-colors"
+          >
+            {link.isPending ? (
+              <><Loader2 className="h-4 w-4 animate-spin" /> Linking…</>
+            ) : (
+              <><Link2 className="h-4 w-4" /> Link Accountant</>
+            )}
+          </button>
+        </div>
       </div>
     </div>
   )
