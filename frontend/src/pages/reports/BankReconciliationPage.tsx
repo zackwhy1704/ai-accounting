@@ -1,9 +1,9 @@
 import { useRef } from "react"
-import { Loader2, Upload, Check, X, Sparkles, RefreshCw } from "lucide-react"
+import { Loader2, Upload, Check, X, Sparkles, RefreshCw, Download, Printer } from "lucide-react"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { Card } from "../../components/ui/card"
 import { Button } from "../../components/ui/button"
-import { formatCurrency, formatDate } from "../../lib/utils"
+import { formatCurrency, formatDate, downloadCSV, printReport } from "../../lib/utils"
 import api from "../../lib/api"
 
 interface BankStatementLine {
@@ -116,6 +116,21 @@ export default function BankReconciliationPage() {
         <div className="mt-1 text-2xl font-semibold tracking-tight text-foreground">Bank Reconciliation</div>
         <div className="mt-1 text-sm text-muted-foreground">Upload bank statement and reconcile with book transactions</div>
       </div>
+      {hasLines && (
+        <div className="flex gap-2 print:hidden">
+          <Button variant="outline" size="sm" onClick={() => downloadCSV(`bank-reconciliation-${new Date().toISOString().slice(0, 10)}.csv`, [
+            ["Bank Reconciliation", new Date().toISOString().slice(0, 10)],
+            [],
+            ["Date", "Description", "Reference", "Amount", "Status", "Match Confidence", "Match Reason"],
+            ...lines!.map(l => [l.date, l.description, l.reference ?? "", l.amount.toFixed(2), l.status, l.match_confidence != null ? `${Math.round(l.match_confidence * 100)}%` : "", l.match_reason ?? ""]),
+          ])}>
+            <Download className="mr-1.5 h-3.5 w-3.5" /> CSV
+          </Button>
+          <Button variant="outline" size="sm" onClick={printReport}>
+            <Printer className="mr-1.5 h-3.5 w-3.5" /> Print / PDF
+          </Button>
+        </div>
+      )}
 
       {/* Upload Section */}
       <Card className="rounded-2xl border-border bg-card p-4 shadow-[0_0_0_1px_rgba(15,23,42,0.06),0_18px_55px_rgba(2,6,23,0.08)] print:hidden">
