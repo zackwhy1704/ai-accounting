@@ -128,6 +128,7 @@ async def get_me(
         "onboarding_completed": org.onboarding_completed,
         "org_type": org.org_type,
         "country": org.country,
+        "parent_firm_id": str(org.parent_firm_id) if org.parent_firm_id else None,
     }
 
 

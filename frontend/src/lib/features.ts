@@ -143,6 +143,21 @@ export function useFeatureFlags() {
     features.add("my_accountants")
   }
 
+  // Portal clients (signed up under a firm's white-label link) have parent_firm_id set.
+  // For these orgs: hide billing (firm owns billing), shared documents, and my accountants
+  // (they are already permanently linked to one firm — no need to manage that).
+  if (user?.parent_firm_id) {
+    features.delete("billing")
+    features.delete("shared_documents")
+    features.delete("my_accountants")
+  }
+
+  // Firm-type orgs: hide "Shared with Me" — they access client documents via the
+  // Clients module instead (Xero-style drill-through).
+  if (user?.org_type === "firm") {
+    features.delete("shared_with_me")
+  }
+
   return {
     has: (f: Feature) => features.has(f),
     features,

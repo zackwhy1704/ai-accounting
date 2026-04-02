@@ -21,6 +21,7 @@ from app.models.models import (
     Organization, User, UserOrganization, Account,
     Invoice, Bill, Document, ClientInvitation,
 )
+from sqlalchemy import desc
 from app.services.document_service import storage_service
 from datetime import datetime, timezone
 
@@ -510,6 +511,52 @@ async def archive_client_org(
     org.is_archived = True
     await db.commit()
     return {"id": str(org.id), "name": org.name, "is_archived": True}
+
+
+@router.get("/clients/{client_id}/documents")
+async def get_client_documents(
+    client_id: UUID,
+    current_user: dict = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Firm: list all documents belonging to a portal client org."""
+    firm = await _require_firm(current_user, db)
+
+    # Verify this client is a portal client under this firm
+    client_result = await db.execute(
+        select(Organization).where(
+            Organization.id == client_id,
+            Organization.parent_firm_id == firm.id,
+        )
+    )
+    client_org = client_result.scalar_one_or_none()
+    if not client_org:
+        raise HTTPException(404, "Client organisation not found")
+
+    docs_result = await db.execute(
+        select(Document)
+        .where(Document.organization_id == client_id)
+        .order_by(desc(Document.uploaded_at))
+    )
+    docs = docs_result.scalars().all()
+
+    return [
+        {
+            "id": str(d.id),
+            "filename": d.filename,
+            "file_url": d.file_url,
+            "file_type": d.file_type,
+            "file_size": d.file_size,
+            "status": d.status,
+            "category": d.category,
+            "ai_confidence": float(d.ai_confidence) if d.ai_confidence is not None else None,
+            "linked_bill_id": str(d.linked_bill_id) if d.linked_bill_id else None,
+            "linked_invoice_id": str(d.linked_invoice_id) if d.linked_invoice_id else None,
+            "uploaded_at": d.uploaded_at.isoformat(),
+            "processed_at": d.processed_at.isoformat() if d.processed_at else None,
+        }
+        for d in docs
+    ]
 
 
 @router.post("/clients/{client_id}/restore")

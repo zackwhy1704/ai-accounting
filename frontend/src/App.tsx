@@ -99,6 +99,7 @@ import SharedDocumentsOwnerPage from './pages/documents/SharedDocumentsOwnerPage
 import AcceptClientInvitePage from './pages/invitations/AcceptClientInvitePage'
 import MyAccountantsPage from './pages/invitations/MyAccountantsPage'
 import FirmClientsPage from './pages/firm/FirmClientsPage'
+import FirmClientDetailPage from './pages/firm/FirmClientDetailPage'
 
 function ProtectedRoute({ children, allowOnboarding }: { children: React.ReactNode; allowOnboarding?: boolean }) {
   const { token, isLoading, onboardingCompleted } = useAuth()
@@ -245,6 +246,7 @@ function App() {
         <Route path="/shared-with-me" element={<SharedDocumentsPage />} />
         <Route path="/my-accountants" element={<MyAccountantsPage />} />
         <Route path="/firm/clients" element={<FirmClientsPage />} />
+        <Route path="/firm/clients/:clientId" element={<FirmClientDetailPage />} />
 
         {/* Catch-all: redirect unknown routes to dashboard */}
         <Route path="*" element={<Navigate to="/dashboard" replace />} />

@@ -1,13 +1,28 @@
 import { useState } from "react"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
+import { useNavigate } from "react-router-dom"
 import {
   Building2, UserPlus, Link2Off, Loader2, Clock, CheckCircle2,
-  Mail, X, Send,
+  Mail, X, Send, ChevronRight, ExternalLink,
 } from "lucide-react"
 import { Card } from "../../components/ui/card"
 import api from "../../lib/api"
 import { useToast } from "../../components/ui/toast"
 import { formatDate } from "../../lib/utils"
+
+// ── Types ────────────────────────────────────────────────────────────────────
+
+interface PortalClient {
+  id: string
+  name: string
+  org_type: string
+  country: string
+  currency: string
+  industry: string | null
+  onboarding_completed: boolean
+  is_archived: boolean
+  created_at: string
+}
 
 interface ClientLink {
   link_id: string
@@ -21,6 +36,8 @@ interface ClientLink {
   accepted_at: string | null
 }
 
+// ── Invite modal (for linked/invitation clients) ──────────────────────────────
+
 function InviteModal({ onClose }: { onClose: () => void }) {
   const [email, setEmail] = useState("")
   const [note, setNote] = useState("")
@@ -31,7 +48,7 @@ function InviteModal({ onClose }: { onClose: () => void }) {
     mutationFn: () => api.post("/invitations", { client_email: email.trim(), note: note.trim() || null }),
     onSuccess: () => {
       toast("Invitation sent", "success")
-      qc.invalidateQueries({ queryKey: ["firm-clients"] })
+      qc.invalidateQueries({ queryKey: ["firm-clients-linked"] })
       onClose()
     },
     onError: (e: any) => {
@@ -44,9 +61,9 @@ function InviteModal({ onClose }: { onClose: () => void }) {
       <div className="w-full max-w-md rounded-2xl bg-card border border-border shadow-xl p-6">
         <div className="flex items-start justify-between mb-5">
           <div>
-            <div className="text-base font-semibold text-foreground">Invite Client</div>
+            <div className="text-base font-semibold text-foreground">Invite Existing Client</div>
             <div className="text-xs text-muted-foreground mt-0.5">
-              Send a branded invitation email to link their Accruly account with yours
+              Link an existing Accruly account to your firm
             </div>
           </div>
           <button onClick={onClose} className="text-muted-foreground hover:text-foreground">
@@ -121,13 +138,23 @@ function StatusBadge({ status }: { status: string }) {
   )
 }
 
+// ── Main page ─────────────────────────────────────────────────────────────────
+
 export default function FirmClientsPage() {
+  const navigate = useNavigate()
   const [showInvite, setShowInvite] = useState(false)
   const { toast } = useToast()
   const qc = useQueryClient()
 
-  const { data: clients = [], isLoading } = useQuery<ClientLink[]>({
-    queryKey: ["firm-clients"],
+  // Portal clients — signed up through firm's white-label portal (parent_firm_id set)
+  const { data: portalClients = [], isLoading: loadingPortal } = useQuery<PortalClient[]>({
+    queryKey: ["firm-clients-portal"],
+    queryFn: () => api.get("/firm/clients").then((r) => r.data),
+  })
+
+  // Linked clients — existing SMEs invited via email (FirmClientLink)
+  const { data: linkedClients = [], isLoading: loadingLinked } = useQuery<ClientLink[]>({
+    queryKey: ["firm-clients-linked"],
     queryFn: () => api.get("/invitations/firm-clients").then((r) => r.data),
   })
 
@@ -135,14 +162,16 @@ export default function FirmClientsPage() {
     mutationFn: (linkId: string) => api.delete(`/invitations/${linkId}`),
     onSuccess: () => {
       toast("Client unlinked", "success")
-      qc.invalidateQueries({ queryKey: ["firm-clients"] })
+      qc.invalidateQueries({ queryKey: ["firm-clients-linked"] })
     },
     onError: () => toast("Failed to unlink", "warning"),
   })
 
-  const active = clients.filter((c) => c.status === "active")
-  const pending = clients.filter((c) => c.status === "pending")
-  const others = clients.filter((c) => c.status !== "active" && c.status !== "pending")
+  const isLoading = loadingPortal || loadingLinked
+  const activeLinked = linkedClients.filter((c) => c.status === "active")
+  const pendingLinked = linkedClients.filter((c) => c.status === "pending")
+  const otherLinked = linkedClients.filter((c) => c.status !== "active" && c.status !== "pending")
+  const hasAny = portalClients.length > 0 || linkedClients.length > 0
 
   return (
     <div className="flex flex-col gap-6">
@@ -151,7 +180,7 @@ export default function FirmClientsPage() {
           <div className="text-xs text-muted-foreground">Practice</div>
           <div className="mt-1 text-2xl font-semibold tracking-tight text-foreground">Clients</div>
           <div className="mt-1 text-sm text-muted-foreground">
-            Manage your linked client accounts and send new invitations
+            Manage your client accounts, documents, and invitations
           </div>
         </div>
         <button
@@ -167,13 +196,13 @@ export default function FirmClientsPage() {
         <div className="py-14 flex items-center justify-center text-muted-foreground">
           <Loader2 className="h-5 w-5 animate-spin mr-2" /> Loading…
         </div>
-      ) : clients.length === 0 ? (
+      ) : !hasAny ? (
         <Card className="overflow-hidden rounded-2xl border border-border/60 bg-card shadow-sm">
           <div className="py-16 text-center">
             <Building2 className="mx-auto h-10 w-10 text-muted-foreground/30 mb-3" />
             <div className="text-base font-semibold text-foreground">No clients yet</div>
             <div className="mt-1 text-sm text-muted-foreground max-w-xs mx-auto">
-              Send an invitation to your client's email address to link their account.
+              Share your client portal link or send an invitation email to link client accounts.
             </div>
             <button
               onClick={() => setShowInvite(true)}
@@ -186,19 +215,66 @@ export default function FirmClientsPage() {
         </Card>
       ) : (
         <>
-          {/* Active clients */}
-          {active.length > 0 && (
+          {/* ── Portal clients (white-label signup) ── */}
+          {portalClients.length > 0 && (
+            <Card className="overflow-hidden rounded-2xl border border-border/60 bg-card shadow-sm">
+              <div className="px-5 py-3 border-b border-border/40">
+                <div className="flex items-center gap-2">
+                  <ExternalLink className="h-4 w-4 text-primary" />
+                  <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                    Portal Clients — Full Access ({portalClients.length})
+                  </span>
+                </div>
+                <div className="text-xs text-muted-foreground mt-0.5">
+                  Signed up through your white-label portal. Click to view their workspace and documents.
+                </div>
+              </div>
+              <div className="divide-y divide-border/40">
+                {portalClients.map((c) => (
+                  <button
+                    key={c.id}
+                    onClick={() => navigate(`/firm/clients/${c.id}`)}
+                    className="w-full flex items-center gap-4 px-5 py-4 hover:bg-muted/30 transition-colors text-left"
+                  >
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary font-semibold text-sm">
+                      {c.name.charAt(0).toUpperCase()}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-semibold text-foreground">{c.name}</span>
+                        <span className="rounded-md bg-primary/10 px-1.5 py-0.5 text-[11px] font-medium text-primary">
+                          Portal
+                        </span>
+                      </div>
+                      <div className="text-xs text-muted-foreground mt-0.5">
+                        {c.country} · {c.currency}
+                        {c.industry ? ` · ${c.industry}` : ""}
+                        {" · "}Joined {formatDate(c.created_at)}
+                      </div>
+                    </div>
+                    <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
+                  </button>
+                ))}
+              </div>
+            </Card>
+          )}
+
+          {/* ── Active linked clients ── */}
+          {activeLinked.length > 0 && (
             <Card className="overflow-hidden rounded-2xl border border-border/60 bg-card shadow-sm">
               <div className="px-5 py-3 border-b border-border/40">
                 <div className="flex items-center gap-2">
                   <CheckCircle2 className="h-4 w-4 text-green-500" />
                   <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                    Active Clients ({active.length})
+                    Linked Clients — Shared Access ({activeLinked.length})
                   </span>
+                </div>
+                <div className="text-xs text-muted-foreground mt-0.5">
+                  Existing clients who linked their account. They control document sharing.
                 </div>
               </div>
               <div className="divide-y divide-border/40">
-                {active.map((c) => (
+                {activeLinked.map((c) => (
                   <div key={c.link_id} className="flex items-center gap-4 px-5 py-4">
                     <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800">
                       <Building2 className="h-5 w-5 text-blue-500" />
@@ -215,35 +291,33 @@ export default function FirmClientsPage() {
                         <div className="text-xs text-muted-foreground mt-0.5">Linked {formatDate(c.accepted_at)}</div>
                       )}
                     </div>
-                    <div className="flex items-center gap-2 shrink-0">
-                      <button
-                        onClick={() => unlink.mutate(c.link_id)}
-                        disabled={unlink.isPending}
-                        className="inline-flex items-center gap-1.5 rounded-xl border border-border px-3 py-2 text-xs font-medium text-muted-foreground hover:bg-destructive/10 hover:text-destructive hover:border-destructive/30 disabled:opacity-50 transition-colors"
-                      >
-                        <Link2Off className="h-3.5 w-3.5" />
-                        Unlink
-                      </button>
-                    </div>
+                    <button
+                      onClick={() => unlink.mutate(c.link_id)}
+                      disabled={unlink.isPending}
+                      className="inline-flex items-center gap-1.5 rounded-xl border border-border px-3 py-2 text-xs font-medium text-muted-foreground hover:bg-destructive/10 hover:text-destructive hover:border-destructive/30 disabled:opacity-50 transition-colors"
+                    >
+                      <Link2Off className="h-3.5 w-3.5" />
+                      Unlink
+                    </button>
                   </div>
                 ))}
               </div>
             </Card>
           )}
 
-          {/* Pending invitations */}
-          {pending.length > 0 && (
+          {/* ── Pending invitations ── */}
+          {pendingLinked.length > 0 && (
             <Card className="overflow-hidden rounded-2xl border border-amber-200/60 bg-card shadow-sm">
               <div className="px-5 py-3 border-b border-amber-200/60 dark:border-amber-800/30">
                 <div className="flex items-center gap-2">
                   <Clock className="h-4 w-4 text-amber-500" />
                   <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                    Pending Invitations ({pending.length})
+                    Pending Invitations ({pendingLinked.length})
                   </span>
                 </div>
               </div>
               <div className="divide-y divide-border/40">
-                {pending.map((c) => (
+                {pendingLinked.map((c) => (
                   <div key={c.link_id} className="flex items-center gap-4 px-5 py-4">
                     <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800">
                       <Mail className="h-5 w-5 text-amber-500" />
@@ -268,16 +342,16 @@ export default function FirmClientsPage() {
             </Card>
           )}
 
-          {/* Declined / revoked */}
-          {others.length > 0 && (
+          {/* ── Past invitations ── */}
+          {otherLinked.length > 0 && (
             <Card className="overflow-hidden rounded-2xl border border-border/60 bg-card shadow-sm">
               <div className="px-5 py-3 border-b border-border/40">
                 <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                  Past Invitations ({others.length})
+                  Past Invitations ({otherLinked.length})
                 </span>
               </div>
               <div className="divide-y divide-border/40">
-                {others.map((c) => (
+                {otherLinked.map((c) => (
                   <div key={c.link_id} className="flex items-center gap-4 px-5 py-3.5">
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2">
