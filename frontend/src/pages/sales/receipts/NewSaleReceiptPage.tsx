@@ -22,7 +22,6 @@ export default function NewSaleReceiptPage() {
   const navigate = useNavigate()
   const { data: contacts = [] } = useContacts()
   const { data: accounts = [] } = useAccounts()
-  useProducts()
 
   const [contactId, setContactId] = useState("")
   const [receiptDate, setReceiptDate] = useState(new Date().toISOString().split("T")[0])
