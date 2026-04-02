@@ -146,9 +146,17 @@ export function useFeatureFlags() {
     features.add("shared_documents")
   }
 
-  // Portal clients (signed up under a firm's white-label link) have parent_firm_id set.
-  // For these orgs: hide billing (firm owns billing), shared documents, and my accountants
-  // (they are already permanently linked to one firm — no need to manage that).
+  // TWO TYPES of accountant-linked SME accounts:
+  //
+  // TYPE 1 — Portal/invitation clients (parent_firm_id set):
+  //   Signed up via the firm's white-label URL or accepted a firm invitation.
+  //   The firm is the admin and owns billing. No billing, no shared_documents,
+  //   no my_accountants (permanently linked to one firm — nothing to manage).
+  //
+  // TYPE 2 — Self-linked clients (FirmClientLink, no parent_firm_id):
+  //   The SME found the firm and linked themselves (slug lookup / invitation accept).
+  //   They keep their own billing and control what to share.
+  //   my_accountants and shared_documents are unlocked normally (handled above).
   if (user?.parent_firm_id) {
     features.delete("billing")
     features.delete("shared_documents")

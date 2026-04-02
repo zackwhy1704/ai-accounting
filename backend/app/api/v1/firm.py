@@ -600,10 +600,13 @@ async def get_portal_info(slug: str, db: AsyncSession = Depends(get_db)):
     if not firm:
         raise HTTPException(404, "Portal not found")
 
+    logo_url = storage_service.get_presigned_url(firm.logo_url) if firm.logo_url else None
+    favicon_url = storage_service.get_presigned_url(firm.favicon_url) if firm.favicon_url else None
+
     return {
         "firm_name": firm.name,
-        "logo_url": firm.logo_url,
-        "favicon_url": firm.favicon_url,
+        "logo_url": logo_url,
+        "favicon_url": favicon_url,
         "brand_primary_color": firm.brand_primary_color or "#4D63FF",
         "brand_secondary_color": firm.brand_secondary_color or "#7C9DFF",
         "slug": firm.slug,
