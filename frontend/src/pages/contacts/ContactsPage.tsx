@@ -123,7 +123,7 @@ export default function ContactsPage() {
           { label: "Company", value: viewItem.company ?? "—" },
           { label: "Email", value: viewItem.email ?? "—" },
           { label: "Phone", value: viewItem.phone ?? "—" },
-          { label: "Tax ID", value: viewItem.tax_id ?? "—" },
+          { label: "Tax ID", value: viewItem.tax_number ?? "—" },
         ] : []}
       />
     </div>

@@ -175,12 +175,11 @@ export default function BillsPage() {
           { label: "Issue Date", value: formatDate(viewItem.issue_date) },
           { label: "Due Date", value: viewItem.due_date ? formatDate(viewItem.due_date) : "—" },
           { label: "Subtotal", value: formatCurrency(viewItem.subtotal) },
-          { label: "Tax", value: formatCurrency(viewItem.tax ?? 0) },
+          { label: "Tax", value: formatCurrency(viewItem.tax_amount ?? 0) },
           { label: "Total", value: formatCurrency(viewItem.total) },
           { label: "Amount Paid", value: formatCurrency(viewItem.amount_paid ?? 0) },
           { label: "Balance Due", value: formatCurrency(viewItem.total - (viewItem.amount_paid ?? 0)) },
           { label: "Currency", value: viewItem.currency ?? "MYR" },
-          { label: "Notes", value: viewItem.notes ?? "—" },
         ] : []}
       />
     </div>

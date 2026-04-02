@@ -133,7 +133,7 @@ export default function GoodsReceivedNotesPage() {
           { label: "Status", value: <Badge variant="outline" className={cn("rounded-lg px-2 py-0.5 text-[11px] font-semibold", statusColors[viewItem.status] ?? "")}>{viewItem.status.charAt(0).toUpperCase() + viewItem.status.slice(1)}</Badge> },
           { label: "Vendor", value: contactMap.get(viewItem.contact_id) ?? "—" },
           { label: "Date", value: formatDate(viewItem.received_date) },
-          { label: "PO Reference", value: viewItem.po_id ?? "—" },
+          { label: "PO Reference", value: viewItem.purchase_order_id ?? "—" },
         ] : []}
       />
     </div>
