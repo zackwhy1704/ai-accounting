@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react"
 import { useNavigate } from "react-router-dom"
+import { useQueryClient } from "@tanstack/react-query"
 import { Plus, Search, Package, Eye, Pencil, ArrowUpDown, Trash2 } from "lucide-react"
 import { useProducts } from "../../lib/hooks"
 import { formatCurrency } from "../../lib/utils"
@@ -9,6 +10,7 @@ import { Input } from "../../components/ui/input"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../../components/ui/table"
 import { Badge } from "../../components/ui/badge"
 import { RowActionsMenu } from "../../components/ui/row-actions"
+import api from "../../lib/api"
 
 const typeColors: Record<string, string> = {
   service: "bg-blue-500/10 text-blue-700 border-blue-400/20",
@@ -20,6 +22,7 @@ export default function ProductsPage() {
   const navigate = useNavigate()
   const [search, setSearch] = useState("")
   const { data: products = [], isLoading } = useProducts()
+  const queryClient = useQueryClient()
 
   const rows = useMemo(() => {
     if (!search.trim()) return products
@@ -81,7 +84,7 @@ export default function ProductsPage() {
               </TableHeader>
               <TableBody>
                 {rows.map(p => (
-                  <TableRow key={p.id} className="border-border hover:bg-muted/50 cursor-pointer" onClick={() => navigate(`/products/${p.id}`)}>
+                  <TableRow key={p.id} className="border-border hover:bg-muted/50">
                     <TableCell className="text-muted-foreground">{p.code ?? "—"}</TableCell>
                     <TableCell>
                       <div className="font-medium text-foreground">{p.name}</div>
@@ -97,12 +100,12 @@ export default function ProductsPage() {
                     <TableCell className="text-right text-foreground">
                       {p.track_inventory ? Number(p.qty_on_hand).toFixed(2) : "—"}
                     </TableCell>
-                    <TableCell className="text-right" onClick={e => e.stopPropagation()}>
+                    <TableCell className="text-right">
                       <RowActionsMenu actions={[
-                        { label: "View", icon: <Eye className="h-4 w-4" />, onClick: () => navigate(`/products/${p.id}`) },
-                        { label: "Edit", icon: <Pencil className="h-4 w-4" />, onClick: () => navigate(`/products/${p.id}/edit`) },
+                        { label: "View", icon: <Eye className="h-4 w-4" />, onClick: () => navigate(`/products/new?view=${p.id}`) },
+                        { label: "Edit", icon: <Pencil className="h-4 w-4" />, onClick: () => navigate(`/products/new?edit=${p.id}`) },
                         { label: "Adjust Stock", icon: <ArrowUpDown className="h-4 w-4" />, onClick: () => navigate(`/stock/adjustments/new?product_id=${p.id}`), dividerBefore: true },
-                        { label: "Delete", icon: <Trash2 className="h-4 w-4" />, onClick: () => {}, danger: true, dividerBefore: true },
+                        { label: "Delete", icon: <Trash2 className="h-4 w-4" />, onClick: () => { if (confirm("Are you sure you want to delete this product?")) api.delete(`/products/${p.id}`).then(() => queryClient.invalidateQueries({ queryKey: ["products"] })) }, danger: true, dividerBefore: true },
                       ]} />
                     </TableCell>
                   </TableRow>

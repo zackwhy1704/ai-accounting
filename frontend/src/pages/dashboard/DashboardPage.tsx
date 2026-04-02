@@ -5,7 +5,7 @@ import { useNavigate } from "react-router-dom"
 import { Card } from "../../components/ui/card"
 import { Button } from "../../components/ui/button"
 import { Plus, ChevronDown, FileText, Receipt } from "lucide-react"
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useState } from "react"
 import {
   CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from "recharts"
@@ -48,26 +48,28 @@ export default function DashboardPage() {
   const { t } = useTheme()
   const navigate = useNavigate()
   const [mounted, setMounted] = useState(false)
-  const [range, setRange] = useState<RangeKey>("7")
+  const [rangeIncome, setRangeIncome] = useState<RangeKey>("7")
+  const [rangePL, setRangePL] = useState<RangeKey>("7")
+  const [rangeExpenses, setRangeExpenses] = useState<RangeKey>("7")
+  const [rangeCash, setRangeCash] = useState<RangeKey>("7")
   useEffect(() => { setMounted(true) }, [])
 
-  const dayCount = Number(range)
-  const chartLabels = useMemo(() => {
-    if (dayCount <= 7) return ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
-    return Array.from({ length: Math.min(dayCount, 12) }, (_, i) => {
-      const d = new Date()
-      d.setDate(d.getDate() - (dayCount - 1) + Math.floor(i * (dayCount / 12)))
-      return d.toLocaleDateString(undefined, { month: "short", day: "numeric" })
-    })
-  }, [dayCount])
-
-  const chartData = chartLabels.map((label) => ({ label, value: 0 }))
+  const makeChartData = (days: number) => {
+    const labels = days <= 7
+      ? ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+      : Array.from({ length: Math.min(days, 12) }, (_, i) => {
+          const d = new Date()
+          d.setDate(d.getDate() - (days - 1) + Math.floor(i * (days / 12)))
+          return d.toLocaleDateString(undefined, { month: "short", day: "numeric" })
+        })
+    return labels.map((label) => ({ label, value: 0 }))
+  }
 
   const chartCards = [
-    { title: t("dashboard.income"), netLabel: `NET ${formatCurrency(data?.total_revenue ?? 0)}`, data: chartData, lineColor: "#7C9DFF" },
-    { title: t("dashboard.profitLoss"), netLabel: `NET ${formatCurrency(data?.net_income ?? 0)}`, data: chartData, lineColor: "#7C9DFF" },
-    { title: t("dashboard.expenses"), netLabel: `NET ${formatCurrency(data?.total_expenses ?? 0)}`, data: chartData, lineColor: "#FF6B8A" },
-    { title: t("dashboard.cashBalance"), netLabel: `${formatCurrency(data?.cash_balance ?? 0)}`, data: chartData, lineColor: "#5CE6C6" },
+    { title: t("dashboard.income"), netLabel: `NET ${formatCurrency(data?.total_revenue ?? 0)}`, data: makeChartData(Number(rangeIncome)), lineColor: "#7C9DFF", range: rangeIncome, setRange: setRangeIncome },
+    { title: t("dashboard.profitLoss"), netLabel: `NET ${formatCurrency(data?.net_income ?? 0)}`, data: makeChartData(Number(rangePL)), lineColor: "#7C9DFF", range: rangePL, setRange: setRangePL },
+    { title: t("dashboard.expenses"), netLabel: `NET ${formatCurrency(data?.total_expenses ?? 0)}`, data: makeChartData(Number(rangeExpenses)), lineColor: "#FF6B8A", range: rangeExpenses, setRange: setRangeExpenses },
+    { title: t("dashboard.cashBalance"), netLabel: `${formatCurrency(data?.cash_balance ?? 0)}`, data: makeChartData(Number(rangeCash)), lineColor: "#5CE6C6", range: rangeCash, setRange: setRangeCash },
   ]
 
   if (isLoading) {
@@ -136,7 +138,7 @@ export default function DashboardPage() {
                   <span className="font-semibold text-foreground">{c.netLabel}</span>
                 </div>
               </div>
-              <RangeDropdown value={range} onChange={setRange} />
+              <RangeDropdown value={c.range} onChange={c.setRange} />
             </div>
             <div className="mt-4 w-full min-h-[176px]">
               {mounted ? (
