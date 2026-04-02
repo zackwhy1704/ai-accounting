@@ -55,6 +55,25 @@ async def health():
     return {"status": "healthy", "app": settings.APP_NAME, "version": "0.1.0"}
 
 
+@app.post("/api/health/email")
+async def test_email(to: str):
+    """Dev-only: send a test email. Usage: POST /api/health/email?to=you@example.com"""
+    if not settings.RESEND_API_KEY:
+        return {"status": "error", "detail": "RESEND_API_KEY is not set in .env"}
+    try:
+        import resend
+        resend.api_key = settings.RESEND_API_KEY
+        result = resend.Emails.send({
+            "from": settings.EMAIL_FROM,
+            "to": [to],
+            "subject": "Accruly — email test",
+            "html": "<p>This is a test email from your Accruly backend. If you're seeing this, email sending works! 🎉</p>",
+        })
+        return {"status": "sent", "resend_id": result.get("id"), "to": to, "from": settings.EMAIL_FROM}
+    except Exception as e:
+        return {"status": "error", "detail": str(e)}
+
+
 @app.get("/api/health/db")
 async def health_db():
     """Health check that tests actual DB connectivity."""

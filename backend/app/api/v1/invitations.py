@@ -96,9 +96,50 @@ async def send_invite(
     await db.commit()
     await db.refresh(link)
 
-    # TODO: send branded email with link
-    # accept_url = f"{settings.FRONTEND_URL}/accept-client-invite?token={token}"
-    # await send_invite_email(to=data.client_email, firm_name=org.name, url=accept_url, note=data.note)
+    # Send branded invitation email
+    from app.core.config import get_settings
+    settings = get_settings()
+    accept_url = f"{settings.FRONTEND_URL}/accept-client-invite?token={token}"
+
+    if settings.RESEND_API_KEY:
+        try:
+            import resend
+            resend.api_key = settings.RESEND_API_KEY
+            primary = org.brand_primary_color or "#4D63FF"
+            secondary = org.brand_secondary_color or "#7C9DFF"
+            note_block = f'<p style="color:#555;font-size:14px;font-style:italic;">"{data.note}"</p>' if data.note else ""
+            resend.Emails.send({
+                "from": settings.EMAIL_FROM,
+                "to": [data.client_email],
+                "subject": f"{org.name} has invited you to collaborate on Accruly",
+                "html": f"""
+                <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;max-width:520px;margin:0 auto;padding:24px;">
+                    <div style="background:linear-gradient(135deg,{primary},{secondary});border-radius:16px;padding:32px;text-align:center;margin-bottom:24px;">
+                        <h1 style="color:white;margin:0;font-size:22px;">{org.name}</h1>
+                        <p style="color:rgba(255,255,255,0.8);margin:8px 0 0;font-size:14px;">Client Invitation</p>
+                    </div>
+                    <p style="color:#333;font-size:15px;">Hi there,</p>
+                    <p style="color:#555;font-size:14px;line-height:1.6;">
+                        <strong>{org.name}</strong> has invited you to link your Accruly account so they can collaborate with you on your accounting.
+                    </p>
+                    {note_block}
+                    <div style="text-align:center;margin:28px 0;">
+                        <a href="{accept_url}" style="display:inline-block;padding:14px 32px;background:linear-gradient(135deg,{primary},{secondary});color:white;text-decoration:none;border-radius:12px;font-weight:600;font-size:15px;">
+                            Accept Invitation
+                        </a>
+                    </div>
+                    <p style="color:#999;font-size:12px;text-align:center;">
+                        If you don't have an Accruly account yet, you'll be prompted to create one.<br/>
+                        This invitation expires in 30 days.
+                    </p>
+                    <hr style="border:none;border-top:1px solid #eee;margin:24px 0;" />
+                    <p style="color:#bbb;font-size:11px;text-align:center;">Powered by Accruly</p>
+                </div>
+                """,
+            })
+        except Exception as e:
+            import logging
+            logging.getLogger(__name__).error(f"Failed to send invite email to {data.client_email}: {e}")
 
     return {
         "status": "sent",
