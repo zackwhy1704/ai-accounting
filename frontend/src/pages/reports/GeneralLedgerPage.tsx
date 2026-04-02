@@ -1,10 +1,10 @@
 import { useState } from "react"
-import { Loader2 } from "lucide-react"
+import { Loader2, Download, Printer } from "lucide-react"
 import { useQuery } from "@tanstack/react-query"
 import { Card } from "../../components/ui/card"
 import { Button } from "../../components/ui/button"
 import { Input } from "../../components/ui/input"
-import { formatCurrency, formatDate } from "../../lib/utils"
+import { formatCurrency, formatDate, downloadCSV, printReport } from "../../lib/utils"
 import api from "../../lib/api"
 
 interface LedgerEntry {
@@ -63,6 +63,29 @@ export default function GeneralLedgerPage() {
           <div className="mt-1 text-sm text-muted-foreground">All transactions grouped by account</div>
         </div>
       </div>
+
+      {data && data.accounts.length > 0 && (
+        <div className="flex gap-2 print:hidden">
+          <Button variant="outline" size="sm" onClick={() => {
+            const rows: string[][] = [
+              ["General Ledger", `${queryParams.fromDate} to ${queryParams.toDate}`],
+              [],
+              ["Account Code", "Account Name", "Date", "Description", "Reference", "Debit", "Credit", "Balance"],
+            ]
+            data.accounts.forEach(acc => {
+              acc.entries.forEach(e => {
+                rows.push([acc.account_code, acc.account_name, e.date, e.description, e.reference ?? "", e.debit > 0 ? e.debit.toFixed(2) : "", e.credit > 0 ? e.credit.toFixed(2) : "", e.balance.toFixed(2)])
+              })
+            })
+            downloadCSV(`general-ledger-${queryParams.fromDate}-${queryParams.toDate}.csv`, rows)
+          }}>
+            <Download className="mr-1.5 h-3.5 w-3.5" /> CSV
+          </Button>
+          <Button variant="outline" size="sm" onClick={printReport}>
+            <Printer className="mr-1.5 h-3.5 w-3.5" /> Print / PDF
+          </Button>
+        </div>
+      )}
 
       {/* Filter panel */}
       <Card className="rounded-2xl border-border bg-card p-4 shadow-[0_0_0_1px_rgba(15,23,42,0.06),0_18px_55px_rgba(2,6,23,0.08)]">

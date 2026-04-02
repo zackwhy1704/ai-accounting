@@ -1,10 +1,10 @@
 import { useState } from "react"
-import { Loader2 } from "lucide-react"
+import { Loader2, Download, Printer } from "lucide-react"
 import { useQuery } from "@tanstack/react-query"
 import { Card } from "../../components/ui/card"
 import { Button } from "../../components/ui/button"
 import { Input } from "../../components/ui/input"
-import { formatCurrency } from "../../lib/utils"
+import { formatCurrency, downloadCSV, printReport } from "../../lib/utils"
 import api from "../../lib/api"
 
 interface TrialBalanceLine {
@@ -66,6 +66,24 @@ export default function TrialBalancePage() {
           <div className="mt-1 text-sm text-muted-foreground">Account debit and credit balances as at a given date</div>
         </div>
       </div>
+
+      {data && data.lines.length > 0 && (
+        <div className="flex gap-2 print:hidden">
+          <Button variant="outline" size="sm" onClick={() => downloadCSV(`trial-balance-${activeAsAt}.csv`, [
+            ["Trial Balance", `As at ${activeAsAt}`],
+            [],
+            ["Code", "Account Name", "Type", "Debit", "Credit"],
+            ...data.lines.map(l => [l.code, l.name, l.account_type, l.debit > 0 ? l.debit.toFixed(2) : "", l.credit > 0 ? l.credit.toFixed(2) : ""]),
+            [],
+            ["", "Total", "", data.totals.debit.toFixed(2), data.totals.credit.toFixed(2)],
+          ])}>
+            <Download className="mr-1.5 h-3.5 w-3.5" /> CSV
+          </Button>
+          <Button variant="outline" size="sm" onClick={printReport}>
+            <Printer className="mr-1.5 h-3.5 w-3.5" /> Print / PDF
+          </Button>
+        </div>
+      )}
 
       {/* Filter panel */}
       <Card className="rounded-2xl border-border bg-card p-4 shadow-[0_0_0_1px_rgba(15,23,42,0.06),0_18px_55px_rgba(2,6,23,0.08)]">

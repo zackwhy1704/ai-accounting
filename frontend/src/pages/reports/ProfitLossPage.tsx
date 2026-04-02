@@ -1,10 +1,10 @@
 import { useState } from "react"
-import { Loader2 } from "lucide-react"
+import { Loader2, Download, Printer } from "lucide-react"
 import { useQuery } from "@tanstack/react-query"
 import { Card } from "../../components/ui/card"
 import { Button } from "../../components/ui/button"
 import { Input } from "../../components/ui/input"
-import { formatCurrency } from "../../lib/utils"
+import { formatCurrency, downloadCSV, printReport } from "../../lib/utils"
 import api from "../../lib/api"
 
 interface ProfitLossReport {
@@ -43,6 +43,27 @@ export default function ProfitLossPage() {
         <div className="mt-1 text-2xl font-semibold tracking-tight text-foreground">Profit & Loss</div>
         <div className="mt-1 text-sm text-muted-foreground">Revenue, expenses and net income for a period</div>
       </div>
+      {data && (
+        <div className="flex gap-2 print:hidden">
+          <Button variant="outline" size="sm" onClick={() => downloadCSV(`profit-loss-${data.start_date}-${data.end_date}.csv`, [
+            ["Profit & Loss", `${data.start_date} to ${data.end_date}`],
+            [],
+            ["Category", "Amount"],
+            [`Sales Revenue (${data.sections.revenue.invoice_count} invoices)`, data.sections.revenue.total.toFixed(2)],
+            ["Total Revenue", data.sections.revenue.total.toFixed(2)],
+            [],
+            [`Operating Expenses (${data.sections.expenses.bill_count} bills)`, data.sections.expenses.total.toFixed(2)],
+            ["Total Expenses", data.sections.expenses.total.toFixed(2)],
+            [],
+            ["Net Income", data.net_income.toFixed(2)],
+          ])}>
+            <Download className="mr-1.5 h-3.5 w-3.5" /> CSV
+          </Button>
+          <Button variant="outline" size="sm" onClick={printReport}>
+            <Printer className="mr-1.5 h-3.5 w-3.5" /> Print / PDF
+          </Button>
+        </div>
+      )}
 
       <Card className="rounded-2xl border-border bg-card p-4 shadow-[0_0_0_1px_rgba(15,23,42,0.06),0_18px_55px_rgba(2,6,23,0.08)]">
         <div className="flex items-end gap-4">

@@ -1,10 +1,10 @@
 import { useState } from "react"
-import { Loader2 } from "lucide-react"
+import { Loader2, Download, Printer } from "lucide-react"
 import { useQuery } from "@tanstack/react-query"
 import { Card } from "../../components/ui/card"
 import { Button } from "../../components/ui/button"
 import { Input } from "../../components/ui/input"
-import { formatCurrency } from "../../lib/utils"
+import { formatCurrency, downloadCSV, printReport } from "../../lib/utils"
 import api from "../../lib/api"
 
 interface PaymentSummaryItem {
@@ -38,6 +38,23 @@ export default function PaymentSummaryPage() {
         <div className="mt-1 text-2xl font-semibold tracking-tight text-foreground">Payment Summary</div>
         <div className="mt-1 text-sm text-muted-foreground">Sales payments received by customer</div>
       </div>
+      {data && data.items.length > 0 && (
+        <div className="flex gap-2 print:hidden">
+          <Button variant="outline" size="sm" onClick={() => downloadCSV(`payment-summary-${data.start_date}-${data.end_date}.csv`, [
+            ["Payment Summary", `${data.start_date} to ${data.end_date}`],
+            [],
+            ["Customer", "Invoices", "Total Paid"],
+            ...data.items.map(i => [i.customer_name, String(i.invoice_count), i.total_paid.toFixed(2)]),
+            [],
+            ["", "Total", data.total.toFixed(2)],
+          ])}>
+            <Download className="mr-1.5 h-3.5 w-3.5" /> CSV
+          </Button>
+          <Button variant="outline" size="sm" onClick={printReport}>
+            <Printer className="mr-1.5 h-3.5 w-3.5" /> Print / PDF
+          </Button>
+        </div>
+      )}
 
       <Card className="rounded-2xl border-border bg-card p-4 shadow-[0_0_0_1px_rgba(15,23,42,0.06),0_18px_55px_rgba(2,6,23,0.08)]">
         <div className="flex items-end gap-4">

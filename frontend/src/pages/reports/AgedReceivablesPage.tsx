@@ -1,10 +1,10 @@
 import { useState } from "react"
-import { Loader2 } from "lucide-react"
+import { Loader2, Download, Printer } from "lucide-react"
 import { useQuery } from "@tanstack/react-query"
 import { Card } from "../../components/ui/card"
 import { Button } from "../../components/ui/button"
 import { Input } from "../../components/ui/input"
-import { formatCurrency, formatDate } from "../../lib/utils"
+import { formatCurrency, formatDate, downloadCSV, printReport } from "../../lib/utils"
 import api from "../../lib/api"
 
 interface BucketEntry {
@@ -77,6 +77,28 @@ export default function AgedReceivablesPage() {
           </Button>
         </div>
       </Card>
+
+      {hasData && (
+        <div className="flex gap-2 print:hidden">
+          <Button variant="outline" size="sm" onClick={() => {
+            const rows: string[][] = [
+              ["Aged Receivables", `As of ${data!.as_of_date}`],
+              [],
+              ["Invoice", "Customer", "Due Date", "Days Overdue", "Aging", "Amount Due"],
+            ]
+            BUCKET_ORDER.forEach(b => (data!.buckets[b] ?? []).forEach(e => {
+              rows.push([e.invoice_number, e.contact_name, e.due_date ?? "", String(e.days_overdue), BUCKET_LABELS[b], e.amount_due.toFixed(2)])
+            }))
+            rows.push([], ["", "", "", "", "Grand Total", data!.grand_total.toFixed(2)])
+            downloadCSV(`aged-receivables-${data!.as_of_date}.csv`, rows)
+          }}>
+            <Download className="mr-1.5 h-3.5 w-3.5" /> CSV
+          </Button>
+          <Button variant="outline" size="sm" onClick={printReport}>
+            <Printer className="mr-1.5 h-3.5 w-3.5" /> Print / PDF
+          </Button>
+        </div>
+      )}
 
       {/* Summary cards */}
       {data && (
