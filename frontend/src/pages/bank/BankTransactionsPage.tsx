@@ -1,5 +1,6 @@
 import { useState } from "react"
 import { useNavigate } from "react-router-dom"
+import { ViewDetailSheet } from "../../components/ui/view-detail-sheet"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { Plus, Search, ArrowDownCircle, ArrowUpCircle, FileText, Tag, ArrowRightLeft, Trash2 } from "lucide-react"
 import api from "../../lib/api"
@@ -45,6 +46,7 @@ export default function BankTransactionsPage({ type }: Props) {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const [search, setSearch] = useState("")
+  const [viewItem, setViewItem] = useState<BankTransaction | null>(null)
   const [dateFrom, setDateFrom] = useState("")
   const [dateTo, setDateTo] = useState("")
   const [bankAccountId, setBankAccountId] = useState("all")
@@ -199,7 +201,7 @@ export default function BankTransactionsPage({ type }: Props) {
                     </TableCell>
                     <TableCell className="text-right">
                       <RowActionsMenu actions={[
-                        { label: "View", icon: <FileText className="h-4 w-4" />, onClick: () => navigate(`/bank/transactions/${t.id}`) },
+                        { label: "View", icon: <FileText className="h-4 w-4" />, onClick: () => setViewItem(t) },
                         { label: "Categorise", icon: <Tag className="h-4 w-4" />, onClick: () => navigate(`/bank/transactions/${t.id}/categorise`), dividerBefore: true },
                         { label: "Match to Invoice", icon: <ArrowRightLeft className="h-4 w-4" />, onClick: () => navigate(`/bank/transactions/${t.id}/match`) },
                         { label: "Delete", icon: <Trash2 className="h-4 w-4" />, onClick: () => { if (confirm("Delete this transaction?")) api.delete(`/bank-transactions/${t.id}`).then(() => queryClient.invalidateQueries({ queryKey: ["bank-transactions", type] })) }, danger: true, dividerBefore: true },
@@ -212,6 +214,22 @@ export default function BankTransactionsPage({ type }: Props) {
           </div>
         )}
       </Card>
+      <ViewDetailSheet
+        open={!!viewItem}
+        onOpenChange={(open) => { if (!open) setViewItem(null) }}
+        title={viewItem ? `Transaction ${viewItem.transaction_number}` : ""}
+        subtitle={viewItem?.status ? viewItem.status.charAt(0).toUpperCase() + viewItem.status.slice(1) : undefined}
+        fields={viewItem ? [
+          { label: "Date", value: formatDate(viewItem.transaction_date) },
+          { label: "Description", value: viewItem.contact_name || "—" },
+          { label: "Reference", value: viewItem.reference_number || "—" },
+          { label: "Type", value: viewItem.transaction_type === "income" ? "Money In" : "Money Out" },
+          { label: "Amount", value: formatCurrency(viewItem.amount, viewItem.currency) },
+          { label: "Category", value: viewItem.category || "—" },
+          { label: "Payment Method", value: "—" },
+          { label: "Status", value: <Badge variant="outline" className={cn("rounded-lg px-2 py-0.5 text-[11px] font-semibold", statusColors[viewItem.status] ?? "")}>{viewItem.status.charAt(0).toUpperCase() + viewItem.status.slice(1)}</Badge> },
+        ] : []}
+      />
     </div>
   )
 }

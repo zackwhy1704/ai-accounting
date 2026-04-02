@@ -1,5 +1,6 @@
 import { useState } from "react"
 import { useNavigate } from "react-router-dom"
+import { ViewDetailSheet } from "../../components/ui/view-detail-sheet"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { Plus, Search, ArrowLeftRight, FileText, Trash2 } from "lucide-react"
 import api from "../../lib/api"
@@ -33,6 +34,7 @@ export default function BankTransfersPage() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const [search, setSearch] = useState("")
+  const [viewItem, setViewItem] = useState<BankTransfer | null>(null)
 
   const { data: transfers = [], isLoading } = useQuery<BankTransfer[]>({
     queryKey: ["bank-transfers"],
@@ -127,7 +129,7 @@ export default function BankTransfersPage() {
                     </TableCell>
                     <TableCell className="text-right">
                       <RowActionsMenu actions={[
-                        { label: "View", icon: <FileText className="h-4 w-4" />, onClick: () => navigate(`/bank/transfers/${t.id}`) },
+                        { label: "View", icon: <FileText className="h-4 w-4" />, onClick: () => setViewItem(t) },
                         { label: "Delete", icon: <Trash2 className="h-4 w-4" />, onClick: () => { if (confirm("Delete this transfer?")) api.delete(`/bank-transfers/${t.id}`).then(() => queryClient.invalidateQueries({ queryKey: ["bank-transfers"] })) }, danger: true, dividerBefore: true },
                       ]} />
                     </TableCell>
@@ -138,6 +140,20 @@ export default function BankTransfersPage() {
           </div>
         )}
       </Card>
+      <ViewDetailSheet
+        open={!!viewItem}
+        onOpenChange={(open) => { if (!open) setViewItem(null) }}
+        title={viewItem ? `Transfer ${viewItem.transfer_number}` : ""}
+        subtitle={viewItem?.status ? viewItem.status.charAt(0).toUpperCase() + viewItem.status.slice(1) : undefined}
+        fields={viewItem ? [
+          { label: "Date", value: formatDate(viewItem.transfer_date) },
+          { label: "Reference", value: viewItem.reference_number || "—" },
+          { label: "From Account", value: viewItem.from_account_name },
+          { label: "To Account", value: viewItem.to_account_name },
+          { label: "Amount", value: formatCurrency(viewItem.amount, viewItem.currency) },
+          { label: "Status", value: <Badge variant="outline" className={cn("rounded-lg px-2 py-0.5 text-[11px] font-semibold", statusColors[viewItem.status] ?? "")}>{viewItem.status.charAt(0).toUpperCase() + viewItem.status.slice(1)}</Badge> },
+        ] : []}
+      />
     </div>
   )
 }

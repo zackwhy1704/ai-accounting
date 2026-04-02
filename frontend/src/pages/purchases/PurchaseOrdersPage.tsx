@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react"
 import { useQueryClient } from "@tanstack/react-query"
 import { useNavigate } from "react-router-dom"
+import { ViewDetailSheet } from "../../components/ui/view-detail-sheet"
 import { Plus, ShoppingCart, FileText, Pencil, ArrowRightLeft, Copy, XCircle } from "lucide-react"
 import { usePurchaseOrders, useContacts } from "../../lib/hooks"
 import api from "../../lib/api"
@@ -35,6 +36,7 @@ export default function PurchaseOrdersPage() {
   const [tab, setTab] = useState("all")
   const { data: purchaseOrders = [], isLoading } = usePurchaseOrders(tab === "all" ? undefined : tab)
   const { data: contacts = [] } = useContacts()
+  const [viewItem, setViewItem] = useState<typeof purchaseOrders[0] | null>(null)
 
   const contactMap = useMemo(() => {
     const m = new Map<string, string>()
@@ -135,7 +137,7 @@ export default function PurchaseOrdersPage() {
                     </TableCell>
                     <TableCell className="text-right">
                       <RowActionsMenu actions={[
-                        { label: "View", icon: <FileText className="h-3.5 w-3.5" />, onClick: () => navigate(`/purchases/orders/${po.id}`) },
+                        { label: "View", icon: <FileText className="h-3.5 w-3.5" />, onClick: () => setViewItem(po) },
                         { label: "Edit", icon: <Pencil className="h-3.5 w-3.5" />, onClick: () => navigate(`/purchases/orders/${po.id}/edit`) },
                         { label: "Convert to Bill", icon: <ArrowRightLeft className="h-3.5 w-3.5" />, onClick: () => navigate(`/purchases/bills/new?from_po=${po.id}`), dividerBefore: true },
                         { label: "Duplicate", icon: <Copy className="h-3.5 w-3.5" />, onClick: () => navigate(`/purchases/orders/new?copy=${po.id}`) },
@@ -149,6 +151,20 @@ export default function PurchaseOrdersPage() {
           </div>
         )}
       </Card>
+      <ViewDetailSheet
+        open={!!viewItem}
+        onOpenChange={(open) => { if (!open) setViewItem(null) }}
+        title={viewItem ? `PO ${viewItem.po_number}` : ""}
+        subtitle={viewItem?.status ? viewItem.status.charAt(0).toUpperCase() + viewItem.status.slice(1) : undefined}
+        fields={viewItem ? [
+          { label: "PO Number", value: viewItem.po_number },
+          { label: "Status", value: <Badge variant="outline" className={cn("rounded-lg px-2 py-0.5 text-[11px] font-semibold", statusColors[viewItem.status] ?? "")}>{viewItem.status.charAt(0).toUpperCase() + viewItem.status.slice(1)}</Badge> },
+          { label: "Vendor", value: contactMap.get(viewItem.contact_id) ?? "—" },
+          { label: "Date", value: formatDate(viewItem.issue_date) },
+          { label: "Total", value: formatCurrency(viewItem.total, viewItem.currency) },
+          { label: "Currency", value: viewItem.currency ?? "MYR" },
+        ] : []}
+      />
     </div>
   )
 }

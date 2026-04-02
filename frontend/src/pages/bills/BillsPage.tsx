@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react"
 import { useQueryClient } from "@tanstack/react-query"
 import { useNavigate } from "react-router-dom"
+import { ViewDetailSheet } from "../../components/ui/view-detail-sheet"
 import { Plus, Search, CalendarDays, FileText, Copy, Printer, XCircle, CreditCard } from "lucide-react"
 import { useBills, useContacts } from "../../lib/hooks"
 import api from "../../lib/api"
@@ -33,6 +34,7 @@ export default function BillsPage() {
   const { data: bills = [], isLoading } = useBills(tab === "all" ? undefined : tab)
   const { data: contacts = [] } = useContacts()
   const { t } = useTheme()
+  const [viewItem, setViewItem] = useState<typeof bills[0] | null>(null)
 
   const statusTabs = [
     { label: t("common.all"), value: "all" },
@@ -133,7 +135,7 @@ export default function BillsPage() {
                             <TableCell><Badge variant="outline" className={cn("rounded-lg px-2 py-0.5 text-[11px] font-semibold", statusColors[bill.status] ?? "")}>{bill.status.charAt(0).toUpperCase() + bill.status.slice(1)}</Badge></TableCell>
                             <TableCell className="text-right">
                               <RowActionsMenu actions={[
-                                { label: "View", icon: <FileText className="h-3.5 w-3.5" />, onClick: () => navigate(`/purchases/bills/${bill.id}`) },
+                                { label: "View", icon: <FileText className="h-3.5 w-3.5" />, onClick: () => setViewItem(bill) },
                                 { label: t("invoices.addPayment"), icon: <CreditCard className="h-3.5 w-3.5" />, onClick: () => navigate(`/purchases/payments/new?bill_id=${bill.id}`), dividerBefore: true },
                                 { label: t("invoices.duplicate"), icon: <Copy className="h-3.5 w-3.5" />, onClick: () => navigate(`/purchases/bills/new?copy=${bill.id}`) },
                                 { label: t("invoices.printPdf"), icon: <Printer className="h-3.5 w-3.5" />, onClick: () => window.print() },
@@ -161,6 +163,26 @@ export default function BillsPage() {
           </Card>
         </div>
       </div>
+      <ViewDetailSheet
+        open={!!viewItem}
+        onOpenChange={(open) => { if (!open) setViewItem(null) }}
+        title={viewItem ? `Bill ${viewItem.bill_number}` : ""}
+        subtitle={viewItem?.status ? viewItem.status.charAt(0).toUpperCase() + viewItem.status.slice(1) : undefined}
+        fields={viewItem ? [
+          { label: "Bill Number", value: viewItem.bill_number },
+          { label: "Status", value: <Badge variant="outline" className={cn("rounded-lg px-2 py-0.5 text-[11px] font-semibold", statusColors[viewItem.status] ?? "")}>{viewItem.status.charAt(0).toUpperCase() + viewItem.status.slice(1)}</Badge> },
+          { label: "Vendor", value: contactMap.get(viewItem.contact_id) ?? "—" },
+          { label: "Issue Date", value: formatDate(viewItem.issue_date) },
+          { label: "Due Date", value: viewItem.due_date ? formatDate(viewItem.due_date) : "—" },
+          { label: "Subtotal", value: formatCurrency(viewItem.subtotal) },
+          { label: "Tax", value: formatCurrency(viewItem.tax ?? 0) },
+          { label: "Total", value: formatCurrency(viewItem.total) },
+          { label: "Amount Paid", value: formatCurrency(viewItem.amount_paid ?? 0) },
+          { label: "Balance Due", value: formatCurrency(viewItem.total - (viewItem.amount_paid ?? 0)) },
+          { label: "Currency", value: viewItem.currency ?? "MYR" },
+          { label: "Notes", value: viewItem.notes ?? "—" },
+        ] : []}
+      />
     </div>
   )
 }

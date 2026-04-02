@@ -1,5 +1,6 @@
 import { useState } from "react"
 import { useNavigate } from "react-router-dom"
+import { ViewDetailSheet } from "../../components/ui/view-detail-sheet"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { Plus, Search, FileX, FileText, ArrowRightLeft, XCircle } from "lucide-react"
 import api from "../../lib/api"
@@ -32,6 +33,7 @@ export default function PurchaseCreditNotesPage() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const [search, setSearch] = useState("")
+  const [viewItem, setViewItem] = useState<VendorCredit | null>(null)
 
   const { data: credits = [], isLoading } = useQuery<VendorCredit[]>({
     queryKey: ["vendor-credits"],
@@ -120,7 +122,7 @@ export default function PurchaseCreditNotesPage() {
                     </TableCell>
                     <TableCell className="text-right">
                       <RowActionsMenu actions={[
-                        { label: "View", icon: <FileText className="h-3.5 w-3.5" />, onClick: () => navigate(`/purchases/credit-notes/${c.id}`) },
+                        { label: "View", icon: <FileText className="h-3.5 w-3.5" />, onClick: () => setViewItem(c) },
                         { label: "Apply to Bill", icon: <ArrowRightLeft className="h-3.5 w-3.5" />, onClick: () => navigate(`/purchases/bills/new?credit_id=${c.id}`), dividerBefore: true },
                         { label: "Void", icon: <XCircle className="h-3.5 w-3.5" />, onClick: () => { if (confirm("Void this credit note?")) api.patch(`/purchase-credit-notes/${c.id}`, { status: "void" }).then(() => queryClient.invalidateQueries({ queryKey: ["vendor-credits"] })) }, danger: true, dividerBefore: true },
                       ]} />
@@ -132,6 +134,19 @@ export default function PurchaseCreditNotesPage() {
           </div>
         )}
       </Card>
+      <ViewDetailSheet
+        open={!!viewItem}
+        onOpenChange={(open) => { if (!open) setViewItem(null) }}
+        title={viewItem ? `CN ${viewItem.credit_number}` : ""}
+        subtitle={viewItem?.status ? viewItem.status.charAt(0).toUpperCase() + viewItem.status.slice(1) : undefined}
+        fields={viewItem ? [
+          { label: "CN Number", value: viewItem.credit_number },
+          { label: "Status", value: <Badge variant="outline" className={cn("rounded-lg px-2 py-0.5 text-[11px] font-semibold", statusColors[viewItem.status] ?? "")}>{viewItem.status.charAt(0).toUpperCase() + viewItem.status.slice(1)}</Badge> },
+          { label: "Vendor", value: viewItem.contact_name || "—" },
+          { label: "Date", value: formatDate(viewItem.credit_date) },
+          { label: "Total", value: formatCurrency(viewItem.total, viewItem.currency) },
+        ] : []}
+      />
     </div>
   )
 }

@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react"
 import { useNavigate } from "react-router-dom"
+import { ViewDetailSheet } from "../../../components/ui/view-detail-sheet"
 import { Plus, Search, CalendarDays, SlidersHorizontal, Filter, Copy, ArrowRightLeft } from "lucide-react"
 import { RowActionsMenu } from "../../../components/ui/row-actions"
 import { useSalesOrders, useContacts } from "../../../lib/hooks"
@@ -28,6 +29,7 @@ export default function SalesOrdersPage() {
   const { data: orders = [], isLoading } = useSalesOrders(tab === "all" ? undefined : tab)
   const { data: contacts = [] } = useContacts()
   const { t } = useTheme()
+  const [viewItem, setViewItem] = useState<typeof orders[0] | null>(null)
 
   const statusTabs = [
     { label: t("common.all"), value: "all" },
@@ -151,7 +153,7 @@ export default function SalesOrdersPage() {
                         </TableCell>
                         <TableCell className="text-right">
                           <RowActionsMenu actions={[
-                            { label: "View", onClick: () => navigate(`/sales/orders/${o.id}`) },
+                            { label: "View", onClick: () => setViewItem(o) },
                             { label: t("saleOrders.duplicate"), icon: <Copy className="h-3.5 w-3.5" />, onClick: () => {} },
                             { label: t("saleOrders.convertToInvoice"), icon: <ArrowRightLeft className="h-3.5 w-3.5" />, onClick: () => navigate(`/sales/orders/${o.id}/convert/invoice`), dividerBefore: true },
                             { label: t("saleOrders.convertToDelivery"), icon: <ArrowRightLeft className="h-3.5 w-3.5" />, onClick: () => navigate(`/sales/orders/${o.id}/convert/delivery`) },
@@ -166,6 +168,20 @@ export default function SalesOrdersPage() {
           </div>
         </Tabs>
       </Card>
+      <ViewDetailSheet
+        open={!!viewItem}
+        onOpenChange={(open) => { if (!open) setViewItem(null) }}
+        title={viewItem ? `Order ${viewItem.order_number}` : ""}
+        subtitle={viewItem?.status ? viewItem.status.charAt(0).toUpperCase() + viewItem.status.slice(1) : undefined}
+        fields={viewItem ? [
+          { label: "Order Number", value: viewItem.order_number },
+          { label: "Status", value: <Badge variant="outline" className={cn("rounded-lg px-2 py-0.5 text-[11px] font-semibold", statusColors[viewItem.status] ?? "")}>{viewItem.status.charAt(0).toUpperCase() + viewItem.status.slice(1)}</Badge> },
+          { label: "Customer", value: contactMap.get(viewItem.contact_id) ?? "—" },
+          { label: "Date", value: formatDate(viewItem.issue_date) },
+          { label: "Total", value: formatCurrency(viewItem.total) },
+          { label: "Currency", value: viewItem.currency ?? "MYR" },
+        ] : []}
+      />
     </div>
   )
 }

@@ -1,6 +1,8 @@
 
+import { useState } from "react"
 import { useQueryClient } from "@tanstack/react-query"
 import { useNavigate } from "react-router-dom"
+import { ViewDetailSheet } from "../../components/ui/view-detail-sheet"
 import { Plus, BookOpen, FileText, ArrowRightLeft, XCircle } from "lucide-react"
 import { useManualJournals } from "../../lib/hooks"
 import api from "../../lib/api"
@@ -22,6 +24,7 @@ export default function ManualJournalsPage() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const { data: journals = [], isLoading } = useManualJournals()
+  const [viewItem, setViewItem] = useState<typeof journals[0] | null>(null)
 
   const totalDebit = (j: typeof journals[0]) =>
     j.lines.reduce((s, l) => s + Number(l.debit), 0)
@@ -82,7 +85,7 @@ export default function ManualJournalsPage() {
                     </TableCell>
                     <TableCell className="text-right">
                       <RowActionsMenu actions={[
-                        { label: "View", icon: <FileText className="h-4 w-4" />, onClick: () => navigate(`/accounting/journals/${j.id}`) },
+                        { label: "View", icon: <FileText className="h-4 w-4" />, onClick: () => { setViewItem(j) } },
                         { label: "Reverse Entry", icon: <ArrowRightLeft className="h-4 w-4" />, onClick: () => {}, dividerBefore: true },
                         { label: "Void", icon: <XCircle className="h-4 w-4" />, onClick: () => { if (confirm("Void this journal entry?")) api.patch(`/accounting/journals/${j.id}`, { status: "void" }).then(() => queryClient.invalidateQueries({ queryKey: ["manual-journals"] })) }, danger: true, dividerBefore: true, disabled: j.status === "void" },
                       ]} />
@@ -94,6 +97,20 @@ export default function ManualJournalsPage() {
           </div>
         )}
       </Card>
+      <ViewDetailSheet
+        open={!!viewItem}
+        onOpenChange={(open) => { if (!open) setViewItem(null) }}
+        title={viewItem ? `Journal ${viewItem.journal_number}` : ""}
+        subtitle={viewItem?.status ? viewItem.status.charAt(0).toUpperCase() + viewItem.status.slice(1) : undefined}
+        fields={viewItem ? [
+          { label: "Journal Number", value: viewItem.journal_number },
+          { label: "Date", value: formatDate(viewItem.date) },
+          { label: "Description", value: viewItem.description ?? "—" },
+          { label: "Status", value: <Badge variant="outline" className={cn("rounded-lg px-2 py-0.5 text-[11px] font-semibold", statusColors[viewItem.status] ?? "")}>{viewItem.status ? viewItem.status.charAt(0).toUpperCase() + viewItem.status.slice(1) : "—"}</Badge> },
+          { label: "Total Debit", value: formatCurrency(totalDebit(viewItem), viewItem.currency) },
+          { label: "Total Credit", value: formatCurrency(totalDebit(viewItem), viewItem.currency) },
+        ] : []}
+      />
     </div>
   )
 }

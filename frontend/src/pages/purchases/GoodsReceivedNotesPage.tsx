@@ -1,6 +1,7 @@
-import { useMemo } from "react"
+import { useMemo, useState } from "react"
 import { useQueryClient } from "@tanstack/react-query"
 import { useNavigate } from "react-router-dom"
+import { ViewDetailSheet } from "../../components/ui/view-detail-sheet"
 import { Plus, ClipboardList, FileText, Pencil, CheckCircle2, Trash2 } from "lucide-react"
 import { useGoodsReceivedNotes, useContacts } from "../../lib/hooks"
 import api from "../../lib/api"
@@ -22,6 +23,7 @@ export default function GoodsReceivedNotesPage() {
   const queryClient = useQueryClient()
   const { data: grns = [], isLoading } = useGoodsReceivedNotes()
   const { data: contacts = [] } = useContacts()
+  const [viewItem, setViewItem] = useState<typeof grns[0] | null>(null)
 
   const contactMap = useMemo(() => {
     const m = new Map<string, string>()
@@ -108,7 +110,7 @@ export default function GoodsReceivedNotesPage() {
                     </TableCell>
                     <TableCell className="text-right">
                       <RowActionsMenu actions={[
-                        { label: "View", icon: <FileText className="h-3.5 w-3.5" />, onClick: () => navigate(`/purchases/goods-received-notes/${grn.id}`) },
+                        { label: "View", icon: <FileText className="h-3.5 w-3.5" />, onClick: () => setViewItem(grn) },
                         { label: "Edit", icon: <Pencil className="h-3.5 w-3.5" />, onClick: () => navigate(`/purchases/goods-received-notes/${grn.id}/edit`) },
                         { label: "Mark as Billed", icon: <CheckCircle2 className="h-3.5 w-3.5" />, onClick: () => {}, disabled: grn.status !== "received", dividerBefore: true },
                         { label: "Delete", icon: <Trash2 className="h-3.5 w-3.5" />, onClick: () => { if (confirm("Delete this GRN?")) api.delete(`/purchases/goods-received-notes/${grn.id}`).then(() => queryClient.invalidateQueries({ queryKey: ["goods-received-notes"] })) }, danger: true, dividerBefore: true },
@@ -121,6 +123,19 @@ export default function GoodsReceivedNotesPage() {
           </div>
         )}
       </Card>
+      <ViewDetailSheet
+        open={!!viewItem}
+        onOpenChange={(open) => { if (!open) setViewItem(null) }}
+        title={viewItem ? `GRN ${viewItem.grn_number}` : ""}
+        subtitle={viewItem?.status ? viewItem.status.charAt(0).toUpperCase() + viewItem.status.slice(1) : undefined}
+        fields={viewItem ? [
+          { label: "GRN Number", value: viewItem.grn_number },
+          { label: "Status", value: <Badge variant="outline" className={cn("rounded-lg px-2 py-0.5 text-[11px] font-semibold", statusColors[viewItem.status] ?? "")}>{viewItem.status.charAt(0).toUpperCase() + viewItem.status.slice(1)}</Badge> },
+          { label: "Vendor", value: contactMap.get(viewItem.contact_id) ?? "—" },
+          { label: "Date", value: formatDate(viewItem.received_date) },
+          { label: "PO Reference", value: viewItem.po_id ?? "—" },
+        ] : []}
+      />
     </div>
   )
 }

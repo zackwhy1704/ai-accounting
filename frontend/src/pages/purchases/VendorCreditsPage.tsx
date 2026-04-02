@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react"
 import { useQueryClient } from "@tanstack/react-query"
 import { useNavigate } from "react-router-dom"
+import { ViewDetailSheet } from "../../components/ui/view-detail-sheet"
 import { Plus, Search, FileText, ArrowRightLeft, XCircle } from "lucide-react"
 import { useVendorCredits, useContacts } from "../../lib/hooks"
 import api from "../../lib/api"
@@ -23,6 +24,7 @@ export default function VendorCreditsPage() {
   const queryClient = useQueryClient()
   const [search, setSearch] = useState("")
   const { data: vendorCredits = [], isLoading } = useVendorCredits()
+  const [viewItem, setViewItem] = useState<typeof vendorCredits[0] | null>(null)
   const { data: contacts = [] } = useContacts()
 
   const contactMap = useMemo(() => {
@@ -100,7 +102,7 @@ export default function VendorCreditsPage() {
                     </TableCell>
                     <TableCell className="text-right">
                       <RowActionsMenu actions={[
-                        { label: "View", icon: <FileText className="h-3.5 w-3.5" />, onClick: () => navigate(`/purchases/vendor-credits/${vc.id}`) },
+                        { label: "View", icon: <FileText className="h-3.5 w-3.5" />, onClick: () => setViewItem(vc) },
                         { label: "Apply to Bill", icon: <ArrowRightLeft className="h-3.5 w-3.5" />, onClick: () => navigate(`/purchases/bills/new?credit_id=${vc.id}`), dividerBefore: true },
                         { label: "Void", icon: <XCircle className="h-3.5 w-3.5" />, onClick: () => { if (confirm("Void this vendor credit?")) api.patch(`/vendor-credits/${vc.id}`, { status: "void" }).then(() => queryClient.invalidateQueries({ queryKey: ["vendor-credits"] })) }, danger: true, dividerBefore: true },
                       ]} />
@@ -112,6 +114,20 @@ export default function VendorCreditsPage() {
           </div>
         )}
       </Card>
+      <ViewDetailSheet
+        open={!!viewItem}
+        onOpenChange={(open) => { if (!open) setViewItem(null) }}
+        title={viewItem ? `Credit ${viewItem.vendor_credit_number}` : ""}
+        subtitle={viewItem?.status ? viewItem.status.charAt(0).toUpperCase() + viewItem.status.slice(1) : undefined}
+        fields={viewItem ? [
+          { label: "Credit Number", value: viewItem.vendor_credit_number },
+          { label: "Status", value: <Badge variant="outline" className={cn("rounded-lg px-2 py-0.5 text-[11px] font-semibold", statusColors[viewItem.status] ?? "")}>{viewItem.status.charAt(0).toUpperCase() + viewItem.status.slice(1)}</Badge> },
+          { label: "Vendor", value: contactMap.get(viewItem.contact_id) ?? "—" },
+          { label: "Date", value: formatDate(viewItem.issue_date) },
+          { label: "Total", value: formatCurrency(viewItem.total, viewItem.currency) },
+          { label: "Currency", value: viewItem.currency ?? "MYR" },
+        ] : []}
+      />
     </div>
   )
 }

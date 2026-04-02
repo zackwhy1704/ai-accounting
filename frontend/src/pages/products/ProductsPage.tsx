@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react"
 import { useNavigate } from "react-router-dom"
+import { ViewDetailSheet } from "../../components/ui/view-detail-sheet"
 import { useQueryClient } from "@tanstack/react-query"
 import { Plus, Search, Package, Eye, Pencil, ArrowUpDown, Trash2 } from "lucide-react"
 import { useProducts } from "../../lib/hooks"
@@ -22,6 +23,7 @@ export default function ProductsPage() {
   const navigate = useNavigate()
   const [search, setSearch] = useState("")
   const { data: products = [], isLoading } = useProducts()
+  const [viewItem, setViewItem] = useState<typeof products[0] | null>(null)
   const queryClient = useQueryClient()
 
   const rows = useMemo(() => {
@@ -102,7 +104,7 @@ export default function ProductsPage() {
                     </TableCell>
                     <TableCell className="text-right">
                       <RowActionsMenu actions={[
-                        { label: "View", icon: <Eye className="h-4 w-4" />, onClick: () => navigate(`/products/new?view=${p.id}`) },
+                        { label: "View", icon: <Eye className="h-4 w-4" />, onClick: () => setViewItem(p) },
                         { label: "Edit", icon: <Pencil className="h-4 w-4" />, onClick: () => navigate(`/products/new?edit=${p.id}`) },
                         { label: "Adjust Stock", icon: <ArrowUpDown className="h-4 w-4" />, onClick: () => navigate(`/stock/adjustments/new?product_id=${p.id}`), dividerBefore: true },
                         { label: "Delete", icon: <Trash2 className="h-4 w-4" />, onClick: () => { if (confirm("Are you sure you want to delete this product?")) api.delete(`/products/${p.id}`).then(() => queryClient.invalidateQueries({ queryKey: ["products"] })) }, danger: true, dividerBefore: true },
@@ -115,6 +117,23 @@ export default function ProductsPage() {
           </div>
         )}
       </Card>
+      <ViewDetailSheet
+        open={!!viewItem}
+        onOpenChange={(open) => { if (!open) setViewItem(null) }}
+        title={viewItem ? viewItem.name : ""}
+        subtitle={viewItem?.product_type ? viewItem.product_type.replace("_", " ") : undefined}
+        fields={viewItem ? [
+          { label: "Code", value: viewItem.code ?? "—" },
+          { label: "Name", value: viewItem.name },
+          { label: "Type", value: viewItem.product_type.replace("_", " ") },
+          { label: "Unit", value: viewItem.unit ?? "—" },
+          { label: "Unit Price", value: formatCurrency(viewItem.unit_price, viewItem.currency) },
+          { label: "Cost Price", value: formatCurrency(viewItem.cost_price ?? 0, viewItem.currency) },
+          { label: "Currency", value: viewItem.currency ?? "MYR" },
+          { label: "Track Inventory", value: viewItem.track_inventory ? "Yes" : "No" },
+          { label: "Qty on Hand", value: viewItem.track_inventory ? Number(viewItem.qty_on_hand).toFixed(2) : "—" },
+        ] : []}
+      />
     </div>
   )
 }

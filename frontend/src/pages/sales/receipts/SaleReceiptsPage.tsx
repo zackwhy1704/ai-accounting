@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react"
 import { useQueryClient } from "@tanstack/react-query"
 import { useNavigate } from "react-router-dom"
+import { ViewDetailSheet } from "../../../components/ui/view-detail-sheet"
 import { Plus, Search, Download, Receipt, FileText, XCircle } from "lucide-react"
 import { useSaleReceipts, useContacts } from "../../../lib/hooks"
 import api from "../../../lib/api"
@@ -28,6 +29,7 @@ export default function SaleReceiptsPage() {
   const [search, setSearch] = useState("")
   const { data: receipts = [], isLoading } = useSaleReceipts()
   const { data: contacts = [] } = useContacts()
+  const [viewItem, setViewItem] = useState<typeof receipts[0] | null>(null)
 
   const contactMap = useMemo(() => {
     const m = new Map<string, string>()
@@ -107,7 +109,7 @@ export default function SaleReceiptsPage() {
                     </TableCell>
                     <TableCell className="text-right">
                       <RowActionsMenu actions={[
-                        { label: "View", icon: <FileText className="h-4 w-4" />, onClick: () => navigate(`/sales/receipts/${r.id}`) },
+                        { label: "View", icon: <FileText className="h-4 w-4" />, onClick: () => setViewItem(r) },
                         { label: "Download Receipt", icon: <Download className="h-4 w-4" />, onClick: () => window.print(), dividerBefore: true },
                         { label: "Void", icon: <XCircle className="h-4 w-4" />, onClick: () => { if (confirm("Void this receipt?")) api.patch(`/sales/receipts/${r.id}`, { status: "void" }).then(() => queryClient.invalidateQueries({ queryKey: ["sale-receipts"] })) }, danger: true, dividerBefore: true },
                       ]} />
@@ -119,6 +121,20 @@ export default function SaleReceiptsPage() {
           </div>
         )}
       </Card>
+      <ViewDetailSheet
+        open={!!viewItem}
+        onOpenChange={(open) => { if (!open) setViewItem(null) }}
+        title={viewItem ? `Receipt ${viewItem.receipt_number}` : ""}
+        subtitle={viewItem?.status ? viewItem.status.charAt(0).toUpperCase() + viewItem.status.slice(1) : undefined}
+        fields={viewItem ? [
+          { label: "Receipt Number", value: viewItem.receipt_number },
+          { label: "Status", value: <Badge variant="outline" className={cn("rounded-lg px-2 py-0.5 text-[11px] font-semibold", statusColors[viewItem.status] ?? "")}>{viewItem.status.charAt(0).toUpperCase() + viewItem.status.slice(1)}</Badge> },
+          { label: "Customer", value: viewItem.contact_id ? (contactMap.get(viewItem.contact_id) ?? "—") : "Walk-in" },
+          { label: "Date", value: formatDate(viewItem.receipt_date) },
+          { label: "Total", value: formatCurrency(viewItem.total, viewItem.currency) },
+          { label: "Payment Method", value: paymentMethodLabel[viewItem.payment_method] ?? viewItem.payment_method },
+        ] : []}
+      />
     </div>
   )
 }

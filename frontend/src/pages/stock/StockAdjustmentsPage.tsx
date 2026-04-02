@@ -1,5 +1,6 @@
 import { useState } from "react"
 import { useNavigate } from "react-router-dom"
+import { ViewDetailSheet } from "../../components/ui/view-detail-sheet"
 import { useQuery } from "@tanstack/react-query"
 import { Plus, Search, SlidersHorizontal, FileText, CheckCircle2, XCircle } from "lucide-react"
 import api from "../../lib/api"
@@ -30,6 +31,7 @@ const statusColors: Record<string, string> = {
 export default function StockAdjustmentsPage() {
   const navigate = useNavigate()
   const [search, setSearch] = useState("")
+  const [viewItem, setViewItem] = useState<StockAdjustment | null>(null)
   const [statusFilter, setStatusFilter] = useState("all")
   const [dateFrom, setDateFrom] = useState("")
   const [dateTo, setDateTo] = useState("")
@@ -154,7 +156,7 @@ export default function StockAdjustmentsPage() {
                     </TableCell>
                     <TableCell className="text-right">
                       <RowActionsMenu actions={[
-                        { label: "View", icon: <FileText className="h-4 w-4" />, onClick: () => alert("Adjustment: " + a.adjustment_number + "\nDate: " + a.adjustment_date + "\nReason: " + (a.reason || "—") + "\nStatus: " + a.status) },
+                        { label: "View", icon: <FileText className="h-4 w-4" />, onClick: () => setViewItem(a) },
                         { label: "Confirm", icon: <CheckCircle2 className="h-4 w-4" />, onClick: () => { api.patch(`/stock-adjustments/${a.id}`, { status: "confirmed" }).then(() => window.location.reload()) }, disabled: a.status !== "draft", dividerBefore: true },
                         { label: "Void", icon: <XCircle className="h-4 w-4" />, onClick: () => { if (window.confirm("Void this adjustment?")) api.patch(`/stock-adjustments/${a.id}`, { status: "void" }).then(() => window.location.reload()) }, danger: true, dividerBefore: true, disabled: a.status === "void" },
                       ]} />
@@ -166,6 +168,19 @@ export default function StockAdjustmentsPage() {
           </div>
         )}
       </Card>
+      <ViewDetailSheet
+        open={!!viewItem}
+        onOpenChange={(open) => { if (!open) setViewItem(null) }}
+        title={viewItem ? `Adjustment ${viewItem.adjustment_number}` : ""}
+        subtitle={viewItem?.status ? viewItem.status.charAt(0).toUpperCase() + viewItem.status.slice(1) : undefined}
+        fields={viewItem ? [
+          { label: "Adjustment Number", value: viewItem.adjustment_number },
+          { label: "Date", value: formatDate(viewItem.adjustment_date) },
+          { label: "Reason", value: viewItem.reason || "—" },
+          { label: "Status", value: <Badge variant="outline" className={cn("rounded-lg px-2 py-0.5 text-[11px] font-semibold", statusColors[viewItem.status] ?? "")}>{viewItem.status.charAt(0).toUpperCase() + viewItem.status.slice(1)}</Badge> },
+          { label: "Notes", value: viewItem.reference_number || "—" },
+        ] : []}
+      />
     </div>
   )
 }

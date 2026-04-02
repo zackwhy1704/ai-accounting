@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react"
 import { useQueryClient } from "@tanstack/react-query"
 import { useNavigate } from "react-router-dom"
+import { ViewDetailSheet } from "../../components/ui/view-detail-sheet"
 import { Plus, Search, Users, Eye, Pencil, Trash2 } from "lucide-react"
 import { useContacts } from "../../lib/hooks"
 import api from "../../lib/api"
@@ -23,6 +24,7 @@ export default function ContactsPage() {
   const pageSize = 10
   const { data: contacts = [], isLoading } = useContacts(tab === "all" ? undefined : tab)
   const { t } = useTheme()
+  const [viewItem, setViewItem] = useState<typeof contacts[0] | null>(null)
 
   const contactTabs = [
     { label: t("common.all"), value: "all" },
@@ -89,7 +91,7 @@ export default function ContactsPage() {
                         <TableCell><Badge variant="outline" className={cn("rounded-lg px-2 py-0.5 text-[11px] font-semibold", c.type === "customer" ? "bg-sky-500/10 text-sky-700 border-sky-400/20" : c.type === "vendor" ? "bg-amber-500/10 text-amber-700 border-amber-400/20" : "bg-violet-500/10 text-violet-700 border-violet-400/20")}>{c.type.charAt(0).toUpperCase() + c.type.slice(1)}</Badge></TableCell>
                         <TableCell className="text-muted-foreground">{c.company ?? "—"}</TableCell>
                         <TableCell className="text-right"><RowActionsMenu actions={[
-                          { label: "View", icon: <Eye className="h-4 w-4" />, onClick: () => navigate(`/contacts/${c.id}`) },
+                          { label: "View", icon: <Eye className="h-4 w-4" />, onClick: () => setViewItem(c) },
                           { label: "Edit", icon: <Pencil className="h-4 w-4" />, onClick: () => navigate(`/contacts/${c.id}/edit`) },
                           { label: "Delete", icon: <Trash2 className="h-4 w-4" />, onClick: () => { if (confirm("Delete this contact?")) api.delete(`/contacts/${c.id}`).then(() => queryClient.invalidateQueries({ queryKey: ["contacts"] })) }, danger: true, dividerBefore: true },
                         ]} /></TableCell>
@@ -110,6 +112,20 @@ export default function ContactsPage() {
           )}
         </div>
       </Card>
+      <ViewDetailSheet
+        open={!!viewItem}
+        onOpenChange={(open) => { if (!open) setViewItem(null) }}
+        title={viewItem ? viewItem.name : ""}
+        subtitle={viewItem?.type ? viewItem.type.charAt(0).toUpperCase() + viewItem.type.slice(1) : undefined}
+        fields={viewItem ? [
+          { label: "Name", value: viewItem.name },
+          { label: "Type", value: viewItem.type.charAt(0).toUpperCase() + viewItem.type.slice(1) },
+          { label: "Company", value: viewItem.company ?? "—" },
+          { label: "Email", value: viewItem.email ?? "—" },
+          { label: "Phone", value: viewItem.phone ?? "—" },
+          { label: "Tax ID", value: viewItem.tax_id ?? "—" },
+        ] : []}
+      />
     </div>
   )
 }

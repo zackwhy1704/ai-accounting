@@ -1,5 +1,6 @@
 import { useState } from "react"
 import { useNavigate } from "react-router-dom"
+import { ViewDetailSheet } from "../../components/ui/view-detail-sheet"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { Plus, Search, RotateCcw, FileText, Download, XCircle } from "lucide-react"
 import api from "../../lib/api"
@@ -41,6 +42,7 @@ export default function PurchaseRefundsPage() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const [search, setSearch] = useState("")
+  const [viewItem, setViewItem] = useState<PurchaseRefund | null>(null)
 
   const { data: refunds = [], isLoading } = useQuery<PurchaseRefund[]>({
     queryKey: ["purchase-refunds"],
@@ -131,7 +133,7 @@ export default function PurchaseRefundsPage() {
                     </TableCell>
                     <TableCell className="text-right">
                       <RowActionsMenu actions={[
-                        { label: "View", icon: <FileText className="h-3.5 w-3.5" />, onClick: () => navigate(`/purchases/refunds/${r.id}`) },
+                        { label: "View", icon: <FileText className="h-3.5 w-3.5" />, onClick: () => setViewItem(r) },
                         { label: "Download Receipt", icon: <Download className="h-3.5 w-3.5" />, onClick: () => window.print(), dividerBefore: true },
                         { label: "Void", icon: <XCircle className="h-3.5 w-3.5" />, onClick: () => { if (confirm("Void this refund?")) api.patch(`/purchase-refunds/${r.id}`, { status: "void" }).then(() => queryClient.invalidateQueries({ queryKey: ["purchase-refunds"] })) }, danger: true, dividerBefore: true },
                       ]} />
@@ -143,6 +145,20 @@ export default function PurchaseRefundsPage() {
           </div>
         )}
       </Card>
+      <ViewDetailSheet
+        open={!!viewItem}
+        onOpenChange={(open) => { if (!open) setViewItem(null) }}
+        title={viewItem ? `Refund ${viewItem.refund_number}` : ""}
+        subtitle={viewItem?.status ? viewItem.status.charAt(0).toUpperCase() + viewItem.status.slice(1) : undefined}
+        fields={viewItem ? [
+          { label: "Refund Number", value: viewItem.refund_number },
+          { label: "Status", value: <Badge variant="outline" className={cn("rounded-lg px-2 py-0.5 text-[11px] font-semibold", statusColors[viewItem.status] ?? "")}>{viewItem.status.charAt(0).toUpperCase() + viewItem.status.slice(1)}</Badge> },
+          { label: "Vendor", value: viewItem.contact_name || "—" },
+          { label: "Date", value: formatDate(viewItem.refund_date) },
+          { label: "Amount", value: formatCurrency(viewItem.amount, viewItem.currency) },
+          { label: "Method", value: methodLabel[viewItem.payment_method] ?? viewItem.payment_method },
+        ] : []}
+      />
     </div>
   )
 }
