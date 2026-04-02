@@ -76,6 +76,13 @@ import TrialBalancePage from './pages/reports/TrialBalancePage'
 import GeneralLedgerPage from './pages/reports/GeneralLedgerPage'
 import SST02Page from './pages/reports/SST02Page'
 import ReportsIndexPage from './pages/reports/ReportsIndexPage'
+import TransactionListPage from './pages/reports/TransactionListPage'
+import DebtorLedgerPage from './pages/reports/DebtorLedgerPage'
+import CreditorLedgerPage from './pages/reports/CreditorLedgerPage'
+import SSTSalesDetailPage from './pages/reports/SSTSalesDetailPage'
+import SSTPurchaseDetailPage from './pages/reports/SSTPurchaseDetailPage'
+import StockValuesReportPage from './pages/reports/StockValuesReportPage'
+import InventorySummaryPage from './pages/reports/InventorySummaryPage'
 import ProfitLossPage from './pages/reports/ProfitLossPage'
 import BalanceSheetPage from './pages/reports/BalanceSheetPage'
 import CashFlowPage from './pages/reports/CashFlowPage'
@@ -208,6 +215,13 @@ function App() {
         <Route path="/reports/invoice-summary" element={<InvoiceSummaryPage />} />
         <Route path="/reports/bill-summary" element={<BillSummaryPage />} />
         <Route path="/reports/payment-summary" element={<PaymentSummaryPage />} />
+        <Route path="/reports/transaction-list" element={<TransactionListPage />} />
+        <Route path="/reports/debtor-ledger" element={<DebtorLedgerPage />} />
+        <Route path="/reports/creditor-ledger" element={<CreditorLedgerPage />} />
+        <Route path="/reports/sst-sales-detail" element={<SSTSalesDetailPage />} />
+        <Route path="/reports/sst-purchase-detail" element={<SSTPurchaseDetailPage />} />
+        <Route path="/reports/stock-values" element={<StockValuesReportPage />} />
+        <Route path="/reports/inventory-summary" element={<InventorySummaryPage />} />
 
         {/* MyInvois (MY) / SG Compliance */}
         <Route path="/myinvois" element={<MyInvoisPage />} />

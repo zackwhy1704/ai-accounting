@@ -35,7 +35,7 @@ const CATEGORIES: ReportCategory[] = [
     reports: [
       { label: "Invoice Summary", route: "/reports/invoice-summary", available: true },
       { label: "Aged Receivables", route: "/reports/aged-receivables", available: true },
-      { label: "Debtor Ledger", route: "/reports/debtor-ledger", available: false },
+      { label: "Debtor Ledger", route: "/reports/debtor-ledger", available: true },
       { label: "Payment Summary", route: "/reports/payment-summary", available: true },
     ],
   },
@@ -46,7 +46,7 @@ const CATEGORIES: ReportCategory[] = [
     reports: [
       { label: "Bill Summary", route: "/reports/bill-summary", available: true },
       { label: "Aged Payables", route: "/reports/aged-payables", available: true },
-      { label: "Creditor Ledger", route: "/reports/creditor-ledger", available: false },
+      { label: "Creditor Ledger", route: "/reports/creditor-ledger", available: true },
     ],
   },
   {
@@ -54,8 +54,8 @@ const CATEGORIES: ReportCategory[] = [
     icon: <Package className="h-4 w-4" />,
     color: "from-amber-500 to-orange-600",
     reports: [
-      { label: "Stock Values", route: "/reports/stock-values", available: false },
-      { label: "Inventory Summary", route: "/reports/inventory-summary", available: false },
+      { label: "Stock Values", route: "/reports/stock-values", available: true },
+      { label: "Inventory Summary", route: "/reports/inventory-summary", available: true },
     ],
   },
   {
@@ -64,8 +64,8 @@ const CATEGORIES: ReportCategory[] = [
     color: "from-rose-500 to-red-600",
     reports: [
       { label: "SST-02 Return", route: "/reports/sst-02", available: true },
-      { label: "SST Sales Detail", route: "/reports/sst-sales-detail", available: false },
-      { label: "SST Purchase Detail", route: "/reports/sst-purchase-detail", available: false },
+      { label: "SST Sales Detail", route: "/reports/sst-sales-detail", available: true },
+      { label: "SST Purchase Detail", route: "/reports/sst-purchase-detail", available: true },
     ],
   },
   {
@@ -74,7 +74,7 @@ const CATEGORIES: ReportCategory[] = [
     color: "from-cyan-500 to-sky-600",
     reports: [
       { label: "Bank Reconciliation", route: "/reports/bank-reconciliation", available: false },
-      { label: "Transaction List", route: "/reports/transaction-list", available: false },
+      { label: "Transaction List", route: "/reports/transaction-list", available: true },
       { label: "Exchange Rates", route: "/reports/exchange-rates", available: false },
     ],
   },
