@@ -201,11 +201,18 @@ export default function NewQuotationPage() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="MYR">MYR</SelectItem>
-                  <SelectItem value="USD">USD</SelectItem>
-                  <SelectItem value="SGD">SGD</SelectItem>
-                  <SelectItem value="EUR">EUR</SelectItem>
-                  <SelectItem value="GBP">GBP</SelectItem>
+                  <SelectItem value="MYR">MYR - Malaysian Ringgit</SelectItem>
+                  <SelectItem value="SGD">SGD - Singapore Dollar</SelectItem>
+                  <SelectItem value="USD">USD - US Dollar</SelectItem>
+                  <SelectItem value="HKD">HKD - Hong Kong Dollar</SelectItem>
+                  <SelectItem value="AUD">AUD - Australian Dollar</SelectItem>
+                  <SelectItem value="EUR">EUR - Euro</SelectItem>
+                  <SelectItem value="GBP">GBP - British Pound</SelectItem>
+                  <SelectItem value="JPY">JPY - Japanese Yen</SelectItem>
+                  <SelectItem value="CNY">CNY - Chinese Yuan</SelectItem>
+                  <SelectItem value="THB">THB - Thai Baht</SelectItem>
+                  <SelectItem value="IDR">IDR - Indonesian Rupiah</SelectItem>
+                  <SelectItem value="PHP">PHP - Philippine Peso</SelectItem>
                 </SelectContent>
               </Select>
             </div>

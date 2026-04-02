@@ -22,6 +22,7 @@ import RefundsPage from './pages/sales/refunds/RefundsPage'
 import NewRefundPage from './pages/sales/refunds/NewRefundPage'
 import BillsPage from './pages/bills/BillsPage'
 import ContactsPage from './pages/contacts/ContactsPage'
+import NewContactPage from './pages/contacts/NewContactPage'
 import DocumentsPage from './pages/documents/DocumentsPage'
 import AccountingPage from './pages/accounting/AccountingPage'
 import BillingPage from './pages/billing/BillingPage'
@@ -42,6 +43,8 @@ import NewVendorCreditPage from './pages/purchases/NewVendorCreditPage'
 import NewPurchasePaymentPage from './pages/purchases/NewPurchasePaymentPage'
 import NewPurchaseRefundPage from './pages/purchases/NewPurchaseRefundPage'
 import SaleReceiptsPage from './pages/sales/receipts/SaleReceiptsPage'
+import NewSaleReceiptPage from './pages/sales/receipts/NewSaleReceiptPage'
+import NewRecurringInvoicePage from './pages/sales/recurring/NewRecurringInvoicePage'
 import BankRulesPage from './pages/bank/BankRulesPage'
 import ManualJournalsPage from './pages/accounting/ManualJournalsPage'
 import NewManualJournalPage from './pages/accounting/NewManualJournalPage'
@@ -129,7 +132,9 @@ function App() {
         <Route path="/sales/refunds" element={<RefundsPage />} />
         <Route path="/sales/refunds/new" element={<NewRefundPage />} />
         <Route path="/sales/recurring" element={<RecurringInvoicesPage />} />
+        <Route path="/sales/recurring/new" element={<NewRecurringInvoicePage />} />
         <Route path="/sales/receipts" element={<SaleReceiptsPage />} />
+        <Route path="/sales/receipts/new" element={<NewSaleReceiptPage />} />
         <Route path="/accounting/journals" element={<ManualJournalsPage />} />
         <Route path="/accounting/journals/new" element={<NewManualJournalPage />} />
 
@@ -164,6 +169,7 @@ function App() {
 
         {/* Contacts */}
         <Route path="/contacts" element={<ContactsPage />} />
+        <Route path="/contacts/new" element={<NewContactPage />} />
         <Route path="/contacts/groups" element={<ContactGroupsPage />} />
 
         {/* Products */}

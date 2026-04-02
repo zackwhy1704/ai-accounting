@@ -1,58 +1,73 @@
 import { useDashboard } from "../../lib/hooks"
 import { formatCurrency } from "../../lib/utils"
 import { useTheme } from "../../lib/theme"
+import { useNavigate } from "react-router-dom"
 import { Card } from "../../components/ui/card"
 import { Button } from "../../components/ui/button"
-import { Minus, Plus, ChevronDown, Settings } from "lucide-react"
-import { useEffect, useState } from "react"
+import { Plus, ChevronDown, FileText, Receipt } from "lucide-react"
+import { useEffect, useMemo, useState } from "react"
 import {
   CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from "recharts"
 
-const sevenDayLabels = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+type RangeKey = "7" | "30" | "60" | "365"
+const RANGE_OPTIONS: { label: string; value: RangeKey }[] = [
+  { label: "7-Day", value: "7" },
+  { label: "30-Day", value: "30" },
+  { label: "60-Day", value: "60" },
+  { label: "365-Day", value: "365" },
+]
+
+function RangeDropdown({ value, onChange }: { value: RangeKey; onChange: (v: RangeKey) => void }) {
+  const [open, setOpen] = useState(false)
+  const current = RANGE_OPTIONS.find(o => o.value === value)!
+  return (
+    <div className="relative">
+      <Button type="button" variant="secondary" className="h-8 rounded-xl px-2.5 text-xs font-medium" onClick={() => setOpen(v => !v)}>
+        {current.label} <ChevronDown className="ml-1.5 h-4 w-4" />
+      </Button>
+      {open && (
+        <div className="absolute right-0 top-9 z-50 w-32 rounded-xl border border-border bg-card p-1 shadow-lg">
+          {RANGE_OPTIONS.map(o => (
+            <button
+              key={o.value}
+              className={`flex w-full rounded-lg px-3 py-1.5 text-xs font-medium hover:bg-muted ${o.value === value ? "text-primary" : "text-foreground"}`}
+              onClick={() => { onChange(o.value); setOpen(false) }}
+            >
+              {o.label}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
 
 export default function DashboardPage() {
   const { data, isLoading } = useDashboard()
   const { t } = useTheme()
+  const navigate = useNavigate()
   const [mounted, setMounted] = useState(false)
+  const [range, setRange] = useState<RangeKey>("7")
   useEffect(() => { setMounted(true) }, [])
 
-  const summaryMetrics = [
-    { title: t("dashboard.accountsReceivable"), value: formatCurrency(data?.accounts_receivable ?? 0), subtitle: t("dashboard.outstanding"), icon: "plus" as const },
-    { title: t("dashboard.overdueInvoices"), value: String(data?.overdue_invoices ?? 0), subtitle: t("dashboard.needAttention"), icon: "plus" as const },
-    { title: t("dashboard.accountsPayable"), value: formatCurrency(data?.accounts_payable ?? 0), subtitle: t("dashboard.outstanding"), icon: "minus" as const },
-    { title: t("dashboard.pendingDocuments"), value: String(data?.pending_documents ?? 0), subtitle: t("dashboard.aiProcessing"), icon: "minus" as const },
-  ]
+  const dayCount = Number(range)
+  const chartLabels = useMemo(() => {
+    if (dayCount <= 7) return ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+    return Array.from({ length: Math.min(dayCount, 12) }, (_, i) => {
+      const d = new Date()
+      d.setDate(d.getDate() - (dayCount - 1) + Math.floor(i * (dayCount / 12)))
+      return d.toLocaleDateString(undefined, { month: "short", day: "numeric" })
+    })
+  }, [dayCount])
 
-  const agingWidgets = [
-    {
-      title: t("dashboard.outstandingInvoices"),
-      buckets: [
-        { label: t("dashboard.upcoming"), color: "#7C9DFF" },
-        { label: "1-30", color: "#6C7CFF" },
-        { label: "31-60", color: "#4D63FF" },
-        { label: "61-90", color: "#3A4DFF" },
-        { label: "91+", color: "#2B35D8" },
-      ],
-    },
-    {
-      title: t("dashboard.outstandingBills"),
-      buckets: [
-        { label: t("dashboard.upcoming"), color: "#7C9DFF" },
-        { label: "1-30", color: "#6C7CFF" },
-        { label: "31-60", color: "#4D63FF" },
-        { label: "61-90", color: "#3A4DFF" },
-        { label: "91+", color: "#2B35D8" },
-      ],
-    },
-  ]
+  const chartData = chartLabels.map((label) => ({ label, value: 0 }))
 
-  const incomeData = sevenDayLabels.map((label) => ({ label, value: 0 }))
   const chartCards = [
-    { title: t("dashboard.income"), netLabel: `NET ${formatCurrency(data?.total_revenue ?? 0)}`, data: incomeData, lineColor: "#7C9DFF" },
-    { title: t("dashboard.profitLoss"), netLabel: `NET ${formatCurrency(data?.net_income ?? 0)}`, data: incomeData, lineColor: "#7C9DFF" },
-    { title: t("dashboard.expenses"), netLabel: `NET ${formatCurrency(data?.total_expenses ?? 0)}`, data: incomeData, lineColor: "#FF6B8A" },
-    { title: t("dashboard.cashBalance"), netLabel: `${formatCurrency(data?.cash_balance ?? 0)}`, data: incomeData, lineColor: "#5CE6C6" },
+    { title: t("dashboard.income"), netLabel: `NET ${formatCurrency(data?.total_revenue ?? 0)}`, data: chartData, lineColor: "#7C9DFF" },
+    { title: t("dashboard.profitLoss"), netLabel: `NET ${formatCurrency(data?.net_income ?? 0)}`, data: chartData, lineColor: "#7C9DFF" },
+    { title: t("dashboard.expenses"), netLabel: `NET ${formatCurrency(data?.total_expenses ?? 0)}`, data: chartData, lineColor: "#FF6B8A" },
+    { title: t("dashboard.cashBalance"), netLabel: `${formatCurrency(data?.cash_balance ?? 0)}`, data: chartData, lineColor: "#5CE6C6" },
   ]
 
   if (isLoading) {
@@ -61,42 +76,56 @@ export default function DashboardPage() {
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-4">
-        {summaryMetrics.map((m) => {
-          const Icon = m.icon === "plus" ? Plus : Minus
-          return (
-            <Card key={m.title} className="rounded-2xl border-border bg-card p-4 shadow-[0_0_0_1px_rgba(15,23,42,0.06),0_18px_55px_rgba(2,6,23,0.08)]">
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <div className="text-[10px] font-semibold tracking-widest text-muted-foreground">{m.title}</div>
-                  <div className="mt-2 text-lg font-semibold text-foreground">{m.value}</div>
-                  <div className="mt-0.5 text-xs text-muted-foreground">{m.subtitle}</div>
-                </div>
-                <div className="flex h-9 w-9 items-center justify-center rounded-xl border border-border bg-muted">
-                  <Icon className="h-4 w-4 text-foreground" />
-                </div>
-              </div>
-            </Card>
-          )
-        })}
-      </div>
-
+      {/* Invoices & Bills summary */}
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-        {agingWidgets.map((w) => (
-          <Card key={w.title} className="rounded-2xl border-border bg-card p-5 shadow-[0_0_0_1px_rgba(15,23,42,0.06),0_18px_55px_rgba(2,6,23,0.08)]">
-            <div className="text-sm font-semibold text-foreground">{w.title}</div>
-            <div className="mt-4 flex flex-wrap gap-x-5 gap-y-3">
-              {w.buckets.map((b) => (
-                <div key={b.label} className="flex items-center gap-2">
-                  <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: b.color }} />
-                  <span className="text-xs text-muted-foreground">{b.label}</span>
-                </div>
-              ))}
+        <Card className="rounded-2xl border-border bg-card p-5 shadow-[0_0_0_1px_rgba(15,23,42,0.06),0_18px_55px_rgba(2,6,23,0.08)]">
+          <div className="flex items-start justify-between">
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-500/10">
+                <FileText className="h-5 w-5 text-blue-600" />
+              </div>
+              <div>
+                <div className="text-sm font-semibold text-foreground">{t("dashboard.outstandingInvoices")}</div>
+                <div className="mt-0.5 text-xs text-muted-foreground">{data?.overdue_invoices ?? 0} overdue</div>
+              </div>
             </div>
-          </Card>
-        ))}
+            <div className="flex items-center gap-3">
+              <div className="text-right">
+                <div className="text-lg font-semibold text-foreground">{formatCurrency(data?.accounts_receivable ?? 0)}</div>
+                <div className="text-[11px] text-muted-foreground">{t("dashboard.outstanding")}</div>
+              </div>
+              <Button type="button" size="icon" className="h-9 w-9 rounded-xl bg-gradient-to-r from-[#7C9DFF] to-[#4D63FF] text-white shadow-sm hover:opacity-90" onClick={() => navigate("/sales/invoices")}>
+                <Plus className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+        </Card>
+
+        <Card className="rounded-2xl border-border bg-card p-5 shadow-[0_0_0_1px_rgba(15,23,42,0.06),0_18px_55px_rgba(2,6,23,0.08)]">
+          <div className="flex items-start justify-between">
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-rose-500/10">
+                <Receipt className="h-5 w-5 text-rose-600" />
+              </div>
+              <div>
+                <div className="text-sm font-semibold text-foreground">{t("dashboard.outstandingBills")}</div>
+                <div className="mt-0.5 text-xs text-muted-foreground">{data?.pending_documents ?? 0} pending</div>
+              </div>
+            </div>
+            <div className="flex items-center gap-3">
+              <div className="text-right">
+                <div className="text-lg font-semibold text-foreground">{formatCurrency(data?.accounts_payable ?? 0)}</div>
+                <div className="text-[11px] text-muted-foreground">{t("dashboard.outstanding")}</div>
+              </div>
+              <Button type="button" size="icon" className="h-9 w-9 rounded-xl bg-gradient-to-r from-[#7C9DFF] to-[#4D63FF] text-white shadow-sm hover:opacity-90" onClick={() => navigate("/purchases/bills")}>
+                <Plus className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+        </Card>
       </div>
 
+      {/* Chart cards */}
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
         {chartCards.map((c) => (
           <Card key={c.title + c.lineColor} className="rounded-2xl border-border bg-card p-5 shadow-[0_0_0_1px_rgba(15,23,42,0.06),0_18px_55px_rgba(2,6,23,0.08)]">
@@ -105,17 +134,9 @@ export default function DashboardPage() {
                 <div className="text-sm font-semibold text-foreground">{c.title}</div>
                 <div className="mt-1 flex items-center gap-2 text-[11px]">
                   <span className="font-semibold text-foreground">{c.netLabel}</span>
-                  <span className="text-muted-foreground">{t("dashboard.7day")}</span>
                 </div>
               </div>
-              <div className="flex items-center gap-2">
-                <Button type="button" variant="secondary" className="h-8 rounded-xl px-2.5 text-xs font-medium">
-                  7-Day <ChevronDown className="ml-1.5 h-4 w-4" />
-                </Button>
-                <Button type="button" variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground">
-                  <Settings className="h-4 w-4" />
-                </Button>
-              </div>
+              <RangeDropdown value={range} onChange={setRange} />
             </div>
             <div className="mt-4 w-full min-h-[176px]">
               {mounted ? (
