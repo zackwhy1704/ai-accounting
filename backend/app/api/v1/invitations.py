@@ -87,13 +87,12 @@ async def send_invite(
         # status == "pending": resend the email with the existing token instead of blocking
         link = existing_link
     else:
-        token = secrets.token_urlsafe(32)
         link = FirmClientLink(
             firm_org_id=org_id,
             status="pending",
             invited_email=data.client_email.lower(),
             invited_by=UUID(current_user["sub"]),
-            token=token,
+            token=secrets.token_urlsafe(32),
             note=data.note,
             created_at=datetime.now(timezone.utc),
         )
@@ -104,7 +103,7 @@ async def send_invite(
     # Send branded invitation email
     from app.core.config import get_settings
     settings = get_settings()
-    accept_url = f"{settings.FRONTEND_URL}/accept-client-invite?token={token}"
+    accept_url = f"{settings.FRONTEND_URL}/accept-client-invite?token={link.token}"
 
     if settings.RESEND_API_KEY:
         try:
@@ -148,7 +147,7 @@ async def send_invite(
 
     return {
         "status": "sent",
-        "token": token,
+        "token": link.token,
         "invited_email": data.client_email,
         "link_id": str(link.id),
     }
