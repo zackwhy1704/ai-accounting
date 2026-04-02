@@ -621,6 +621,11 @@ class ClientPortalSignup(BaseModel):
     phone: str | None = None
 
 
+class ClientPortalLogin(BaseModel):
+    email: str
+    password: str
+
+
 @router.post("/portal/{slug}/signup")
 async def client_portal_signup(
     slug: str,
@@ -711,6 +716,85 @@ async def client_portal_signup(
         "token_type": "bearer",
         "firm_name": firm.name,
         "organization_id": str(client_org.id),
+    }
+
+
+@router.post("/portal/{slug}/login")
+async def client_portal_login(
+    slug: str,
+    data: ClientPortalLogin,
+    db: AsyncSession = Depends(get_db),
+):
+    """Existing user logs in through a firm's portal.
+
+    After authenticating, if their org is not already under the firm,
+    we set parent_firm_id and grant the firm's accountants access — so
+    existing customers who arrive via a white-label URL get properly linked.
+    """
+    from app.core.security import verify_password
+
+    # Find firm
+    firm_result = await db.execute(
+        select(Organization).where(
+            Organization.slug == slug,
+            Organization.org_type == "firm",
+            Organization.client_portal_enabled == True,
+        )
+    )
+    firm = firm_result.scalar_one_or_none()
+    if not firm:
+        raise HTTPException(404, "Portal not found")
+
+    # Authenticate user
+    user_result = await db.execute(select(User).where(User.email == data.email.lower()))
+    user = user_result.scalar_one_or_none()
+    if not user or not verify_password(data.password, user.hashed_password):
+        raise HTTPException(401, "Incorrect email or password")
+
+    # Get the user's org
+    org_result = await db.execute(select(Organization).where(Organization.id == user.organization_id))
+    org = org_result.scalar_one_or_none()
+    if not org:
+        raise HTTPException(404, "Organisation not found")
+
+    # If not already linked to this firm, link them now
+    if org.parent_firm_id != firm.id:
+        org.parent_firm_id = firm.id
+
+        # Grant firm's owners/admins accountant access to this org (if not already)
+        firm_members_result = await db.execute(
+            select(UserOrganization).where(
+                UserOrganization.organization_id == firm.id,
+                UserOrganization.role.in_(["owner", "admin"]),
+            )
+        )
+        for membership in firm_members_result.scalars().all():
+            existing_access = await db.execute(
+                select(UserOrganization).where(
+                    UserOrganization.user_id == membership.user_id,
+                    UserOrganization.organization_id == org.id,
+                )
+            )
+            if not existing_access.scalar_one_or_none():
+                db.add(UserOrganization(
+                    user_id=membership.user_id,
+                    organization_id=org.id,
+                    role="accountant",
+                    is_default=False,
+                    invited_by=membership.user_id,
+                ))
+
+        await db.commit()
+
+    access_token = create_access_token(
+        {"sub": str(user.id), "org_id": str(org.id), "role": user.role}
+    )
+    return {
+        "access_token": access_token,
+        "token_type": "bearer",
+        "firm_name": firm.name,
+        "organization_id": str(org.id),
+        "was_linked": True,
     }
 
 

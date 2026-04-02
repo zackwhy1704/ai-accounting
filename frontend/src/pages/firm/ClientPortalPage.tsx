@@ -39,14 +39,21 @@ export default function ClientPortalPage() {
       setMode("success")
     },
     onError: (e: any) => {
-      setError(e?.response?.data?.detail || "Signup failed. Please try again.")
+      const detail: string = e?.response?.data?.detail || ""
+      // Existing user hit the signup form — pivot them to login with email pre-filled
+      if (e?.response?.status === 400 && detail.toLowerCase().includes("already registered")) {
+        setError("You already have an account. Signing you in…")
+        setMode("login")
+        return
+      }
+      setError(detail || "Signup failed. Please try again.")
     },
   })
 
-  // Login mutation (uses main auth endpoint)
+  // Login mutation — uses the firm-aware portal endpoint so existing users get linked
   const login = useMutation({
     mutationFn: (data: { email: string; password: string }) =>
-      axios.post(`${API_BASE}/auth/login`, data).then((r) => r.data),
+      axios.post(`${API_BASE}/firm/portal/${slug}/login`, data).then((r) => r.data),
     onSuccess: (data) => {
       localStorage.setItem("access_token", data.access_token)
       navigate("/dashboard", { replace: true })
