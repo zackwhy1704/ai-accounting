@@ -280,6 +280,108 @@ async def get_firm_clients(
     return out
 
 
+class LinkBySlugRequest(BaseModel):
+    firm_slug: str
+    note: str | None = None
+
+
+@router.post("/link-by-slug", status_code=201)
+async def sme_link_by_slug(
+    data: LinkBySlugRequest,
+    current_user: dict = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """SME initiates linking to an accountant firm by the firm's slug.
+
+    The link becomes active immediately — no firm approval needed since the
+    SME is voluntarily sharing access to their own workspace.
+    """
+    sme_org_id = UUID(current_user["org_id"])
+    sme_user_id = UUID(current_user["sub"])
+
+    # Caller must be an SME-type org
+    sme_org_result = await db.execute(select(Organization).where(Organization.id == sme_org_id))
+    sme_org = sme_org_result.scalar_one_or_none()
+    if not sme_org or sme_org.org_type == "firm":
+        raise HTTPException(status_code=403, detail="Only SME/client accounts can request to link an accountant")
+
+    # Look up the firm by slug
+    slug = data.firm_slug.strip().lower()
+    firm_result = await db.execute(
+        select(Organization).where(
+            Organization.slug == slug,
+            Organization.org_type == "firm",
+        )
+    )
+    firm = firm_result.scalar_one_or_none()
+    if not firm:
+        raise HTTPException(status_code=404, detail=f"No accounting firm found with slug '{slug}'. Check the slug and try again.")
+
+    # Prevent duplicate links
+    existing = await db.execute(
+        select(FirmClientLink).where(
+            FirmClientLink.firm_org_id == firm.id,
+            FirmClientLink.client_org_id == sme_org_id,
+            FirmClientLink.status.in_(["pending", "active"]),
+        )
+    )
+    if existing.scalar_one_or_none():
+        raise HTTPException(status_code=409, detail="You are already linked or have a pending link with this firm")
+
+    # Get SME user's email
+    user_result = await db.execute(select(User).where(User.id == sme_user_id))
+    sme_user = user_result.scalar_one_or_none()
+    if not sme_user:
+        raise HTTPException(status_code=401, detail="User not found")
+
+    token = secrets.token_urlsafe(32)
+    link = FirmClientLink(
+        firm_org_id=firm.id,
+        client_org_id=sme_org_id,
+        status="active",
+        invited_email=sme_user.email.lower(),
+        invited_by=sme_user_id,
+        token=token,
+        note=data.note,
+        accepted_at=datetime.now(timezone.utc),
+    )
+    db.add(link)
+    await db.commit()
+    await db.refresh(link)
+
+    return {
+        "status": "linked",
+        "link_id": str(link.id),
+        "firm_name": firm.name,
+        "firm_logo_url": firm.logo_url,
+    }
+
+
+@router.get("/lookup-firm/{slug}")
+async def lookup_firm_by_slug(
+    slug: str,
+    db: AsyncSession = Depends(get_db),
+):
+    """Public: preview a firm by slug before linking (used by SME modal)."""
+    result = await db.execute(
+        select(Organization).where(
+            Organization.slug == slug.strip().lower(),
+            Organization.org_type == "firm",
+        )
+    )
+    firm = result.scalar_one_or_none()
+    if not firm:
+        raise HTTPException(status_code=404, detail="Firm not found")
+    return {
+        "name": firm.name,
+        "slug": firm.slug,
+        "logo_url": firm.logo_url,
+        "description": firm.firm_description,
+        "website": firm.firm_website,
+        "contact_email": firm.firm_contact_email,
+    }
+
+
 @router.delete("/{link_id}")
 async def unlink(
     link_id: str,

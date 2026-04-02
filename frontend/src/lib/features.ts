@@ -135,12 +135,15 @@ export function useFeatureFlags() {
 
   const features = getFeaturesForUser(user?.org_type ?? 'sme', user?.country ?? '')
 
-  // shared_documents + my_accountants are gated behind having a linked accountant firm.
-  // They are absent from ORG_FEATURES by default and only unlocked here once the
-  // links query has resolved with at least one result — no flicker, no leak.
+  // my_accountants is always visible for SME types so they can discover and initiate
+  // linking to an accountant firm (not just wait for a firm invitation).
+  // shared_documents is only unlocked once at least one firm is linked — no point
+  // showing a document sharing screen with no one to share to.
+  if (isSME) {
+    features.add("my_accountants")
+  }
   if (isSME && !linksLoading && linkedFirms.length > 0) {
     features.add("shared_documents")
-    features.add("my_accountants")
   }
 
   // Portal clients (signed up under a firm's white-label link) have parent_firm_id set.

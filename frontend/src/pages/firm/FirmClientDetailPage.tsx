@@ -2,7 +2,7 @@ import { useState } from "react"
 import { useParams, useNavigate } from "react-router-dom"
 import { useQuery } from "@tanstack/react-query"
 import {
-  ArrowLeft, Building2, FileText, Download, Loader2,
+  ArrowLeft, FileText, Download, Loader2,
   BarChart3, Receipt, ShoppingCart, Users, AlertCircle,
 } from "lucide-react"
 import { Card } from "../../components/ui/card"
