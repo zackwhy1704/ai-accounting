@@ -4,7 +4,7 @@ from app.core.config import get_settings
 from app.api.v1 import (
     auth, invoices, bills, documents, contacts, accounts, dashboard, billing, firm, sales,
     products, tax_rates, exchange_rates, manual_journals, bank_rules, vendor_credits, sale_receipts, recurring_invoices, einvoice, payment_links, reports, custom_fields, invoice_templates, ai_assist,
-    bank_accounts, bank_transactions, bank_transfers_router, stock, fixed_assets, purchase_payments, purchase_refunds, contact_groups, settings_data,
+    bank_accounts, bank_transactions, bank_transfers_router, stock, fixed_assets, purchase_payments, purchase_refunds, contact_groups, settings_data, bank_reconciliation,
 )
 from app.api.v1.purchase_orders import router as purchase_orders_router
 from app.api.v1.goods_received_notes import router as goods_received_notes_router
@@ -87,3 +87,4 @@ app.include_router(sharing_router, prefix=settings.API_V1_PREFIX)
 app.include_router(invitations_router, prefix=settings.API_V1_PREFIX)
 app.include_router(purchase_orders_router, prefix=settings.API_V1_PREFIX)
 app.include_router(goods_received_notes_router, prefix=settings.API_V1_PREFIX)
+app.include_router(bank_reconciliation.router, prefix=settings.API_V1_PREFIX)

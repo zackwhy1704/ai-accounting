@@ -83,6 +83,7 @@ import SSTSalesDetailPage from './pages/reports/SSTSalesDetailPage'
 import SSTPurchaseDetailPage from './pages/reports/SSTPurchaseDetailPage'
 import StockValuesReportPage from './pages/reports/StockValuesReportPage'
 import InventorySummaryPage from './pages/reports/InventorySummaryPage'
+import BankReconciliationPage from './pages/reports/BankReconciliationPage'
 import ProfitLossPage from './pages/reports/ProfitLossPage'
 import BalanceSheetPage from './pages/reports/BalanceSheetPage'
 import CashFlowPage from './pages/reports/CashFlowPage'
@@ -222,6 +223,7 @@ function App() {
         <Route path="/reports/sst-purchase-detail" element={<SSTPurchaseDetailPage />} />
         <Route path="/reports/stock-values" element={<StockValuesReportPage />} />
         <Route path="/reports/inventory-summary" element={<InventorySummaryPage />} />
+        <Route path="/reports/bank-reconciliation" element={<BankReconciliationPage />} />
 
         {/* MyInvois (MY) / SG Compliance */}
         <Route path="/myinvois" element={<MyInvoisPage />} />

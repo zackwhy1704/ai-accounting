@@ -73,7 +73,7 @@ const CATEGORIES: ReportCategory[] = [
     icon: <Landmark className="h-4 w-4" />,
     color: "from-cyan-500 to-sky-600",
     reports: [
-      { label: "Bank Reconciliation", route: "/reports/bank-reconciliation", available: false },
+      { label: "Bank Reconciliation", route: "/reports/bank-reconciliation", available: true },
       { label: "Transaction List", route: "/reports/transaction-list", available: true },
       { label: "Exchange Rates", route: "/reports/exchange-rates", available: false },
     ],

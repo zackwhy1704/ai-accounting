@@ -1390,3 +1390,36 @@ class GRNLineItem(Base):
     sort_order: Mapped[int] = mapped_column(Integer, default=0)
 
     grn: Mapped["GoodsReceivedNote"] = relationship(back_populates="line_items")
+
+
+# ──────────────────────────────────────────────
+# Bank Reconciliation
+# ──────────────────────────────────────────────
+class BankStatementLine(Base):
+    __tablename__ = "bank_statement_lines"
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=new_uuid)
+    organization_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("organizations.id", ondelete="CASCADE"), index=True)
+    bank_account_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("bank_accounts.id"))
+    date: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    description: Mapped[str] = mapped_column(String(500))
+    reference: Mapped[str | None] = mapped_column(String(200))
+    amount: Mapped[float] = mapped_column(Numeric(18, 4))  # positive=deposit, negative=withdrawal
+    balance: Mapped[float | None] = mapped_column(Numeric(18, 4))  # running balance from statement
+    status: Mapped[str] = mapped_column(String(20), default="unmatched")  # unmatched | matched | reconciled
+    matched_transaction_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("transactions.id"))
+    match_confidence: Mapped[float | None] = mapped_column(Numeric(5, 2))  # 0.00-1.00
+    match_reason: Mapped[str | None] = mapped_column(String(500))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    __table_args__ = (Index("ix_bsl_org_status", "organization_id", "status"),)
+
+
+class ReconciliationRule(Base):
+    __tablename__ = "reconciliation_rules"
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=new_uuid)
+    organization_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("organizations.id", ondelete="CASCADE"), index=True)
+    pattern: Mapped[str] = mapped_column(String(500))  # text pattern to match in description
+    account_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("accounts.id"))
+    contact_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("contacts.id"))
+    match_count: Mapped[int] = mapped_column(Integer, default=0)  # how many times this rule matched
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    __table_args__ = (UniqueConstraint("organization_id", "pattern", name="uq_org_recon_pattern"),)
