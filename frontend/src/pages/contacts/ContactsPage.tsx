@@ -46,7 +46,7 @@ export default function ContactsPage() {
           <div className="mt-1 max-w-2xl text-sm text-muted-foreground">{t("contacts.desc")}</div>
         </div>
         <div className="flex items-center gap-2">
-          <Button type="button" variant="secondary" className="h-9 rounded-xl px-3 text-xs font-semibold shadow-sm"><Users className="mr-2 h-4 w-4" /> {t("contacts.groups")}</Button>
+          <Button type="button" variant="secondary" className="h-9 rounded-xl px-3 text-xs font-semibold shadow-sm" onClick={() => navigate("/contacts/groups")}><Users className="mr-2 h-4 w-4" /> {t("contacts.groups")}</Button>
           <Button type="button" onClick={() => navigate("/contacts/new")} className="h-9 rounded-xl bg-gradient-to-r from-[#7C9DFF] to-[#4D63FF] px-3 text-xs font-semibold text-white shadow-[0_0_0_1px_rgba(124,157,255,0.25),0_16px_40px_rgba(0,0,0,0.35)] hover:opacity-95"><Plus className="mr-2 h-4 w-4" /> {t("contacts.new")}</Button>
         </div>
       </div>

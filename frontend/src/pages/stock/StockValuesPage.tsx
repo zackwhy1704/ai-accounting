@@ -7,6 +7,8 @@ import { Card } from "../../components/ui/card"
 import { Input } from "../../components/ui/input"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../../components/ui/table"
 
+interface StockOverride { qty?: number; cost?: number }
+
 interface Product {
   id: string
   name: string
@@ -17,6 +19,7 @@ interface Product {
 
 export default function StockValuesPage() {
   const [search, setSearch] = useState("")
+  const [overrides, setOverrides] = useState<Record<string, StockOverride>>({})
 
   const { data: products = [], isLoading } = useQuery<Product[]>({
     queryKey: ["products"],
@@ -34,8 +37,8 @@ export default function StockValuesPage() {
     : products
 
   const totalValue = rows.reduce((sum, p) => {
-    const qty = p.qty_on_hand ?? 0
-    const cost = p.avg_cost ?? 0
+    const qty = overrides[p.id]?.qty ?? p.qty_on_hand ?? 0
+    const cost = overrides[p.id]?.cost ?? p.avg_cost ?? 0
     return sum + qty * cost
   }, 0)
 
@@ -85,16 +88,29 @@ export default function StockValuesPage() {
                   {rows.map(p => {
                     const qty = p.qty_on_hand ?? 0
                     const cost = p.avg_cost ?? 0
-                    const total = qty * cost
+                    const effectiveQty = overrides[p.id]?.qty ?? qty
+                    const effectiveCost = overrides[p.id]?.cost ?? cost
+                    const total = effectiveQty * effectiveCost
                     return (
                       <TableRow key={p.id} className="border-border hover:bg-muted/50">
                         <TableCell className="font-medium text-foreground">{p.name}</TableCell>
                         <TableCell className="text-muted-foreground">{p.sku || "—"}</TableCell>
-                        <TableCell className={cn("text-right", qty === 0 ? "text-muted-foreground" : "text-foreground")}>
-                          {qty.toLocaleString()}
+                        <TableCell className="text-right">
+                          <Input
+                            type="number"
+                            className="h-8 w-24 text-right text-sm ml-auto"
+                            value={overrides[p.id]?.qty ?? qty}
+                            onChange={e => setOverrides(prev => ({ ...prev, [p.id]: { ...prev[p.id], qty: Number(e.target.value) } }))}
+                          />
                         </TableCell>
-                        <TableCell className="text-right text-foreground">
-                          {cost > 0 ? formatCurrency(cost) : "—"}
+                        <TableCell className="text-right">
+                          <Input
+                            type="number"
+                            step="0.01"
+                            className="h-8 w-28 text-right text-sm ml-auto"
+                            value={overrides[p.id]?.cost ?? cost}
+                            onChange={e => setOverrides(prev => ({ ...prev, [p.id]: { ...prev[p.id], cost: Number(e.target.value) } }))}
+                          />
                         </TableCell>
                         <TableCell className="text-right font-medium text-foreground">
                           {total > 0 ? formatCurrency(total) : "—"}

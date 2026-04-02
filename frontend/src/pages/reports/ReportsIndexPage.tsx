@@ -33,10 +33,10 @@ const CATEGORIES: ReportCategory[] = [
     icon: <Users className="h-4 w-4" />,
     color: "from-blue-500 to-indigo-600",
     reports: [
-      { label: "Invoice Summary", route: "/reports/invoice-summary", available: false },
+      { label: "Invoice Summary", route: "/reports/invoice-summary", available: true },
       { label: "Aged Receivables", route: "/reports/aged-receivables", available: true },
       { label: "Debtor Ledger", route: "/reports/debtor-ledger", available: false },
-      { label: "Payment Summary", route: "/reports/payment-summary", available: false },
+      { label: "Payment Summary", route: "/reports/payment-summary", available: true },
     ],
   },
   {
@@ -44,7 +44,7 @@ const CATEGORIES: ReportCategory[] = [
     icon: <Building2 className="h-4 w-4" />,
     color: "from-violet-500 to-purple-600",
     reports: [
-      { label: "Bill Summary", route: "/reports/bill-summary", available: false },
+      { label: "Bill Summary", route: "/reports/bill-summary", available: true },
       { label: "Aged Payables", route: "/reports/aged-payables", available: true },
       { label: "Creditor Ledger", route: "/reports/creditor-ledger", available: false },
     ],

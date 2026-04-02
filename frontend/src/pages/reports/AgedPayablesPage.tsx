@@ -42,7 +42,7 @@ export default function AgedPayablesPage() {
     queryKey: ["report-ap-aging", queryParams],
     queryFn: () =>
       api
-        .get(`/reports?type=ap_aging&period_date=${queryParams.periodDate}&periods=${queryParams.periods}&days_per_period=${queryParams.daysPeriod}&currency=${queryParams.currency}`)
+        .get(`/reports/ap-aging?as_of_date=${queryParams.periodDate}`)
         .then(r => r.data),
   })
 

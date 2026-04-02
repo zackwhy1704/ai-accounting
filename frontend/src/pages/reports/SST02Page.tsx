@@ -63,7 +63,7 @@ export default function SST02Page() {
 
   const { data, isLoading, isFetching } = useQuery<SST02Report>({
     queryKey: ["report-sst02", queryParams],
-    queryFn: () => api.get(`/reports?type=sst_02&from_date=${queryParams.fromDate}&to_date=${queryParams.toDate}`).then(r => r.data),
+    queryFn: () => api.get(`/reports/sst-02?from_date=${queryParams.fromDate}&to_date=${queryParams.toDate}`).then(r => r.data),
   })
 
   const handleUpdate = () => {

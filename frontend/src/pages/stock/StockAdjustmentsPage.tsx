@@ -74,7 +74,7 @@ export default function StockAdjustmentsPage() {
         </Button>
       </div>
 
-      <Card className="rounded-2xl border-border bg-card p-4 shadow-[0_0_0_1px_rgba(15,23,42,0.06),0_18px_55px_rgba(2,6,23,0.08)]">
+      <Card className="min-h-[calc(100vh-220px)] rounded-2xl border-border bg-card p-4 shadow-[0_0_0_1px_rgba(15,23,42,0.06),0_18px_55px_rgba(2,6,23,0.08)]">
         <div className="mb-4 flex flex-wrap items-center gap-3">
           <div className="relative flex-1 min-w-[180px] max-w-sm">
             <Search className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
@@ -137,7 +137,7 @@ export default function StockAdjustmentsPage() {
                   <TableHead className="text-muted-foreground">Reference No.</TableHead>
                   <TableHead className="text-muted-foreground">Reason</TableHead>
                   <TableHead className="text-muted-foreground">Status</TableHead>
-                  <TableHead className="w-[60px]" />
+                  <TableHead className="w-[90px] text-right text-muted-foreground">Action</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -154,9 +154,9 @@ export default function StockAdjustmentsPage() {
                     </TableCell>
                     <TableCell className="text-right">
                       <RowActionsMenu actions={[
-                        { label: "View", icon: <FileText className="h-4 w-4" />, onClick: () => navigate(`/stock/adjustments/${a.id}`) },
-                        { label: "Confirm", icon: <CheckCircle2 className="h-4 w-4" />, onClick: () => {}, disabled: a.status !== "draft", dividerBefore: true },
-                        { label: "Void", icon: <XCircle className="h-4 w-4" />, onClick: () => {}, danger: true, dividerBefore: true, disabled: a.status === "void" },
+                        { label: "View", icon: <FileText className="h-4 w-4" />, onClick: () => alert("Adjustment: " + a.adjustment_number + "\nDate: " + a.adjustment_date + "\nReason: " + (a.reason || "—") + "\nStatus: " + a.status) },
+                        { label: "Confirm", icon: <CheckCircle2 className="h-4 w-4" />, onClick: () => { api.patch(`/stock-adjustments/${a.id}`, { status: "confirmed" }).then(() => window.location.reload()) }, disabled: a.status !== "draft", dividerBefore: true },
+                        { label: "Void", icon: <XCircle className="h-4 w-4" />, onClick: () => { if (window.confirm("Void this adjustment?")) api.patch(`/stock-adjustments/${a.id}`, { status: "void" }).then(() => window.location.reload()) }, danger: true, dividerBefore: true, disabled: a.status === "void" },
                       ]} />
                     </TableCell>
                   </TableRow>

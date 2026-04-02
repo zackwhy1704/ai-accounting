@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react"
 import { useNavigate } from "react-router-dom"
-import { useContacts, useAccounts, useProducts } from "../../../lib/hooks"
+import { useContacts, useAccounts } from "../../../lib/hooks"
 import { Card } from "../../../components/ui/card"
 import { Button } from "../../../components/ui/button"
 import { Input } from "../../../components/ui/input"
@@ -22,7 +22,7 @@ export default function NewSaleReceiptPage() {
   const navigate = useNavigate()
   const { data: contacts = [] } = useContacts()
   const { data: accounts = [] } = useAccounts()
-  const { data: products = [] } = useProducts()
+  useProducts()
 
   const [contactId, setContactId] = useState("")
   const [receiptDate, setReceiptDate] = useState(new Date().toISOString().split("T")[0])

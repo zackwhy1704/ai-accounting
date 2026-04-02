@@ -43,7 +43,7 @@ export default function TrialBalancePage() {
 
   const { data, isLoading, isFetching } = useQuery<TrialBalanceReport>({
     queryKey: ["report-trial-balance", activeAsAt],
-    queryFn: () => api.get(`/reports?type=trial_balance&as_at=${activeAsAt}`).then(r => r.data),
+    queryFn: () => api.get(`/reports/trial-balance?as_of_date=${activeAsAt}`).then(r => r.data),
   })
 
   const grouped = (data?.lines ?? []).reduce<Record<string, TrialBalanceLine[]>>((acc, l) => {

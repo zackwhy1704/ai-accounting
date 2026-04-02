@@ -259,9 +259,486 @@ async def trial_balance_report(
     return {
         "report_type": "trial_balance",
         "as_of_date": as_of.strftime("%Y-%m-%d"),
+        "as_at": as_of.strftime("%Y-%m-%d"),
         "currency": "MYR",
         "lines": lines,
         "totals": {"debit": total_dr, "credit": total_cr},
         "is_balanced": abs(total_dr - total_cr) < 0.01,
+        "generated_at": datetime.now(timezone.utc).isoformat(),
+    }
+
+
+@router.get("/general-ledger")
+async def general_ledger_report(
+    from_date: str = Query(None, description="YYYY-MM-DD"),
+    to_date: str = Query(None, description="YYYY-MM-DD"),
+    account: str = Query(None, description="Account code or name filter"),
+    db: AsyncSession = Depends(get_db),
+    current_user: dict = Depends(get_current_user),
+):
+    """General Ledger — all journal entries grouped by account."""
+    org_id = current_user["org_id"]
+    now = datetime.now(timezone.utc)
+    start = datetime.fromisoformat(from_date).replace(tzinfo=timezone.utc) if from_date else datetime(now.year, 1, 1, tzinfo=timezone.utc)
+    end = datetime.fromisoformat(to_date).replace(hour=23, minute=59, second=59, tzinfo=timezone.utc) if to_date else now
+
+    # Get all accounts
+    acct_q = select(Account).where(Account.organization_id == org_id).order_by(Account.code)
+    if account:
+        acct_q = acct_q.where(
+            Account.code.ilike(f"%{account}%") | Account.name.ilike(f"%{account}%")
+        )
+    acct_result = await db.execute(acct_q)
+    accounts = acct_result.scalars().all()
+
+    ledger_accounts = []
+    for acct in accounts:
+        # Opening balance: sum of all entries before start date
+        opening_q = await db.execute(
+            select(
+                func.coalesce(func.sum(JournalEntry.debit), 0).label("dr"),
+                func.coalesce(func.sum(JournalEntry.credit), 0).label("cr"),
+            )
+            .join(Transaction, JournalEntry.transaction_id == Transaction.id)
+            .where(
+                JournalEntry.account_id == acct.id,
+                Transaction.date < start,
+                Transaction.is_posted == True,
+            )
+        )
+        opening_row = opening_q.one()
+        opening_balance = float(opening_row.dr) - float(opening_row.cr)
+
+        # Entries in period
+        entries_q = await db.execute(
+            select(
+                Transaction.date,
+                Transaction.description,
+                Transaction.reference,
+                JournalEntry.debit,
+                JournalEntry.credit,
+            )
+            .join(Transaction, JournalEntry.transaction_id == Transaction.id)
+            .where(
+                JournalEntry.account_id == acct.id,
+                Transaction.date >= start,
+                Transaction.date <= end,
+                Transaction.is_posted == True,
+            )
+            .order_by(Transaction.date)
+        )
+        entry_rows = entries_q.all()
+
+        if not entry_rows and abs(opening_balance) < 0.01:
+            continue  # Skip accounts with no activity
+
+        entries = []
+        running = opening_balance
+        for row in entry_rows:
+            dr = float(row.debit or 0)
+            cr = float(row.credit or 0)
+            running += dr - cr
+            entries.append({
+                "date": row.date.strftime("%Y-%m-%d") if row.date else None,
+                "description": row.description or "",
+                "reference": row.reference,
+                "debit": dr,
+                "credit": cr,
+                "balance": running,
+            })
+
+        ledger_accounts.append({
+            "account_code": acct.code,
+            "account_name": acct.name,
+            "account_type": acct.type,
+            "opening_balance": opening_balance,
+            "closing_balance": running if entries else opening_balance,
+            "entries": entries,
+        })
+
+    return {
+        "report_type": "general_ledger",
+        "from_date": start.strftime("%Y-%m-%d"),
+        "to_date": end.strftime("%Y-%m-%d"),
+        "currency": "MYR",
+        "accounts": ledger_accounts,
+        "generated_at": datetime.now(timezone.utc).isoformat(),
+    }
+
+
+@router.get("/sst-02")
+async def sst02_report(
+    from_date: str = Query(..., description="YYYY-MM-DD"),
+    to_date: str = Query(..., description="YYYY-MM-DD"),
+    db: AsyncSession = Depends(get_db),
+    current_user: dict = Depends(get_current_user),
+):
+    """SST-02 Malaysia Sales & Service Tax return summary."""
+    org_id = current_user["org_id"]
+    start = datetime.fromisoformat(from_date).replace(tzinfo=timezone.utc)
+    end = datetime.fromisoformat(to_date).replace(hour=23, minute=59, second=59, tzinfo=timezone.utc)
+
+    # Output tax from invoices (SST on sales)
+    inv_result = await db.execute(
+        select(
+            func.coalesce(func.sum(Invoice.total), 0).label("taxable"),
+            func.coalesce(func.sum(Invoice.tax_amount), 0).label("tax"),
+        )
+        .where(
+            Invoice.organization_id == org_id,
+            Invoice.issue_date >= start,
+            Invoice.issue_date <= end,
+            Invoice.status.in_(["paid", "partial", "sent", "overdue"]),
+        )
+    )
+    inv_row = inv_result.one()
+    sales_taxable = float(inv_row.taxable)
+    sales_tax = float(inv_row.tax)
+
+    # Input tax from bills (SST on purchases)
+    bill_result = await db.execute(
+        select(
+            func.coalesce(func.sum(Bill.total), 0).label("taxable"),
+            func.coalesce(func.sum(Bill.tax_amount), 0).label("tax"),
+        )
+        .where(
+            Bill.organization_id == org_id,
+            Bill.bill_date >= start,
+            Bill.bill_date <= end,
+            Bill.status.in_(["paid", "partial", "pending"]),
+        )
+    )
+    bill_row = bill_result.one()
+    purchase_tax = float(bill_row.tax)
+
+    # Build taxable items — SST 6% and Service Tax 6%
+    taxable_items = []
+    if sales_taxable > 0 or sales_tax > 0:
+        taxable_items.append({
+            "rate": "6%",
+            "description": "Sales Tax / Service Tax",
+            "taxable_amount": sales_taxable,
+            "tax_amount": sales_tax,
+        })
+
+    net_tax = sales_tax - purchase_tax
+
+    # Due date: last day of month following the quarter end
+    end_dt = datetime.fromisoformat(to_date)
+    due_month = end_dt.month + 1
+    due_year = end_dt.year
+    if due_month > 12:
+        due_month = 1
+        due_year += 1
+    import calendar
+    due_day = calendar.monthrange(due_year, due_month)[1]
+    due_date = f"{due_year}-{due_month:02d}-{due_day:02d}"
+
+    return {
+        "report_type": "sst_02",
+        "registration_no": None,
+        "period_from": from_date,
+        "period_to": to_date,
+        "due_date": due_date,
+        "type_of_return": "Service Tax",
+        "taxable_items": taxable_items,
+        "total_taxable_amount": sales_taxable,
+        "total_tax_payable": sales_tax,
+        "total_input_tax": purchase_tax,
+        "net_tax_payable": net_tax,
+        "generated_at": datetime.now(timezone.utc).isoformat(),
+    }
+
+
+@router.get("/balance-sheet")
+async def balance_sheet_report(
+    as_of_date: str = Query(None, description="YYYY-MM-DD"),
+    db: AsyncSession = Depends(get_db),
+    current_user: dict = Depends(get_current_user),
+):
+    """Balance Sheet as of a given date."""
+    org_id = current_user["org_id"]
+    as_of = datetime.fromisoformat(as_of_date).replace(hour=23, minute=59, second=59, tzinfo=timezone.utc) if as_of_date else datetime.now(timezone.utc)
+
+    result = await db.execute(
+        select(
+            Account.type,
+            func.sum(JournalEntry.debit).label("total_debit"),
+            func.sum(JournalEntry.credit).label("total_credit"),
+        )
+        .join(JournalEntry, JournalEntry.account_id == Account.id)
+        .join(Transaction, JournalEntry.transaction_id == Transaction.id)
+        .where(
+            Account.organization_id == org_id,
+            Transaction.date <= as_of,
+            Transaction.is_posted == True,
+        )
+        .group_by(Account.type)
+    )
+    rows = result.all()
+
+    sections = {}
+    for row in rows:
+        dr = float(row.total_debit or 0)
+        cr = float(row.total_credit or 0)
+        t = row.type.lower() if row.type else "other"
+        if t in ("asset", "assets"):
+            sections.setdefault("assets", 0)
+            sections["assets"] += dr - cr
+        elif t in ("liability", "liabilities"):
+            sections.setdefault("liabilities", 0)
+            sections["liabilities"] += cr - dr
+        elif t in ("equity",):
+            sections.setdefault("equity", 0)
+            sections["equity"] += cr - dr
+        elif t in ("revenue", "income"):
+            sections.setdefault("equity", 0)
+            sections["equity"] += cr - dr  # Retained earnings
+        elif t in ("expense", "expenses"):
+            sections.setdefault("equity", 0)
+            sections["equity"] -= dr - cr  # Reduces retained earnings
+
+    total_assets = sections.get("assets", 0)
+    total_liabilities = sections.get("liabilities", 0)
+    total_equity = sections.get("equity", 0)
+
+    return {
+        "report_type": "balance_sheet",
+        "as_of_date": as_of.strftime("%Y-%m-%d"),
+        "currency": "MYR",
+        "assets": total_assets,
+        "liabilities": total_liabilities,
+        "equity": total_equity,
+        "liabilities_and_equity": total_liabilities + total_equity,
+        "is_balanced": abs(total_assets - (total_liabilities + total_equity)) < 0.01,
+        "generated_at": datetime.now(timezone.utc).isoformat(),
+    }
+
+
+@router.get("/cash-flow")
+async def cash_flow_report(
+    start_date: str = Query(..., description="YYYY-MM-DD"),
+    end_date: str = Query(..., description="YYYY-MM-DD"),
+    db: AsyncSession = Depends(get_db),
+    current_user: dict = Depends(get_current_user),
+):
+    """Cash Flow Statement summary."""
+    org_id = current_user["org_id"]
+    start = datetime.fromisoformat(start_date).replace(tzinfo=timezone.utc)
+    end = datetime.fromisoformat(end_date).replace(hour=23, minute=59, second=59, tzinfo=timezone.utc)
+
+    # Cash/bank accounts — movements during period
+    cash_accounts = await db.execute(
+        select(Account.id).where(
+            Account.organization_id == org_id,
+            Account.type.in_(["bank", "cash", "asset"]),
+            Account.name.ilike("%cash%") | Account.name.ilike("%bank%"),
+        )
+    )
+    cash_ids = [row[0] for row in cash_accounts.all()]
+
+    if cash_ids:
+        # Opening cash
+        open_q = await db.execute(
+            select(
+                func.coalesce(func.sum(JournalEntry.debit), 0),
+                func.coalesce(func.sum(JournalEntry.credit), 0),
+            )
+            .join(Transaction, JournalEntry.transaction_id == Transaction.id)
+            .where(
+                JournalEntry.account_id.in_(cash_ids),
+                Transaction.date < start,
+                Transaction.is_posted == True,
+            )
+        )
+        orow = open_q.one()
+        opening_cash = float(orow[0]) - float(orow[1])
+
+        # Period movements
+        period_q = await db.execute(
+            select(
+                func.coalesce(func.sum(JournalEntry.debit), 0),
+                func.coalesce(func.sum(JournalEntry.credit), 0),
+            )
+            .join(Transaction, JournalEntry.transaction_id == Transaction.id)
+            .where(
+                JournalEntry.account_id.in_(cash_ids),
+                Transaction.date >= start,
+                Transaction.date <= end,
+                Transaction.is_posted == True,
+            )
+        )
+        prow = period_q.one()
+        cash_in = float(prow[0])
+        cash_out = float(prow[1])
+    else:
+        opening_cash = 0
+        cash_in = 0
+        cash_out = 0
+
+    net_change = cash_in - cash_out
+    closing_cash = opening_cash + net_change
+
+    return {
+        "report_type": "cash_flow",
+        "start_date": start_date,
+        "end_date": end_date,
+        "currency": "MYR",
+        "opening_cash": opening_cash,
+        "cash_inflows": cash_in,
+        "cash_outflows": cash_out,
+        "net_change": net_change,
+        "closing_cash": closing_cash,
+        "generated_at": datetime.now(timezone.utc).isoformat(),
+    }
+
+
+@router.get("/invoice-summary")
+async def invoice_summary_report(
+    start_date: str = Query(...),
+    end_date: str = Query(...),
+    db: AsyncSession = Depends(get_db),
+    current_user: dict = Depends(get_current_user),
+):
+    """Invoice Summary — aggregated invoices by status and customer."""
+    org_id = current_user["org_id"]
+    start = datetime.fromisoformat(start_date).replace(tzinfo=timezone.utc)
+    end = datetime.fromisoformat(end_date).replace(hour=23, minute=59, second=59, tzinfo=timezone.utc)
+
+    result = await db.execute(
+        select(
+            Contact.name,
+            Invoice.status,
+            func.count(Invoice.id).label("count"),
+            func.sum(Invoice.total).label("total"),
+            func.sum(Invoice.amount_paid).label("paid"),
+        )
+        .join(Contact, Invoice.contact_id == Contact.id, isouter=True)
+        .where(
+            Invoice.organization_id == org_id,
+            Invoice.issue_date >= start,
+            Invoice.issue_date <= end,
+        )
+        .group_by(Contact.name, Invoice.status)
+        .order_by(Contact.name)
+    )
+    rows = result.all()
+
+    items = []
+    for row in rows:
+        items.append({
+            "customer_name": row.name or "Unknown",
+            "status": row.status,
+            "count": int(row.count),
+            "total": float(row.total or 0),
+            "amount_paid": float(row.paid or 0),
+            "balance": float(row.total or 0) - float(row.paid or 0),
+        })
+
+    return {
+        "report_type": "invoice_summary",
+        "start_date": start_date,
+        "end_date": end_date,
+        "items": items,
+        "generated_at": datetime.now(timezone.utc).isoformat(),
+    }
+
+
+@router.get("/bill-summary")
+async def bill_summary_report(
+    start_date: str = Query(...),
+    end_date: str = Query(...),
+    db: AsyncSession = Depends(get_db),
+    current_user: dict = Depends(get_current_user),
+):
+    """Bill Summary — aggregated bills by status and vendor."""
+    org_id = current_user["org_id"]
+    start = datetime.fromisoformat(start_date).replace(tzinfo=timezone.utc)
+    end = datetime.fromisoformat(end_date).replace(hour=23, minute=59, second=59, tzinfo=timezone.utc)
+
+    result = await db.execute(
+        select(
+            Contact.name,
+            Bill.status,
+            func.count(Bill.id).label("count"),
+            func.sum(Bill.total).label("total"),
+            func.sum(Bill.amount_paid).label("paid"),
+        )
+        .join(Contact, Bill.contact_id == Contact.id, isouter=True)
+        .where(
+            Bill.organization_id == org_id,
+            Bill.bill_date >= start,
+            Bill.bill_date <= end,
+        )
+        .group_by(Contact.name, Bill.status)
+        .order_by(Contact.name)
+    )
+    rows = result.all()
+
+    items = []
+    for row in rows:
+        items.append({
+            "vendor_name": row.name or "Unknown",
+            "status": row.status,
+            "count": int(row.count),
+            "total": float(row.total or 0),
+            "amount_paid": float(row.paid or 0),
+            "balance": float(row.total or 0) - float(row.paid or 0),
+        })
+
+    return {
+        "report_type": "bill_summary",
+        "start_date": start_date,
+        "end_date": end_date,
+        "items": items,
+        "generated_at": datetime.now(timezone.utc).isoformat(),
+    }
+
+
+@router.get("/payment-summary")
+async def payment_summary_report(
+    start_date: str = Query(...),
+    end_date: str = Query(...),
+    db: AsyncSession = Depends(get_db),
+    current_user: dict = Depends(get_current_user),
+):
+    """Payment Summary — sales payments received in period."""
+    org_id = current_user["org_id"]
+    start = datetime.fromisoformat(start_date).replace(tzinfo=timezone.utc)
+    end = datetime.fromisoformat(end_date).replace(hour=23, minute=59, second=59, tzinfo=timezone.utc)
+
+    # Payments are invoices that have been paid
+    result = await db.execute(
+        select(
+            Contact.name,
+            func.count(Invoice.id).label("count"),
+            func.sum(Invoice.amount_paid).label("total_paid"),
+        )
+        .join(Contact, Invoice.contact_id == Contact.id, isouter=True)
+        .where(
+            Invoice.organization_id == org_id,
+            Invoice.issue_date >= start,
+            Invoice.issue_date <= end,
+            Invoice.amount_paid > 0,
+        )
+        .group_by(Contact.name)
+        .order_by(Contact.name)
+    )
+    rows = result.all()
+
+    items = []
+    for row in rows:
+        items.append({
+            "customer_name": row.name or "Unknown",
+            "invoice_count": int(row.count),
+            "total_paid": float(row.total_paid or 0),
+        })
+
+    return {
+        "report_type": "payment_summary",
+        "start_date": start_date,
+        "end_date": end_date,
+        "items": items,
+        "total": sum(i["total_paid"] for i in items),
         "generated_at": datetime.now(timezone.utc).isoformat(),
     }

@@ -97,7 +97,7 @@ export default function ProductsPage() {
                     <TableCell className="text-right text-foreground">
                       {p.track_inventory ? Number(p.qty_on_hand).toFixed(2) : "—"}
                     </TableCell>
-                    <TableCell className="text-right">
+                    <TableCell className="text-right" onClick={e => e.stopPropagation()}>
                       <RowActionsMenu actions={[
                         { label: "View", icon: <Eye className="h-4 w-4" />, onClick: () => navigate(`/products/${p.id}`) },
                         { label: "Edit", icon: <Pencil className="h-4 w-4" />, onClick: () => navigate(`/products/${p.id}/edit`) },

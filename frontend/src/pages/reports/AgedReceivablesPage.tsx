@@ -42,7 +42,7 @@ export default function AgedReceivablesPage() {
     queryKey: ["report-ar-aging", queryParams],
     queryFn: () =>
       api
-        .get(`/reports?type=ar_aging&period_date=${queryParams.periodDate}&periods=${queryParams.periods}&days_per_period=${queryParams.daysPeriod}&currency=${queryParams.currency}`)
+        .get(`/reports/ar-aging?as_of_date=${queryParams.periodDate}`)
         .then(r => r.data),
   })
 

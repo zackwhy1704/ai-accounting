@@ -76,6 +76,12 @@ import TrialBalancePage from './pages/reports/TrialBalancePage'
 import GeneralLedgerPage from './pages/reports/GeneralLedgerPage'
 import SST02Page from './pages/reports/SST02Page'
 import ReportsIndexPage from './pages/reports/ReportsIndexPage'
+import ProfitLossPage from './pages/reports/ProfitLossPage'
+import BalanceSheetPage from './pages/reports/BalanceSheetPage'
+import CashFlowPage from './pages/reports/CashFlowPage'
+import InvoiceSummaryPage from './pages/reports/InvoiceSummaryPage'
+import BillSummaryPage from './pages/reports/BillSummaryPage'
+import PaymentSummaryPage from './pages/reports/PaymentSummaryPage'
 import ContactGroupsPage from './pages/contacts/ContactGroupsPage'
 import CompanySettingsPage from './pages/settings/CompanySettingsPage'
 import MyInvoisPage from './pages/myinvois/MyInvoisPage'
@@ -196,6 +202,12 @@ function App() {
         <Route path="/reports/trial-balance" element={<TrialBalancePage />} />
         <Route path="/reports/general-ledger" element={<GeneralLedgerPage />} />
         <Route path="/reports/sst-02" element={<SST02Page />} />
+        <Route path="/reports/profit-loss" element={<ProfitLossPage />} />
+        <Route path="/reports/balance-sheet" element={<BalanceSheetPage />} />
+        <Route path="/reports/cash-flow" element={<CashFlowPage />} />
+        <Route path="/reports/invoice-summary" element={<InvoiceSummaryPage />} />
+        <Route path="/reports/bill-summary" element={<BillSummaryPage />} />
+        <Route path="/reports/payment-summary" element={<PaymentSummaryPage />} />
 
         {/* MyInvois (MY) / SG Compliance */}
         <Route path="/myinvois" element={<MyInvoisPage />} />

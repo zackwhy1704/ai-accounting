@@ -42,12 +42,11 @@ export default function GeneralLedgerPage() {
     queryKey: ["report-general-ledger", queryParams],
     queryFn: () => {
       const params = new URLSearchParams({
-        type: "general_ledger",
         from_date: queryParams.fromDate,
         to_date: queryParams.toDate,
       })
       if (queryParams.account) params.set("account", queryParams.account)
-      return api.get(`/reports?${params.toString()}`).then(r => r.data)
+      return api.get(`/reports/general-ledger?${params.toString()}`).then(r => r.data)
     },
   })
 
