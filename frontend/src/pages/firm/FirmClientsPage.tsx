@@ -41,84 +41,122 @@ interface ClientLink {
 function InviteModal({ onClose }: { onClose: () => void }) {
   const [email, setEmail] = useState("")
   const [note, setNote] = useState("")
+  const [error, setError] = useState<string | null>(null)
+  const [sent, setSent] = useState(false)
   const { toast } = useToast()
   const qc = useQueryClient()
 
   const send = useMutation({
     mutationFn: () => api.post("/invitations", { client_email: email.trim(), note: note.trim() || null }),
     onSuccess: () => {
-      toast("Invitation sent", "success")
+      setSent(true)
+      setError(null)
       qc.invalidateQueries({ queryKey: ["firm-clients-linked"] })
-      onClose()
+      setTimeout(() => {
+        toast("Invitation sent", "success")
+        onClose()
+      }, 1200)
     },
     onError: (e: any) => {
-      toast(e?.response?.data?.detail || "Failed to send invitation", "warning")
+      setError(e?.response?.data?.detail || "Failed to send invitation. Please try again.")
     },
   })
+
+  const handleSubmit = () => {
+    setError(null)
+    if (!email.trim()) { setError("Please enter a client email address."); return }
+    if (!email.includes("@")) { setError("Please enter a valid email address."); return }
+    send.mutate()
+  }
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
       <div className="w-full max-w-md rounded-2xl bg-card border border-border shadow-xl p-6">
         <div className="flex items-start justify-between mb-5">
           <div>
-            <div className="text-base font-semibold text-foreground">Invite Existing Client</div>
+            <div className="text-base font-semibold text-foreground">Invite Client</div>
             <div className="text-xs text-muted-foreground mt-0.5">
-              Link an existing Accruly account to your firm
+              Send an invitation email to link their account to your firm
             </div>
           </div>
-          <button onClick={onClose} className="text-muted-foreground hover:text-foreground">
+          <button onClick={onClose} className="text-muted-foreground hover:text-foreground transition-colors">
             <X className="h-4 w-4" />
           </button>
         </div>
 
-        <div className="space-y-3">
-          <div>
-            <label className="block text-xs font-medium text-muted-foreground mb-1.5">
-              Client email address *
-            </label>
-            <div className="relative">
-              <Mail className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="client@company.com"
-                required
-                autoFocus
-                className="w-full rounded-lg border border-border bg-background pl-9 pr-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
-              />
+        {sent ? (
+          <div className="py-6 flex flex-col items-center gap-3 text-center">
+            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-emerald-100 dark:bg-emerald-900/30">
+              <Send className="h-5 w-5 text-emerald-600" />
+            </div>
+            <div className="text-sm font-semibold text-foreground">Invitation sent!</div>
+            <div className="text-xs text-muted-foreground">
+              An email has been sent to <span className="font-medium">{email}</span>
             </div>
           </div>
-          <div>
-            <label className="block text-xs font-medium text-muted-foreground mb-1.5">
-              Message (optional)
-            </label>
-            <textarea
-              value={note}
-              onChange={(e) => setNote(e.target.value)}
-              placeholder="e.g. Hi, we'd like to link your account for tax filing this year."
-              rows={3}
-              className="w-full rounded-lg border border-border bg-background px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 resize-none"
-            />
-          </div>
-        </div>
+        ) : (
+          <>
+            <div className="space-y-3">
+              <div>
+                <label className="block text-xs font-medium text-muted-foreground mb-1.5">
+                  Client email address <span className="text-rose-500">*</span>
+                </label>
+                <div className="relative">
+                  <Mail className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                  <input
+                    type="email"
+                    value={email}
+                    onChange={(e) => { setEmail(e.target.value); setError(null) }}
+                    onKeyDown={(e) => e.key === "Enter" && handleSubmit()}
+                    placeholder="client@company.com"
+                    autoFocus
+                    className={`w-full rounded-lg border bg-background pl-9 pr-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 transition-colors ${
+                      error ? "border-rose-400" : "border-border"
+                    }`}
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-muted-foreground mb-1.5">
+                  Message (optional)
+                </label>
+                <textarea
+                  value={note}
+                  onChange={(e) => setNote(e.target.value)}
+                  placeholder="e.g. Hi, we'd like to link your account for tax filing this year."
+                  rows={3}
+                  className="w-full rounded-lg border border-border bg-background px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 resize-none transition-colors"
+                />
+              </div>
+              {error && (
+                <div className="rounded-lg bg-rose-50 dark:bg-rose-900/20 border border-rose-200 dark:border-rose-800/40 px-3 py-2 text-xs text-rose-600 dark:text-rose-400">
+                  {error}
+                </div>
+              )}
+            </div>
 
-        <div className="mt-5 flex gap-3">
-          <button
-            onClick={onClose}
-            className="flex-1 rounded-xl border border-border py-2.5 text-sm font-medium text-muted-foreground hover:bg-muted/50 transition-colors"
-          >
-            Cancel
-          </button>
-          <button
-            onClick={() => send.mutate()}
-            disabled={!email.trim() || send.isPending}
-            className="flex-1 flex items-center justify-center gap-2 rounded-xl bg-primary py-2.5 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50 transition-colors"
-          >
-            {send.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-            Send Invitation
-          </button>
-        </div>
+            <div className="mt-5 flex gap-3">
+              <button
+                onClick={onClose}
+                disabled={send.isPending}
+                className="flex-1 rounded-xl border border-border py-2.5 text-sm font-medium text-muted-foreground hover:bg-muted/50 disabled:opacity-50 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSubmit}
+                disabled={send.isPending}
+                className="flex-1 flex items-center justify-center gap-2 rounded-xl bg-primary py-2.5 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-60 transition-colors"
+              >
+                {send.isPending ? (
+                  <><Loader2 className="h-4 w-4 animate-spin" /> Sending…</>
+                ) : (
+                  <><Send className="h-4 w-4" /> Send Invitation</>
+                )}
+              </button>
+            </div>
+          </>
+        )}
       </div>
     </div>
   )
