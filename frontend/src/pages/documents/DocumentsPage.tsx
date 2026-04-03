@@ -943,7 +943,6 @@ function InlineJournalPreview({ documentId, category }: { documentId: string; ca
   const { toast } = useToast()
   const qc = useQueryClient()
   const [lines, setLines] = useState<JournalLine[]>([])
-  const [initialised, setInitialised] = useState(false)
   const [posted, setPosted] = useState<PostResult | null>(null)
 
   const { data, dataUpdatedAt, isLoading, error } = useQuery<JournalSuggestion>({
@@ -962,14 +961,12 @@ function InlineJournalPreview({ documentId, category }: { documentId: string; ca
   if (data && dataUpdatedAt !== prevDataUpdatedAt.current) {
     prevDataUpdatedAt.current = dataUpdatedAt
     setLines(data.journal_lines.map(l => ({ ...l })))
-    setInitialised(true)
     setPosted(null)
   }
 
   const prevCategory = useRef(category)
   if (prevCategory.current !== category) {
     prevCategory.current = category
-    setInitialised(false)
     prevDataUpdatedAt.current = 0
     setPosted(null)
   }
