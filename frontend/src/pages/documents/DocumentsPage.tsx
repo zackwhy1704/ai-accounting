@@ -357,6 +357,7 @@ export default function DocumentsPage() {
         toast("Extracted data updated", "success")
         setEditing(false)
         setEditData(null)
+        qc.invalidateQueries({ queryKey: ["suggest-journal", selected.id] })
       },
       onError: () => toast("Failed to save changes", "warning"),
     })
@@ -945,7 +946,7 @@ function InlineJournalPreview({ documentId, category }: { documentId: string; ca
   const [initialised, setInitialised] = useState(false)
   const [posted, setPosted] = useState<PostResult | null>(null)
 
-  const { data, isLoading, error } = useQuery<JournalSuggestion>({
+  const { data, dataUpdatedAt, isLoading, error } = useQuery<JournalSuggestion>({
     queryKey: ["suggest-journal", documentId],
     queryFn: () => api.get(`/documents/${documentId}/suggest-journal`).then(r => r.data),
   })
@@ -956,15 +957,20 @@ function InlineJournalPreview({ documentId, category }: { documentId: string; ca
     staleTime: 5 * 60_000,
   })
 
-  if (data && !initialised) {
+  // Re-apply lines whenever fresh data arrives (initial load or after a refetch)
+  const prevDataUpdatedAt = useRef(0)
+  if (data && dataUpdatedAt !== prevDataUpdatedAt.current) {
+    prevDataUpdatedAt.current = dataUpdatedAt
     setLines(data.journal_lines.map(l => ({ ...l })))
     setInitialised(true)
+    setPosted(null)
   }
 
   const prevCategory = useRef(category)
   if (prevCategory.current !== category) {
     prevCategory.current = category
     setInitialised(false)
+    prevDataUpdatedAt.current = 0
     setPosted(null)
   }
 
