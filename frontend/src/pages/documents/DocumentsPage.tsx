@@ -820,6 +820,13 @@ export default function DocumentsPage() {
 
 /* ── Inline Journal Preview ── */
 
+interface ChartAccount {
+  id: string
+  code: string
+  name: string
+  type: string
+}
+
 interface JournalLine {
   account_code: string
   account_name: string
@@ -858,6 +865,79 @@ interface PostResult {
   friendly_name: string
 }
 
+/* Searchable account picker for journal line rows */
+function AccountPicker({
+  code, name, accounts, onChange,
+}: {
+  code: string
+  name: string
+  accounts: ChartAccount[]
+  onChange: (code: string, name: string) => void
+}) {
+  const [open, setOpen] = useState(false)
+  const [search, setSearch] = useState("")
+  const ref = useRef<HTMLDivElement>(null)
+
+  // Close on outside click
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
+    }
+    document.addEventListener("mousedown", handler)
+    return () => document.removeEventListener("mousedown", handler)
+  }, [])
+
+  const filtered = accounts.filter(a => {
+    const q = search.toLowerCase()
+    return a.code.toLowerCase().includes(q) || a.name.toLowerCase().includes(q)
+  }).slice(0, 30)
+
+  const display = code ? `${code} – ${name}` : name || "Select account…"
+
+  return (
+    <div ref={ref} className="relative w-full">
+      <button
+        type="button"
+        onClick={() => { setOpen(o => !o); setSearch("") }}
+        className="w-full text-left rounded px-1.5 py-0.5 text-xs text-foreground bg-transparent hover:bg-muted/40 focus:outline-none focus:ring-1 focus:ring-primary/40 truncate"
+      >
+        {display}
+      </button>
+      {open && (
+        <div className="absolute left-0 top-full z-50 mt-0.5 w-64 rounded-lg border border-border bg-popover shadow-lg">
+          <div className="p-1.5 border-b border-border">
+            <input
+              autoFocus
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              placeholder="Search code or name…"
+              className="w-full rounded-md bg-muted/40 px-2 py-1 text-xs focus:outline-none"
+            />
+          </div>
+          <ul className="max-h-52 overflow-y-auto py-1">
+            {filtered.length === 0 && (
+              <li className="px-3 py-2 text-xs text-muted-foreground">No accounts found</li>
+            )}
+            {filtered.map(a => (
+              <li key={a.id}>
+                <button
+                  type="button"
+                  className="w-full text-left px-3 py-1.5 text-xs hover:bg-muted/60 flex items-center gap-2"
+                  onClick={() => { onChange(a.code, a.name); setOpen(false) }}
+                >
+                  <span className="font-mono text-muted-foreground w-12 shrink-0">{a.code}</span>
+                  <span className="truncate">{a.name}</span>
+                  <span className="ml-auto shrink-0 text-[10px] text-muted-foreground capitalize">{a.type}</span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </div>
+  )
+}
+
 function InlineJournalPreview({ documentId, category }: { documentId: string; category: string }) {
   const { toast } = useToast()
   const qc = useQueryClient()
@@ -868,6 +948,12 @@ function InlineJournalPreview({ documentId, category }: { documentId: string; ca
   const { data, isLoading, error } = useQuery<JournalSuggestion>({
     queryKey: ["suggest-journal", documentId],
     queryFn: () => api.get(`/documents/${documentId}/suggest-journal`).then(r => r.data),
+  })
+
+  const { data: accounts = [] } = useQuery<ChartAccount[]>({
+    queryKey: ["accounts"],
+    queryFn: () => api.get("/accounts").then(r => r.data),
+    staleTime: 5 * 60_000,
   })
 
   if (data && !initialised) {
@@ -889,6 +975,14 @@ function InlineJournalPreview({ documentId, category }: { documentId: string; ca
         ...updated[i],
         [field]: field === "debit" || field === "credit" ? parseFloat(value) || 0 : value,
       }
+      return updated
+    })
+  }
+
+  const updateAccount = (i: number, code: string, name: string) => {
+    setLines(prev => {
+      const updated = [...prev]
+      updated[i] = { ...updated[i], account_code: code, account_name: name }
       return updated
     })
   }
@@ -973,7 +1067,6 @@ function InlineJournalPreview({ documentId, category }: { documentId: string; ca
         <table className="w-full text-xs">
           <thead className="bg-blue-50/50 dark:bg-blue-900/10">
             <tr>
-              <th className="text-left px-3 py-2 font-medium text-muted-foreground w-20">Code</th>
               <th className="text-left px-3 py-2 font-medium text-muted-foreground">Account</th>
               <th className="text-left px-3 py-2 font-medium text-muted-foreground">Description</th>
               <th className="text-right px-3 py-2 font-medium text-muted-foreground w-24">Debit</th>
@@ -983,13 +1076,13 @@ function InlineJournalPreview({ documentId, category }: { documentId: string; ca
           <tbody className="divide-y divide-border">
             {lines.map((l, i) => (
               <tr key={i} className="hover:bg-muted/20">
-                <td className="px-3 py-1.5">
-                  <input value={l.account_code} onChange={e => updateLine(i, "account_code", e.target.value)}
-                    className="w-full bg-transparent font-mono text-foreground focus:outline-none focus:ring-1 focus:ring-primary/30 rounded px-1 py-0.5" />
-                </td>
-                <td className="px-3 py-1.5">
-                  <input value={l.account_name} onChange={e => updateLine(i, "account_name", e.target.value)}
-                    className="w-full bg-transparent text-foreground focus:outline-none focus:ring-1 focus:ring-primary/30 rounded px-1 py-0.5" />
+                <td className="px-3 py-1.5 min-w-[180px]">
+                  <AccountPicker
+                    code={l.account_code}
+                    name={l.account_name}
+                    accounts={accounts}
+                    onChange={(code, name) => updateAccount(i, code, name)}
+                  />
                 </td>
                 <td className="px-3 py-1.5">
                   <input value={l.description} onChange={e => updateLine(i, "description", e.target.value)}
@@ -1008,7 +1101,7 @@ function InlineJournalPreview({ documentId, category }: { documentId: string; ca
           </tbody>
           <tfoot className="bg-muted/20 border-t border-border">
             <tr>
-              <td colSpan={3} className="px-3 py-2 text-right text-xs font-semibold text-foreground">Total</td>
+              <td colSpan={2} className="px-3 py-2 text-right text-xs font-semibold text-foreground">Total</td>
               <td className={`px-3 py-2 text-right text-xs font-semibold ${balanced ? "text-emerald-600" : "text-rose-600"}`}>{totalDebit.toFixed(2)}</td>
               <td className={`px-3 py-2 text-right text-xs font-semibold ${balanced ? "text-rose-600" : "text-rose-600"}`}>{totalCredit.toFixed(2)}</td>
             </tr>
