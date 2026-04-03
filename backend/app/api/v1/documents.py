@@ -101,12 +101,7 @@ async def upload_document(
     if len(content) > MAX_FILE_SIZE:
         raise HTTPException(status_code=400, detail="File too large (max 10MB)")
 
-    # Check AI scan limits
     org_id = current_user["org_id"]
-    org_result = await db.execute(select(Organization).where(Organization.id == org_id))
-    org = org_result.scalar_one_or_none()
-
-    scans_remaining = (org.ai_scans_limit - org.ai_scans_used) if org else 0
 
     # Upload to storage
     file_url = await storage_service.upload_file(content, file.filename, file.content_type)
@@ -118,15 +113,14 @@ async def upload_document(
         file_url=file_url,
         file_type=file.content_type,
         file_size=len(content),
-        status="processing" if scans_remaining > 0 else "uploaded",
+        status="processing",
         uploaded_by=current_user["sub"],
     )
     db.add(doc)
     await db.flush()
 
     # Kick off OCR in background — user gets instant response
-    if scans_remaining > 0:
-        asyncio.create_task(_process_document_background(doc.id, org_id, content, file.content_type))
+    asyncio.create_task(_process_document_background(doc.id, org_id, content, file.content_type))
 
     return doc
 
