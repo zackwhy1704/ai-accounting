@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react"
+import { useMemo, useState, useRef } from "react"
 import { useQueryClient } from "@tanstack/react-query"
 import { useNavigate } from "react-router-dom"
 import { ViewDetailSheet } from "../../components/ui/view-detail-sheet"
@@ -31,6 +31,10 @@ export default function BillsPage() {
   const [tab, setTab] = useState("all")
   const [search, setSearch] = useState("")
   const [contactFilter, setContactFilter] = useState("all")
+  const [dateFrom, setDateFrom] = useState("")
+  const [dateTo, setDateTo] = useState("")
+  const dateFromRef = useRef<HTMLInputElement>(null)
+  const dateToRef = useRef<HTMLInputElement>(null)
   const { data: bills = [], isLoading } = useBills(tab === "all" ? undefined : tab)
   const { data: contacts = [] } = useContacts()
   const { t } = useTheme()
@@ -57,6 +61,8 @@ export default function BillsPage() {
       filtered = filtered.filter(b => b.bill_number.toLowerCase().includes(q) || (contactMap.get(b.contact_id) ?? "").toLowerCase().includes(q))
     }
     if (contactFilter !== "all") filtered = filtered.filter(b => b.contact_id === contactFilter)
+    if (dateFrom) filtered = filtered.filter(b => b.due_date && b.due_date >= dateFrom)
+    if (dateTo) filtered = filtered.filter(b => b.due_date && b.due_date <= dateTo)
     return filtered
   }, [bills, search, contactMap, contactFilter])
 
@@ -83,7 +89,29 @@ export default function BillsPage() {
               <div className="mt-4 grid grid-cols-1 gap-3 lg:grid-cols-12">
                 <div className="lg:col-span-4">
                   <div className="text-xs font-medium text-muted-foreground">{t("bills.dueRange")}</div>
-                  <div className="mt-2 flex items-center gap-2 rounded-xl border border-border bg-card px-3 py-2"><CalendarDays className="h-4 w-4 text-muted-foreground" /><div className="text-xs text-muted-foreground">{t("common.start")}</div><div className="h-4 w-px bg-border" /><div className="text-xs text-muted-foreground">{t("common.end")}</div></div>
+                  <div className="mt-2 flex items-center gap-1 rounded-xl border border-border bg-card px-3 py-1.5">
+                    <CalendarDays className="h-4 w-4 shrink-0 text-muted-foreground" />
+                    <input
+                      ref={dateFromRef}
+                      type="date"
+                      value={dateFrom}
+                      onChange={e => setDateFrom(e.target.value)}
+                      className="flex-1 min-w-0 bg-transparent text-xs text-foreground focus:outline-none"
+                    />
+                    <div className="h-4 w-px bg-border shrink-0" />
+                    <input
+                      ref={dateToRef}
+                      type="date"
+                      value={dateTo}
+                      onChange={e => setDateTo(e.target.value)}
+                      className="flex-1 min-w-0 bg-transparent text-xs text-foreground focus:outline-none"
+                    />
+                    {(dateFrom || dateTo) && (
+                      <button type="button" onClick={() => { setDateFrom(""); setDateTo("") }} className="shrink-0 text-muted-foreground hover:text-foreground">
+                        <CalendarDays className="h-3 w-3" />
+                      </button>
+                    )}
+                  </div>
                 </div>
                 <div className="lg:col-span-4">
                   <div className="text-xs font-medium text-muted-foreground">{t("common.search")}</div>
@@ -109,7 +137,7 @@ export default function BillsPage() {
                         <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-muted shadow-[0_0_0_1px_rgba(15,23,42,0.08)]"><FileText className="h-6 w-6 text-muted-foreground" /></div>
                         <div><div className="text-base font-semibold text-foreground">{t("bills.noBills")}</div><div className="mt-1 text-sm text-muted-foreground">{t("bills.noBillsDesc")}</div></div>
                       </div>
-                      <Button type="button" className="h-9 rounded-xl bg-gradient-to-r from-[#7C9DFF] to-[#4D63FF] px-3 text-xs font-semibold text-white"><Plus className="mr-2 h-4 w-4" /> {t("bills.create")}</Button>
+                      <Button type="button" onClick={() => navigate("/purchases/bills/new")} className="h-9 rounded-xl bg-gradient-to-r from-[#7C9DFF] to-[#4D63FF] px-3 text-xs font-semibold text-white"><Plus className="mr-2 h-4 w-4" /> {t("bills.create")}</Button>
                     </div>
                   </div>
                 ) : (
