@@ -433,6 +433,14 @@ class AccountCreate(BaseModel):
     description: str | None = None
     currency: str = "SGD"
 
+class AccountUpdate(BaseModel):
+    code: str | None = None
+    name: str | None = None
+    type: str | None = None
+    subtype: str | None = None
+    description: str | None = None
+    currency: str | None = None
+
 class AccountResponse(BaseModel):
     id: UUID
     code: str
@@ -441,6 +449,7 @@ class AccountResponse(BaseModel):
     subtype: str | None
     currency: str
     is_system: bool
+    description: str | None = None
     created_at: datetime
     model_config = {"from_attributes": True}
 
