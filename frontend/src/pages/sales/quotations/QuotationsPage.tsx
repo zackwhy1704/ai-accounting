@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react"
 import { useNavigate } from "react-router-dom"
-import { Plus, Search, CalendarDays, SlidersHorizontal, Filter, FileText, Copy, ArrowRightLeft } from "lucide-react"
+import { Plus, Search, CalendarDays, SlidersHorizontal, Filter, FileText, Copy, ArrowRightLeft, Pencil } from "lucide-react"
 import { RowActionsMenu } from "../../../components/ui/row-actions"
 import { useQuotations, useContacts } from "../../../lib/hooks"
 import { formatCurrency, formatDate, cn } from "../../../lib/utils"
@@ -155,6 +155,7 @@ export default function QuotationsPage() {
                         </TableCell>
                         <TableCell className="text-right">
                           <RowActionsMenu actions={[
+                            { label: "Edit", icon: <Pencil className="h-3.5 w-3.5" />, onClick: () => navigate(`/sales/quotations/${q.id}/edit`) },
                             { label: t("quotations.duplicate"), icon: <Copy className="h-3.5 w-3.5" />, onClick: () => {} },
                             { label: t("quotations.entryPdf"), icon: <FileText className="h-3.5 w-3.5" />, onClick: () => {} },
                             { label: t("quotations.convertToInvoice"), icon: <ArrowRightLeft className="h-3.5 w-3.5" />, onClick: () => navigate(`/sales/quotations/${q.id}/convert/invoice`), dividerBefore: true },

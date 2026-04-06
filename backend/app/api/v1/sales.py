@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func
+from sqlalchemy import select, func, delete
+from sqlalchemy.orm import selectinload
 from uuid import UUID
 from app.core.database import get_db
 from app.core.security import get_current_user
@@ -12,7 +13,7 @@ from app.models.models import (
 )
 from .gl_helpers import post_gl, revert_gl
 from app.schemas.schemas import (
-    QuotationCreate, QuotationResponse, SalesOrderCreate, SalesOrderResponse,
+    QuotationCreate, QuotationUpdate, QuotationResponse, SalesOrderCreate, SalesOrderResponse,
     DeliveryOrderCreate, DeliveryOrderResponse, CreditNoteCreate, CreditNoteResponse,
     DebitNoteCreate, DebitNoteResponse, SalesPaymentCreate, SalesPaymentResponse,
     SalesRefundCreate, SalesRefundResponse,
@@ -77,11 +78,65 @@ async def create_quotation(data: QuotationCreate, current_user: dict = Depends(g
 
 @router.get("/quotations/{qid}", response_model=QuotationResponse)
 async def get_quotation(qid: UUID, current_user: dict = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
-    result = await db.execute(select(Quotation).where(Quotation.id == qid, Quotation.organization_id == current_user["org_id"]))
+    result = await db.execute(
+        select(Quotation)
+        .options(selectinload(Quotation.line_items))
+        .where(Quotation.id == qid, Quotation.organization_id == current_user["org_id"])
+    )
     obj = result.scalar_one_or_none()
     if not obj:
         raise HTTPException(status_code=404, detail="Quotation not found")
     return obj
+
+
+@router.patch("/quotations/{qid}", response_model=QuotationResponse)
+async def update_quotation(qid: UUID, data: QuotationUpdate, current_user: dict = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    result = await db.execute(
+        select(Quotation)
+        .options(selectinload(Quotation.line_items))
+        .where(Quotation.id == qid, Quotation.organization_id == current_user["org_id"])
+    )
+    obj = result.scalar_one_or_none()
+    if not obj:
+        raise HTTPException(status_code=404, detail="Quotation not found")
+    if obj.status not in ("draft",):
+        raise HTTPException(status_code=400, detail="Only draft quotations can be edited")
+
+    if data.contact_id is not None:
+        obj.contact_id = data.contact_id
+    if data.issue_date is not None:
+        obj.issue_date = data.issue_date
+    if data.expiry_date is not None:
+        obj.expiry_date = data.expiry_date
+    if data.reference is not None:
+        obj.reference = data.reference
+    if data.currency is not None:
+        obj.currency = data.currency
+    if data.notes is not None:
+        obj.notes = data.notes
+    if data.terms is not None:
+        obj.terms = data.terms
+
+    if data.line_items is not None:
+        await db.execute(delete(QuotationLineItem).where(QuotationLineItem.quotation_id == obj.id))
+        subtotal, discount_total, tax_amount = calc_totals(data.line_items)
+        for i, item in enumerate(data.line_items):
+            amount = item.quantity * item.unit_price
+            db.add(QuotationLineItem(
+                quotation_id=obj.id, description=item.description, quantity=item.quantity,
+                unit_price=item.unit_price, tax_rate=item.tax_rate, discount=item.discount,
+                account_id=item.account_id, amount=amount, sort_order=i,
+            ))
+        obj.subtotal = subtotal
+        obj.discount_amount = discount_total
+        obj.tax_amount = tax_amount
+        obj.total = subtotal - discount_total + tax_amount
+
+    await db.commit()
+    result2 = await db.execute(
+        select(Quotation).options(selectinload(Quotation.line_items)).where(Quotation.id == obj.id)
+    )
+    return result2.scalar_one()
 
 
 @router.post("/quotations/{qid}/convert")

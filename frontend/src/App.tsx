@@ -7,6 +7,7 @@ import DashboardPage from './pages/dashboard/DashboardPage'
 import InvoicesPage from './pages/invoices/InvoicesPage'
 import QuotationsPage from './pages/sales/quotations/QuotationsPage'
 import NewQuotationPage from './pages/sales/quotations/NewQuotationPage'
+import EditQuotationPage from './pages/sales/quotations/EditQuotationPage'
 import SalesOrdersPage from './pages/sales/orders/SalesOrdersPage'
 import NewSalesOrderPage from './pages/sales/orders/NewSalesOrderPage'
 import DeliveryOrdersPage from './pages/sales/delivery-orders/DeliveryOrdersPage'
@@ -132,6 +133,7 @@ function App() {
         {/* Sales */}
         <Route path="/sales/quotations" element={<QuotationsPage />} />
         <Route path="/sales/quotations/new" element={<NewQuotationPage />} />
+        <Route path="/sales/quotations/:id/edit" element={<EditQuotationPage />} />
         <Route path="/sales/orders" element={<SalesOrdersPage />} />
         <Route path="/sales/orders/new" element={<NewSalesOrderPage />} />
         <Route path="/sales/delivery-orders" element={<DeliveryOrdersPage />} />

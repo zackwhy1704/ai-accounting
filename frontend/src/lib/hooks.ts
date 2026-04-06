@@ -34,11 +34,30 @@ export function useQuotations(status?: string) {
   })
 }
 
+export function useQuotation(id: string | undefined) {
+  return useQuery({
+    queryKey: ['quotation', id],
+    queryFn: () => api.get(`/quotations/${id}`).then(r => r.data),
+    enabled: !!id,
+  })
+}
+
 export function useCreateQuotation() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: (data: Record<string, unknown>) => api.post('/quotations', data).then(r => r.data),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['quotations'] }),
+  })
+}
+
+export function useUpdateQuotation() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, ...data }: Record<string, unknown>) => api.patch(`/quotations/${id}`, data).then(r => r.data),
+    onSuccess: (_data, vars) => {
+      qc.invalidateQueries({ queryKey: ['quotations'] })
+      qc.invalidateQueries({ queryKey: ['quotation', vars.id] })
+    },
   })
 }
 

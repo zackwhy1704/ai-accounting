@@ -276,7 +276,7 @@ export default function NewQuotationPage() {
                         <SelectContent>
                           {accounts.map(a => (
                             <SelectItem key={a.id} value={a.id}>
-                              {a.name}
+                              {a.code} – {a.name}
                             </SelectItem>
                           ))}
                         </SelectContent>

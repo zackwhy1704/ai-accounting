@@ -144,6 +144,17 @@ class QuotationLineItemCreate(BaseModel):
     discount: float = 0.0
     account_id: UUID | None = None
 
+class QuotationLineItemResponse(BaseModel):
+    id: UUID
+    description: str
+    quantity: float
+    unit_price: float
+    tax_rate: float
+    discount: float
+    account_id: UUID | None
+    amount: float
+    model_config = {"from_attributes": True}
+
 class QuotationCreate(BaseModel):
     contact_id: UUID
     issue_date: datetime
@@ -153,6 +164,16 @@ class QuotationCreate(BaseModel):
     notes: str | None = None
     terms: str | None = None
     line_items: list[QuotationLineItemCreate]
+
+class QuotationUpdate(BaseModel):
+    contact_id: UUID | None = None
+    issue_date: datetime | None = None
+    expiry_date: datetime | None = None
+    reference: str | None = None
+    currency: str | None = None
+    notes: str | None = None
+    terms: str | None = None
+    line_items: list[QuotationLineItemCreate] | None = None
 
 class QuotationResponse(BaseModel):
     id: UUID
@@ -170,6 +191,7 @@ class QuotationResponse(BaseModel):
     notes: str | None
     terms: str | None
     created_at: datetime
+    line_items: list[QuotationLineItemResponse] = []
     model_config = {"from_attributes": True}
 
 

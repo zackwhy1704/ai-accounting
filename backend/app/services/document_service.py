@@ -22,11 +22,11 @@ from app.core.config import get_settings
 settings = get_settings()
 logger = logging.getLogger(__name__)
 
-OCR_TIMEOUT = 30  # seconds per API call
-OCR_MAX_RETRIES = 2  # retry up to 2 times (3 total attempts)
+OCR_TIMEOUT = 90       # seconds per API call (increased for multi-page PDFs)
+OCR_MAX_RETRIES = 2   # retry up to 2 times (3 total attempts)
 
 EXTRACTION_SCHEMA = """\
-Extract ALL data from this document image. Return ONLY valid JSON with this structure:
+Extract ALL financial data from this document. Return ONLY valid JSON with this structure:
 {
   "document_type": "invoice" | "receipt" | "bill" | "credit_note" | "purchase_order" | "bank_statement" | "not_a_document" | "other",
   "confidence": 0.95,
@@ -52,10 +52,11 @@ Extract ALL data from this document image. Return ONLY valid JSON with this stru
 
 Rules:
 - Extract REAL values from the document. Do NOT invent or guess data.
+- If the document has multiple pages, extract data from the FIRST/MAIN invoice or receipt found.
 - "confidence": a float 0.0–1.0 indicating how confident you are this is a financial document (invoice/receipt/bill). Use 0.0 for photos, memes, screenshots, or anything clearly not a financial document. Use 0.1–0.4 for documents that have some text but are not invoices/bills/receipts. Use 0.5+ only for actual financial documents.
 - "document_type": use "not_a_document" if the image is not a financial/business document at all (e.g. a photo, screenshot, meme).
 - If a field is not present, use null for strings/dates and 0.0 for numbers.
-- For line_items, extract every line item visible. If none, return empty array.
+- For line_items, extract EVERY line item visible across ALL pages. If none, return empty array.
 - Currency: detect from symbols ($ = USD/SGD based on context, RM = MYR, £ = GBP, € = EUR).
 - Dates: always convert to YYYY-MM-DD format.
 - Numbers: return as floats without currency symbols or commas.
@@ -96,7 +97,7 @@ class DocumentProcessor:
             import anthropic
             self._anthropic_client = anthropic.AsyncAnthropic(
                 api_key=settings.ANTHROPIC_API_KEY,
-                timeout=OCR_TIMEOUT,
+                timeout=OCR_TIMEOUT + 10,  # slightly above our asyncio timeout
                 max_retries=0,  # We handle retries ourselves
             )
         return self._anthropic_client
@@ -152,9 +153,10 @@ class DocumentProcessor:
 
         logger.info(f"Sending document to Claude Vision ({media_type}, {len(file_content)} bytes)")
 
+        max_tokens = 8192 if media_type.endswith("pdf") else 4096
         message = await self.anthropic_client.messages.create(
             model=settings.AI_MODEL,
-            max_tokens=4096,
+            max_tokens=max_tokens,
             messages=[
                 {
                     "role": "user",
