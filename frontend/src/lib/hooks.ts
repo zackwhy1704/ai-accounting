@@ -206,6 +206,26 @@ export function useCreateContact() {
   })
 }
 
+export function useContact(id: string | undefined) {
+  return useQuery({
+    queryKey: ['contact', id],
+    queryFn: () => api.get(`/contacts/${id}`).then(r => r.data),
+    enabled: !!id,
+  })
+}
+
+export function useUpdateContact() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, ...data }: { id: string; [key: string]: unknown }) =>
+      api.put(`/contacts/${id}`, data).then(r => r.data),
+    onSuccess: (_data, vars) => {
+      qc.invalidateQueries({ queryKey: ['contacts'] })
+      qc.invalidateQueries({ queryKey: ['contact', vars.id] })
+    },
+  })
+}
+
 // Documents
 export function useDocuments() {
   return useQuery<Document[]>({

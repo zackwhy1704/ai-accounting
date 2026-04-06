@@ -24,6 +24,7 @@ import NewRefundPage from './pages/sales/refunds/NewRefundPage'
 import BillsPage from './pages/bills/BillsPage'
 import ContactsPage from './pages/contacts/ContactsPage'
 import NewContactPage from './pages/contacts/NewContactPage'
+import EditContactPage from './pages/contacts/EditContactPage'
 import DocumentsPage from './pages/documents/DocumentsPage'
 import AccountingPage from './pages/accounting/AccountingPage'
 import BillingPage from './pages/billing/BillingPage'
@@ -187,6 +188,7 @@ function App() {
         {/* Contacts */}
         <Route path="/contacts" element={<ContactsPage />} />
         <Route path="/contacts/new" element={<NewContactPage />} />
+        <Route path="/contacts/:id/edit" element={<EditContactPage />} />
         <Route path="/contacts/groups" element={<ContactGroupsPage />} />
 
         {/* Products */}

@@ -8,9 +8,9 @@
  *   ]} />
  */
 
-import { useRef, useEffect, useState } from "react"
+import { useRef, useEffect, useState, useLayoutEffect } from "react"
+import ReactDOM from "react-dom"
 import { MoreHorizontal } from "lucide-react"
-import { Button } from "./button"
 
 export interface RowAction {
   label: string
@@ -28,12 +28,23 @@ interface RowActionsMenuProps {
 
 export function RowActionsMenu({ actions }: RowActionsMenuProps) {
   const [open, setOpen] = useState(false)
-  const ref = useRef<HTMLDivElement>(null)
+  const [pos, setPos] = useState({ top: 0, left: 0 })
+  const triggerRef = useRef<HTMLButtonElement>(null)
+  const menuRef = useRef<HTMLDivElement>(null)
+
+  useLayoutEffect(() => {
+    if (!open || !triggerRef.current) return
+    const rect = triggerRef.current.getBoundingClientRect()
+    setPos({ top: rect.bottom + window.scrollY + 4, left: rect.right + window.scrollX - 224 })
+  }, [open])
 
   useEffect(() => {
     if (!open) return
     function handleClick(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) {
+      if (
+        menuRef.current && !menuRef.current.contains(e.target as Node) &&
+        triggerRef.current && !triggerRef.current.contains(e.target as Node)
+      ) {
         setOpen(false)
       }
     }
@@ -41,39 +52,45 @@ export function RowActionsMenu({ actions }: RowActionsMenuProps) {
     return () => document.removeEventListener("mousedown", handleClick)
   }, [open])
 
+  const menu = open ? ReactDOM.createPortal(
+    <div
+      ref={menuRef}
+      style={{ position: "absolute", top: pos.top, left: pos.left, zIndex: 9999 }}
+      className="w-56 rounded-xl border border-border bg-card p-1 shadow-lg"
+    >
+      {actions.map((action, i) => (
+        <div key={i}>
+          {action.dividerBefore && <div className="my-1 h-px bg-border" />}
+          <button
+            disabled={action.disabled}
+            className={`flex w-full items-center gap-2 rounded-lg px-3 py-2 text-xs font-medium hover:bg-muted disabled:opacity-40 disabled:cursor-not-allowed ${
+              action.danger ? "text-rose-600" : "text-foreground"
+            }`}
+            onClick={() => {
+              setOpen(false)
+              action.onClick()
+            }}
+          >
+            {action.icon}
+            {action.label}
+          </button>
+        </div>
+      ))}
+    </div>,
+    document.body
+  ) : null
+
   return (
-    <div className="relative" ref={ref}>
-      <Button
+    <div className="relative">
+      <button
+        ref={triggerRef}
         type="button"
-        variant="ghost"
-        size="icon"
-        className="h-8 w-8 text-muted-foreground"
+        className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted transition-colors"
         onClick={() => setOpen(v => !v)}
       >
         <MoreHorizontal className="h-4 w-4" />
-      </Button>
-      {open && (
-        <div className="absolute right-0 top-8 z-50 w-56 rounded-xl border border-border bg-card p-1 shadow-lg">
-          {actions.map((action, i) => (
-            <div key={i}>
-              {action.dividerBefore && <div className="my-1 h-px bg-border" />}
-              <button
-                disabled={action.disabled}
-                className={`flex w-full items-center gap-2 rounded-lg px-3 py-2 text-xs font-medium hover:bg-muted disabled:opacity-40 disabled:cursor-not-allowed ${
-                  action.danger ? "text-rose-600" : "text-foreground"
-                }`}
-                onClick={() => {
-                  setOpen(false)
-                  action.onClick()
-                }}
-              >
-                {action.icon}
-                {action.label}
-              </button>
-            </div>
-          ))}
-        </div>
-      )}
+      </button>
+      {menu}
     </div>
   )
 }
