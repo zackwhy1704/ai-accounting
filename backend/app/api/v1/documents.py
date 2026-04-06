@@ -984,6 +984,25 @@ async def categorise_document(
         if substr in filename_lower:
             scores[cat] = scores.get(cat, 0) + bonus
 
+    # 4. Past-confirmed vendor preference — strongest signal
+    vendor_name = (doc.ai_extracted_data or {}).get("vendor_name") or (doc.ai_extracted_data or {}).get("customer_name")
+    if vendor_name:
+        from collections import Counter
+        past_rows = await db.execute(
+            select(Document.category).where(
+                Document.organization_id == current_user["org_id"],
+                Document.status == "done",
+                Document.category.isnot(None),
+                Document.id != doc.id,
+                Document.ai_extracted_data["vendor_name"].astext.ilike(f"%{str(vendor_name)[:30]}%"),
+            )
+        )
+        vendor_cats = [r for (r,) in past_rows if r]
+        if vendor_cats:
+            top_cat, count = Counter(vendor_cats).most_common(1)[0]
+            # Strong boost: 5 points per past confirmation, up to 20
+            scores[top_cat] = scores.get(top_cat, 0) + min(count * 5, 20)
+
     best = max(scores, key=lambda k: scores[k])
     if scores[best] > 0:
         doc.category = best
@@ -992,3 +1011,45 @@ async def categorise_document(
     await db.commit()
     await db.refresh(doc)
     return doc
+
+
+@router.get("/vendor-hints")
+async def get_vendor_hints(
+    vendor_name: str,
+    current_user: dict = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Returns the most-used category for past confirmed documents from this vendor.
+    Used by the frontend to show a 'Recommended' badge.
+    """
+    if not vendor_name or len(vendor_name) < 2:
+        return {"recommended_category": None, "count": 0, "vendor_name": vendor_name}
+
+    past = await db.execute(
+        select(Document.category).where(
+            Document.organization_id == current_user["org_id"],
+            Document.status == "done",
+            Document.category.isnot(None),
+            Document.ai_extracted_data["vendor_name"].astext.ilike(f"%{vendor_name[:40]}%"),
+        )
+    )
+    cats = [r for (r,) in past if r]
+    if not cats:
+        # Try customer_name field too
+        past2 = await db.execute(
+            select(Document.category).where(
+                Document.organization_id == current_user["org_id"],
+                Document.status == "done",
+                Document.category.isnot(None),
+                Document.ai_extracted_data["customer_name"].astext.ilike(f"%{vendor_name[:40]}%"),
+            )
+        )
+        cats = [r for (r,) in past2 if r]
+
+    if not cats:
+        return {"recommended_category": None, "count": 0, "vendor_name": vendor_name}
+
+    from collections import Counter
+    top_cat, count = Counter(cats).most_common(1)[0]
+    return {"recommended_category": top_cat, "count": count, "vendor_name": vendor_name}

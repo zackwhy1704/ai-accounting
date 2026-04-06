@@ -1,6 +1,6 @@
 import { useMemo, useState, useRef, useEffect, useCallback } from "react"
 import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query"
-import { CircleAlert, CloudUpload, FileText, Loader2, Search, CheckCircle2, Link2, BookOpen, Pencil, Save, X, Check, AlertTriangle, Trash2, HelpCircle, Share2, Tag, Bot, UserCheck, Building2, Info, ChevronDown, ChevronUp } from "lucide-react"
+import { CircleAlert, CloudUpload, FileText, Loader2, Search, CheckCircle2, Link2, BookOpen, Pencil, Save, X, Check, AlertTriangle, Trash2, HelpCircle, Share2, Tag, Bot, UserCheck, Building2, Info, ChevronDown, ChevronUp, Sparkles } from "lucide-react"
 import { useDocuments, useUpdateExtractedData, useDeleteDocument, useCategoriseDocument } from "../../lib/hooks"
 import { useFeatureFlags } from "../../lib/features"
 import api from "../../lib/api"
@@ -839,32 +839,15 @@ export default function DocumentsPage() {
 
                     {/* Category picker */}
                     {!editing && (
-                      <div className="mt-5 flex items-center gap-2 flex-wrap">
-                        <Tag className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                        <span className="text-xs text-muted-foreground">Category:</span>
-                        <select
-                          value={selected.category ?? ""}
-                          onChange={e => {
-                            if (e.target.value) setManualCategory.mutate({ id: selected.id, category: e.target.value })
-                          }}
-                          className="rounded-lg border border-border bg-background px-2 py-1 text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
-                        >
-                          <option value="">— not set —</option>
-                          {CATEGORIES.map(c => <option key={c} value={c}>{categoryLabel[c]}</option>)}
-                        </select>
-                        <button
-                          type="button"
-                          onClick={() => categorizeMutation.mutate(selected.id, {
-                            onSuccess: () => toast("Category detected by AI", "success"),
-                            onError: () => toast("Could not detect category", "warning"),
-                          })}
-                          disabled={categorizeMutation.isPending}
-                          className="inline-flex items-center gap-1 rounded-lg border border-border px-2.5 py-1 text-xs font-medium text-muted-foreground hover:bg-muted/60 disabled:opacity-50 transition-colors"
-                        >
-                          {categorizeMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Tag className="h-3 w-3" />}
-                          Auto-detect
-                        </button>
-                      </div>
+                      <VendorHintedCategoryPicker
+                        selected={selected}
+                        onSetCategory={cat => setManualCategory.mutate({ id: selected.id, category: cat })}
+                        onAutoDetect={() => categorizeMutation.mutate(selected.id, {
+                          onSuccess: () => toast("Category detected by AI", "success"),
+                          onError: () => toast("Could not detect category", "warning"),
+                        })}
+                        autoDetecting={categorizeMutation.isPending}
+                      />
                     )}
 
                     {/* Share button for processed docs */}
@@ -970,6 +953,72 @@ interface PostResult {
   record_type: string
   module_url: string
   friendly_name: string
+}
+
+/* Category picker with vendor-based recommendation */
+function VendorHintedCategoryPicker({
+  selected,
+  onSetCategory,
+  onAutoDetect,
+  autoDetecting,
+}: {
+  selected: Document
+  onSetCategory: (cat: string) => void
+  onAutoDetect: () => void
+  autoDetecting: boolean
+}) {
+  const ai = selected.ai_extracted_data as Record<string, unknown> | null
+  const vendorName = (ai?.vendor_name || ai?.customer_name) as string | undefined
+
+  const { data: hint } = useQuery({
+    queryKey: ["vendor-hints", vendorName],
+    queryFn: () =>
+      api.get("/documents/vendor-hints", { params: { vendor_name: vendorName } }).then(r => r.data),
+    enabled: !!vendorName && selected.status === "processed" && !selected.category,
+    staleTime: 60_000,
+  })
+
+  const recommended = hint?.recommended_category as Category | undefined
+  const recommendedCount: number = hint?.count ?? 0
+
+  return (
+    <div className="mt-5 space-y-1.5">
+      {recommended && !selected.category && (
+        <button
+          type="button"
+          onClick={() => onSetCategory(recommended)}
+          className="inline-flex items-center gap-1.5 rounded-lg border border-amber-300/60 bg-amber-50 px-2.5 py-1 text-xs font-medium text-amber-800 hover:bg-amber-100 transition-colors dark:bg-amber-900/20 dark:border-amber-700/40 dark:text-amber-300"
+        >
+          <Sparkles className="h-3 w-3" />
+          Recommended: {categoryLabel[recommended]}
+          <span className="text-amber-600 dark:text-amber-400">
+            (used {recommendedCount}× for {vendorName})
+          </span>
+        </button>
+      )}
+      <div className="flex items-center gap-2 flex-wrap">
+        <Tag className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+        <span className="text-xs text-muted-foreground">Category:</span>
+        <select
+          value={selected.category ?? ""}
+          onChange={e => { if (e.target.value) onSetCategory(e.target.value) }}
+          className="rounded-lg border border-border bg-background px-2 py-1 text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
+        >
+          <option value="">— not set —</option>
+          {CATEGORIES.map(c => <option key={c} value={c}>{categoryLabel[c]}</option>)}
+        </select>
+        <button
+          type="button"
+          onClick={onAutoDetect}
+          disabled={autoDetecting}
+          className="inline-flex items-center gap-1 rounded-lg border border-border px-2.5 py-1 text-xs font-medium text-muted-foreground hover:bg-muted/60 disabled:opacity-50 transition-colors"
+        >
+          {autoDetecting ? <Loader2 className="h-3 w-3 animate-spin" /> : <Tag className="h-3 w-3" />}
+          Auto-detect
+        </button>
+      </div>
+    </div>
+  )
 }
 
 /* Searchable account picker for journal line rows */
