@@ -1,7 +1,9 @@
-import { useState } from "react"
+import { useState, useRef, useEffect } from "react"
 import { useNavigate } from "react-router-dom"
-import { Plus, Trash2, ChevronDown } from "lucide-react"
+import { Plus, Trash2 } from "lucide-react"
 import { useContacts, useAccounts, useCreateQuotation } from "../../../lib/hooks"
+import { useQuery } from "@tanstack/react-query"
+import api from "../../../lib/api"
 import { useTheme } from "../../../lib/theme"
 import { Card } from "../../../components/ui/card"
 import { Button } from "../../../components/ui/button"
@@ -53,6 +55,28 @@ export default function NewQuotationPage() {
   const [roundingAdjustment, setRoundingAdjustment] = useState(false)
   const [quickShareEmail, setQuickShareEmail] = useState(false)
   const [productSearch, setProductSearch] = useState("")
+  const [productDropdownOpen, setProductDropdownOpen] = useState(false)
+  const productInputRef = useRef<HTMLInputElement>(null)
+  const attachFileRef = useRef<HTMLInputElement>(null)
+  const [attachments, setAttachments] = useState<File[]>([])
+
+  // Close product dropdown on outside click
+  useEffect(() => {
+    if (!productDropdownOpen) return
+    const handler = (e: MouseEvent) => {
+      if (productInputRef.current && !productInputRef.current.closest(".relative")?.contains(e.target as Node)) {
+        setProductDropdownOpen(false)
+      }
+    }
+    document.addEventListener("mousedown", handler)
+    return () => document.removeEventListener("mousedown", handler)
+  }, [productDropdownOpen])
+
+  const { data: products = [] } = useQuery<{ id: string; name: string; unit_price: number; account_id: string | null }[]>({
+    queryKey: ["products"],
+    queryFn: () => api.get("/products").then(r => r.data),
+    staleTime: 5 * 60_000,
+  })
   // General Info tab
   const [title, setTitle] = useState("")
   const [summary, setSummary] = useState("")
@@ -356,12 +380,47 @@ export default function NewQuotationPage() {
 
             <div className="relative">
               <Input
+                ref={productInputRef}
                 value={productSearch}
-                onChange={e => setProductSearch(e.target.value)}
+                onChange={e => { setProductSearch(e.target.value); setProductDropdownOpen(true) }}
+                onFocus={() => setProductDropdownOpen(true)}
                 placeholder="Add Product..."
-                className="h-9 w-48 rounded-xl pl-3 pr-8 text-xs"
+                className="h-9 w-48 rounded-xl pl-3 pr-3 text-xs"
               />
-              <ChevronDown className="pointer-events-none absolute right-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+              {productDropdownOpen && (
+                <div className="absolute left-0 top-full z-50 mt-1 w-64 rounded-xl border border-border bg-card shadow-lg py-1">
+                  {products
+                    .filter(p => !productSearch || p.name.toLowerCase().includes(productSearch.toLowerCase()))
+                    .slice(0, 10)
+                    .map(p => (
+                      <button
+                        key={p.id}
+                        type="button"
+                        className="w-full text-left px-3 py-2 text-xs hover:bg-muted/60 flex items-center justify-between"
+                        onMouseDown={e => {
+                          e.preventDefault()
+                          setLineItems(prev => [...prev, {
+                            description: p.name,
+                            account_id: p.account_id ?? "",
+                            quantity: 1,
+                            unit_price: p.unit_price,
+                            amount: p.unit_price,
+                            discount: 0,
+                            tax_rate: 0,
+                          }])
+                          setProductSearch("")
+                          setProductDropdownOpen(false)
+                        }}
+                      >
+                        <span className="truncate">{p.name}</span>
+                        <span className="ml-2 shrink-0 text-muted-foreground">{p.unit_price.toFixed(2)}</span>
+                      </button>
+                    ))}
+                  {products.filter(p => !productSearch || p.name.toLowerCase().includes(productSearch.toLowerCase())).length === 0 && (
+                    <div className="px-3 py-2 text-xs text-muted-foreground">No products found</div>
+                  )}
+                </div>
+              )}
             </div>
           </div>
 
@@ -550,16 +609,41 @@ export default function NewQuotationPage() {
       {/* Attachments Tab */}
       {activeTab === "attachments" && (
         <Card className="rounded-2xl border-border bg-card p-6 shadow-[0_0_0_1px_rgba(15,23,42,0.06),0_18px_55px_rgba(2,6,23,0.08)]">
-          <div className="flex flex-col items-center justify-center rounded-2xl border-2 border-dashed border-border px-6 py-12 text-center">
+          <input
+            ref={attachFileRef}
+            type="file"
+            multiple
+            accept=".pdf,.jpg,.jpeg,.png"
+            className="hidden"
+            onChange={e => {
+              if (e.target.files) setAttachments(prev => [...prev, ...Array.from(e.target.files!)])
+            }}
+          />
+          <div
+            className="flex flex-col items-center justify-center rounded-2xl border-2 border-dashed border-border px-6 py-12 text-center cursor-pointer hover:bg-muted/30 transition-colors"
+            onClick={() => attachFileRef.current?.click()}
+          >
             <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-muted">
               <Plus className="h-6 w-6 text-muted-foreground" />
             </div>
             <div className="mt-4 text-sm font-medium text-foreground">Drop files here or click to upload</div>
             <div className="mt-1 text-xs text-muted-foreground">PDF, JPG, PNG up to 10MB</div>
-            <Button type="button" variant="secondary" className="mt-4 h-9 rounded-xl px-4 text-xs font-semibold">
+            <Button type="button" variant="secondary" className="mt-4 h-9 rounded-xl px-4 text-xs font-semibold" onClick={e => { e.stopPropagation(); attachFileRef.current?.click() }}>
               Browse Files
             </Button>
           </div>
+          {attachments.length > 0 && (
+            <ul className="mt-4 space-y-1.5">
+              {attachments.map((f, i) => (
+                <li key={i} className="flex items-center justify-between rounded-lg border border-border px-3 py-2 text-xs">
+                  <span className="truncate text-foreground">{f.name}</span>
+                  <button type="button" onClick={() => setAttachments(prev => prev.filter((_, j) => j !== i))} className="ml-3 text-muted-foreground hover:text-rose-500">
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
         </Card>
       )}
 

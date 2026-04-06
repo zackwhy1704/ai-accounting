@@ -12,6 +12,29 @@ interface SelectContextValue {
   triggerRef: React.RefObject<HTMLButtonElement | null>
 }
 
+function extractText(node: React.ReactNode): string {
+  if (typeof node === "string" || typeof node === "number") return String(node)
+  if (Array.isArray(node)) return node.map(extractText).join("")
+  if (React.isValidElement(node)) return extractText((node.props as { children?: React.ReactNode }).children)
+  return ""
+}
+
+/** Walk the React child tree to find the text label for a given SelectItem value */
+function findLabelInChildren(children: React.ReactNode, targetValue: string): string {
+  let found = ""
+  React.Children.forEach(children, child => {
+    if (found) return
+    if (!React.isValidElement(child)) return
+    const props = child.props as { value?: string; children?: React.ReactNode }
+    if (props.value === targetValue) {
+      found = extractText(props.children)
+    } else if (props.children) {
+      found = findLabelInChildren(props.children, targetValue)
+    }
+  })
+  return found
+}
+
 const SelectContext = React.createContext<SelectContextValue>({
   value: "",
   label: "",
@@ -35,6 +58,14 @@ function Select({ value: controlledValue, defaultValue = "", onValueChange, chil
   const triggerRef = React.useRef<HTMLButtonElement>(null)
 
   const value = controlledValue ?? internalValue
+
+  // Sync label when controlled value changes (e.g. pre-selection, external updates)
+  // Walk children to find the matching SelectItem label
+  React.useEffect(() => {
+    if (!value) { setLabel(""); return }
+    const found = findLabelInChildren(children, value)
+    if (found) setLabel(found)
+  }, [value, children])
 
   const handleChange = React.useCallback((v: string, l: string) => {
     setInternalValue(v)
@@ -81,21 +112,22 @@ function SelectContent({ className, children, ...props }: React.ComponentProps<"
   const ref = React.useRef<HTMLDivElement>(null)
   const [pos, setPos] = React.useState({ top: 0, left: 0, width: 0 })
 
-  // Calculate dropdown position from trigger
-  React.useLayoutEffect(() => {
-    if (!ctx.open || !ctx.triggerRef.current) return
+  const recalcPos = React.useCallback(() => {
+    if (!ctx.triggerRef.current) return
     const rect = ctx.triggerRef.current.getBoundingClientRect()
-    setPos({
-      top: rect.bottom + window.scrollY + 4,
-      left: rect.left + window.scrollX,
-      width: rect.width,
-    })
-  }, [ctx.open, ctx.triggerRef])
+    setPos({ top: rect.bottom + 4, left: rect.left, width: rect.width })
+  }, [ctx.triggerRef])
 
-  // Close on outside click
+  // Calculate dropdown position from trigger (fixed = viewport-relative, no scrollY offset)
+  React.useLayoutEffect(() => {
+    if (!ctx.open) return
+    recalcPos()
+  }, [ctx.open, recalcPos])
+
+  // Close on outside click or scroll
   React.useEffect(() => {
     if (!ctx.open) return
-    const handler = (e: MouseEvent) => {
+    const handleClick = (e: MouseEvent) => {
       const target = e.target as Node
       if (
         ref.current && !ref.current.contains(target) &&
@@ -104,8 +136,13 @@ function SelectContent({ className, children, ...props }: React.ComponentProps<"
         ctx.setOpen(false)
       }
     }
-    document.addEventListener("mousedown", handler)
-    return () => document.removeEventListener("mousedown", handler)
+    const handleScroll = () => ctx.setOpen(false)
+    document.addEventListener("mousedown", handleClick)
+    window.addEventListener("scroll", handleScroll, true)
+    return () => {
+      document.removeEventListener("mousedown", handleClick)
+      window.removeEventListener("scroll", handleScroll, true)
+    }
   }, [ctx.open, ctx])
 
   if (!ctx.open) return null
@@ -129,7 +166,7 @@ function SelectContent({ className, children, ...props }: React.ComponentProps<"
 function SelectItem({ value, children, className, disabled, ...props }: React.ComponentProps<"div"> & { value: string; disabled?: boolean }) {
   const ctx = React.useContext(SelectContext)
   const isSelected = ctx.value === value
-  const label = typeof children === "string" ? children : ""
+  const label = extractText(children)
 
   return (
     <div
