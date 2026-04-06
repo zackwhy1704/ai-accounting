@@ -1,6 +1,6 @@
 import { useMemo, useState, useRef, useEffect, useCallback } from "react"
 import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query"
-import { CircleAlert, CloudUpload, FileText, Loader2, Search, CheckCircle2, Link2, BookOpen, Pencil, Save, X, Check, AlertTriangle, Trash2, HelpCircle, Share2, Tag, Bot, UserCheck, Building2, Info, ChevronDown, ChevronUp, Sparkles } from "lucide-react"
+import { CircleAlert, CloudUpload, FileText, Loader2, Search, CheckCircle2, Link2, BookOpen, Pencil, Save, X, Check, AlertTriangle, Trash2, HelpCircle, Share2, Tag, Bot, UserCheck, Building2, Info, ChevronDown, ChevronUp, Sparkles, RefreshCw } from "lucide-react"
 import { useDocuments, useUpdateExtractedData, useDeleteDocument, useCategoriseDocument } from "../../lib/hooks"
 import { useFeatureFlags } from "../../lib/features"
 import api from "../../lib/api"
@@ -1100,7 +1100,7 @@ function InlineJournalPreview({ documentId, category }: { documentId: string; ca
   const [lines, setLines] = useState<JournalLine[]>([])
   const [posted, setPosted] = useState<PostResult | null>(null)
 
-  const { data, dataUpdatedAt, isLoading, error } = useQuery<JournalSuggestion>({
+  const { data, dataUpdatedAt, isLoading, isFetching, error, refetch } = useQuery<JournalSuggestion>({
     queryKey: ["suggest-journal", documentId],
     queryFn: () => api.get(`/documents/${documentId}/suggest-journal`).then(r => r.data),
   })
@@ -1219,6 +1219,16 @@ function InlineJournalPreview({ documentId, category }: { documentId: string; ca
         {!balanced && (
           <span className="rounded-md bg-rose-50 px-1.5 py-0.5 text-[10px] font-medium text-rose-600">Unbalanced</span>
         )}
+        <button
+          type="button"
+          onClick={() => refetch()}
+          disabled={isFetching}
+          className="ml-auto inline-flex items-center gap-1 rounded-lg border border-border px-2 py-0.5 text-[10px] font-medium text-muted-foreground hover:bg-muted/60 disabled:opacity-50 transition-colors"
+          title="Regenerate journal from latest saved data"
+        >
+          {isFetching ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
+          Regenerate
+        </button>
       </div>
 
       <div className="rounded-xl border border-blue-200/60 dark:border-blue-800/30 overflow-hidden">

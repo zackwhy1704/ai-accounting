@@ -240,7 +240,10 @@ export function useUpdateExtractedData() {
   return useMutation({
     mutationFn: ({ id, data }: { id: string; data: Record<string, unknown> }) =>
       api.patch(`/documents/${id}/extracted-data`, { ai_extracted_data: data }).then(r => r.data),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['documents'] }),
+    onSuccess: (_data, vars) => {
+      qc.invalidateQueries({ queryKey: ['documents'] })
+      qc.invalidateQueries({ queryKey: ['suggest-journal', vars.id] })
+    },
   })
 }
 
