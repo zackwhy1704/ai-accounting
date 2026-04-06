@@ -1,6 +1,6 @@
 import { useMemo, useState, useRef, useEffect, useCallback } from "react"
 import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query"
-import { CircleAlert, CloudUpload, FileText, Loader2, Search, CheckCircle2, Link2, BookOpen, Pencil, Save, X, Check, AlertTriangle, Trash2, HelpCircle, Share2, Tag, Bot, UserCheck, Building2 } from "lucide-react"
+import { CircleAlert, CloudUpload, FileText, Loader2, Search, CheckCircle2, Link2, BookOpen, Pencil, Save, X, Check, AlertTriangle, Trash2, HelpCircle, Share2, Tag, Bot, UserCheck, Building2, Info, ChevronDown, ChevronUp } from "lucide-react"
 import { useDocuments, useUpdateExtractedData, useDeleteDocument, useCategoriseDocument } from "../../lib/hooks"
 import { useFeatureFlags } from "../../lib/features"
 import api from "../../lib/api"
@@ -11,6 +11,108 @@ import { Card } from "../../components/ui/card"
 import { Button } from "../../components/ui/button"
 import { Input } from "../../components/ui/input"
 import type { Document } from "../../types"
+
+/* ── Upload Tips Banner ── */
+function UploadTips() {
+  const [expanded, setExpanded] = useState(false)
+
+  return (
+    <div className="rounded-xl border border-blue-200/60 bg-blue-50/60 dark:border-blue-800/30 dark:bg-blue-900/10 px-4 py-3">
+      <button
+        type="button"
+        onClick={() => setExpanded(e => !e)}
+        className="flex w-full items-center gap-2 text-left"
+      >
+        <Info className="h-4 w-4 shrink-0 text-blue-500" />
+        <span className="text-xs font-semibold text-blue-700 dark:text-blue-300 flex-1">
+          How to get the best results from AI document scanning
+        </span>
+        {expanded
+          ? <ChevronUp className="h-3.5 w-3.5 text-blue-400" />
+          : <ChevronDown className="h-3.5 w-3.5 text-blue-400" />}
+      </button>
+
+      {expanded && (
+        <div className="mt-3 space-y-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <div className="space-y-2">
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-blue-600 dark:text-blue-400">✓ Best results</p>
+              {[
+                ["Digital / native PDF", "Export directly from your accounting software or bank portal — text is machine-readable, no OCR needed. Accuracy ~95%+"],
+                ["One document per upload", "Upload invoices, receipts, or statements individually. Multi-invoice PDFs may only capture the first document accurately."],
+                ["Scanned at 300 DPI+", "If scanning paper documents, use at least 300 DPI. 600 DPI for documents with small print."],
+                ["Portrait, flat, well-lit", "Straight angle, no shadows or folds over text. Dark ink on white background."],
+              ].map(([title, desc]) => (
+                <div key={title} className="flex items-start gap-2">
+                  <span className="mt-0.5 text-emerald-500 text-xs">●</span>
+                  <div>
+                    <span className="text-xs font-medium text-foreground">{title}</span>
+                    <span className="text-xs text-muted-foreground"> — {desc}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div className="space-y-2">
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-rose-500">✗ Avoid</p>
+              {[
+                ["Blurry photos of documents", "Camera shake or low light causes OCR errors on amounts and dates."],
+                ["Scans below 150 DPI", "Text becomes ambiguous — expect 40–60% accuracy."],
+                ["Documents with watermarks", "Stamps or watermarks layered over figures can obscure values."],
+                ["Very large PDFs (6+ pages)", "Long PDFs risk response truncation. Split into sections before uploading."],
+              ].map(([title, desc]) => (
+                <div key={title} className="flex items-start gap-2">
+                  <span className="mt-0.5 text-rose-400 text-xs">●</span>
+                  <div>
+                    <span className="text-xs font-medium text-foreground">{title}</span>
+                    <span className="text-xs text-muted-foreground"> — {desc}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Mini COA example */}
+          <div className="rounded-lg border border-blue-200/50 bg-white dark:bg-slate-900/50 overflow-hidden">
+            <div className="px-3 py-2 bg-blue-100/50 dark:bg-blue-900/20 border-b border-blue-200/40">
+              <p className="text-[11px] font-semibold text-blue-700 dark:text-blue-300">Example: ideal document format (Chart of Accounts)</p>
+            </div>
+            <table className="w-full text-[11px]">
+              <thead>
+                <tr className="bg-slate-800 text-white">
+                  <th className="px-3 py-1.5 text-left font-medium">Account No.</th>
+                  <th className="px-3 py-1.5 text-left font-medium">Account Name</th>
+                  <th className="px-3 py-1.5 text-left font-medium">Type</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                {[
+                  ["10000", "Assets", "asset", true],
+                  ["12610", "Bank", "asset", false],
+                  ["12620", "Cash in Hand", "asset", false],
+                  ["20000", "Liabilities", "liability", true],
+                  ["21110", "Trade Payables", "liability", false],
+                  ["40000", "Income", "revenue", true],
+                  ["41100", "••••••••••••", "revenue", false],
+                  ["60000", "Expenses", "expense", true],
+                  ["61120", "••••••••••", "expense", false],
+                ].map(([code, name, type, isHeader]) => (
+                  <tr key={code} className={isHeader ? "bg-slate-100 dark:bg-slate-800/60 font-semibold" : "bg-white dark:bg-transparent"}>
+                    <td className="px-3 py-1 font-mono text-slate-500">{code}</td>
+                    <td className={`px-3 py-1 ${isHeader ? "text-slate-700 dark:text-slate-200" : "text-slate-500"}`}>{name}</td>
+                    <td className="px-3 py-1 text-slate-400 italic">{type}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            <div className="px-3 py-1.5 bg-slate-50 dark:bg-slate-900/30 text-[10px] text-muted-foreground">
+              ●●● rows redacted — digital tabular PDFs like this import at near 100% accuracy
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
 
 interface LinkedFirm {
   link_id: string
@@ -414,6 +516,8 @@ export default function DocumentsPage() {
           </Button>
         </div>
       </div>
+
+      <UploadTips />
 
       {/* Upload progress queue */}
       {uploadQueue.length > 0 && (

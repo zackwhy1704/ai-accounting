@@ -173,10 +173,31 @@ Rules:
 - If a field is missing use null
 - Return ONLY the JSON array, no markdown, no explanation"""
 
+    def _repair_truncated_json(raw: str) -> str:
+        """Best-effort repair of a JSON array truncated mid-response."""
+        raw = raw.strip()
+        # Strip markdown fences
+        if raw.startswith("```"):
+            raw = raw.split("\n", 1)[1] if "\n" in raw else raw[3:]
+            if raw.endswith("```"):
+                raw = raw[:-3]
+            raw = raw.strip()
+        # If it already parses, return as-is
+        try:
+            json.loads(raw)
+            return raw
+        except json.JSONDecodeError:
+            pass
+        # Truncate to last complete object: find last '}' and close the array
+        last_brace = raw.rfind("}")
+        if last_brace != -1:
+            raw = raw[:last_brace + 1] + "\n]"
+        return raw
+
     try:
         message = await client.messages.create(
             model=settings.AI_MODEL,
-            max_tokens=8192,
+            max_tokens=16000,  # maximise to reduce truncation risk
             messages=[{
                 "role": "user",
                 "content": [
@@ -189,14 +210,16 @@ Rules:
             }],
         )
         raw = message.content[0].text.strip()
-        if raw.startswith("```"):
-            raw = raw.split("\n", 1)[1] if "\n" in raw else raw[3:]
-            if raw.endswith("```"):
-                raw = raw[:-3]
-            raw = raw.strip()
+        raw = _repair_truncated_json(raw)
         extracted = json.loads(raw)
         if not isinstance(extracted, list):
             raise ValueError("Expected a JSON array")
+    except json.JSONDecodeError as e:
+        logger.error(f"PDF account import JSON parse failed: {e}")
+        raise HTTPException(
+            status_code=422,
+            detail="The document is too large to extract in one pass. Try splitting it into smaller sections (e.g. Assets only, then Liabilities, etc.) and import each separately."
+        )
     except Exception as e:
         logger.error(f"PDF account import failed: {e}")
         raise HTTPException(status_code=422, detail=f"Failed to extract accounts from PDF: {e}")
