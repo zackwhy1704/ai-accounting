@@ -343,7 +343,10 @@ export default function DocumentsPage() {
   const setManualCategory = useMutation({
     mutationFn: ({ id, category }: { id: string; category: string }) =>
       api.patch(`/documents/${id}`, { category }).then(r => r.data),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["documents"] }),
+    onSuccess: (_data, vars) => {
+      qc.invalidateQueries({ queryKey: ["documents"] })
+      qc.invalidateQueries({ queryKey: ["suggest-journal", vars.id] })
+    },
     onError: () => toast("Failed to update category", "warning"),
   })
 

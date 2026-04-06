@@ -293,7 +293,10 @@ export function useCategoriseDocument() {
   return useMutation({
     mutationFn: (documentId: string) =>
       api.post(`/documents/${documentId}/categorise`).then(r => r.data),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['documents'] }),
+    onSuccess: (_data, documentId) => {
+      qc.invalidateQueries({ queryKey: ['documents'] })
+      qc.invalidateQueries({ queryKey: ['suggest-journal', documentId] })
+    },
   })
 }
 
