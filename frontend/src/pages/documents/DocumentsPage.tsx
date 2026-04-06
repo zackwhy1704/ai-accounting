@@ -85,17 +85,19 @@ function UploadTips() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                {[
-                  ["10000", "Assets", "asset", true],
-                  ["12610", "Bank", "asset", false],
-                  ["12620", "Cash in Hand", "asset", false],
-                  ["20000", "Liabilities", "liability", true],
-                  ["21110", "Trade Payables", "liability", false],
-                  ["40000", "Income", "revenue", true],
-                  ["41100", "••••••••••••", "revenue", false],
-                  ["60000", "Expenses", "expense", true],
-                  ["61120", "••••••••••", "expense", false],
-                ].map(([code, name, type, isHeader]) => (
+                {(
+                  [
+                    ["10000", "Assets", "asset", true],
+                    ["12610", "Bank", "asset", false],
+                    ["12620", "Cash in Hand", "asset", false],
+                    ["20000", "Liabilities", "liability", true],
+                    ["21110", "Trade Payables", "liability", false],
+                    ["40000", "Income", "revenue", true],
+                    ["41100", "••••••••••••", "revenue", false],
+                    ["60000", "Expenses", "expense", true],
+                    ["61120", "••••••••••", "expense", false],
+                  ] as [string, string, string, boolean][]
+                ).map(([code, name, type, isHeader]) => (
                   <tr key={code} className={isHeader ? "bg-slate-100 dark:bg-slate-800/60 font-semibold" : "bg-white dark:bg-transparent"}>
                     <td className="px-3 py-1 font-mono text-slate-500">{code}</td>
                     <td className={`px-3 py-1 ${isHeader ? "text-slate-700 dark:text-slate-200" : "text-slate-500"}`}>{name}</td>
