@@ -639,6 +639,7 @@ export default function NewCreditNotePage() {
           QuickShare via Email
         </label>
 
+        <Button type="button" variant="outline" onClick={() => navigate("/sales/credit-notes")}>Cancel</Button>
         <Button
           type="button"
           onClick={handleSave}

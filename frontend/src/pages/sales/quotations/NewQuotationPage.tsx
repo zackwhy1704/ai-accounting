@@ -53,6 +53,15 @@ export default function NewQuotationPage() {
   const [roundingAdjustment, setRoundingAdjustment] = useState(false)
   const [quickShareEmail, setQuickShareEmail] = useState(false)
   const [productSearch, setProductSearch] = useState("")
+  // General Info tab
+  const [title, setTitle] = useState("")
+  const [summary, setSummary] = useState("")
+  const [notes, setNotes] = useState("")
+  // Payment Terms tab
+  const [paymentInstructions, setPaymentInstructions] = useState("")
+  // Additional Info tab
+  const [footerNote, setFooterNote] = useState("")
+  const [terms, setTerms] = useState("")
   const [lineItems, setLineItems] = useState<LineItem[]>([
     { description: "", account_id: "", quantity: 1, unit_price: 0, amount: 0, discount: 0, tax_rate: 0 },
   ])
@@ -91,20 +100,17 @@ export default function NewQuotationPage() {
   const roundingDiff = roundingAdjustment ? total - rawTotal : 0
 
   const handleSave = async () => {
+    if (!contactId) return
     try {
       await createQuotation.mutateAsync({
         contact_id: contactId,
         issue_date: issueDate,
         expiry_date: expiryDate,
-        reference,
+        reference: reference || undefined,
         currency,
-        tax_inclusive: taxInclusive,
-        discount_given: discountGiven,
-        rounding_adjustment: roundingAdjustment,
-        quick_share_email: quickShareEmail,
+        notes: [title, summary, notes].filter(Boolean).join("\n\n") || undefined,
+        terms: [paymentInstructions, footerNote, terms].filter(Boolean).join("\n\n") || undefined,
         line_items: lineItems,
-        sub_total: subTotal,
-        total,
       })
       navigate("/sales/quotations")
     } catch {
@@ -405,27 +411,6 @@ export default function NewQuotationPage() {
             </div>
           </div>
 
-          {/* Footer actions */}
-          <div className="mt-6 flex items-center justify-between border-t border-border pt-4">
-            <label className="flex items-center gap-2 text-sm text-muted-foreground">
-              <input
-                type="checkbox"
-                checked={quickShareEmail}
-                onChange={e => setQuickShareEmail(e.target.checked)}
-                className="h-4 w-4 rounded border-border"
-              />
-              QuickShare via Email
-            </label>
-
-            <Button
-              type="button"
-              onClick={handleSave}
-              disabled={createQuotation.isPending}
-              className="h-10 rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-600 px-6 text-sm font-semibold text-white shadow-sm hover:opacity-95"
-            >
-              {createQuotation.isPending ? "Saving..." : t("form.save") || "Save"}
-            </Button>
-          </div>
         </Card>
       )}
 
@@ -473,11 +458,13 @@ export default function NewQuotationPage() {
           <div className="max-w-lg space-y-4">
             <div>
               <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Title</label>
-              <Input placeholder="Quotation title" className="h-10 rounded-xl" />
+              <Input value={title} onChange={e => setTitle(e.target.value)} placeholder="Quotation title" className="h-10 rounded-xl" />
             </div>
             <div>
               <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Summary</label>
               <textarea
+                value={summary}
+                onChange={e => setSummary(e.target.value)}
                 placeholder="Brief summary..."
                 rows={3}
                 className="w-full rounded-xl border border-border bg-card px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
@@ -486,6 +473,8 @@ export default function NewQuotationPage() {
             <div>
               <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Notes</label>
               <textarea
+                value={notes}
+                onChange={e => setNotes(e.target.value)}
                 placeholder="Internal notes..."
                 rows={3}
                 className="w-full rounded-xl border border-border bg-card px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
@@ -519,6 +508,8 @@ export default function NewQuotationPage() {
             <div>
               <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Payment Instructions</label>
               <textarea
+                value={paymentInstructions}
+                onChange={e => setPaymentInstructions(e.target.value)}
                 placeholder="Bank details, payment methods..."
                 rows={4}
                 className="w-full rounded-xl border border-border bg-card px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
@@ -535,6 +526,8 @@ export default function NewQuotationPage() {
             <div>
               <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Footer Note</label>
               <textarea
+                value={footerNote}
+                onChange={e => setFooterNote(e.target.value)}
                 placeholder="Appears at the bottom of the quotation..."
                 rows={3}
                 className="w-full rounded-xl border border-border bg-card px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
@@ -543,6 +536,8 @@ export default function NewQuotationPage() {
             <div>
               <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Terms & Conditions</label>
               <textarea
+                value={terms}
+                onChange={e => setTerms(e.target.value)}
                 placeholder="Standard terms and conditions..."
                 rows={4}
                 className="w-full rounded-xl border border-border bg-card px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
@@ -567,6 +562,32 @@ export default function NewQuotationPage() {
           </div>
         </Card>
       )}
+
+      {/* Persistent footer — visible on all tabs */}
+      <div className="flex items-center justify-between border-t border-border pt-4">
+        <label className="flex items-center gap-2 text-sm text-muted-foreground">
+          <input
+            type="checkbox"
+            checked={quickShareEmail}
+            onChange={e => setQuickShareEmail(e.target.checked)}
+            className="h-4 w-4 rounded border-border"
+          />
+          QuickShare via Email
+        </label>
+        <div className="flex items-center gap-3">
+          <Button type="button" variant="outline" onClick={() => navigate("/sales/quotations")}>
+            Cancel
+          </Button>
+          <Button
+            type="button"
+            onClick={handleSave}
+            disabled={!contactId || createQuotation.isPending}
+            className="h-10 rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-600 px-6 text-sm font-semibold text-white shadow-sm hover:opacity-95"
+          >
+            {createQuotation.isPending ? "Saving..." : t("form.save") || "Save"}
+          </Button>
+        </div>
+      </div>
     </div>
   )
 }

@@ -260,7 +260,8 @@ export default function NewPaymentPage() {
       )}
 
       {/* Save Button */}
-      <div className="flex justify-end">
+      <div className="flex justify-end gap-3">
+        <Button type="button" variant="outline" onClick={() => navigate("/sales/payments")}>Cancel</Button>
         <Button
           onClick={handleSave}
           disabled={createPayment.isPending}

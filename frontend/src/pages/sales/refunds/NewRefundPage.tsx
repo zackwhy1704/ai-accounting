@@ -204,7 +204,8 @@ export default function NewRefundPage() {
         </div>
 
         {/* Save Button */}
-        <div className="mt-6 flex justify-end">
+        <div className="mt-6 flex justify-end gap-3">
+          <Button type="button" variant="outline" onClick={() => navigate("/sales/refunds")}>Cancel</Button>
           <Button
             onClick={handleSave}
             disabled={createRefund.isPending || !contactId || !refundDate || !refundMethod || !amount}

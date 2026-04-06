@@ -439,7 +439,8 @@ export default function NewDeliveryOrderPage() {
           </div>
 
           {/* Footer actions */}
-          <div className="mt-6 flex items-center justify-end border-t border-border pt-4">
+          <div className="mt-6 flex items-center justify-end gap-3 border-t border-border pt-4">
+            <Button type="button" variant="outline" onClick={() => navigate("/sales/delivery-orders")}>Cancel</Button>
             <Button
               type="button"
               onClick={handleSave}

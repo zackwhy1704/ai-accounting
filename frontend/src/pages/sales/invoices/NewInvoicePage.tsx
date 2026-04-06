@@ -525,6 +525,7 @@ export default function NewInvoicePage() {
                 QuickShare via Email
               </label>
 
+              <Button type="button" variant="outline" onClick={() => navigate("/sales/invoices")}>Cancel</Button>
               <Button
                 type="button"
                 onClick={handleSave}

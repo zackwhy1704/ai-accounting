@@ -935,6 +935,7 @@ export default function NewSalesOrderPage() {
           <button type="button" className="flex h-9 w-9 items-center justify-center rounded-lg border border-border text-muted-foreground hover:bg-muted">
             <FileText className="h-4 w-4" />
           </button>
+          <Button type="button" variant="outline" onClick={() => navigate("/sales/orders")} className="h-9 rounded-lg px-4 text-sm">Cancel</Button>
           <Button type="button" onClick={handleSave} disabled={!contactId || createSalesOrder.isPending}
             className="h-9 rounded-lg bg-blue-500 px-6 text-sm font-medium text-white hover:bg-blue-600">
             {createSalesOrder.isPending ? "Saving..." : "Save"}

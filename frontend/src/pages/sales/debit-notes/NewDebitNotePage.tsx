@@ -319,6 +319,7 @@ export default function NewDebitNotePage() {
                 />
                 QuickShare via Email
               </label>
+              <Button type="button" variant="outline" onClick={() => navigate("/sales/debit-notes")}>Cancel</Button>
               <Button
                 type="button"
                 onClick={handleSave}
