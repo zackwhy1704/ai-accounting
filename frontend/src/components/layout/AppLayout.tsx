@@ -1,8 +1,7 @@
 import { Outlet } from 'react-router-dom'
 import { ErrorBoundary } from '../ErrorBoundary'
 import { Sidebar } from './Sidebar'
-import { Search, User, Sun, Moon, Globe, Check, X, Settings } from 'lucide-react'
-import { Input } from '@/components/ui/input'
+import { User, Sun, Moon, Globe, Check, X, Settings } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useAuth } from '@/lib/auth'
 import { useTheme, LANG_LABELS, type Language } from '@/lib/theme'
@@ -178,13 +177,7 @@ export function AppLayout() {
       <div className="ml-[272px] flex flex-1 flex-col">
         {/* Top bar */}
         <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b border-border bg-card px-6">
-          <div className="relative w-96">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              placeholder={t('header.search')}
-              className="pl-10"
-            />
-          </div>
+          <div />
           <div className="flex items-center gap-2">
             <LanguageSelector />
             <ThemeToggle />

@@ -525,15 +525,17 @@ export default function NewInvoicePage() {
                 QuickShare via Email
               </label>
 
-              <Button type="button" variant="outline" onClick={() => navigate("/sales/invoices")}>Cancel</Button>
-              <Button
-                type="button"
-                onClick={handleSave}
-                disabled={createInvoice.isPending}
-                className="h-10 rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-600 px-6 text-sm font-semibold text-white shadow-sm hover:opacity-95"
-              >
-                {createInvoice.isPending ? "Saving..." : t("form.save") || "Save"}
-              </Button>
+              <div className="flex items-center gap-3">
+                <Button type="button" variant="outline" onClick={() => navigate("/sales/invoices")}>Cancel</Button>
+                <Button
+                  type="button"
+                  onClick={handleSave}
+                  disabled={createInvoice.isPending}
+                  className="h-10 rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-600 px-6 text-sm font-semibold text-white shadow-sm hover:opacity-95"
+                >
+                  {createInvoice.isPending ? "Saving..." : t("form.save") || "Save"}
+                </Button>
+              </div>
             </div>
           </div>
         </Card>

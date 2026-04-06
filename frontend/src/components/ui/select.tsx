@@ -136,7 +136,11 @@ function SelectContent({ className, children, ...props }: React.ComponentProps<"
         ctx.setOpen(false)
       }
     }
-    const handleScroll = () => ctx.setOpen(false)
+    const handleScroll = (e: Event) => {
+      // Don't close if the scroll happened inside the dropdown itself
+      if (ref.current && ref.current.contains(e.target as Node)) return
+      ctx.setOpen(false)
+    }
     document.addEventListener("mousedown", handleClick)
     window.addEventListener("scroll", handleScroll, true)
     return () => {

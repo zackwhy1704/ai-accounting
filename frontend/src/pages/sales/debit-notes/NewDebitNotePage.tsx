@@ -319,15 +319,17 @@ export default function NewDebitNotePage() {
                 />
                 QuickShare via Email
               </label>
-              <Button type="button" variant="outline" onClick={() => navigate("/sales/debit-notes")}>Cancel</Button>
-              <Button
-                type="button"
-                onClick={handleSave}
-                disabled={createDebitNote.isPending}
-                className="h-9 rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-600 px-6 text-xs font-semibold text-white shadow-sm hover:opacity-95"
-              >
-                Save
-              </Button>
+              <div className="flex items-center gap-3">
+                <Button type="button" variant="outline" onClick={() => navigate("/sales/debit-notes")}>Cancel</Button>
+                <Button
+                  type="button"
+                  onClick={handleSave}
+                  disabled={createDebitNote.isPending}
+                  className="h-9 rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-600 px-6 text-xs font-semibold text-white shadow-sm hover:opacity-95"
+                >
+                  Save
+                </Button>
+              </div>
             </div>
           </div>
         )}
