@@ -168,7 +168,7 @@ function UserSettingsPanel({ open, onClose }: { open: boolean; onClose: () => vo
 
 export function AppLayout() {
   const { user } = useAuth()
-  const { t } = useTheme()
+  useTheme()
   const [settingsOpen, setSettingsOpen] = useState(false)
 
   return (
