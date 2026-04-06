@@ -38,9 +38,6 @@ const TYPE_LABEL_MAP: Record<string, string> = {
   revenue: "Revenue", income: "Revenue",
   expense: "Expenses", expenses: "Expenses",
 }
-const LABEL_TO_TYPE: Record<string, string> = {
-  Assets: "asset", Liabilities: "liability", Equity: "equity", Revenue: "revenue", Expenses: "expense",
-}
 const TYPE_COLOR: Record<string, string> = {
   Assets: "bg-blue-100 text-blue-700",
   Liabilities: "bg-rose-100 text-rose-700",
@@ -75,7 +72,6 @@ export default function ChartOfAccountsPage() {
   const [importError, setImportError] = useState("")
   const [extracted, setExtracted] = useState<ExtractedAccount[] | null>(null)
   const [editingExtracted, setEditingExtracted] = useState<ExtractedAccount[]>([])
-  const [confirming, setConfirming] = useState(false)
 
   const { data: accounts = [], isLoading } = useQuery<Account[]>({
     queryKey: ["accounts"],
