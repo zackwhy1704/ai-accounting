@@ -860,7 +860,7 @@ export default function DocumentsPage() {
                     )}
 
                     {/* Inline Journal Entry Preview — auto-loads when category is set */}
-                    {!editing && selected.category && selected.status === "processed" && (
+                    {!editing && selected.category && (selected.status === "processed" || selected.status === "done") && (
                       <InlineJournalPreview documentId={selected.id} category={selected.category} />
                     )}
 
