@@ -742,3 +742,240 @@ export function useCreatePurchaseRefund() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ['purchase-refunds'] }),
   })
 }
+
+// ── Single-entity fetch + update hooks for Edit pages ──
+
+export function useInvoice(id: string | undefined) {
+  return useQuery({ queryKey: ['invoice', id], queryFn: () => api.get(`/invoices/${id}`).then(r => r.data), enabled: !!id })
+}
+export function useUpdateInvoice() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, ...data }: Record<string, unknown>) => api.patch(`/invoices/${id}`, data).then(r => r.data),
+    onSuccess: (_d, v) => { qc.invalidateQueries({ queryKey: ['invoices'] }); qc.invalidateQueries({ queryKey: ['invoice', v.id] }) },
+  })
+}
+
+export function useCreditNote(id: string | undefined) {
+  return useQuery({ queryKey: ['credit-note', id], queryFn: () => api.get(`/credit-notes/${id}`).then(r => r.data), enabled: !!id })
+}
+export function useUpdateCreditNote() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, ...data }: Record<string, unknown>) => api.patch(`/credit-notes/${id}`, data).then(r => r.data),
+    onSuccess: (_d, v) => { qc.invalidateQueries({ queryKey: ['credit-notes'] }); qc.invalidateQueries({ queryKey: ['credit-note', v.id] }) },
+  })
+}
+
+export function useDebitNote(id: string | undefined) {
+  return useQuery({ queryKey: ['debit-note', id], queryFn: () => api.get(`/debit-notes/${id}`).then(r => r.data), enabled: !!id })
+}
+export function useUpdateDebitNote() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, ...data }: Record<string, unknown>) => api.patch(`/debit-notes/${id}`, data).then(r => r.data),
+    onSuccess: (_d, v) => { qc.invalidateQueries({ queryKey: ['debit-notes'] }); qc.invalidateQueries({ queryKey: ['debit-note', v.id] }) },
+  })
+}
+
+export function useDeliveryOrder(id: string | undefined) {
+  return useQuery({ queryKey: ['delivery-order', id], queryFn: () => api.get(`/delivery-orders/${id}`).then(r => r.data), enabled: !!id })
+}
+export function useUpdateDeliveryOrder() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, ...data }: Record<string, unknown>) => api.patch(`/delivery-orders/${id}`, data).then(r => r.data),
+    onSuccess: (_d, v) => { qc.invalidateQueries({ queryKey: ['delivery-orders'] }); qc.invalidateQueries({ queryKey: ['delivery-order', v.id] }) },
+  })
+}
+
+export function useSalesPayment(id: string | undefined) {
+  return useQuery({ queryKey: ['sales-payment', id], queryFn: () => api.get(`/sales-payments/${id}`).then(r => r.data), enabled: !!id })
+}
+export function useUpdateSalesPayment() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, ...data }: Record<string, unknown>) => api.patch(`/sales-payments/${id}`, data).then(r => r.data),
+    onSuccess: (_d, v) => { qc.invalidateQueries({ queryKey: ['sales-payments'] }); qc.invalidateQueries({ queryKey: ['sales-payment', v.id] }) },
+  })
+}
+
+export function useSalesRefund(id: string | undefined) {
+  return useQuery({ queryKey: ['sales-refund', id], queryFn: () => api.get(`/sales-refunds/${id}`).then(r => r.data), enabled: !!id })
+}
+export function useUpdateSalesRefund() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, ...data }: Record<string, unknown>) => api.patch(`/sales-refunds/${id}`, data).then(r => r.data),
+    onSuccess: (_d, v) => { qc.invalidateQueries({ queryKey: ['sales-refunds'] }); qc.invalidateQueries({ queryKey: ['sales-refund', v.id] }) },
+  })
+}
+
+export function useRecurringInvoice(id: string | undefined) {
+  return useQuery({ queryKey: ['recurring-invoice', id], queryFn: () => api.get(`/recurring-invoices/${id}`).then(r => r.data), enabled: !!id })
+}
+export function useUpdateRecurringInvoice() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, ...data }: Record<string, unknown>) => api.patch(`/recurring-invoices/${id}`, data).then(r => r.data),
+    onSuccess: (_d, v) => { qc.invalidateQueries({ queryKey: ['recurring-invoices'] }); qc.invalidateQueries({ queryKey: ['recurring-invoice', v.id] }) },
+  })
+}
+
+export function useSaleReceipt(id: string | undefined) {
+  return useQuery({ queryKey: ['sale-receipt', id], queryFn: () => api.get(`/sale-receipts/${id}`).then(r => r.data), enabled: !!id })
+}
+export function useUpdateSaleReceipt() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, ...data }: Record<string, unknown>) => api.patch(`/sale-receipts/${id}`, data).then(r => r.data),
+    onSuccess: (_d, v) => { qc.invalidateQueries({ queryKey: ['sale-receipts'] }); qc.invalidateQueries({ queryKey: ['sale-receipt', v.id] }) },
+  })
+}
+
+export function useBill(id: string | undefined) {
+  return useQuery({ queryKey: ['bill', id], queryFn: () => api.get(`/bills/${id}`).then(r => r.data), enabled: !!id })
+}
+export function useUpdateBill() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, ...data }: Record<string, unknown>) => api.patch(`/bills/${id}`, data).then(r => r.data),
+    onSuccess: (_d, v) => { qc.invalidateQueries({ queryKey: ['bills'] }); qc.invalidateQueries({ queryKey: ['bill', v.id] }) },
+  })
+}
+
+export function usePurchaseOrder(id: string | undefined) {
+  return useQuery({ queryKey: ['purchase-order', id], queryFn: () => api.get(`/purchase-orders/${id}`).then(r => r.data), enabled: !!id })
+}
+export function useUpdatePurchaseOrder() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, ...data }: Record<string, unknown>) => api.patch(`/purchase-orders/${id}`, data).then(r => r.data),
+    onSuccess: (_d, v) => { qc.invalidateQueries({ queryKey: ['purchase-orders'] }); qc.invalidateQueries({ queryKey: ['purchase-order', v.id] }) },
+  })
+}
+
+export function useGoodsReceivedNote(id: string | undefined) {
+  return useQuery({ queryKey: ['goods-received-note', id], queryFn: () => api.get(`/goods-received-notes/${id}`).then(r => r.data), enabled: !!id })
+}
+export function useUpdateGoodsReceivedNote() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, ...data }: Record<string, unknown>) => api.patch(`/goods-received-notes/${id}`, data).then(r => r.data),
+    onSuccess: (_d, v) => { qc.invalidateQueries({ queryKey: ['goods-received-notes'] }); qc.invalidateQueries({ queryKey: ['goods-received-note', v.id] }) },
+  })
+}
+
+export function useVendorCredit(id: string | undefined) {
+  return useQuery({ queryKey: ['vendor-credit', id], queryFn: () => api.get(`/vendor-credits/${id}`).then(r => r.data), enabled: !!id })
+}
+export function useUpdateVendorCredit() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, ...data }: Record<string, unknown>) => api.patch(`/vendor-credits/${id}`, data).then(r => r.data),
+    onSuccess: (_d, v) => { qc.invalidateQueries({ queryKey: ['vendor-credits'] }); qc.invalidateQueries({ queryKey: ['vendor-credit', v.id] }) },
+  })
+}
+
+export function usePurchasePayment(id: string | undefined) {
+  return useQuery({ queryKey: ['purchase-payment', id], queryFn: () => api.get(`/purchase-payments/${id}`).then(r => r.data), enabled: !!id })
+}
+export function useUpdatePurchasePayment() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, ...data }: Record<string, unknown>) => api.patch(`/purchase-payments/${id}`, data).then(r => r.data),
+    onSuccess: (_d, v) => { qc.invalidateQueries({ queryKey: ['purchase-payments'] }); qc.invalidateQueries({ queryKey: ['purchase-payment', v.id] }) },
+  })
+}
+
+export function usePurchaseRefund(id: string | undefined) {
+  return useQuery({ queryKey: ['purchase-refund', id], queryFn: () => api.get(`/purchase-refunds/${id}`).then(r => r.data), enabled: !!id })
+}
+export function useUpdatePurchaseRefund() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, ...data }: Record<string, unknown>) => api.patch(`/purchase-refunds/${id}`, data).then(r => r.data),
+    onSuccess: (_d, v) => { qc.invalidateQueries({ queryKey: ['purchase-refunds'] }); qc.invalidateQueries({ queryKey: ['purchase-refund', v.id] }) },
+  })
+}
+
+export function useManualJournal(id: string | undefined) {
+  return useQuery({ queryKey: ['manual-journal', id], queryFn: () => api.get(`/manual-journals/${id}`).then(r => r.data), enabled: !!id })
+}
+export function useUpdateManualJournal() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, ...data }: Record<string, unknown>) => api.patch(`/manual-journals/${id}`, data).then(r => r.data),
+    onSuccess: (_d, v) => { qc.invalidateQueries({ queryKey: ['manual-journals'] }); qc.invalidateQueries({ queryKey: ['manual-journal', v.id] }) },
+  })
+}
+
+export function useProduct(id: string | undefined) {
+  return useQuery({ queryKey: ['product', id], queryFn: () => api.get(`/products/${id}`).then(r => r.data), enabled: !!id })
+}
+
+export function useBankAccount(id: string | undefined) {
+  return useQuery({ queryKey: ['bank-account', id], queryFn: () => api.get(`/bank-accounts/${id}`).then(r => r.data), enabled: !!id })
+}
+export function useUpdateBankAccount() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, ...data }: Record<string, unknown>) => api.patch(`/bank-accounts/${id}`, data).then(r => r.data),
+    onSuccess: (_d, v) => { qc.invalidateQueries({ queryKey: ['bank-accounts'] }); qc.invalidateQueries({ queryKey: ['bank-account', v.id] }) },
+  })
+}
+
+export function useBankTransaction(id: string | undefined) {
+  return useQuery({ queryKey: ['bank-transaction', id], queryFn: () => api.get(`/bank-transactions/${id}`).then(r => r.data), enabled: !!id })
+}
+export function useUpdateBankTransaction() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, ...data }: Record<string, unknown>) => api.patch(`/bank-transactions/${id}`, data).then(r => r.data),
+    onSuccess: (_d, v) => { qc.invalidateQueries({ queryKey: ['bank-transactions'] }); qc.invalidateQueries({ queryKey: ['bank-transaction', v.id] }) },
+  })
+}
+
+export function useBankTransfer(id: string | undefined) {
+  return useQuery({ queryKey: ['bank-transfer', id], queryFn: () => api.get(`/bank-transfers/${id}`).then(r => r.data), enabled: !!id })
+}
+export function useUpdateBankTransfer() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, ...data }: Record<string, unknown>) => api.patch(`/bank-transfers/${id}`, data).then(r => r.data),
+    onSuccess: (_d, v) => { qc.invalidateQueries({ queryKey: ['bank-transfers'] }); qc.invalidateQueries({ queryKey: ['bank-transfer', v.id] }) },
+  })
+}
+
+export function useStockAdjustment(id: string | undefined) {
+  return useQuery({ queryKey: ['stock-adjustment', id], queryFn: () => api.get(`/stock-adjustments/${id}`).then(r => r.data), enabled: !!id })
+}
+export function useUpdateStockAdjustment() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, ...data }: Record<string, unknown>) => api.patch(`/stock-adjustments/${id}`, data).then(r => r.data),
+    onSuccess: (_d, v) => { qc.invalidateQueries({ queryKey: ['stock-adjustments'] }); qc.invalidateQueries({ queryKey: ['stock-adjustment', v.id] }) },
+  })
+}
+
+export function useStockTransfer(id: string | undefined) {
+  return useQuery({ queryKey: ['stock-transfer', id], queryFn: () => api.get(`/stock-transfers/${id}`).then(r => r.data), enabled: !!id })
+}
+export function useUpdateStockTransfer() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, ...data }: Record<string, unknown>) => api.patch(`/stock-transfers/${id}`, data).then(r => r.data),
+    onSuccess: (_d, v) => { qc.invalidateQueries({ queryKey: ['stock-transfers'] }); qc.invalidateQueries({ queryKey: ['stock-transfer', v.id] }) },
+  })
+}
+
+export function useFixedAsset(id: string | undefined) {
+  return useQuery({ queryKey: ['fixed-asset', id], queryFn: () => api.get(`/fixed-assets/${id}`).then(r => r.data), enabled: !!id })
+}
+export function useUpdateFixedAsset() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, ...data }: Record<string, unknown>) => api.patch(`/fixed-assets/${id}`, data).then(r => r.data),
+    onSuccess: (_d, v) => { qc.invalidateQueries({ queryKey: ['fixed-assets'] }); qc.invalidateQueries({ queryKey: ['fixed-asset', v.id] }) },
+  })
+}

@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react"
 import { useQueryClient } from "@tanstack/react-query"
 import { useNavigate } from "react-router-dom"
-import { Plus, Search, CreditCard, FileText, Copy, Printer, XCircle, Truck } from "lucide-react"
+import { Plus, Search, CreditCard, FileText, Copy, Printer, XCircle, Truck, Pencil } from "lucide-react"
 import { useInvoices, useContacts } from "../../lib/hooks"
 import api from "../../lib/api"
 import { formatCurrency, formatDate, cn } from "../../lib/utils"
@@ -158,7 +158,8 @@ export default function InvoicesPage() {
                         </TableCell>
                         <TableCell className="text-right">
                           <RowActionsMenu actions={[
-                            { label: t("invoices.addPayment"), icon: <CreditCard className="h-3.5 w-3.5" />, onClick: () => navigate(`/sales/payments/new?invoice_id=${inv.id}`) },
+                            { label: "Edit", icon: <Pencil className="h-3.5 w-3.5" />, onClick: () => navigate(`/sales/invoices/${inv.id}/edit`) },
+                            { label: t("invoices.addPayment"), icon: <CreditCard className="h-3.5 w-3.5" />, onClick: () => navigate(`/sales/payments/new?invoice_id=${inv.id}`), dividerBefore: true },
                             { label: t("invoices.creditNote"), icon: <FileText className="h-3.5 w-3.5" />, onClick: () => navigate(`/sales/credit-notes/new?invoice_id=${inv.id}`) },
                             { label: t("invoices.duplicate"), icon: <Copy className="h-3.5 w-3.5" />, onClick: () => navigate(`/sales/invoices/new?copy=${inv.id}`), dividerBefore: true },
                             { label: t("invoices.printPdf"), icon: <Printer className="h-3.5 w-3.5" />, onClick: () => window.print() },

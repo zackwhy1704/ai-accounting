@@ -3,7 +3,7 @@ import { useState } from "react"
 import { useQueryClient } from "@tanstack/react-query"
 import { useNavigate } from "react-router-dom"
 import { ViewDetailSheet } from "../../components/ui/view-detail-sheet"
-import { Plus, BookOpen, FileText, XCircle } from "lucide-react"
+import { Plus, BookOpen, FileText, XCircle, Pencil } from "lucide-react"
 import { useManualJournals } from "../../lib/hooks"
 import api from "../../lib/api"
 import { formatDate, formatCurrency } from "../../lib/utils"
@@ -85,6 +85,7 @@ export default function ManualJournalsPage() {
                     </TableCell>
                     <TableCell className="text-right">
                       <RowActionsMenu actions={[
+                        { label: "Edit", icon: <Pencil className="h-3.5 w-3.5" />, onClick: () => navigate(`/accounting/manual-journals/${j.id}/edit`) },
                         { label: "View", icon: <FileText className="h-4 w-4" />, onClick: () => { setViewItem(j) } },
                         { label: "Void", icon: <XCircle className="h-4 w-4" />, onClick: () => { if (confirm("Void this journal entry?")) api.patch(`/accounting/journals/${j.id}`, { status: "void" }).then(() => queryClient.invalidateQueries({ queryKey: ["manual-journals"] })) }, danger: true, dividerBefore: true, disabled: j.status === "void" },
                       ]} />

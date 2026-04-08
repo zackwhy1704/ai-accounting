@@ -1,6 +1,6 @@
 import { useMemo } from "react"
 import { useNavigate } from "react-router-dom"
-import { Plus, RefreshCw, Pause, Play } from "lucide-react"
+import { Plus, RefreshCw, Pause, Play, Pencil } from "lucide-react"
 import { RowActionsMenu } from "../../../components/ui/row-actions"
 import { useRecurringInvoices, useContacts, usePauseRecurringInvoice, useResumeRecurringInvoice } from "../../../lib/hooks"
 import { formatDate, cn } from "../../../lib/utils"
@@ -100,6 +100,7 @@ export default function RecurringInvoicesPage() {
                     </TableCell>
                     <TableCell className="text-right">
                       <RowActionsMenu actions={[
+                        { label: "Edit", icon: <Pencil className="h-3.5 w-3.5" />, onClick: () => navigate(`/sales/recurring/${r.id}/edit`) },
                         ...(r.status === "active" ? [{ label: "Pause", icon: <Pause className="h-3.5 w-3.5" />, onClick: () => handlePause(r.id) }] : []),
                         ...(r.status === "paused" ? [{ label: "Resume", icon: <Play className="h-3.5 w-3.5" />, onClick: () => handleResume(r.id) }] : []),
                       ]} />

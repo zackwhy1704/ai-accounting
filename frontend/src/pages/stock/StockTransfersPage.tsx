@@ -2,7 +2,7 @@ import { useState } from "react"
 import { useNavigate } from "react-router-dom"
 import { ViewDetailSheet } from "../../components/ui/view-detail-sheet"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
-import { Plus, Search, MoveRight, FileText, XCircle } from "lucide-react"
+import { Plus, Search, MoveRight, FileText, XCircle, Pencil } from "lucide-react"
 import api from "../../lib/api"
 import { formatDate, cn } from "../../lib/utils"
 import { Card } from "../../components/ui/card"
@@ -121,6 +121,7 @@ export default function StockTransfersPage() {
                     </TableCell>
                     <TableCell className="text-right">
                       <RowActionsMenu actions={[
+                        { label: "Edit", icon: <Pencil className="h-3.5 w-3.5" />, onClick: () => navigate(`/stock/transfers/${t.id}/edit`) },
                         { label: "View", icon: <FileText className="h-4 w-4" />, onClick: () => setViewItem(t) },
                         { label: "Void", icon: <XCircle className="h-4 w-4" />, onClick: () => { if (confirm("Void this transfer?")) api.patch(`/stock/transfers/${t.id}`, { status: "void" }).then(() => queryClient.invalidateQueries({ queryKey: ["stock-transfers"] })) }, danger: true, dividerBefore: true, disabled: t.status === "void" },
                       ]} />

@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react"
 import { useQueryClient } from "@tanstack/react-query"
 import { useNavigate } from "react-router-dom"
-import { Plus, Search, FileText, XCircle } from "lucide-react"
+import { Plus, Search, FileText, XCircle, Pencil } from "lucide-react"
 import { RowActionsMenu } from "../../../components/ui/row-actions"
 import { useSalesPayments, useContacts } from "../../../lib/hooks"
 import api from "../../../lib/api"
@@ -152,7 +152,8 @@ export default function PaymentsPage() {
                         </TableCell>
                         <TableCell className="text-right">
                           <RowActionsMenu actions={[
-                            { label: "Download Receipt", icon: <FileText className="h-3.5 w-3.5" />, onClick: () => window.print() },
+                            { label: "Edit", icon: <Pencil className="h-3.5 w-3.5" />, onClick: () => navigate(`/sales/payments/${p.id}/edit`) },
+                            { label: "Download Receipt", icon: <FileText className="h-3.5 w-3.5" />, onClick: () => window.print(), dividerBefore: true },
                             { label: t("payments.void"), icon: <XCircle className="h-3.5 w-3.5" />, onClick: () => { if (confirm("Void this payment?")) api.patch(`/sales/payments/${p.id}`, { status: "void" }).then(() => queryClient.invalidateQueries({ queryKey: ["sales-payments"] })) }, danger: true, dividerBefore: true },
                           ]} />
                         </TableCell>

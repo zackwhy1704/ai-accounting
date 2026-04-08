@@ -100,6 +100,29 @@ import AcceptClientInvitePage from './pages/invitations/AcceptClientInvitePage'
 import MyAccountantsPage from './pages/invitations/MyAccountantsPage'
 import FirmClientsPage from './pages/firm/FirmClientsPage'
 import FirmClientDetailPage from './pages/firm/FirmClientDetailPage'
+// Edit pages
+import EditInvoicePage from './pages/sales/invoices/EditInvoicePage'
+import EditCreditNotePage from './pages/sales/credit-notes/EditCreditNotePage'
+import EditDebitNotePage from './pages/sales/debit-notes/EditDebitNotePage'
+import EditDeliveryOrderPage from './pages/sales/delivery-orders/EditDeliveryOrderPage'
+import EditPaymentPage from './pages/sales/payments/EditPaymentPage'
+import EditRefundPage from './pages/sales/refunds/EditRefundPage'
+import EditRecurringInvoicePage from './pages/sales/recurring/EditRecurringInvoicePage'
+import EditSaleReceiptPage from './pages/sales/receipts/EditSaleReceiptPage'
+import EditBillPage from './pages/purchases/EditBillPage'
+import EditPurchaseOrderPage from './pages/purchases/EditPurchaseOrderPage'
+import EditGoodsReceivedNotePage from './pages/purchases/EditGoodsReceivedNotePage'
+import EditVendorCreditPage from './pages/purchases/EditVendorCreditPage'
+import EditPurchasePaymentPage from './pages/purchases/EditPurchasePaymentPage'
+import EditPurchaseRefundPage from './pages/purchases/EditPurchaseRefundPage'
+import EditManualJournalPage from './pages/accounting/EditManualJournalPage'
+import EditFixedAssetPage from './pages/accounting/EditFixedAssetPage'
+import EditProductPage from './pages/products/EditProductPage'
+import EditBankAccountPage from './pages/bank/EditBankAccountPage'
+import EditBankTransactionPage from './pages/bank/EditBankTransactionPage'
+import EditBankTransferPage from './pages/bank/EditBankTransferPage'
+import EditStockAdjustmentPage from './pages/stock/EditStockAdjustmentPage'
+import EditStockTransferPage from './pages/stock/EditStockTransferPage'
 
 function ProtectedRoute({ children, allowOnboarding }: { children: React.ReactNode; allowOnboarding?: boolean }) {
   const { token, isLoading, onboardingCompleted } = useAuth()
@@ -135,37 +158,52 @@ function App() {
         <Route path="/sales/quotations/:id/edit" element={<EditQuotationPage />} />
 <Route path="/sales/delivery-orders" element={<DeliveryOrdersPage />} />
         <Route path="/sales/delivery-orders/new" element={<NewDeliveryOrderPage />} />
+        <Route path="/sales/delivery-orders/:id/edit" element={<EditDeliveryOrderPage />} />
         <Route path="/sales/invoices" element={<InvoicesPage />} />
         <Route path="/sales/invoices/new" element={<NewInvoicePage />} />
+        <Route path="/sales/invoices/:id/edit" element={<EditInvoicePage />} />
         <Route path="/sales/credit-notes" element={<CreditNotesPage />} />
         <Route path="/sales/credit-notes/new" element={<NewCreditNotePage />} />
+        <Route path="/sales/credit-notes/:id/edit" element={<EditCreditNotePage />} />
         <Route path="/sales/debit-notes" element={<DebitNotesPage />} />
         <Route path="/sales/debit-notes/new" element={<NewDebitNotePage />} />
+        <Route path="/sales/debit-notes/:id/edit" element={<EditDebitNotePage />} />
         <Route path="/sales/payments" element={<PaymentsPage />} />
         <Route path="/sales/payments/new" element={<NewPaymentPage />} />
+        <Route path="/sales/payments/:id/edit" element={<EditPaymentPage />} />
         <Route path="/sales/refunds" element={<RefundsPage />} />
         <Route path="/sales/refunds/new" element={<NewRefundPage />} />
+        <Route path="/sales/refunds/:id/edit" element={<EditRefundPage />} />
         <Route path="/sales/recurring" element={<RecurringInvoicesPage />} />
         <Route path="/sales/recurring/new" element={<NewRecurringInvoicePage />} />
+        <Route path="/sales/recurring/:id/edit" element={<EditRecurringInvoicePage />} />
         <Route path="/sales/receipts" element={<SaleReceiptsPage />} />
         <Route path="/sales/receipts/new" element={<NewSaleReceiptPage />} />
+        <Route path="/sales/receipts/:id/edit" element={<EditSaleReceiptPage />} />
         <Route path="/accounting/journals" element={<ManualJournalsPage />} />
         <Route path="/accounting/journals/new" element={<NewManualJournalPage />} />
+        <Route path="/accounting/journals/:id/edit" element={<EditManualJournalPage />} />
 
         {/* Purchases */}
         <Route path="/purchases/bills" element={<BillsPage />} />
         <Route path="/purchases/bills/new" element={<NewBillPage />} />
+        <Route path="/purchases/bills/:id/edit" element={<EditBillPage />} />
         <Route path="/purchases/purchase-orders" element={<PurchaseOrdersPage />} />
         <Route path="/purchases/purchase-orders/new" element={<NewPurchaseOrderPage />} />
+        <Route path="/purchases/purchase-orders/:id/edit" element={<EditPurchaseOrderPage />} />
         <Route path="/purchases/goods-received-notes" element={<GoodsReceivedNotesPage />} />
         <Route path="/purchases/goods-received-notes/new" element={<NewGoodsReceivedNotePage />} />
+        <Route path="/purchases/goods-received-notes/:id/edit" element={<EditGoodsReceivedNotePage />} />
         <Route path="/purchases/credit-notes" element={<PurchaseCreditNotesPage />} />
         <Route path="/purchases/vendor-credits" element={<VendorCreditsPage />} />
         <Route path="/purchases/vendor-credits/new" element={<NewVendorCreditPage />} />
+        <Route path="/purchases/vendor-credits/:id/edit" element={<EditVendorCreditPage />} />
         <Route path="/purchases/payments" element={<PurchasePaymentsPage />} />
         <Route path="/purchases/payments/new" element={<NewPurchasePaymentPage />} />
+        <Route path="/purchases/payments/:id/edit" element={<EditPurchasePaymentPage />} />
         <Route path="/purchases/refunds" element={<PurchaseRefundsPage />} />
         <Route path="/purchases/refunds/new" element={<NewPurchaseRefundPage />} />
+        <Route path="/purchases/refunds/:id/edit" element={<EditPurchaseRefundPage />} />
 
         {/* Upload */}
         <Route path="/upload" element={<DocumentsPage />} />
@@ -173,12 +211,16 @@ function App() {
         {/* Bank */}
         <Route path="/bank/accounts" element={<BankAccountsPage />} />
         <Route path="/bank/accounts/new" element={<NewBankAccountPage />} />
+        <Route path="/bank/accounts/:id/edit" element={<EditBankAccountPage />} />
         <Route path="/bank/money-in" element={<BankTransactionsPage type="income" />} />
         <Route path="/bank/money-in/new" element={<NewBankTransactionPage />} />
+        <Route path="/bank/money-in/:id/edit" element={<EditBankTransactionPage />} />
         <Route path="/bank/money-out" element={<BankTransactionsPage type="expense" />} />
         <Route path="/bank/money-out/new" element={<NewBankTransactionPage />} />
+        <Route path="/bank/money-out/:id/edit" element={<EditBankTransactionPage />} />
         <Route path="/bank/transfers" element={<BankTransfersPage />} />
         <Route path="/bank/transfers/new" element={<NewBankTransferPage />} />
+        <Route path="/bank/transfers/:id/edit" element={<EditBankTransferPage />} />
         <Route path="/bank/rules" element={<BankRulesPage />} />
 
         {/* Contacts */}
@@ -190,12 +232,15 @@ function App() {
         {/* Products */}
         <Route path="/products" element={<ProductsPage />} />
         <Route path="/products/new" element={<NewProductPage />} />
+        <Route path="/products/:id/edit" element={<EditProductPage />} />
 
         {/* Stock */}
         <Route path="/stock/adjustments" element={<StockAdjustmentsPage />} />
         <Route path="/stock/adjustments/new" element={<NewStockAdjustmentPage />} />
+        <Route path="/stock/adjustments/:id/edit" element={<EditStockAdjustmentPage />} />
         <Route path="/stock/transfers" element={<StockTransfersPage />} />
         <Route path="/stock/transfers/new" element={<NewStockTransferPage />} />
+        <Route path="/stock/transfers/:id/edit" element={<EditStockTransferPage />} />
         <Route path="/stock/values" element={<StockValuesPage />} />
 
         {/* Accounting */}
@@ -203,6 +248,7 @@ function App() {
         <Route path="/accounting/accounts" element={<ChartOfAccountsPage />} />
         <Route path="/accounting/fixed-assets" element={<FixedAssetsPage />} />
         <Route path="/accounting/fixed-assets/new" element={<NewFixedAssetPage />} />
+        <Route path="/accounting/fixed-assets/:id/edit" element={<EditFixedAssetPage />} />
 
         {/* Reports */}
         <Route path="/reports" element={<ReportsIndexPage />} />

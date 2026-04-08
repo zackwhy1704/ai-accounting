@@ -1,7 +1,7 @@
 import { useState } from "react"
 import { useNavigate } from "react-router-dom"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
-import { Plus, Search, Landmark } from "lucide-react"
+import { Plus, Search, Landmark, Pencil } from "lucide-react"
 import { RowActionsMenu } from "../../components/ui/row-actions"
 import api from "../../lib/api"
 import { formatCurrency, cn } from "../../lib/utils"
@@ -150,6 +150,7 @@ export default function BankAccountsPage() {
                     </TableCell>
                     <TableCell className="text-right">
                       <RowActionsMenu actions={[
+                        { label: "Edit", icon: <Pencil className="h-3.5 w-3.5" />, onClick: () => navigate(`/bank/accounts/${a.id}/edit`) },
                         { label: "Delete", onClick: () => { if (window.confirm(`Delete "${a.name}"?`)) { deleteMutation.mutate(a.id) } }, danger: true },
                       ]} />
                     </TableCell>

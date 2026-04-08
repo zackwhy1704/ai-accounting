@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react"
 import { useNavigate } from "react-router-dom"
-import { Plus, Search, ArrowRightLeft } from "lucide-react"
+import { Plus, Search, ArrowRightLeft, Pencil } from "lucide-react"
 import { RowActionsMenu } from "../../../components/ui/row-actions"
 import { useCreditNotes, useContacts } from "../../../lib/hooks"
 import { formatCurrency, formatDate, cn } from "../../../lib/utils"
@@ -153,7 +153,8 @@ export default function CreditNotesPage() {
                         </TableCell>
                         <TableCell className="text-right">
                           <RowActionsMenu actions={[
-                            { label: t("creditNotes.applyToInvoice"), icon: <ArrowRightLeft className="h-3.5 w-3.5" />, onClick: () => navigate(`/sales/credit-notes/${row.id}/apply`) },
+                            { label: "Edit", icon: <Pencil className="h-3.5 w-3.5" />, onClick: () => navigate(`/sales/credit-notes/${row.id}/edit`) },
+                            { label: t("creditNotes.applyToInvoice"), icon: <ArrowRightLeft className="h-3.5 w-3.5" />, onClick: () => navigate(`/sales/credit-notes/${row.id}/apply`), dividerBefore: true },
                           ]} />
                         </TableCell>
                       </TableRow>

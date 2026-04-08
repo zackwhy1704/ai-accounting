@@ -105,7 +105,7 @@ export default function ProductsPage() {
                     <TableCell className="text-right">
                       <RowActionsMenu actions={[
                         { label: "View", icon: <Eye className="h-4 w-4" />, onClick: () => setViewItem(p) },
-                        { label: "Edit", icon: <Pencil className="h-4 w-4" />, onClick: () => navigate(`/products/new?edit=${p.id}`) },
+                        { label: "Edit", icon: <Pencil className="h-4 w-4" />, onClick: () => navigate(`/products/${p.id}/edit`) },
                         { label: "Adjust Stock", icon: <ArrowUpDown className="h-4 w-4" />, onClick: () => navigate(`/stock/adjustments/new?product_id=${p.id}`), dividerBefore: true },
                         { label: "Delete", icon: <Trash2 className="h-4 w-4" />, onClick: () => { if (confirm("Are you sure you want to delete this product?")) api.delete(`/products/${p.id}`).then(() => queryClient.invalidateQueries({ queryKey: ["products"] })) }, danger: true, dividerBefore: true },
                       ]} />

@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react"
 import { useNavigate } from "react-router-dom"
-import { Plus, Search } from "lucide-react"
+import { Plus, Search, Pencil } from "lucide-react"
+import { RowActionsMenu } from "../../../components/ui/row-actions"
 import { useDebitNotes, useContacts } from "../../../lib/hooks"
 import { formatCurrency, formatDate, cn } from "../../../lib/utils"
 import { useTheme } from "../../../lib/theme"

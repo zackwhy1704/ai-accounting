@@ -2,7 +2,7 @@ import { useMemo, useState } from "react"
 import { useQueryClient } from "@tanstack/react-query"
 import { useNavigate } from "react-router-dom"
 import { ViewDetailSheet } from "../../components/ui/view-detail-sheet"
-import { Plus, Search, FileText, ArrowRightLeft, XCircle } from "lucide-react"
+import { Plus, Search, FileText, ArrowRightLeft, XCircle, Pencil } from "lucide-react"
 import { useVendorCredits, useContacts } from "../../lib/hooks"
 import api from "../../lib/api"
 import { formatCurrency, formatDate, cn } from "../../lib/utils"
@@ -102,6 +102,7 @@ export default function VendorCreditsPage() {
                     </TableCell>
                     <TableCell className="text-right">
                       <RowActionsMenu actions={[
+                        { label: "Edit", icon: <Pencil className="h-3.5 w-3.5" />, onClick: () => navigate(`/purchases/vendor-credits/${vc.id}/edit`) },
                         { label: "View", icon: <FileText className="h-3.5 w-3.5" />, onClick: () => setViewItem(vc) },
                         { label: "Apply to Bill", icon: <ArrowRightLeft className="h-3.5 w-3.5" />, onClick: () => navigate(`/purchases/bills/new?credit_id=${vc.id}`), dividerBefore: true },
                         { label: "Void", icon: <XCircle className="h-3.5 w-3.5" />, onClick: () => { if (confirm("Void this vendor credit?")) api.patch(`/vendor-credits/${vc.id}`, { status: "void" }).then(() => queryClient.invalidateQueries({ queryKey: ["vendor-credits"] })) }, danger: true, dividerBefore: true },

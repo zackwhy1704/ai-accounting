@@ -2,7 +2,7 @@ import { useMemo, useState, useRef } from "react"
 import { useQueryClient } from "@tanstack/react-query"
 import { useNavigate } from "react-router-dom"
 import { ViewDetailSheet } from "../../components/ui/view-detail-sheet"
-import { Plus, Search, CalendarDays, FileText, Copy, Printer, XCircle, CreditCard } from "lucide-react"
+import { Plus, Search, CalendarDays, FileText, Copy, Printer, XCircle, CreditCard, Pencil } from "lucide-react"
 import { useBills, useContacts } from "../../lib/hooks"
 import api from "../../lib/api"
 import { formatCurrency, formatDate, cn } from "../../lib/utils"
@@ -163,6 +163,7 @@ export default function BillsPage() {
                             <TableCell><Badge variant="outline" className={cn("rounded-lg px-2 py-0.5 text-[11px] font-semibold", statusColors[bill.status] ?? "")}>{bill.status.charAt(0).toUpperCase() + bill.status.slice(1)}</Badge></TableCell>
                             <TableCell className="text-right">
                               <RowActionsMenu actions={[
+                                { label: "Edit", icon: <Pencil className="h-3.5 w-3.5" />, onClick: () => navigate(`/purchases/bills/${bill.id}/edit`) },
                                 { label: "View", icon: <FileText className="h-3.5 w-3.5" />, onClick: () => setViewItem(bill) },
                                 { label: t("invoices.addPayment"), icon: <CreditCard className="h-3.5 w-3.5" />, onClick: () => navigate(`/purchases/payments/new?bill_id=${bill.id}`), dividerBefore: true },
                                 { label: t("invoices.duplicate"), icon: <Copy className="h-3.5 w-3.5" />, onClick: () => navigate(`/purchases/bills/new?copy=${bill.id}`) },

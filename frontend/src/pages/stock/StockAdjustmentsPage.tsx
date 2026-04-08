@@ -2,7 +2,7 @@ import { useState } from "react"
 import { useNavigate } from "react-router-dom"
 import { ViewDetailSheet } from "../../components/ui/view-detail-sheet"
 import { useQuery } from "@tanstack/react-query"
-import { Plus, Search, SlidersHorizontal, FileText, CheckCircle2, XCircle } from "lucide-react"
+import { Plus, Search, SlidersHorizontal, FileText, CheckCircle2, XCircle, Pencil } from "lucide-react"
 import api from "../../lib/api"
 import { formatDate, cn } from "../../lib/utils"
 import { Card } from "../../components/ui/card"
@@ -156,6 +156,7 @@ export default function StockAdjustmentsPage() {
                     </TableCell>
                     <TableCell className="text-right">
                       <RowActionsMenu actions={[
+                        { label: "Edit", icon: <Pencil className="h-3.5 w-3.5" />, onClick: () => navigate(`/stock/adjustments/${a.id}/edit`) },
                         { label: "View", icon: <FileText className="h-4 w-4" />, onClick: () => setViewItem(a) },
                         { label: "Confirm", icon: <CheckCircle2 className="h-4 w-4" />, onClick: () => { api.patch(`/stock-adjustments/${a.id}`, { status: "confirmed" }).then(() => window.location.reload()) }, disabled: a.status !== "draft", dividerBefore: true },
                         { label: "Void", icon: <XCircle className="h-4 w-4" />, onClick: () => { if (window.confirm("Void this adjustment?")) api.patch(`/stock-adjustments/${a.id}`, { status: "void" }).then(() => window.location.reload()) }, danger: true, dividerBefore: true, disabled: a.status === "void" },

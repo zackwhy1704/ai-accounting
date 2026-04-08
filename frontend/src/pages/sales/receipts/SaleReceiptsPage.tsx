@@ -2,7 +2,7 @@ import { useMemo, useState } from "react"
 import { useQueryClient } from "@tanstack/react-query"
 import { useNavigate } from "react-router-dom"
 import { ViewDetailSheet } from "../../../components/ui/view-detail-sheet"
-import { Plus, Search, Download, Receipt, FileText, XCircle } from "lucide-react"
+import { Plus, Search, Download, Receipt, FileText, XCircle, Pencil } from "lucide-react"
 import { useSaleReceipts, useContacts } from "../../../lib/hooks"
 import api from "../../../lib/api"
 import { formatCurrency, formatDate, cn } from "../../../lib/utils"
@@ -109,6 +109,7 @@ export default function SaleReceiptsPage() {
                     </TableCell>
                     <TableCell className="text-right">
                       <RowActionsMenu actions={[
+                        { label: "Edit", icon: <Pencil className="h-3.5 w-3.5" />, onClick: () => navigate(`/sales/receipts/${r.id}/edit`) },
                         { label: "View", icon: <FileText className="h-4 w-4" />, onClick: () => setViewItem(r) },
                         { label: "Download Receipt", icon: <Download className="h-4 w-4" />, onClick: () => window.print(), dividerBefore: true },
                         { label: "Void", icon: <XCircle className="h-4 w-4" />, onClick: () => { if (confirm("Void this receipt?")) api.patch(`/sales/receipts/${r.id}`, { status: "void" }).then(() => queryClient.invalidateQueries({ queryKey: ["sale-receipts"] })) }, danger: true, dividerBefore: true },

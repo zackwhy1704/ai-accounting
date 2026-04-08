@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react"
 import { useQueryClient } from "@tanstack/react-query"
 import { useNavigate } from "react-router-dom"
-import { Plus, Search, XCircle } from "lucide-react"
+import { Plus, Search, XCircle, Pencil } from "lucide-react"
 import { RowActionsMenu } from "../../../components/ui/row-actions"
 import { useSalesRefunds, useContacts } from "../../../lib/hooks"
 import api from "../../../lib/api"
@@ -154,6 +154,7 @@ export default function RefundsPage() {
                         </TableCell>
                         <TableCell className="text-right">
                           <RowActionsMenu actions={[
+                            { label: "Edit", icon: <Pencil className="h-3.5 w-3.5" />, onClick: () => navigate(`/sales/refunds/${r.id}/edit`) },
                             { label: t("refunds.void"), icon: <XCircle className="h-3.5 w-3.5" />, onClick: () => { if (confirm("Void this refund?")) api.patch(`/sales/refunds/${r.id}`, { status: "void" }).then(() => queryClient.invalidateQueries({ queryKey: ["sales-refunds"] })) }, danger: true, dividerBefore: true },
                           ]} />
                         </TableCell>

@@ -138,7 +138,7 @@ export default function PurchaseOrdersPage() {
                     <TableCell className="text-right">
                       <RowActionsMenu actions={[
                         { label: "View", icon: <FileText className="h-3.5 w-3.5" />, onClick: () => setViewItem(po) },
-                        { label: "Edit", icon: <Pencil className="h-3.5 w-3.5" />, onClick: () => navigate(`/purchases/orders/${po.id}/edit`) },
+                        { label: "Edit", icon: <Pencil className="h-3.5 w-3.5" />, onClick: () => navigate(`/purchases/purchase-orders/${po.id}/edit`) },
                         { label: "Convert to Bill", icon: <ArrowRightLeft className="h-3.5 w-3.5" />, onClick: () => navigate(`/purchases/bills/new?from_po=${po.id}`), dividerBefore: true },
                         { label: "Duplicate", icon: <Copy className="h-3.5 w-3.5" />, onClick: () => navigate(`/purchases/orders/new?copy=${po.id}`) },
                         { label: "Void", icon: <XCircle className="h-3.5 w-3.5" />, onClick: () => { if (confirm("Void this purchase order?")) api.patch(`/purchase-orders/${po.id}`, { status: "void" }).then(() => queryClient.invalidateQueries({ queryKey: ["purchase-orders"] })) }, danger: true, dividerBefore: true, disabled: po.status === "void" },

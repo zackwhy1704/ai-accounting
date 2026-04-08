@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react"
 import { useNavigate } from "react-router-dom"
-import { Plus, Search, FileText } from "lucide-react"
+import { Plus, Search, FileText, Pencil } from "lucide-react"
 import { RowActionsMenu } from "../../../components/ui/row-actions"
 import { useDeliveryOrders, useContacts } from "../../../lib/hooks"
 import { formatCurrency, formatDate, cn } from "../../../lib/utils"
@@ -149,7 +149,8 @@ export default function DeliveryOrdersPage() {
                         </TableCell>
                         <TableCell className="text-right">
                           <RowActionsMenu actions={[
-                            { label: t("deliveryOrders.printPdf"), icon: <FileText className="h-3.5 w-3.5" />, onClick: () => window.print() },
+                            { label: "Edit", icon: <Pencil className="h-3.5 w-3.5" />, onClick: () => navigate(`/sales/delivery-orders/${d.id}/edit`) },
+                            { label: t("deliveryOrders.printPdf"), icon: <FileText className="h-3.5 w-3.5" />, onClick: () => window.print(), dividerBefore: true },
                           ]} />
                         </TableCell>
                       </TableRow>
