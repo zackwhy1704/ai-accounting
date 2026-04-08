@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react"
 import { useNavigate } from "react-router-dom"
-import { Plus, Search, CalendarDays, SlidersHorizontal, Filter, FileText, Copy, ArrowRightLeft, Pencil, X } from "lucide-react"
+import { Plus, Search, SlidersHorizontal, Filter, FileText, Copy, ArrowRightLeft, Pencil, X } from "lucide-react"
 import { RowActionsMenu } from "../../../components/ui/row-actions"
 import { useQuotations, useContacts, useConvertQuotation } from "../../../lib/hooks"
 import { formatCurrency, formatDate, cn } from "../../../lib/utils"
@@ -27,6 +27,8 @@ export default function QuotationsPage() {
   const [tab, setTab] = useState("all")
   const [search, setSearch] = useState("")
   const [contactFilter, setContactFilter] = useState("all")
+  const [dateFrom, setDateFrom] = useState("")
+  const [dateTo, setDateTo] = useState("")
   const { data: quotations = [], isLoading } = useQuotations(tab === "all" ? undefined : tab)
   const { data: contacts = [] } = useContacts()
   const { t } = useTheme()
@@ -76,8 +78,10 @@ export default function QuotationsPage() {
       )
     }
     if (contactFilter !== "all") filtered = filtered.filter(i => i.contact_id === contactFilter)
+    if (dateFrom) filtered = filtered.filter(i => (i.issue_date || "") >= dateFrom)
+    if (dateTo) filtered = filtered.filter(i => (i.issue_date || "") <= dateTo)
     return filtered
-  }, [quotations, search, contactMap, contactFilter])
+  }, [quotations, search, contactMap, contactFilter, dateFrom, dateTo])
 
   return (
     <div className="flex flex-col gap-4">
@@ -111,11 +115,10 @@ export default function QuotationsPage() {
           <div className="mt-4 grid grid-cols-1 gap-3 lg:grid-cols-12">
             <div className="lg:col-span-4">
               <div className="text-xs font-medium text-muted-foreground">{t("quotations.dateRange")}</div>
-              <div className="mt-2 flex items-center gap-2 rounded-xl border border-border bg-card px-3 py-2">
-                <CalendarDays className="h-4 w-4 text-muted-foreground" />
-                <div className="text-xs text-muted-foreground">{t("common.start")}</div>
-                <div className="h-4 w-px bg-border" />
-                <div className="text-xs text-muted-foreground">{t("common.end")}</div>
+              <div className="mt-2 flex items-center gap-2">
+                <Input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} className="h-10 rounded-xl text-sm" />
+                <span className="text-xs text-muted-foreground">to</span>
+                <Input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)} className="h-10 rounded-xl text-sm" />
               </div>
             </div>
             <div className="lg:col-span-4">
