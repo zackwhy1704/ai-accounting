@@ -32,7 +32,6 @@ const TABS = [
   { key: "items", label: "Items" },
   { key: "apply_credit", label: "Apply Credit" },
   { key: "additional", label: "Additional Info" },
-  { key: "attachments", label: "Attachments" },
 ] as const
 
 type TabKey = (typeof TABS)[number]["key"]
@@ -638,22 +637,6 @@ export default function NewCreditNotePage() {
                 className="w-full rounded-xl border border-border bg-card px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
               />
             </div>
-          </div>
-        </Card>
-      )}
-
-      {/* Attachments Tab */}
-      {activeTab === "attachments" && (
-        <Card className={cardClass}>
-          <div className="flex flex-col items-center justify-center rounded-2xl border-2 border-dashed border-border px-6 py-12 text-center">
-            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-muted">
-              <Plus className="h-6 w-6 text-muted-foreground" />
-            </div>
-            <div className="mt-4 text-sm font-medium text-foreground">Drop files here or click to upload</div>
-            <div className="mt-1 text-xs text-muted-foreground">PDF, JPG, PNG up to 10MB</div>
-            <Button type="button" variant="secondary" className="mt-4 h-9 rounded-xl px-4 text-xs font-semibold">
-              Browse Files
-            </Button>
           </div>
         </Card>
       )}

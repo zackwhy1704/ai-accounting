@@ -122,7 +122,6 @@ export default function StockTransfersPage() {
                     <TableCell className="text-right">
                       <RowActionsMenu actions={[
                         { label: "View", icon: <FileText className="h-4 w-4" />, onClick: () => setViewItem(t) },
-                        { label: "Confirm", icon: <CheckCircle2 className="h-4 w-4" />, onClick: () => {}, disabled: t.status !== "draft", dividerBefore: true },
                         { label: "Void", icon: <XCircle className="h-4 w-4" />, onClick: () => { if (confirm("Void this transfer?")) api.patch(`/stock/transfers/${t.id}`, { status: "void" }).then(() => queryClient.invalidateQueries({ queryKey: ["stock-transfers"] })) }, danger: true, dividerBefore: true, disabled: t.status === "void" },
                       ]} />
                     </TableCell>

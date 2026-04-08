@@ -21,7 +21,6 @@ const TABS = [
   { key: "general", label: "General Info" },
   { key: "items", label: "Items" },
   { key: "additional", label: "Additional Info" },
-  { key: "attachments", label: "Attachments" },
 ] as const
 
 type TabKey = (typeof TABS)[number]["key"]
@@ -477,21 +476,6 @@ export default function NewDeliveryOrderPage() {
         </Card>
       )}
 
-      {/* Attachments Tab */}
-      {activeTab === "attachments" && (
-        <Card className="rounded-2xl border-border bg-card p-6 shadow-[0_0_0_1px_rgba(15,23,42,0.06),0_18px_55px_rgba(2,6,23,0.08)]">
-          <div className="flex flex-col items-center justify-center rounded-2xl border-2 border-dashed border-border px-6 py-12 text-center">
-            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-muted">
-              <Plus className="h-6 w-6 text-muted-foreground" />
-            </div>
-            <div className="mt-4 text-sm font-medium text-foreground">Drop files here or click to upload</div>
-            <div className="mt-1 text-xs text-muted-foreground">PDF, JPG, PNG up to 10MB</div>
-            <Button type="button" variant="secondary" className="mt-4 h-9 rounded-xl px-4 text-xs font-semibold">
-              Browse Files
-            </Button>
-          </div>
-        </Card>
-      )}
     </div>
   )
 }

@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react"
 import { useQueryClient } from "@tanstack/react-query"
 import { useNavigate } from "react-router-dom"
-import { Plus, Search, CalendarDays, CreditCard, FileText, Copy, RefreshCw, Printer, Share2, Lock, XCircle, Truck } from "lucide-react"
+import { Plus, Search, CreditCard, FileText, Copy, Printer, XCircle, Truck } from "lucide-react"
 import { useInvoices, useContacts } from "../../lib/hooks"
 import api from "../../lib/api"
 import { formatCurrency, formatDate, cn } from "../../lib/utils"
@@ -31,6 +31,8 @@ export default function InvoicesPage() {
   const [tab, setTab] = useState("all")
   const [search, setSearch] = useState("")
   const [contactFilter, setContactFilter] = useState("all")
+  const [dateFrom, setDateFrom] = useState("")
+  const [dateTo, setDateTo] = useState("")
 
   const { data: invoices = [], isLoading } = useInvoices(tab === "all" ? undefined : tab)
   const { data: contacts = [] } = useContacts()
@@ -61,8 +63,10 @@ export default function InvoicesPage() {
       )
     }
     if (contactFilter !== "all") filtered = filtered.filter(i => i.contact_id === contactFilter)
+    if (dateFrom) filtered = filtered.filter(i => (i.issue_date || "") >= dateFrom)
+    if (dateTo) filtered = filtered.filter(i => (i.issue_date || "") <= dateTo)
     return filtered
-  }, [invoices, search, contactMap, contactFilter])
+  }, [invoices, search, contactMap, contactFilter, dateFrom, dateTo])
 
   return (
     <div className="flex flex-col gap-4">
@@ -92,11 +96,10 @@ export default function InvoicesPage() {
           <div className="mt-4 grid grid-cols-1 gap-3 lg:grid-cols-12">
             <div className="lg:col-span-4">
               <div className="text-xs font-medium text-muted-foreground">{t("invoices.dateWindow")}</div>
-              <div className="mt-2 flex items-center gap-2 rounded-xl border border-border bg-card px-3 py-2">
-                <CalendarDays className="h-4 w-4 text-muted-foreground" />
-                <div className="text-xs text-muted-foreground">{t("common.start")}</div>
-                <div className="h-4 w-px bg-border" />
-                <div className="text-xs text-muted-foreground">{t("common.end")}</div>
+              <div className="mt-2 flex items-center gap-2">
+                <Input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} className="h-10 rounded-xl text-sm" />
+                <span className="text-xs text-muted-foreground">to</span>
+                <Input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)} className="h-10 rounded-xl text-sm" />
               </div>
             </div>
             <div className="lg:col-span-4">

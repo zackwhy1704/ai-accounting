@@ -1,4 +1,5 @@
 import { useState } from "react"
+import { useNavigate } from "react-router-dom"
 import { Card } from "../../components/ui/card"
 import { useToast } from "../../components/ui/toast"
 import {
@@ -19,6 +20,7 @@ const COUNTRY_FLAGS: Record<string, string> = {
 }
 
 export default function PracticeDashboardPage() {
+  const navigate = useNavigate()
   const { data: dashboard, isLoading } = useFirmDashboard()
   const { data: invitations } = useFirmInvitations()
   const inviteClient = useInviteClient()
@@ -162,7 +164,7 @@ export default function PracticeDashboardPage() {
             <Card
               key={client.id}
               className="group rounded-2xl border-border bg-card p-4 shadow-sm hover:shadow-md transition-shadow cursor-pointer"
-              onClick={() => {}}
+              onClick={() => navigate(`/firm/clients/${client.id}`)}
             >
               <div className="flex items-start justify-between">
                 <div className="flex items-center gap-3">

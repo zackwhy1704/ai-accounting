@@ -112,7 +112,6 @@ export default function GoodsReceivedNotesPage() {
                       <RowActionsMenu actions={[
                         { label: "View", icon: <FileText className="h-3.5 w-3.5" />, onClick: () => setViewItem(grn) },
                         { label: "Edit", icon: <Pencil className="h-3.5 w-3.5" />, onClick: () => navigate(`/purchases/goods-received-notes/${grn.id}/edit`) },
-                        { label: "Mark as Billed", icon: <CheckCircle2 className="h-3.5 w-3.5" />, onClick: () => {}, disabled: grn.status !== "received", dividerBefore: true },
                         { label: "Delete", icon: <Trash2 className="h-3.5 w-3.5" />, onClick: () => { if (confirm("Delete this GRN?")) api.delete(`/purchases/goods-received-notes/${grn.id}`).then(() => queryClient.invalidateQueries({ queryKey: ["goods-received-notes"] })) }, danger: true, dividerBefore: true },
                       ]} />
                     </TableCell>

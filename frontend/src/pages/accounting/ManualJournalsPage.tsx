@@ -86,7 +86,6 @@ export default function ManualJournalsPage() {
                     <TableCell className="text-right">
                       <RowActionsMenu actions={[
                         { label: "View", icon: <FileText className="h-4 w-4" />, onClick: () => { setViewItem(j) } },
-                        { label: "Reverse Entry", icon: <ArrowRightLeft className="h-4 w-4" />, onClick: () => {}, dividerBefore: true },
                         { label: "Void", icon: <XCircle className="h-4 w-4" />, onClick: () => { if (confirm("Void this journal entry?")) api.patch(`/accounting/journals/${j.id}`, { status: "void" }).then(() => queryClient.invalidateQueries({ queryKey: ["manual-journals"] })) }, danger: true, dividerBefore: true, disabled: j.status === "void" },
                       ]} />
                     </TableCell>

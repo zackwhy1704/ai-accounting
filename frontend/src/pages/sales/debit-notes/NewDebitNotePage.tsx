@@ -31,11 +31,7 @@ const emptyLine = (): LineItem => ({
 })
 
 const tabs = [
-  { label: "Billing & Shipping", value: "billing" },
-  { label: "General Info", value: "general" },
   { label: "Items", value: "items" },
-  { label: "Additional Info", value: "additional" },
-  { label: "Attachments", value: "attachments" },
 ]
 
 export default function NewDebitNotePage() {
@@ -371,33 +367,6 @@ export default function NewDebitNotePage() {
           </div>
         )}
 
-        {/* Billing & Shipping Tab */}
-        {activeTab === "billing" && (
-          <div className="mt-6 py-10 text-center text-sm text-muted-foreground">
-            Billing &amp; Shipping details will appear here.
-          </div>
-        )}
-
-        {/* General Info Tab */}
-        {activeTab === "general" && (
-          <div className="mt-6 py-10 text-center text-sm text-muted-foreground">
-            General information will appear here.
-          </div>
-        )}
-
-        {/* Additional Info Tab */}
-        {activeTab === "additional" && (
-          <div className="mt-6 py-10 text-center text-sm text-muted-foreground">
-            Additional information will appear here.
-          </div>
-        )}
-
-        {/* Attachments Tab */}
-        {activeTab === "attachments" && (
-          <div className="mt-6 py-10 text-center text-sm text-muted-foreground">
-            Drag and drop files here or click to upload attachments.
-          </div>
-        )}
       </Card>
     </div>
   )
