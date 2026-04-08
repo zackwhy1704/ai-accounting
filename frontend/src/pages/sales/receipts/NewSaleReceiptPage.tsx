@@ -119,7 +119,7 @@ export default function NewSaleReceiptPage() {
               <SelectTrigger><SelectValue placeholder="Select account" /></SelectTrigger>
               <SelectContent>
                 {bankAccounts.map((a: any) => (
-                  <SelectItem key={a.id} value={a.id}>{a.code} – {a.name}</SelectItem>
+                  <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>
                 ))}
               </SelectContent>
             </Select>

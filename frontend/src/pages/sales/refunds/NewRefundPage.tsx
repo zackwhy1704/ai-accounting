@@ -138,7 +138,7 @@ export default function NewRefundPage() {
               <SelectContent>
                 {bankAccounts.map((a) => (
                   <SelectItem key={a.id} value={a.id}>
-                    {a.code} - {a.name}
+                    {a.name}
                   </SelectItem>
                 ))}
               </SelectContent>

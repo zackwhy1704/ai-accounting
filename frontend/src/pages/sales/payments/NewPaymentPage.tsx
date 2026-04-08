@@ -151,7 +151,7 @@ export default function NewPaymentPage() {
               <SelectContent>
                 {bankAccounts.map((a: any) => (
                   <SelectItem key={a.id} value={a.id}>
-                    {a.code} – {a.name}
+                    {a.name}
                   </SelectItem>
                 ))}
               </SelectContent>
