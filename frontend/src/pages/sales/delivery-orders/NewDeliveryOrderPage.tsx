@@ -2,6 +2,7 @@ import { useState } from "react"
 import { useNavigate } from "react-router-dom"
 import { Plus, Trash2 } from "lucide-react"
 import { useContacts, useCreateDeliveryOrder, useTaxRates } from "../../../lib/hooks"
+import { getContactPrefs, saveContactPref } from "../../../lib/contact-prefs"
 import { useTheme } from "../../../lib/theme"
 import { Card } from "../../../components/ui/card"
 import { Button } from "../../../components/ui/button"
@@ -51,6 +52,37 @@ export default function NewDeliveryOrderPage() {
   const [lineItems, setLineItems] = useState<LineItem[]>([
     { description: "", quantity: 1, unit_price: 0, amount: 0, tax_code_id: "", tax_rate: 0 },
   ])
+
+  const handleCustomerChange = (v: string) => {
+    if (v === "__add_new__") { navigate("/contacts/new"); return }
+    setContactId(v)
+    const contact = contacts.find(c => c.id === v)
+    if (contact) {
+      setDeliverTo({
+        address1: contact.billing_address_line1 ?? "",
+        address2: contact.billing_address_line2 ?? "",
+        city: contact.billing_city ?? "",
+        state: contact.billing_state ?? "",
+        postcode: contact.billing_postcode ?? "",
+        country: contact.billing_country ?? "",
+      })
+      setShipTo({
+        address1: contact.shipping_address_line1 ?? "",
+        address2: contact.shipping_address_line2 ?? "",
+        city: contact.shipping_city ?? "",
+        state: contact.shipping_state ?? "",
+        postcode: contact.shipping_postcode ?? "",
+        country: contact.shipping_country ?? "",
+      })
+    }
+    const prefs = getContactPrefs(v)
+    if (prefs.currency) setCurrency(prefs.currency)
+  }
+
+  const handleCurrencyChange = (v: string) => {
+    setCurrency(v)
+    if (contactId) saveContactPref(contactId, "currency", v)
+  }
 
   const updateLineItem = (index: number, field: keyof LineItem, value: string | number) => {
     setLineItems(prev => {
@@ -140,7 +172,7 @@ export default function NewDeliveryOrderPage() {
               <div className="space-y-3">
                 <div>
                   <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Customer</label>
-                  <Select value={contactId} onValueChange={v => v === "__add_new__" ? navigate("/contacts/new") : setContactId(v)}>
+                  <Select value={contactId} onValueChange={handleCustomerChange}>
                     <SelectTrigger className="h-10 rounded-xl">
                       <SelectValue placeholder="Select customer" />
                     </SelectTrigger>
@@ -325,7 +357,7 @@ export default function NewDeliveryOrderPage() {
           <div className="mt-4 flex flex-wrap items-center gap-4">
             <div className="w-36">
               <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Currency</label>
-              <Select value={currency} onValueChange={setCurrency}>
+              <Select value={currency} onValueChange={handleCurrencyChange}>
                 <SelectTrigger className="h-10 rounded-xl">
                   <SelectValue />
                 </SelectTrigger>

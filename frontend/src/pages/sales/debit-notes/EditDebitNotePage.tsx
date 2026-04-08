@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from "react"
 import { useNavigate, useParams } from "react-router-dom"
 import { Plus, Trash2, Loader2 } from "lucide-react"
 import { useDebitNote, useUpdateDebitNote, useContacts, useAccounts, useInvoices, useTaxRates } from "../../../lib/hooks"
+import { getContactPrefs } from "../../../lib/contact-prefs"
 import { Card } from "../../../components/ui/card"
 import { Button } from "../../../components/ui/button"
 import { Input } from "../../../components/ui/input"
@@ -52,6 +53,7 @@ export default function EditDebitNotePage() {
   const [lines, setLines] = useState<LineItem[]>([emptyLine()])
   const [discountGiven, setDiscountGiven] = useState(0)
   const [roundingAdjustment, setRoundingAdjustment] = useState(0)
+  const [currency, setCurrency] = useState("MYR")
   const [quickShareEmail, setQuickShareEmail] = useState(false)
 
   useEffect(() => {
@@ -80,6 +82,14 @@ export default function EditDebitNotePage() {
   }, [debitNote])
 
   const customers = contacts.filter((c: any) => c.type === "customer" || c.type === "both")
+
+  const handleCustomerChange = (v: string) => {
+    if (v === "__add_new__") { navigate("/contacts/new"); return }
+    setCustomerId(v)
+    setLinkedInvoiceId("")
+    const prefs = getContactPrefs(v)
+    if (prefs.currency) setCurrency(prefs.currency)
+  }
   const filteredInvoices = customerId ? invoices.filter((inv: any) => inv.contact_id === customerId) : invoices
 
   const updateLine = (lineId: string, field: keyof LineItem, value: any) => {
@@ -170,7 +180,7 @@ export default function EditDebitNotePage() {
               </div>
               <div>
                 <label className="text-xs font-medium text-muted-foreground">Customer</label>
-                <Select value={customerId} onValueChange={v => { if (v === "__add_new__") { navigate("/contacts/new"); return } setCustomerId(v); setLinkedInvoiceId("") }}>
+                <Select value={customerId} onValueChange={handleCustomerChange}>
                   <SelectTrigger className="mt-1.5 h-10 rounded-xl"><SelectValue placeholder="Select customer" /></SelectTrigger>
                   <SelectContent>
                     {customers.map((c: any) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}

@@ -2,6 +2,7 @@ import { useState, useRef, useEffect, useMemo } from "react"
 import { useNavigate } from "react-router-dom"
 import { Plus, Trash2 } from "lucide-react"
 import { useContacts, useAccounts, useCreateQuotation, useTaxRates } from "../../../lib/hooks"
+import { getContactPrefs, saveContactPref } from "../../../lib/contact-prefs"
 import { useQuery } from "@tanstack/react-query"
 import api from "../../../lib/api"
 import { useTheme } from "../../../lib/theme"
@@ -101,16 +102,12 @@ export default function NewQuotationPage() {
       setShippingState(contact.shipping_state ?? "")
       setShippingPostcode(contact.shipping_postcode ?? "")
       setShippingCountry(contact.shipping_country ?? "")
-      if (contact.default_currency) setCurrency(contact.default_currency)
       if (contact.default_payment_terms) setPaymentTerms(contact.default_payment_terms)
     }
-    const cached = localStorage.getItem(`contact_prefs_${id}`)
-    if (cached) {
-      try {
-        const prefs = JSON.parse(cached)
-        if (prefs.tax_inclusive !== undefined) setTaxInclusive(prefs.tax_inclusive)
-      } catch { /* ignore */ }
-    }
+    // Currency + tax_inclusive from localStorage
+    const prefs = getContactPrefs(id)
+    if (prefs.currency) setCurrency(prefs.currency)
+    if (prefs.tax_inclusive !== undefined) setTaxInclusive(prefs.tax_inclusive)
   }
 
   // Close product dropdown on outside click

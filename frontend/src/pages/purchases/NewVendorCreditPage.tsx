@@ -2,6 +2,7 @@ import { useState } from "react"
 import { useNavigate } from "react-router-dom"
 import { Plus, Trash2, Loader2 } from "lucide-react"
 import { useContacts, useBills, useTaxRates } from "../../lib/hooks"
+import { getContactPrefs, saveContactPref } from "../../lib/contact-prefs"
 import { useToast } from "../../components/ui/toast"
 import { useQueryClient, useMutation } from "@tanstack/react-query"
 import api from "../../lib/api"
@@ -98,7 +99,7 @@ export default function NewVendorCreditPage() {
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
           <div>
             <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Supplier *</label>
-            <Select value={contactId} onValueChange={v => v === "__add_new__" ? navigate("/contacts/new") : setContactId(v)}>
+            <Select value={contactId} onValueChange={v => { if (v === "__add_new__") { navigate("/contacts/new"); return } setContactId(v); const prefs = getContactPrefs(v); if (prefs.currency) setCurrency(prefs.currency) }}>
               <SelectTrigger className="h-10 rounded-xl">
                 <SelectValue placeholder="Select supplier" />
               </SelectTrigger>
@@ -130,7 +131,7 @@ export default function NewVendorCreditPage() {
           </div>
           <div>
             <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Currency</label>
-            <Select value={currency} onValueChange={setCurrency}>
+            <Select value={currency} onValueChange={v => { setCurrency(v); if (contactId) saveContactPref(contactId, "currency", v) }}>
               <SelectTrigger className="h-10 rounded-xl"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="MYR">MYR - Malaysian Ringgit</SelectItem>

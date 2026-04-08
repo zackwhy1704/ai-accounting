@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from "react"
 import { useNavigate, useParams } from "react-router-dom"
 import { Loader2 } from "lucide-react"
 import { useContacts, usePurchasePayment, useUpdatePurchasePayment } from "../../lib/hooks"
+import { getContactPrefs, saveContactPref } from "../../lib/contact-prefs"
 import { useToast } from "../../components/ui/toast"
 import { Card } from "../../components/ui/card"
 import { Button } from "../../components/ui/button"
@@ -70,7 +71,7 @@ export default function EditPurchasePaymentPage() {
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3 max-w-3xl">
           <div>
             <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Supplier</label>
-            <Select value={contactId} onValueChange={v => v === "__add_new__" ? navigate("/contacts/new") : setContactId(v)}>
+            <Select value={contactId} onValueChange={v => { if (v === "__add_new__") { navigate("/contacts/new"); return } setContactId(v); if (v) { const prefs = getContactPrefs(v); if (prefs.currency) setCurrency(prefs.currency) } }}>
               <SelectTrigger className="h-10 rounded-xl">
                 <SelectValue placeholder="Select supplier (optional)" />
               </SelectTrigger>
@@ -93,7 +94,7 @@ export default function EditPurchasePaymentPage() {
           </div>
           <div>
             <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Currency</label>
-            <Select value={currency} onValueChange={setCurrency}>
+            <Select value={currency} onValueChange={v => { setCurrency(v); if (contactId) saveContactPref(contactId, "currency", v) }}>
               <SelectTrigger className="h-10 rounded-xl"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="MYR">MYR - Malaysian Ringgit</SelectItem>

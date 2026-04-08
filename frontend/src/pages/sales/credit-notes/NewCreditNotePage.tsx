@@ -2,6 +2,7 @@ import { useState } from "react"
 import { useNavigate } from "react-router-dom"
 import { Plus, Trash2 } from "lucide-react"
 import { useContacts, useAccounts, useInvoices, useCreateCreditNote, useTaxRates } from "../../../lib/hooks"
+import { getContactPrefs, saveContactPref } from "../../../lib/contact-prefs"
 import { Card } from "../../../components/ui/card"
 import { Button } from "../../../components/ui/button"
 import { Input } from "../../../components/ui/input"
@@ -94,8 +95,11 @@ export default function NewCreditNotePage() {
       setShippingState(contact.shipping_state ?? "")
       setShippingPostcode(contact.shipping_postcode ?? "")
       setShippingCountry(contact.shipping_country ?? "")
-      if (contact.default_currency) setCurrency(contact.default_currency)
     }
+    // Currency + tax_inclusive from localStorage
+    const prefs = getContactPrefs(id)
+    if (prefs.currency) setCurrency(prefs.currency)
+    if (prefs.tax_inclusive !== undefined) setTaxInclusive(prefs.tax_inclusive)
     const custInvoices = invoices.filter((inv: any) => inv.contact_id === id)
     setApplyCreditLines(
       custInvoices.map((inv: any) => ({

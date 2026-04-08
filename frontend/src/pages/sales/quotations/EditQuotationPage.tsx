@@ -2,6 +2,7 @@ import { useState, useEffect } from "react"
 import { useNavigate, useParams } from "react-router-dom"
 import { Plus, Trash2, ChevronDown, Loader2 } from "lucide-react"
 import { useQuotation, useUpdateQuotation, useContacts, useAccounts, useTaxRates } from "../../../lib/hooks"
+import { getContactPrefs, saveContactPref } from "../../../lib/contact-prefs"
 import { Card } from "../../../components/ui/card"
 import { Button } from "../../../components/ui/button"
 import { Input } from "../../../components/ui/input"
@@ -50,6 +51,18 @@ export default function EditQuotationPage() {
   const [paymentTerms, setPaymentTerms] = useState("net30")
   const [discountGiven, setDiscountGiven] = useState(0)
   const [roundingAdjustment, setRoundingAdjustment] = useState(false)
+  const [billingLine1, setBillingLine1] = useState("")
+  const [billingLine2, setBillingLine2] = useState("")
+  const [billingCity, setBillingCity] = useState("")
+  const [billingState, setBillingState] = useState("")
+  const [billingPostcode, setBillingPostcode] = useState("")
+  const [billingCountry, setBillingCountry] = useState("")
+  const [shippingLine1, setShippingLine1] = useState("")
+  const [shippingLine2, setShippingLine2] = useState("")
+  const [shippingCity, setShippingCity] = useState("")
+  const [shippingState, setShippingState] = useState("")
+  const [shippingPostcode, setShippingPostcode] = useState("")
+  const [shippingCountry, setShippingCountry] = useState("")
   const [productSearch, setProductSearch] = useState("")
   const [lineItems, setLineItems] = useState<LineItem[]>([
     { description: "", account_id: "", quantity: 1, unit_price: 0, amount: 0, discount: 0, tax_rate: 0, tax_code_id: "" },
@@ -76,8 +89,45 @@ export default function EditQuotationPage() {
         tax_code_id: l.tax_code_id ? String(l.tax_code_id) : "",
       })))
     }
+    setBillingLine1(quotation.billing_address_line1 ?? "")
+    setBillingLine2(quotation.billing_address_line2 ?? "")
+    setBillingCity(quotation.billing_city ?? "")
+    setBillingState(quotation.billing_state ?? "")
+    setBillingPostcode(quotation.billing_postcode ?? "")
+    setBillingCountry(quotation.billing_country ?? "")
+    setShippingLine1(quotation.shipping_address_line1 ?? "")
+    setShippingLine2(quotation.shipping_address_line2 ?? "")
+    setShippingCity(quotation.shipping_city ?? "")
+    setShippingState(quotation.shipping_state ?? "")
+    setShippingPostcode(quotation.shipping_postcode ?? "")
+    setShippingCountry(quotation.shipping_country ?? "")
+    if (quotation.payment_terms) setPaymentTerms(quotation.payment_terms)
+    if (quotation.tax_inclusive !== undefined) setTaxInclusive(quotation.tax_inclusive)
     setPopulated(true)
   }, [quotation, populated])
+
+  const handleContactChange = (v: string) => {
+    if (v === "__add_new__") { navigate("/contacts/new"); return }
+    setContactId(v)
+    const contact = contacts.find((c: any) => c.id === v)
+    if (!contact) return
+    setBillingLine1(contact.billing_address_line1 ?? "")
+    setBillingLine2(contact.billing_address_line2 ?? "")
+    setBillingCity(contact.billing_city ?? "")
+    setBillingState(contact.billing_state ?? "")
+    setBillingPostcode(contact.billing_postcode ?? "")
+    setBillingCountry(contact.billing_country ?? "")
+    setShippingLine1(contact.shipping_address_line1 ?? "")
+    setShippingLine2(contact.shipping_address_line2 ?? "")
+    setShippingCity(contact.shipping_city ?? "")
+    setShippingState(contact.shipping_state ?? "")
+    setShippingPostcode(contact.shipping_postcode ?? "")
+    setShippingCountry(contact.shipping_country ?? "")
+    if (contact.default_payment_terms) setPaymentTerms(contact.default_payment_terms)
+    const prefs = getContactPrefs(v)
+    if (prefs.currency) setCurrency(prefs.currency)
+    if (prefs.tax_inclusive !== undefined) setTaxInclusive(prefs.tax_inclusive)
+  }
 
   const updateLineItem = (index: number, field: keyof LineItem, value: string | number) => {
     setLineItems(prev => {
@@ -178,7 +228,7 @@ export default function EditQuotationPage() {
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
             <div>
               <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Customer</label>
-              <Select value={contactId} onValueChange={v => v === "__add_new__" ? navigate("/contacts/new") : setContactId(v)}>
+              <Select value={contactId} onValueChange={handleContactChange}>
                 <SelectTrigger className="h-10 rounded-xl">
                   <SelectValue placeholder="Select customer" />
                 </SelectTrigger>
@@ -207,7 +257,7 @@ export default function EditQuotationPage() {
           <div className="mt-4 flex flex-wrap items-center gap-4">
             <div className="w-36">
               <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Currency</label>
-              <Select value={currency} onValueChange={setCurrency}>
+              <Select value={currency} onValueChange={v => { setCurrency(v); if (contactId) saveContactPref(contactId, "currency", v) }}>
                 <SelectTrigger className="h-10 rounded-xl"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="MYR">MYR - Malaysian Ringgit</SelectItem>
@@ -351,6 +401,43 @@ export default function EditQuotationPage() {
             <Button type="button" onClick={handleSave} disabled={updateQuotation.isPending} className="h-10 rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-600 px-6 text-sm font-semibold text-white shadow-sm hover:opacity-95">
               {updateQuotation.isPending ? "Saving..." : "Save Changes"}
             </Button>
+          </div>
+        </Card>
+      )}
+
+      {activeTab === "billing" && (
+        <Card className="rounded-2xl border-border bg-card p-6 shadow-[0_0_0_1px_rgba(15,23,42,0.06),0_18px_55px_rgba(2,6,23,0.08)]">
+          <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+            <div>
+              <h3 className="mb-4 text-sm font-semibold text-foreground">Billing Address</h3>
+              <div className="space-y-3">
+                <Input placeholder="Address Line 1" className="h-10 rounded-xl" value={billingLine1} onChange={e => setBillingLine1(e.target.value)} />
+                <Input placeholder="Address Line 2" className="h-10 rounded-xl" value={billingLine2} onChange={e => setBillingLine2(e.target.value)} />
+                <div className="grid grid-cols-2 gap-3">
+                  <Input placeholder="City" className="h-10 rounded-xl" value={billingCity} onChange={e => setBillingCity(e.target.value)} />
+                  <Input placeholder="State" className="h-10 rounded-xl" value={billingState} onChange={e => setBillingState(e.target.value)} />
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <Input placeholder="Postcode" className="h-10 rounded-xl" value={billingPostcode} onChange={e => setBillingPostcode(e.target.value)} />
+                  <Input placeholder="Country" className="h-10 rounded-xl" value={billingCountry} onChange={e => setBillingCountry(e.target.value)} />
+                </div>
+              </div>
+            </div>
+            <div>
+              <h3 className="mb-4 text-sm font-semibold text-foreground">Shipping Address</h3>
+              <div className="space-y-3">
+                <Input placeholder="Address Line 1" className="h-10 rounded-xl" value={shippingLine1} onChange={e => setShippingLine1(e.target.value)} />
+                <Input placeholder="Address Line 2" className="h-10 rounded-xl" value={shippingLine2} onChange={e => setShippingLine2(e.target.value)} />
+                <div className="grid grid-cols-2 gap-3">
+                  <Input placeholder="City" className="h-10 rounded-xl" value={shippingCity} onChange={e => setShippingCity(e.target.value)} />
+                  <Input placeholder="State" className="h-10 rounded-xl" value={shippingState} onChange={e => setShippingState(e.target.value)} />
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <Input placeholder="Postcode" className="h-10 rounded-xl" value={shippingPostcode} onChange={e => setShippingPostcode(e.target.value)} />
+                  <Input placeholder="Country" className="h-10 rounded-xl" value={shippingCountry} onChange={e => setShippingCountry(e.target.value)} />
+                </div>
+              </div>
+            </div>
           </div>
         </Card>
       )}

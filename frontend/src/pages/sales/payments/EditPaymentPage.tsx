@@ -8,6 +8,7 @@ import { Button } from "../../../components/ui/button"
 import { Input } from "../../../components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../../components/ui/select"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../../../components/ui/table"
+import { getContactPrefs, saveContactPref } from "../../../lib/contact-prefs"
 
 const cardClass = "rounded-2xl border-border bg-card p-6 shadow-[0_0_0_1px_rgba(15,23,42,0.06),0_18px_55px_rgba(2,6,23,0.08)]"
 
@@ -124,7 +125,12 @@ export default function EditPaymentPage() {
         <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
           <div className="space-y-1.5">
             <label className="text-sm font-medium text-foreground">Customer</label>
-            <Select value={customerId} onValueChange={v => v === "__add_new__" ? navigate("/contacts/new") : setCustomerId(v)}>
+            <Select value={customerId} onValueChange={v => {
+              if (v === "__add_new__") { navigate("/contacts/new"); return }
+              setCustomerId(v)
+              const prefs = getContactPrefs(v)
+              if (prefs.currency) setCurrency(prefs.currency)
+            }}>
               <SelectTrigger><SelectValue placeholder="Select customer" /></SelectTrigger>
               <SelectContent>
                 {contacts?.filter((c: any) => c.type === "customer" || c.type === "both").map((c: any) => (
@@ -177,7 +183,7 @@ export default function EditPaymentPage() {
 
           <div className="space-y-1.5">
             <label className="text-sm font-medium text-foreground">Currency</label>
-            <Select value={currency} onValueChange={setCurrency}>
+            <Select value={currency} onValueChange={v => { setCurrency(v); if (customerId) saveContactPref(customerId, "currency", v) }}>
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="MYR">MYR - Malaysian Ringgit</SelectItem>

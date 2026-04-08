@@ -6,8 +6,6 @@ import { Button } from "../../components/ui/button"
 import { Input } from "../../components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../components/ui/select"
 
-const CURRENCIES = ["MYR", "SGD", "USD", "HKD", "AUD", "EUR", "GBP", "JPY", "CNY", "THB", "IDR", "PHP"]
-
 export default function NewContactPage() {
   const navigate = useNavigate()
   const createContact = useCreateContact()
@@ -42,8 +40,7 @@ export default function NewContactPage() {
   const [shippingPostcode, setShippingPostcode] = useState("")
   const [shippingCountry, setShippingCountry] = useState("")
 
-  // Default preferences
-  const [defaultCurrency, setDefaultCurrency] = useState("")
+  // Default preferences (payment terms stored on backend; currency/tax_inclusive cached per-contact in localStorage)
   const [defaultPaymentTerms, setDefaultPaymentTerms] = useState("")
 
   const copyBillingToShipping = () => {
@@ -82,7 +79,6 @@ export default function NewContactPage() {
       shipping_state: shippingState || undefined,
       shipping_postcode: shippingPostcode || undefined,
       shipping_country: shippingCountry || undefined,
-      default_currency: defaultCurrency || undefined,
       default_payment_terms: defaultPaymentTerms || undefined,
     })
     navigate("/contacts")
@@ -244,16 +240,8 @@ export default function NewContactPage() {
       {/* Default Preferences */}
       <Card className="rounded-2xl border-border bg-card p-6 shadow-[0_0_0_1px_rgba(15,23,42,0.06),0_18px_55px_rgba(2,6,23,0.08)]">
         <h2 className="mb-4 text-sm font-semibold text-foreground">Default Preferences</h2>
+        <p className="mb-4 text-xs text-muted-foreground">Payment terms are saved here. Currency and tax preferences are remembered automatically per contact when you create documents.</p>
         <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
-          <div className="space-y-1.5">
-            <label className="text-sm font-medium text-foreground">Default Currency</label>
-            <Select value={defaultCurrency} onValueChange={setDefaultCurrency}>
-              <SelectTrigger><SelectValue placeholder="Select currency" /></SelectTrigger>
-              <SelectContent>
-                {CURRENCIES.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
-              </SelectContent>
-            </Select>
-          </div>
           <div className="space-y-1.5">
             <label className="text-sm font-medium text-foreground">Default Payment Terms</label>
             <Select value={defaultPaymentTerms} onValueChange={setDefaultPaymentTerms}>

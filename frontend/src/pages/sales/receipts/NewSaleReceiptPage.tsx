@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from ".
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../../../components/ui/table"
 import { Plus, Trash2 } from "lucide-react"
 import api from "../../../lib/api"
+import { getContactPrefs, saveContactPref } from "../../../lib/contact-prefs"
 
 interface LineItem {
   description: string
@@ -94,7 +95,12 @@ export default function NewSaleReceiptPage() {
         <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
           <div className="space-y-1.5">
             <label className="text-sm font-medium text-foreground">Customer</label>
-            <Select value={contactId} onValueChange={v => v === "__add_new__" ? navigate("/contacts/new") : setContactId(v)}>
+            <Select value={contactId} onValueChange={v => {
+              if (v === "__add_new__") { navigate("/contacts/new"); return }
+              setContactId(v)
+              const prefs = getContactPrefs(v)
+              if (prefs.currency) setCurrency(prefs.currency)
+            }}>
               <SelectTrigger><SelectValue placeholder="Select customer" /></SelectTrigger>
               <SelectContent>
                 {contacts.filter((c: any) => c.type === "customer" || c.type === "both").map((c: any) => (
@@ -142,7 +148,7 @@ export default function NewSaleReceiptPage() {
 
           <div className="space-y-1.5">
             <label className="text-sm font-medium text-foreground">Currency</label>
-            <Select value={currency} onValueChange={setCurrency}>
+            <Select value={currency} onValueChange={v => { setCurrency(v); if (contactId) saveContactPref(contactId, "currency", v) }}>
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
                 {CURRENCIES.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}

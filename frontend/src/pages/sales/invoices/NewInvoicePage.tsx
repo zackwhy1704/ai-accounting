@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom"
 import { Plus, Trash2 } from "lucide-react"
 import { useContacts, useAccounts, useCreateInvoice, useTaxRates } from "../../../lib/hooks"
 import { useTheme } from "../../../lib/theme"
+import { getContactPrefs, saveContactPref } from "../../../lib/contact-prefs"
 import { Card } from "../../../components/ui/card"
 import { Button } from "../../../components/ui/button"
 import { Input } from "../../../components/ui/input"
@@ -85,18 +86,13 @@ export default function NewInvoicePage() {
       setShippingState(contact.shipping_state ?? "")
       setShippingPostcode(contact.shipping_postcode ?? "")
       setShippingCountry(contact.shipping_country ?? "")
-      // Populate currency + payment terms from backend defaults
-      if (contact.default_currency) setCurrency(contact.default_currency)
+      // Payment terms from backend
       if (contact.default_payment_terms) setTerms(contact.default_payment_terms)
     }
-    // Read cached tax_inclusive pref from localStorage
-    const cached = localStorage.getItem(`contact_prefs_${id}`)
-    if (cached) {
-      try {
-        const prefs = JSON.parse(cached)
-        if (prefs.tax_inclusive !== undefined) setTaxInclusive(prefs.tax_inclusive)
-      } catch { /* ignore */ }
-    }
+    // Currency + tax_inclusive from localStorage
+    const prefs = getContactPrefs(id)
+    if (prefs.currency) setCurrency(prefs.currency)
+    if (prefs.tax_inclusive !== undefined) setTaxInclusive(prefs.tax_inclusive)
   }
 
   // Line items
@@ -114,15 +110,15 @@ export default function NewInvoicePage() {
   const [journalMemo, setJournalMemo] = useState("")
   const [quickShareEmail, setQuickShareEmail] = useState(false)
 
-  // Persist tax_inclusive preference to localStorage whenever it changes and a contact is selected
+  // Persist prefs to localStorage when they change
   const handleTaxInclusiveToggle = () => {
     const newVal = !taxInclusive
     setTaxInclusive(newVal)
-    if (contactId) {
-      const cached = localStorage.getItem(`contact_prefs_${contactId}`)
-      const prefs = cached ? JSON.parse(cached) : {}
-      localStorage.setItem(`contact_prefs_${contactId}`, JSON.stringify({ ...prefs, tax_inclusive: newVal }))
-    }
+    if (contactId) saveContactPref(contactId, "tax_inclusive", newVal)
+  }
+  const handleCurrencyChange = (val: string) => {
+    setCurrency(val)
+    if (contactId) saveContactPref(contactId, "currency", val)
   }
 
   // Line item helpers

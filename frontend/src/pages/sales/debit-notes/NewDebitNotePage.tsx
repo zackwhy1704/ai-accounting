@@ -2,6 +2,7 @@ import { useState } from "react"
 import { useNavigate } from "react-router-dom"
 import { Plus, Trash2 } from "lucide-react"
 import { useContacts, useAccounts, useInvoices, useCreateDebitNote, useTaxRates } from "../../../lib/hooks"
+import { getContactPrefs } from "../../../lib/contact-prefs"
 import { Card } from "../../../components/ui/card"
 import { Button } from "../../../components/ui/button"
 import { Input } from "../../../components/ui/input"
@@ -51,9 +52,18 @@ export default function NewDebitNotePage() {
   const [lines, setLines] = useState<LineItem[]>([emptyLine()])
   const [discountGiven, setDiscountGiven] = useState(0)
   const [roundingAdjustment, setRoundingAdjustment] = useState(0)
+  const [currency, setCurrency] = useState("MYR")
   const [quickShareEmail, setQuickShareEmail] = useState(false)
 
   const customers = contacts.filter(c => c.type === "customer" || c.type === "both")
+
+  const handleCustomerChange = (v: string) => {
+    if (v === "__add_new__") { navigate("/contacts/new"); return }
+    setCustomerId(v)
+    setLinkedInvoiceId("")
+    const prefs = getContactPrefs(v)
+    if (prefs.currency) setCurrency(prefs.currency)
+  }
   const filteredInvoices = customerId
     ? invoices.filter((inv: any) => inv.contact_id === customerId)
     : invoices
@@ -148,7 +158,7 @@ export default function NewDebitNotePage() {
               </div>
               <div>
                 <label className="text-xs font-medium text-muted-foreground">Customer</label>
-                <Select value={customerId} onValueChange={v => { if (v === "__add_new__") { navigate("/contacts/new"); return } setCustomerId(v); setLinkedInvoiceId("") }}>
+                <Select value={customerId} onValueChange={handleCustomerChange}>
                   <SelectTrigger className="mt-1.5 h-10 rounded-xl">
                     <SelectValue placeholder="Select customer" />
                   </SelectTrigger>

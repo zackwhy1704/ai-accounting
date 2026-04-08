@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from "react"
 import { useNavigate, useParams } from "react-router-dom"
 import { Plus, Trash2, Loader2 } from "lucide-react"
 import { useCreditNote, useUpdateCreditNote, useContacts, useAccounts, useTaxRates } from "../../../lib/hooks"
+import { getContactPrefs, saveContactPref } from "../../../lib/contact-prefs"
 import { Card } from "../../../components/ui/card"
 import { Button } from "../../../components/ui/button"
 import { Input } from "../../../components/ui/input"
@@ -51,6 +52,18 @@ export default function EditCreditNotePage() {
   const [discountGiven, setDiscountGiven] = useState(0)
   const [roundingAdjustment, setRoundingAdjustment] = useState(false)
   const [quickShareEmail, setQuickShareEmail] = useState(false)
+  const [billingLine1, setBillingLine1] = useState("")
+  const [billingLine2, setBillingLine2] = useState("")
+  const [billingCity, setBillingCity] = useState("")
+  const [billingState, setBillingState] = useState("")
+  const [billingPostcode, setBillingPostcode] = useState("")
+  const [billingCountry, setBillingCountry] = useState("")
+  const [shippingLine1, setShippingLine1] = useState("")
+  const [shippingLine2, setShippingLine2] = useState("")
+  const [shippingCity, setShippingCity] = useState("")
+  const [shippingState, setShippingState] = useState("")
+  const [shippingPostcode, setShippingPostcode] = useState("")
+  const [shippingCountry, setShippingCountry] = useState("")
   const [lineItems, setLineItems] = useState<LineItem[]>([])
 
   useEffect(() => {
@@ -77,8 +90,42 @@ export default function EditCreditNotePage() {
         tax_code_id: l.tax_code_id ? String(l.tax_code_id) : "",
       })))
     }
+    setBillingLine1(creditNote.billing_address_line1 ?? "")
+    setBillingLine2(creditNote.billing_address_line2 ?? "")
+    setBillingCity(creditNote.billing_city ?? "")
+    setBillingState(creditNote.billing_state ?? "")
+    setBillingPostcode(creditNote.billing_postcode ?? "")
+    setBillingCountry(creditNote.billing_country ?? "")
+    setShippingLine1(creditNote.shipping_address_line1 ?? "")
+    setShippingLine2(creditNote.shipping_address_line2 ?? "")
+    setShippingCity(creditNote.shipping_city ?? "")
+    setShippingState(creditNote.shipping_state ?? "")
+    setShippingPostcode(creditNote.shipping_postcode ?? "")
+    setShippingCountry(creditNote.shipping_country ?? "")
     populated.current = true
   }, [creditNote])
+
+  const handleContactChange = (v: string) => {
+    if (v === "__add_new__") { navigate("/contacts/new"); return }
+    setContactId(v)
+    const contact = contacts.find((c: any) => c.id === v)
+    if (!contact) return
+    setBillingLine1(contact.billing_address_line1 ?? "")
+    setBillingLine2(contact.billing_address_line2 ?? "")
+    setBillingCity(contact.billing_city ?? "")
+    setBillingState(contact.billing_state ?? "")
+    setBillingPostcode(contact.billing_postcode ?? "")
+    setBillingCountry(contact.billing_country ?? "")
+    setShippingLine1(contact.shipping_address_line1 ?? "")
+    setShippingLine2(contact.shipping_address_line2 ?? "")
+    setShippingCity(contact.shipping_city ?? "")
+    setShippingState(contact.shipping_state ?? "")
+    setShippingPostcode(contact.shipping_postcode ?? "")
+    setShippingCountry(contact.shipping_country ?? "")
+    const prefs = getContactPrefs(v)
+    if (prefs.currency) setCurrency(prefs.currency)
+    if (prefs.tax_inclusive !== undefined) setTaxInclusive(prefs.tax_inclusive)
+  }
 
   const updateLineItem = (index: number, field: keyof LineItem, value: string | number) => {
     setLineItems(prev => {
@@ -193,7 +240,7 @@ export default function EditCreditNotePage() {
             </div>
             <div>
               <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Customer</label>
-              <Select value={contactId} onValueChange={v => v === "__add_new__" ? navigate("/contacts/new") : setContactId(v)}>
+              <Select value={contactId} onValueChange={handleContactChange}>
                 <SelectTrigger className="h-10 rounded-xl"><SelectValue placeholder="Select customer" /></SelectTrigger>
                 <SelectContent>
                   {contacts.filter((c: any) => c.type === "customer" || c.type === "both").map((c: any) => (
@@ -216,7 +263,7 @@ export default function EditCreditNotePage() {
           <div className="mt-4 flex flex-wrap items-center gap-4">
             <div className="w-36">
               <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Currency</label>
-              <Select value={currency} onValueChange={setCurrency}>
+              <Select value={currency} onValueChange={v => { setCurrency(v); if (contactId) saveContactPref(contactId, "currency", v) }}>
                 <SelectTrigger className="h-10 rounded-xl"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="MYR">MYR - Malaysian Ringgit</SelectItem>
@@ -371,30 +418,30 @@ export default function EditCreditNotePage() {
             <div>
               <h3 className="mb-4 text-sm font-semibold text-foreground">Billing Address</h3>
               <div className="space-y-3">
-                <Input placeholder="Address Line 1" className="h-10 rounded-xl" />
-                <Input placeholder="Address Line 2" className="h-10 rounded-xl" />
+                <Input placeholder="Address Line 1" className="h-10 rounded-xl" value={billingLine1} onChange={e => setBillingLine1(e.target.value)} />
+                <Input placeholder="Address Line 2" className="h-10 rounded-xl" value={billingLine2} onChange={e => setBillingLine2(e.target.value)} />
                 <div className="grid grid-cols-2 gap-3">
-                  <Input placeholder="City" className="h-10 rounded-xl" />
-                  <Input placeholder="State" className="h-10 rounded-xl" />
+                  <Input placeholder="City" className="h-10 rounded-xl" value={billingCity} onChange={e => setBillingCity(e.target.value)} />
+                  <Input placeholder="State" className="h-10 rounded-xl" value={billingState} onChange={e => setBillingState(e.target.value)} />
                 </div>
                 <div className="grid grid-cols-2 gap-3">
-                  <Input placeholder="Postcode" className="h-10 rounded-xl" />
-                  <Input placeholder="Country" className="h-10 rounded-xl" />
+                  <Input placeholder="Postcode" className="h-10 rounded-xl" value={billingPostcode} onChange={e => setBillingPostcode(e.target.value)} />
+                  <Input placeholder="Country" className="h-10 rounded-xl" value={billingCountry} onChange={e => setBillingCountry(e.target.value)} />
                 </div>
               </div>
             </div>
             <div>
               <h3 className="mb-4 text-sm font-semibold text-foreground">Shipping Address</h3>
               <div className="space-y-3">
-                <Input placeholder="Address Line 1" className="h-10 rounded-xl" />
-                <Input placeholder="Address Line 2" className="h-10 rounded-xl" />
+                <Input placeholder="Address Line 1" className="h-10 rounded-xl" value={shippingLine1} onChange={e => setShippingLine1(e.target.value)} />
+                <Input placeholder="Address Line 2" className="h-10 rounded-xl" value={shippingLine2} onChange={e => setShippingLine2(e.target.value)} />
                 <div className="grid grid-cols-2 gap-3">
-                  <Input placeholder="City" className="h-10 rounded-xl" />
-                  <Input placeholder="State" className="h-10 rounded-xl" />
+                  <Input placeholder="City" className="h-10 rounded-xl" value={shippingCity} onChange={e => setShippingCity(e.target.value)} />
+                  <Input placeholder="State" className="h-10 rounded-xl" value={shippingState} onChange={e => setShippingState(e.target.value)} />
                 </div>
                 <div className="grid grid-cols-2 gap-3">
-                  <Input placeholder="Postcode" className="h-10 rounded-xl" />
-                  <Input placeholder="Country" className="h-10 rounded-xl" />
+                  <Input placeholder="Postcode" className="h-10 rounded-xl" value={shippingPostcode} onChange={e => setShippingPostcode(e.target.value)} />
+                  <Input placeholder="Country" className="h-10 rounded-xl" value={shippingCountry} onChange={e => setShippingCountry(e.target.value)} />
                 </div>
               </div>
             </div>
