@@ -16,7 +16,7 @@ export default function NewContactPage() {
   const [email, setEmail] = useState("")
   const [phone, setPhone] = useState("")
   const [company, setCompany] = useState("")
-  const [address, setAddress] = useState("")
+  const [address] = useState("")
   const [taxId, setTaxId] = useState("")
   const [notes, setNotes] = useState("")
   const [brn, setBrn] = useState("")

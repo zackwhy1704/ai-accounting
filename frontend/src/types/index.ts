@@ -20,6 +20,19 @@ export interface Contact {
   company: string | null
   address: string | null
   tax_number: string | null
+  billing_address_line1: string | null
+  billing_address_line2: string | null
+  billing_city: string | null
+  billing_state: string | null
+  billing_postcode: string | null
+  billing_country: string | null
+  shipping_address_line1: string | null
+  shipping_address_line2: string | null
+  shipping_city: string | null
+  shipping_state: string | null
+  shipping_postcode: string | null
+  shipping_country: string | null
+  default_payment_terms: string | null
   created_at: string
 }
 

@@ -52,7 +52,7 @@ export default function NewDebitNotePage() {
   const [lines, setLines] = useState<LineItem[]>([emptyLine()])
   const [discountGiven, setDiscountGiven] = useState(0)
   const [roundingAdjustment, setRoundingAdjustment] = useState(0)
-  const [currency, setCurrency] = useState("MYR")
+  const [, setCurrency] = useState("MYR")
   const [quickShareEmail, setQuickShareEmail] = useState(false)
 
   const customers = contacts.filter(c => c.type === "customer" || c.type === "both")

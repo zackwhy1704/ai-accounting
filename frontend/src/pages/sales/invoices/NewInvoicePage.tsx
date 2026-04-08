@@ -116,10 +116,6 @@ export default function NewInvoicePage() {
     setTaxInclusive(newVal)
     if (contactId) saveContactPref(contactId, "tax_inclusive", newVal)
   }
-  const handleCurrencyChange = (val: string) => {
-    setCurrency(val)
-    if (contactId) saveContactPref(contactId, "currency", val)
-  }
 
   // Line item helpers
   const updateLineItem = (index: number, field: keyof LineItem, value: string | number) => {
