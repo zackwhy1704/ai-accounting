@@ -93,6 +93,7 @@ export const navItems: NavItem[] = [
     feature: "accounting",
     children: [
       { labelKey: "nav.chartOfAccounts", href: "/accounting/accounts" },
+      { labelKey: "nav.taxCodes", href: "/accounting/tax-codes" },
       { labelKey: "nav.manualJournals", href: "/accounting/journals" },
       { labelKey: "nav.fixedAssets", href: "/accounting/fixed-assets" },
     ],

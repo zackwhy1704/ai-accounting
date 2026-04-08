@@ -518,6 +518,22 @@ export function useCreateTaxRate() {
   })
 }
 
+export function useUpdateTaxRate() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, ...data }: Record<string, unknown>) => api.patch(`/tax-rates/${id}`, data).then(r => r.data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['tax-rates'] }),
+  })
+}
+
+export function useDeleteTaxRate() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) => api.delete(`/tax-rates/${id}`).then(r => r.data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['tax-rates'] }),
+  })
+}
+
 // ── Exchange Rates ──
 export function useExchangeRates() {
   return useQuery<Array<{

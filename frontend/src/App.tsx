@@ -68,6 +68,7 @@ import PurchaseCreditNotesPage from './pages/purchases/PurchaseCreditNotesPage'
 import PurchasePaymentsPage from './pages/purchases/PurchasePaymentsPage'
 import PurchaseRefundsPage from './pages/purchases/PurchaseRefundsPage'
 import ChartOfAccountsPage from './pages/accounting/ChartOfAccountsPage'
+import TaxCodesPage from './pages/accounting/TaxCodesPage'
 import FixedAssetsPage from './pages/accounting/FixedAssetsPage'
 import NewFixedAssetPage from './pages/accounting/NewFixedAssetPage'
 import AgedReceivablesPage from './pages/reports/AgedReceivablesPage'
@@ -246,6 +247,7 @@ function App() {
         {/* Accounting */}
         <Route path="/accounting" element={<AccountingPage />} />
         <Route path="/accounting/accounts" element={<ChartOfAccountsPage />} />
+        <Route path="/accounting/tax-codes" element={<TaxCodesPage />} />
         <Route path="/accounting/fixed-assets" element={<FixedAssetsPage />} />
         <Route path="/accounting/fixed-assets/new" element={<NewFixedAssetPage />} />
         <Route path="/accounting/fixed-assets/:id/edit" element={<EditFixedAssetPage />} />
