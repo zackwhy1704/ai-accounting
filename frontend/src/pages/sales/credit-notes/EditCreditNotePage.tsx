@@ -274,7 +274,7 @@ export default function EditCreditNotePage() {
                         <Select value={item.account_id} onValueChange={v => updateLineItem(idx, "account_id", v)}>
                           <SelectTrigger className="h-9 rounded-lg border-0 bg-transparent shadow-none"><SelectValue placeholder="Account" /></SelectTrigger>
                           <SelectContent>
-                            {accounts.map((a: any) => <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>)}
+                            {accounts.map((a: any) => <SelectItem key={a.id} value={a.id}>{a.code} – {a.name}</SelectItem>)}
                           </SelectContent>
                         </Select>
                       </TableCell>

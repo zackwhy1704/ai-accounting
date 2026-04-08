@@ -166,7 +166,7 @@ export default function NewRecurringInvoicePage() {
                     <SelectTrigger className="h-9 text-xs"><SelectValue placeholder="Account" /></SelectTrigger>
                     <SelectContent>
                       {accounts.filter((a: any) => a.type === "revenue" || a.account_type === "revenue" || a.type === "income").map((a: any) => (
-                        <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>
+                        <SelectItem key={a.id} value={a.id}>{a.code} – {a.name}</SelectItem>
                       ))}
                     </SelectContent>
                   </Select>

@@ -147,7 +147,7 @@ export default function EditSaleReceiptPage() {
             <Select value={bankAccountId} onValueChange={setBankAccountId}>
               <SelectTrigger><SelectValue placeholder="Select account" /></SelectTrigger>
               <SelectContent>
-                {bankAccounts.map((a: any) => <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>)}
+                {bankAccounts.map((a: any) => <SelectItem key={a.id} value={a.id}>{a.code} – {a.name}</SelectItem>)}
               </SelectContent>
             </Select>
           </div>

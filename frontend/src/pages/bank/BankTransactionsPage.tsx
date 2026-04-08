@@ -139,7 +139,7 @@ export default function BankTransactionsPage({ type }: Props) {
             <SelectContent>
               <SelectItem value="all">All Accounts</SelectItem>
               {bankAccounts.map(a => (
-                <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>
+                <SelectItem key={a.id} value={a.id}>{a.code} – {a.name}</SelectItem>
               ))}
             </SelectContent>
           </Select>

@@ -167,7 +167,7 @@ export default function NewBankTransactionPage() {
                 </SelectTrigger>
                 <SelectContent>
                   {bankAccounts.map(a => (
-                    <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>
+                    <SelectItem key={a.id} value={a.id}>{a.code} – {a.name}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>

@@ -243,7 +243,7 @@ export default function NewDebitNotePage() {
                           </SelectTrigger>
                           <SelectContent>
                             {accounts.map((a: any) => (
-                              <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>
+                              <SelectItem key={a.id} value={a.id}>{a.code} – {a.name}</SelectItem>
                             ))}
                           </SelectContent>
                         </Select>

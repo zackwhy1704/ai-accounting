@@ -234,7 +234,7 @@ export default function EditDebitNotePage() {
                         <Select value={line.accountId} onValueChange={v => updateLine(line.id, "accountId", v)}>
                           <SelectTrigger className="h-9 rounded-lg border-0 bg-transparent shadow-none focus:ring-1"><SelectValue placeholder="Account" /></SelectTrigger>
                           <SelectContent>
-                            {accounts.map((a: any) => <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>)}
+                            {accounts.map((a: any) => <SelectItem key={a.id} value={a.id}>{a.code} – {a.name}</SelectItem>)}
                           </SelectContent>
                         </Select>
                       </TableCell>
