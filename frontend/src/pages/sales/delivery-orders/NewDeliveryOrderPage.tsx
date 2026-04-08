@@ -32,6 +32,7 @@ export default function NewDeliveryOrderPage() {
   const createDeliveryOrder = useCreateDeliveryOrder()
 
   const [activeTab, setActiveTab] = useState<TabKey>("items")
+  const [doNumber, setDoNumber] = useState(() => `DO-${Date.now().toString().slice(-6)}`)
   const [contactId, setContactId] = useState("")
   const [deliveryDate, setDeliveryDate] = useState(() => new Date().toISOString().slice(0, 10))
   const [dueDate, setDueDate] = useState(() => {
@@ -76,6 +77,7 @@ export default function NewDeliveryOrderPage() {
   const handleSave = async () => {
     try {
       await createDeliveryOrder.mutateAsync({
+        do_number: doNumber,
         contact_id: contactId,
         delivery_date: deliveryDate,
         due_date: dueDate,
@@ -272,9 +274,10 @@ export default function NewDeliveryOrderPage() {
             <div>
               <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Delivery #</label>
               <Input
-                value="Auto-generated"
-                disabled
-                className="h-10 rounded-xl bg-muted"
+                value={doNumber}
+                onChange={e => setDoNumber(e.target.value)}
+                placeholder="DO-000000"
+                className="h-10 rounded-xl"
               />
             </div>
 

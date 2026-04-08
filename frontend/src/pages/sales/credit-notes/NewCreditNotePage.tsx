@@ -45,6 +45,7 @@ export default function NewCreditNotePage() {
   const { data: taxRates = [] } = useTaxRates()
 
   const [activeTab, setActiveTab] = useState<TabKey>("items")
+  const [creditNoteNumber, setCreditNoteNumber] = useState(() => `CN-${Date.now().toString().slice(-6)}`)
   const [contactId, setContactId] = useState("")
   const [creditNoteDate, setCreditNoteDate] = useState(() => new Date().toISOString().slice(0, 10))
   const [reference, setReference] = useState("")
@@ -137,6 +138,7 @@ export default function NewCreditNotePage() {
   const handleSave = async () => {
     try {
       await createCreditNote.mutateAsync({
+        credit_note_number: creditNoteNumber,
         contact_id: contactId,
         credit_note_date: creditNoteDate,
         reference,
@@ -189,6 +191,15 @@ export default function NewCreditNotePage() {
         <Card className={cardClass}>
           {/* Top fields */}
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+            <div>
+              <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Credit Note #</label>
+              <Input
+                value={creditNoteNumber}
+                onChange={e => setCreditNoteNumber(e.target.value)}
+                placeholder="CN-000000"
+                className="h-10 rounded-xl"
+              />
+            </div>
             <div>
               <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Customer</label>
               <Select value={contactId} onValueChange={v => v === "__add_new__" ? navigate("/contacts/new") : handleContactChange(v)}>
