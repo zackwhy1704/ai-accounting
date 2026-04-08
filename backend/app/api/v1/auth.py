@@ -4,7 +4,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from app.core.database import get_db
 from app.core.security import hash_password, verify_password, create_access_token, get_current_user
-from app.models.models import User, Organization, Account, UserOrganization
+from app.models.models import User, Organization, Account, UserOrganization, TaxRate
 from app.schemas.schemas import (
     UserRegister, UserLogin, TokenResponse, UserResponse,
     OnboardingRequest, OrganizationResponse,
@@ -34,6 +34,19 @@ DEFAULT_ACCOUNTS = [
     ("5700", "Office Supplies", "expense", "operating"),
 ]
 
+# Default tax codes seeded for every new organization
+DEFAULT_TAX_CODES = [
+    ("SR", "Standard Rate (6%)", 6.0, "SST", True, "sales_tax"),
+    ("SR-S", "Service Tax (6%)", 6.0, "SST", False, "service_tax"),
+    ("SR-10", "Sales Tax (10%)", 10.0, "SST", False, "sales_tax"),
+    ("ZR", "Zero Rated", 0.0, "SST", False, None),
+    ("ES", "Exempt Supply", 0.0, "NONE", False, None),
+    ("OS", "Out of Scope", 0.0, "NONE", False, None),
+    ("RS", "Relief Supply", 0.0, "NONE", False, None),
+    ("GS", "GST Standard (8%)", 8.0, "GST", False, None),
+    ("GS9", "GST 9%", 9.0, "GST", False, None),
+]
+
 
 @router.post("/register", response_model=TokenResponse)
 async def register(data: UserRegister, db: AsyncSession = Depends(get_db)):
@@ -58,6 +71,15 @@ async def register(data: UserRegister, db: AsyncSession = Depends(get_db)):
             is_system=True,
         )
         db.add(account)
+
+    # Create default tax codes
+    for code, name, rate, tax_type, is_default, sst_cat in DEFAULT_TAX_CODES:
+        db.add(TaxRate(
+            organization_id=org.id,
+            code=code, name=name, rate=rate,
+            tax_type=tax_type, is_default=is_default,
+            sst_category=sst_cat,
+        ))
 
     # Create user
     user = User(

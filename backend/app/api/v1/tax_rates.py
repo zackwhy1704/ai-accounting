@@ -1,4 +1,6 @@
-from fastapi import APIRouter, Depends, HTTPException
+import csv
+import io
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from uuid import UUID
@@ -90,3 +92,49 @@ async def delete_tax_rate(
         raise HTTPException(status_code=404, detail="Tax rate not found")
     await db.delete(tax_rate)
     await db.commit()
+
+
+@router.post("/upload-csv", response_model=list[TaxRateResponse], status_code=201)
+async def upload_tax_rates_csv(
+    file: UploadFile = File(...),
+    db: AsyncSession = Depends(get_db),
+    current_user: dict = Depends(get_current_user),
+):
+    """Upload a CSV file with columns: code, name, rate, tax_type, sst_category (optional).
+    Skips rows where the code already exists."""
+    org_id = current_user["org_id"]
+    content = (await file.read()).decode("utf-8-sig")
+    reader = csv.DictReader(io.StringIO(content))
+
+    created = []
+    for row in reader:
+        code = (row.get("code") or "").strip()
+        name = (row.get("name") or "").strip()
+        rate_str = (row.get("rate") or "0").strip()
+        if not code or not name:
+            continue
+        try:
+            rate = float(rate_str)
+        except ValueError:
+            continue
+
+        existing = await db.execute(
+            select(TaxRate).where(TaxRate.organization_id == org_id, TaxRate.code == code)
+        )
+        if existing.scalar_one_or_none():
+            continue
+
+        tr = TaxRate(
+            organization_id=org_id,
+            code=code, name=name, rate=rate,
+            tax_type=(row.get("tax_type") or "SST").strip().upper(),
+            sst_category=(row.get("sst_category") or "").strip() or None,
+        )
+        db.add(tr)
+        await db.flush()
+        created.append(tr)
+
+    await db.commit()
+    for tr in created:
+        await db.refresh(tr)
+    return created

@@ -1,8 +1,8 @@
 import { useMemo, useState } from "react"
 import { useNavigate } from "react-router-dom"
-import { Plus, Search, CalendarDays, SlidersHorizontal, Filter, FileText, Copy, ArrowRightLeft, Pencil } from "lucide-react"
+import { Plus, Search, CalendarDays, SlidersHorizontal, Filter, FileText, Copy, ArrowRightLeft, Pencil, X } from "lucide-react"
 import { RowActionsMenu } from "../../../components/ui/row-actions"
-import { useQuotations, useContacts } from "../../../lib/hooks"
+import { useQuotations, useContacts, useConvertQuotation } from "../../../lib/hooks"
 import { formatCurrency, formatDate, cn } from "../../../lib/utils"
 import { useTheme } from "../../../lib/theme"
 import { Card } from "../../../components/ui/card"
@@ -30,6 +30,25 @@ export default function QuotationsPage() {
   const { data: quotations = [], isLoading } = useQuotations(tab === "all" ? undefined : tab)
   const { data: contacts = [] } = useContacts()
   const { t } = useTheme()
+  const convertQuotation = useConvertQuotation()
+
+  // Conversion dialog state
+  const [convertDialog, setConvertDialog] = useState<{ open: boolean; quotationId: string; quotationNumber: string }>({ open: false, quotationId: "", quotationNumber: "" })
+  const [convertToInvoice, setConvertToInvoice] = useState(true)
+  const [convertToDO, setConvertToDO] = useState(false)
+
+  const handleConvert = async () => {
+    const targets: string[] = []
+    if (convertToInvoice) targets.push("invoice")
+    if (convertToDO) targets.push("delivery_order")
+    if (targets.length === 0) return
+    try {
+      await convertQuotation.mutateAsync({ id: convertDialog.quotationId, targets })
+      setConvertDialog({ open: false, quotationId: "", quotationNumber: "" })
+    } catch {
+      // error handled by mutation
+    }
+  }
 
   const statusTabs = [
     { label: t("common.all"), value: "all" },
@@ -158,9 +177,7 @@ export default function QuotationsPage() {
                             { label: "Edit", icon: <Pencil className="h-3.5 w-3.5" />, onClick: () => navigate(`/sales/quotations/${q.id}/edit`) },
                             { label: t("quotations.duplicate"), icon: <Copy className="h-3.5 w-3.5" />, onClick: () => {} },
                             { label: t("quotations.entryPdf"), icon: <FileText className="h-3.5 w-3.5" />, onClick: () => {} },
-                            { label: t("quotations.convertToInvoice"), icon: <ArrowRightLeft className="h-3.5 w-3.5" />, onClick: () => navigate(`/sales/quotations/${q.id}/convert/invoice`), dividerBefore: true },
-                            { label: t("quotations.convertToDelivery"), icon: <ArrowRightLeft className="h-3.5 w-3.5" />, onClick: () => navigate(`/sales/quotations/${q.id}/convert/delivery`) },
-                            { label: t("quotations.convertToSalesOrder"), icon: <ArrowRightLeft className="h-3.5 w-3.5" />, onClick: () => navigate(`/sales/quotations/${q.id}/convert/order`) },
+                            { label: "Convert to Invoice / DO", icon: <ArrowRightLeft className="h-3.5 w-3.5" />, onClick: () => { setConvertToInvoice(true); setConvertToDO(false); setConvertDialog({ open: true, quotationId: q.id, quotationNumber: q.quotation_number }) }, dividerBefore: true },
                           ]} />
                         </TableCell>
                       </TableRow>
@@ -172,6 +189,47 @@ export default function QuotationsPage() {
           </div>
         </Tabs>
       </Card>
+
+      {/* Conversion Dialog */}
+      {convertDialog.open && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="w-full max-w-md rounded-2xl bg-card p-6 shadow-xl">
+            <div className="flex items-center justify-between">
+              <h3 className="text-lg font-semibold text-foreground">Convert {convertDialog.quotationNumber}</h3>
+              <button onClick={() => setConvertDialog({ open: false, quotationId: "", quotationNumber: "" })} className="text-muted-foreground hover:text-foreground">
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <p className="mt-2 text-sm text-muted-foreground">Select what to create from this quotation. All line items will be copied.</p>
+            <div className="mt-4 space-y-3">
+              <label className="flex items-center gap-3 rounded-xl border border-border p-3 cursor-pointer hover:bg-muted/50">
+                <input type="checkbox" checked={convertToInvoice} onChange={e => setConvertToInvoice(e.target.checked)} className="h-4 w-4 rounded" />
+                <div>
+                  <div className="text-sm font-medium text-foreground">Sales Invoice</div>
+                  <div className="text-xs text-muted-foreground">Create an invoice with all line items</div>
+                </div>
+              </label>
+              <label className="flex items-center gap-3 rounded-xl border border-border p-3 cursor-pointer hover:bg-muted/50">
+                <input type="checkbox" checked={convertToDO} onChange={e => setConvertToDO(e.target.checked)} className="h-4 w-4 rounded" />
+                <div>
+                  <div className="text-sm font-medium text-foreground">Delivery Order</div>
+                  <div className="text-xs text-muted-foreground">Create a delivery order with all line items</div>
+                </div>
+              </label>
+            </div>
+            <div className="mt-6 flex justify-end gap-3">
+              <Button variant="outline" onClick={() => setConvertDialog({ open: false, quotationId: "", quotationNumber: "" })}>Cancel</Button>
+              <Button
+                onClick={handleConvert}
+                disabled={(!convertToInvoice && !convertToDO) || convertQuotation.isPending}
+                className="bg-gradient-to-r from-emerald-500 to-emerald-600 text-white hover:from-emerald-600 hover:to-emerald-700"
+              >
+                {convertQuotation.isPending ? "Converting..." : "Convert"}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

@@ -1,7 +1,7 @@
 import { useState } from "react"
 import { useNavigate } from "react-router-dom"
 import { Plus, Trash2 } from "lucide-react"
-import { useContacts, useAccounts, useInvoices, useCreateDebitNote } from "../../../lib/hooks"
+import { useContacts, useAccounts, useInvoices, useCreateDebitNote, useTaxRates } from "../../../lib/hooks"
 import { Card } from "../../../components/ui/card"
 import { Button } from "../../../components/ui/button"
 import { Input } from "../../../components/ui/input"
@@ -15,6 +15,8 @@ interface LineItem {
   quantity: number
   unitPrice: number
   taxRate: number
+  lineType: "goods" | "services"
+  taxCodeId: string
 }
 
 const emptyLine = (): LineItem => ({
@@ -24,6 +26,8 @@ const emptyLine = (): LineItem => ({
   quantity: 1,
   unitPrice: 0,
   taxRate: 0,
+  lineType: "goods",
+  taxCodeId: "",
 })
 
 const tabs = [
@@ -40,6 +44,7 @@ export default function NewDebitNotePage() {
   const { data: accounts = [] } = useAccounts()
   const { data: invoices = [] } = useInvoices()
   const createDebitNote = useCreateDebitNote()
+  const { data: taxRates = [] } = useTaxRates()
 
   const [activeTab, setActiveTab] = useState("items")
   const [customerId, setCustomerId] = useState("")
@@ -57,7 +62,18 @@ export default function NewDebitNotePage() {
     : invoices
 
   const updateLine = (id: string, field: keyof LineItem, value: any) => {
-    setLines(prev => prev.map(l => (l.id === id ? { ...l, [field]: value } : l)))
+    setLines(prev => prev.map(l => {
+      if (l.id !== id) return l
+      const updated = { ...l, [field]: value }
+      if (field === "taxCodeId") {
+        const tc = taxRates.find((t: any) => t.id === value)
+        if (tc) updated.taxRate = tc.rate
+      }
+      if (field === "lineType" && value === "services") {
+        updated.quantity = 1
+      }
+      return updated
+    }))
   }
 
   const removeLine = (id: string) => {
@@ -80,6 +96,8 @@ export default function NewDebitNotePage() {
           quantity: l.quantity,
           unit_price: l.unitPrice,
           tax_rate: l.taxRate,
+          line_type: l.lineType,
+          tax_code_id: l.taxCodeId || undefined,
         })),
         discount_given: discountGiven,
         rounding_adjustment: roundingAdjustment,
@@ -178,12 +196,13 @@ export default function NewDebitNotePage() {
                 <TableHeader>
                   <TableRow className="border-border hover:bg-transparent">
                     <TableHead className="w-[50px] text-muted-foreground">#</TableHead>
+                    <TableHead className="w-[100px] text-muted-foreground">Type</TableHead>
                     <TableHead className="text-muted-foreground">Description</TableHead>
                     <TableHead className="w-[180px] text-muted-foreground">Account</TableHead>
                     <TableHead className="w-[100px] text-muted-foreground">Quantity</TableHead>
                     <TableHead className="w-[130px] text-muted-foreground">Unit Price</TableHead>
                     <TableHead className="w-[130px] text-right text-muted-foreground">Amount</TableHead>
-                    <TableHead className="w-[120px] text-muted-foreground">Tax</TableHead>
+                    <TableHead className="w-[140px] text-muted-foreground">Tax Code</TableHead>
                     <TableHead className="w-[50px]" />
                   </TableRow>
                 </TableHeader>
@@ -191,6 +210,17 @@ export default function NewDebitNotePage() {
                   {lines.map((line, idx) => (
                     <TableRow key={line.id} className="border-border hover:bg-muted/50">
                       <TableCell className="text-muted-foreground">{idx + 1}</TableCell>
+                      <TableCell>
+                        <Select value={line.lineType} onValueChange={v => updateLine(line.id, "lineType", v)}>
+                          <SelectTrigger className="h-9 rounded-lg border-0 bg-transparent shadow-none focus:ring-1">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="goods">Goods</SelectItem>
+                            <SelectItem value="services">Services</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </TableCell>
                       <TableCell>
                         <Input
                           value={line.description}
@@ -212,13 +242,17 @@ export default function NewDebitNotePage() {
                         </Select>
                       </TableCell>
                       <TableCell>
-                        <Input
-                          type="number"
-                          min={0}
-                          value={line.quantity}
-                          onChange={e => updateLine(line.id, "quantity", Number(e.target.value))}
-                          className="h-9 rounded-lg border-0 bg-transparent px-2 text-sm shadow-none focus-visible:ring-1"
-                        />
+                        {line.lineType === "services" ? (
+                          <span className="px-2 text-sm text-muted-foreground">&mdash;</span>
+                        ) : (
+                          <Input
+                            type="number"
+                            min={0}
+                            value={line.quantity}
+                            onChange={e => updateLine(line.id, "quantity", Number(e.target.value))}
+                            className="h-9 rounded-lg border-0 bg-transparent px-2 text-sm shadow-none focus-visible:ring-1"
+                          />
+                        )}
                       </TableCell>
                       <TableCell>
                         <Input
@@ -234,15 +268,18 @@ export default function NewDebitNotePage() {
                         {(line.quantity * line.unitPrice).toFixed(2)}
                       </TableCell>
                       <TableCell>
-                        <Input
-                          type="number"
-                          min={0}
-                          step={0.01}
-                          value={line.taxRate}
-                          onChange={e => updateLine(line.id, "taxRate", Number(e.target.value))}
-                          placeholder="0%"
-                          className="h-9 rounded-lg border-0 bg-transparent px-2 text-sm shadow-none focus-visible:ring-1"
-                        />
+                        <Select value={line.taxCodeId} onValueChange={v => updateLine(line.id, "taxCodeId", v)}>
+                          <SelectTrigger className="h-9 rounded-lg border-0 bg-transparent shadow-none focus:ring-1">
+                            <SelectValue placeholder="Tax Code" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {taxRates.map((tc: any) => (
+                              <SelectItem key={tc.id} value={tc.id}>
+                                {tc.code} ({tc.rate}%)
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
                       </TableCell>
                       <TableCell>
                         <Button

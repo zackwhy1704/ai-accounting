@@ -194,9 +194,14 @@ class Contact(Base):
     email: Mapped[str | None] = mapped_column(String(255))
     phone: Mapped[str | None] = mapped_column(String(50))
     type: Mapped[str] = mapped_column(String(10))  # customer, vendor, both
+    entity_type: Mapped[str] = mapped_column(String(20), default="company")  # company, individual
     company: Mapped[str | None] = mapped_column(String(255))
     address: Mapped[str | None] = mapped_column(Text)
     tax_number: Mapped[str | None] = mapped_column(String(50))
+    brn: Mapped[str | None] = mapped_column(String(50))  # Business Registration Number (company)
+    ic_number: Mapped[str | None] = mapped_column(String(20))  # MyKad IC number (individual)
+    tin: Mapped[str | None] = mapped_column(String(50))  # Tax Identification Number
+    msic_code: Mapped[str | None] = mapped_column(String(20))  # MSIC code
     notes: Mapped[str | None] = mapped_column(Text)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
@@ -246,10 +251,12 @@ class InvoiceLineItem(Base):
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=new_uuid)
     invoice_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("invoices.id", ondelete="CASCADE"))
+    line_type: Mapped[str] = mapped_column(String(10), default="goods")  # goods, services
     description: Mapped[str] = mapped_column(String(500))
     quantity: Mapped[float] = mapped_column(Numeric(10, 2), default=1)
     unit_price: Mapped[float] = mapped_column(Numeric(15, 2))
     tax_rate: Mapped[float] = mapped_column(Numeric(5, 2), default=0)
+    tax_code_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("tax_rates.id"))
     amount: Mapped[float] = mapped_column(Numeric(15, 2))
     account_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("accounts.id"))
     sort_order: Mapped[int] = mapped_column(Integer, default=0)
@@ -296,10 +303,12 @@ class QuotationLineItem(Base):
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=new_uuid)
     quotation_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("quotations.id", ondelete="CASCADE"))
+    line_type: Mapped[str] = mapped_column(String(10), default="goods")  # goods, services
     description: Mapped[str] = mapped_column(String(500))
     quantity: Mapped[float] = mapped_column(Numeric(10, 2), default=1)
     unit_price: Mapped[float] = mapped_column(Numeric(15, 2))
     tax_rate: Mapped[float] = mapped_column(Numeric(5, 2), default=0)
+    tax_code_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("tax_rates.id"))
     discount: Mapped[float] = mapped_column(Numeric(15, 2), default=0)
     amount: Mapped[float] = mapped_column(Numeric(15, 2))
     account_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("accounts.id"))
@@ -400,10 +409,12 @@ class DeliveryOrderLineItem(Base):
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=new_uuid)
     delivery_order_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("delivery_orders.id", ondelete="CASCADE"))
+    line_type: Mapped[str] = mapped_column(String(10), default="goods")  # goods, services
     description: Mapped[str] = mapped_column(String(500))
     quantity: Mapped[float] = mapped_column(Numeric(10, 2), default=1)
     unit_price: Mapped[float] = mapped_column(Numeric(15, 2))
     tax_rate: Mapped[float] = mapped_column(Numeric(5, 2), default=0)
+    tax_code_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("tax_rates.id"))
     amount: Mapped[float] = mapped_column(Numeric(15, 2))
     sort_order: Mapped[int] = mapped_column(Integer, default=0)
 
@@ -450,10 +461,12 @@ class CreditNoteLineItem(Base):
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=new_uuid)
     credit_note_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("credit_notes.id", ondelete="CASCADE"))
+    line_type: Mapped[str] = mapped_column(String(10), default="goods")  # goods, services
     description: Mapped[str] = mapped_column(String(500))
     quantity: Mapped[float] = mapped_column(Numeric(10, 2), default=1)
     unit_price: Mapped[float] = mapped_column(Numeric(15, 2))
     tax_rate: Mapped[float] = mapped_column(Numeric(5, 2), default=0)
+    tax_code_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("tax_rates.id"))
     discount: Mapped[float] = mapped_column(Numeric(15, 2), default=0)
     amount: Mapped[float] = mapped_column(Numeric(15, 2))
     account_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("accounts.id"))
@@ -513,10 +526,12 @@ class DebitNoteLineItem(Base):
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=new_uuid)
     debit_note_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("debit_notes.id", ondelete="CASCADE"))
+    line_type: Mapped[str] = mapped_column(String(10), default="goods")  # goods, services
     description: Mapped[str] = mapped_column(String(500))
     quantity: Mapped[float] = mapped_column(Numeric(10, 2), default=1)
     unit_price: Mapped[float] = mapped_column(Numeric(15, 2))
     tax_rate: Mapped[float] = mapped_column(Numeric(5, 2), default=0)
+    tax_code_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("tax_rates.id"))
     discount: Mapped[float] = mapped_column(Numeric(15, 2), default=0)
     amount: Mapped[float] = mapped_column(Numeric(15, 2))
     account_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("accounts.id"))

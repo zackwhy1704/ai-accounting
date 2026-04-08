@@ -20,7 +20,6 @@ export const navItems: NavItem[] = [
     feature: "sales",
     children: [
       { labelKey: "nav.quotations", href: "/sales/quotations" },
-      { labelKey: "nav.saleOrders", href: "/sales/orders" },
       { labelKey: "nav.deliveryOrders", href: "/sales/delivery-orders" },
       { labelKey: "nav.invoices", href: "/sales/invoices" },
       { labelKey: "nav.creditNotes", href: "/sales/credit-notes" },

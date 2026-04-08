@@ -5,15 +5,17 @@ from sqlalchemy.orm import selectinload
 from uuid import UUID
 from app.core.database import get_db
 from app.core.security import get_current_user
+from datetime import datetime, timezone, timedelta
+from pydantic import BaseModel as PydanticBaseModel
 from app.models.models import (
-    Quotation, QuotationLineItem, SalesOrder, SalesOrderLineItem,
+    Quotation, QuotationLineItem,
     DeliveryOrder, DeliveryOrderLineItem, CreditNote, CreditNoteLineItem,
     CreditApplication as CreditApplicationModel, DebitNote, DebitNoteLineItem,
-    SalesPayment, PaymentAllocation, SalesRefund, Invoice,
+    SalesPayment, PaymentAllocation, SalesRefund, Invoice, InvoiceLineItem,
 )
 from .gl_helpers import post_gl, revert_gl
 from app.schemas.schemas import (
-    QuotationCreate, QuotationUpdate, QuotationResponse, SalesOrderCreate, SalesOrderResponse,
+    QuotationCreate, QuotationUpdate, QuotationResponse,
     DeliveryOrderCreate, DeliveryOrderResponse, CreditNoteCreate, CreditNoteResponse,
     DebitNoteCreate, DebitNoteResponse, SalesPaymentCreate, SalesPaymentResponse,
     SalesRefundCreate, SalesRefundResponse,
@@ -69,8 +71,9 @@ async def create_quotation(data: QuotationCreate, current_user: dict = Depends(g
     for i, item in enumerate(data.line_items):
         amount = item.quantity * item.unit_price
         db.add(QuotationLineItem(
-            quotation_id=obj.id, description=item.description, quantity=item.quantity,
-            unit_price=item.unit_price, tax_rate=item.tax_rate, discount=item.discount,
+            quotation_id=obj.id, line_type=item.line_type, description=item.description,
+            quantity=item.quantity, unit_price=item.unit_price, tax_rate=item.tax_rate,
+            tax_code_id=item.tax_code_id, discount=item.discount,
             amount=amount, account_id=item.account_id, sort_order=i,
         ))
     return obj
@@ -123,8 +126,9 @@ async def update_quotation(qid: UUID, data: QuotationUpdate, current_user: dict 
         for i, item in enumerate(data.line_items):
             amount = item.quantity * item.unit_price
             db.add(QuotationLineItem(
-                quotation_id=obj.id, description=item.description, quantity=item.quantity,
-                unit_price=item.unit_price, tax_rate=item.tax_rate, discount=item.discount,
+                quotation_id=obj.id, line_type=item.line_type, description=item.description,
+                quantity=item.quantity, unit_price=item.unit_price, tax_rate=item.tax_rate,
+                tax_code_id=item.tax_code_id, discount=item.discount,
                 account_id=item.account_id, amount=amount, sort_order=i,
             ))
         obj.subtotal = subtotal
@@ -139,52 +143,77 @@ async def update_quotation(qid: UUID, data: QuotationUpdate, current_user: dict 
     return result2.scalar_one()
 
 
+class ConvertQuotationRequest(PydanticBaseModel):
+    targets: list[str]  # ["invoice", "delivery_order"] or either one
+
+
 @router.post("/quotations/{qid}/convert")
-async def convert_quotation(qid: UUID, target: str, current_user: dict = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
-    """Convert quotation to invoice, delivery order, or sales order."""
+async def convert_quotation(qid: UUID, body: ConvertQuotationRequest, current_user: dict = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    """Convert quotation to invoice and/or delivery order. Copies all line items."""
     org_id = current_user["org_id"]
-    result = await db.execute(select(Quotation).where(Quotation.id == qid, Quotation.organization_id == org_id))
+    result = await db.execute(
+        select(Quotation).options(selectinload(Quotation.line_items))
+        .where(Quotation.id == qid, Quotation.organization_id == org_id)
+    )
     quote = result.scalar_one_or_none()
     if not quote:
         raise HTTPException(status_code=404, detail="Quotation not found")
+
+    valid_targets = {"invoice", "delivery_order"}
+    targets = [t for t in body.targets if t in valid_targets]
+    if not targets:
+        raise HTTPException(status_code=400, detail="targets must include 'invoice' and/or 'delivery_order'")
+
+    now = datetime.now(timezone.utc)
+    created = {}
+
+    if "invoice" in targets:
+        inv_count = (await db.execute(select(func.count(Invoice.id)).where(Invoice.organization_id == org_id))).scalar() or 0
+        inv = Invoice(
+            organization_id=org_id, contact_id=quote.contact_id,
+            invoice_number=f"INV-{inv_count + 1:04d}",
+            issue_date=now, due_date=now + timedelta(days=30),
+            subtotal=quote.subtotal, tax_amount=quote.tax_amount, total=quote.total,
+            currency=quote.currency, notes=f"Converted from {quote.quotation_number}",
+        )
+        db.add(inv)
+        await db.flush()
+        for i, li in enumerate(quote.line_items):
+            db.add(InvoiceLineItem(
+                invoice_id=inv.id, line_type=getattr(li, 'line_type', 'goods'),
+                description=li.description, quantity=li.quantity,
+                unit_price=li.unit_price, tax_rate=li.tax_rate,
+                tax_code_id=getattr(li, 'tax_code_id', None),
+                amount=li.amount, account_id=li.account_id, sort_order=i,
+            ))
+        created["invoice"] = {"id": str(inv.id), "number": inv.invoice_number}
+
+    if "delivery_order" in targets:
+        do_count = (await db.execute(select(func.count(DeliveryOrder.id)).where(DeliveryOrder.organization_id == org_id))).scalar() or 0
+        do = DeliveryOrder(
+            organization_id=org_id, contact_id=quote.contact_id,
+            quotation_id=quote.id,
+            delivery_number=f"DO-{do_count + 1:04d}",
+            delivery_date=now, currency=quote.currency,
+            subtotal=quote.subtotal, tax_amount=quote.tax_amount, total=quote.total,
+            notes=f"Converted from {quote.quotation_number}",
+        )
+        db.add(do)
+        await db.flush()
+        for i, li in enumerate(quote.line_items):
+            db.add(DeliveryOrderLineItem(
+                delivery_order_id=do.id, line_type=getattr(li, 'line_type', 'goods'),
+                description=li.description, quantity=li.quantity,
+                unit_price=li.unit_price, tax_rate=li.tax_rate,
+                tax_code_id=getattr(li, 'tax_code_id', None),
+                amount=li.amount, sort_order=i,
+            ))
+        created["delivery_order"] = {"id": str(do.id), "number": do.delivery_number}
+
     quote.status = "converted"
-    return {"message": f"Quotation converted to {target}", "quotation_id": str(qid)}
+    await db.commit()
 
-
-# ═══════════════════════════════════════════════
-# SALES ORDERS
-# ═══════════════════════════════════════════════
-@router.get("/sales-orders", response_model=list[SalesOrderResponse])
-async def list_sales_orders(status: str | None = None, current_user: dict = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
-    org_id = current_user["org_id"]
-    q = select(SalesOrder).where(SalesOrder.organization_id == org_id).order_by(SalesOrder.created_at.desc())
-    if status:
-        q = q.where(SalesOrder.status == status)
-    return (await db.execute(q)).scalars().all()
-
-
-@router.post("/sales-orders", response_model=SalesOrderResponse, status_code=201)
-async def create_sales_order(data: SalesOrderCreate, current_user: dict = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
-    org_id = current_user["org_id"]
-    count = (await db.execute(select(func.count(SalesOrder.id)).where(SalesOrder.organization_id == org_id))).scalar() or 0
-    subtotal, discount_total, tax_amount = calc_totals(data.line_items)
-
-    obj = SalesOrder(
-        organization_id=org_id, contact_id=data.contact_id, quotation_id=data.quotation_id,
-        order_number=f"SO-{count + 1:04d}", issue_date=data.issue_date,
-        delivery_date=data.delivery_date, reference=data.reference,
-        subtotal=subtotal, discount_amount=discount_total, tax_amount=tax_amount,
-        total=subtotal - discount_total + tax_amount, currency=data.currency, notes=data.notes,
-    )
-    db.add(obj)
-    await db.flush()
-    for i, item in enumerate(data.line_items):
-        db.add(SalesOrderLineItem(
-            sales_order_id=obj.id, description=item.description, quantity=item.quantity,
-            unit_price=item.unit_price, tax_rate=item.tax_rate, discount=item.discount,
-            amount=item.quantity * item.unit_price, account_id=item.account_id, sort_order=i,
-        ))
-    return obj
+    return {"quotation_id": str(qid), "status": "converted", "created": created}
 
 
 # ═══════════════════════════════════════════════

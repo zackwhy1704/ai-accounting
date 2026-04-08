@@ -85,9 +85,14 @@ class ContactCreate(BaseModel):
     email: str | None = None
     phone: str | None = None
     type: str = "customer"
+    entity_type: str = "company"  # company, individual
     company: str | None = None
     address: str | None = None
     tax_number: str | None = None
+    brn: str | None = None
+    ic_number: str | None = None
+    tin: str | None = None
+    msic_code: str | None = None
 
 class ContactResponse(BaseModel):
     id: UUID
@@ -95,19 +100,26 @@ class ContactResponse(BaseModel):
     email: str | None
     phone: str | None
     type: str
+    entity_type: str
     company: str | None
     address: str | None
     tax_number: str | None
+    brn: str | None
+    ic_number: str | None
+    tin: str | None
+    msic_code: str | None
     created_at: datetime
     model_config = {"from_attributes": True}
 
 
 # ── Invoice ──
 class LineItemCreate(BaseModel):
+    line_type: str = "goods"  # goods, services
     description: str
     quantity: float = 1.0
     unit_price: float
     tax_rate: float = 0.0
+    tax_code_id: UUID | None = None
     account_id: UUID | None = None
 
 class InvoiceCreate(BaseModel):
@@ -137,19 +149,23 @@ class InvoiceResponse(BaseModel):
 
 # ── Quotation ──
 class QuotationLineItemCreate(BaseModel):
+    line_type: str = "goods"  # goods, services
     description: str
     quantity: float = 1.0
     unit_price: float
     tax_rate: float = 0.0
+    tax_code_id: UUID | None = None
     discount: float = 0.0
     account_id: UUID | None = None
 
 class QuotationLineItemResponse(BaseModel):
     id: UUID
+    line_type: str
     description: str
     quantity: float
     unit_price: float
     tax_rate: float
+    tax_code_id: UUID | None
     discount: float
     account_id: UUID | None
     amount: float
@@ -227,10 +243,12 @@ class SalesOrderResponse(BaseModel):
 
 # ── Delivery Order ──
 class DeliveryOrderLineItemCreate(BaseModel):
+    line_type: str = "goods"  # goods, services
     description: str
     quantity: float = 1.0
     unit_price: float
     tax_rate: float = 0.0
+    tax_code_id: UUID | None = None
 
 class DeliveryOrderCreate(BaseModel):
     contact_id: UUID
@@ -268,10 +286,12 @@ class DeliveryOrderResponse(BaseModel):
 
 # ── Credit Note ──
 class CreditNoteLineItemCreate(BaseModel):
+    line_type: str = "goods"  # goods, services
     description: str
     quantity: float = 1.0
     unit_price: float
     tax_rate: float = 0.0
+    tax_code_id: UUID | None = None
     discount: float = 0.0
     account_id: UUID | None = None
 

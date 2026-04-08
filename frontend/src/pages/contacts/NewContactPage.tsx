@@ -12,23 +12,33 @@ export default function NewContactPage() {
 
   const [name, setName] = useState("")
   const [type, setType] = useState("customer")
+  const [entityType, setEntityType] = useState("company")
   const [email, setEmail] = useState("")
   const [phone, setPhone] = useState("")
   const [company, setCompany] = useState("")
   const [address, setAddress] = useState("")
   const [taxId, setTaxId] = useState("")
   const [notes, setNotes] = useState("")
+  const [brn, setBrn] = useState("")
+  const [icNumber, setIcNumber] = useState("")
+  const [tin, setTin] = useState("")
+  const [msicCode, setMsicCode] = useState("")
 
   const handleSave = async () => {
     await createContact.mutateAsync({
       name,
       type,
+      entity_type: entityType,
       email: email || undefined,
       phone: phone || undefined,
       company: company || undefined,
       address: address || undefined,
       tax_id: taxId || undefined,
       notes: notes || undefined,
+      brn: brn || undefined,
+      ic_number: icNumber || undefined,
+      tin: tin || undefined,
+      msic_code: msicCode || undefined,
     })
     navigate("/contacts")
   }
@@ -57,6 +67,17 @@ export default function NewContactPage() {
           </div>
 
           <div className="space-y-1.5">
+            <label className="text-sm font-medium text-foreground">Entity Type</label>
+            <Select value={entityType} onValueChange={setEntityType}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="company">Company</SelectItem>
+                <SelectItem value="individual">Individual</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-1.5">
             <label className="text-sm font-medium text-foreground">Company</label>
             <Input value={company} onChange={e => setCompany(e.target.value)} placeholder="Company name" />
           </div>
@@ -74,6 +95,30 @@ export default function NewContactPage() {
           <div className="space-y-1.5 md:col-span-2">
             <label className="text-sm font-medium text-foreground">Address</label>
             <Input value={address} onChange={e => setAddress(e.target.value)} placeholder="Full address" />
+          </div>
+
+          {entityType === "company" && (
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium text-foreground">BRN (Business Registration No.)</label>
+              <Input value={brn} onChange={e => setBrn(e.target.value)} placeholder="e.g. 202301012345" />
+            </div>
+          )}
+
+          {entityType === "individual" && (
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium text-foreground">IC Number</label>
+              <Input value={icNumber} onChange={e => setIcNumber(e.target.value)} placeholder="e.g. 900101-14-1234" />
+            </div>
+          )}
+
+          <div className="space-y-1.5">
+            <label className="text-sm font-medium text-foreground">TIN (Tax Identification No.)</label>
+            <Input value={tin} onChange={e => setTin(e.target.value)} placeholder="e.g. C12345678000" />
+          </div>
+
+          <div className="space-y-1.5">
+            <label className="text-sm font-medium text-foreground">MSIC Code</label>
+            <Input value={msicCode} onChange={e => setMsicCode(e.target.value)} placeholder="e.g. 46510" />
           </div>
 
           <div className="space-y-1.5">

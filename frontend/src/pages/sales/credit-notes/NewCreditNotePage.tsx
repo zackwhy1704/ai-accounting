@@ -1,7 +1,7 @@
 import { useState } from "react"
 import { useNavigate } from "react-router-dom"
 import { Plus, Trash2 } from "lucide-react"
-import { useContacts, useAccounts, useInvoices, useCreateCreditNote } from "../../../lib/hooks"
+import { useContacts, useAccounts, useInvoices, useCreateCreditNote, useTaxRates } from "../../../lib/hooks"
 import { Card } from "../../../components/ui/card"
 import { Button } from "../../../components/ui/button"
 import { Input } from "../../../components/ui/input"
@@ -16,6 +16,8 @@ interface LineItem {
   amount: number
   discount: number
   tax_rate: number
+  line_type: "goods" | "services"
+  tax_code_id: string
 }
 
 interface ApplyCreditLine {
@@ -41,6 +43,7 @@ export default function NewCreditNotePage() {
   const { data: accounts = [] } = useAccounts()
   const { data: invoices = [] } = useInvoices()
   const createCreditNote = useCreateCreditNote()
+  const { data: taxRates = [] } = useTaxRates()
 
   const [activeTab, setActiveTab] = useState<TabKey>("items")
   const [contactId, setContactId] = useState("")
@@ -76,6 +79,13 @@ export default function NewCreditNotePage() {
     setLineItems(prev => {
       const updated = [...prev]
       updated[index] = { ...updated[index], [field]: value }
+      if (field === "tax_code_id") {
+        const tc = taxRates.find((t: any) => t.id === value)
+        if (tc) updated[index].tax_rate = tc.rate
+      }
+      if (field === "line_type" && value === "services") {
+        updated[index].quantity = 1
+      }
       const item = updated[index]
       const lineTotal = item.quantity * item.unit_price
       const afterDiscount = lineTotal - (lineTotal * item.discount) / 100
@@ -88,7 +98,7 @@ export default function NewCreditNotePage() {
   const addLineItem = () => {
     setLineItems(prev => [
       ...prev,
-      { description: "", account_id: "", quantity: 1, unit_price: 0, amount: 0, discount: 0, tax_rate: 0 },
+      { description: "", account_id: "", quantity: 1, unit_price: 0, amount: 0, discount: 0, tax_rate: 0, line_type: "goods", tax_code_id: "" },
     ])
   }
 
@@ -282,13 +292,14 @@ export default function NewCreditNotePage() {
               <TableHeader>
                 <TableRow className="border-border hover:bg-transparent">
                   <TableHead className="w-10 text-center text-muted-foreground">#</TableHead>
-                  <TableHead className="min-w-[200px] text-muted-foreground">Rate (Description)</TableHead>
+                  <TableHead className="w-[100px] text-muted-foreground">Type</TableHead>
+                  <TableHead className="min-w-[200px] text-muted-foreground">Description</TableHead>
                   <TableHead className="w-[160px] text-muted-foreground">Account</TableHead>
                   <TableHead className="w-[80px] text-muted-foreground">Qty</TableHead>
-                  <TableHead className="w-[110px] text-muted-foreground">Std Price</TableHead>
+                  <TableHead className="w-[110px] text-muted-foreground">Unit Price</TableHead>
                   <TableHead className="w-[110px] text-right text-muted-foreground">Amount</TableHead>
                   <TableHead className="w-[80px] text-muted-foreground">Disc %</TableHead>
-                  <TableHead className="w-[80px] text-muted-foreground">Tax %</TableHead>
+                  <TableHead className="w-[120px] text-muted-foreground">Tax Code</TableHead>
                   <TableHead className="w-10" />
                 </TableRow>
               </TableHeader>
@@ -303,6 +314,17 @@ export default function NewCreditNotePage() {
                   lineItems.map((item, idx) => (
                     <TableRow key={idx} className="border-border">
                       <TableCell className="text-center text-xs text-muted-foreground">{idx + 1}</TableCell>
+                      <TableCell>
+                        <Select value={item.line_type} onValueChange={v => updateLineItem(idx, "line_type", v)}>
+                          <SelectTrigger className="h-9 rounded-lg border-0 bg-transparent shadow-none">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="goods">Goods</SelectItem>
+                            <SelectItem value="services">Services</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </TableCell>
                       <TableCell>
                         <Input
                           value={item.description}
@@ -329,13 +351,17 @@ export default function NewCreditNotePage() {
                         </Select>
                       </TableCell>
                       <TableCell>
-                        <Input
-                          type="number"
-                          min={0}
-                          value={item.quantity}
-                          onChange={e => updateLineItem(idx, "quantity", Number(e.target.value))}
-                          className="h-9 rounded-lg border-0 bg-transparent px-1 text-sm shadow-none focus-visible:ring-1"
-                        />
+                        {item.line_type === "services" ? (
+                          <span className="px-1 text-sm text-muted-foreground">&mdash;</span>
+                        ) : (
+                          <Input
+                            type="number"
+                            min={0}
+                            value={item.quantity}
+                            onChange={e => updateLineItem(idx, "quantity", Number(e.target.value))}
+                            className="h-9 rounded-lg border-0 bg-transparent px-1 text-sm shadow-none focus-visible:ring-1"
+                          />
+                        )}
                       </TableCell>
                       <TableCell>
                         <Input
@@ -361,13 +387,18 @@ export default function NewCreditNotePage() {
                         />
                       </TableCell>
                       <TableCell>
-                        <Input
-                          type="number"
-                          min={0}
-                          value={item.tax_rate}
-                          onChange={e => updateLineItem(idx, "tax_rate", Number(e.target.value))}
-                          className="h-9 rounded-lg border-0 bg-transparent px-1 text-sm shadow-none focus-visible:ring-1"
-                        />
+                        <Select value={item.tax_code_id} onValueChange={v => updateLineItem(idx, "tax_code_id", v)}>
+                          <SelectTrigger className="h-9 rounded-lg border-0 bg-transparent shadow-none">
+                            <SelectValue placeholder="Tax Code" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {taxRates.map((tc: any) => (
+                              <SelectItem key={tc.id} value={tc.id}>
+                                {tc.code} ({tc.rate}%)
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
                       </TableCell>
                       <TableCell>
                         <button

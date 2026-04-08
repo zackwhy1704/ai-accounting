@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import api from './api'
-import type { Invoice, Bill, Contact, Document, DashboardData, Account, BillingUsage, BillingPlan, OnboardingData, FirmSettings, FirmClientOrg, FirmDashboard, SlugCheck, Quotation, SalesOrder, DeliveryOrder, CreditNote, DebitNote, SalesPayment, SalesRefund, Organization, PurchaseOrder, GoodsReceivedNote, PurchasePayment, PurchaseRefund } from '../types'
+import type { Invoice, Bill, Contact, Document, DashboardData, Account, BillingUsage, BillingPlan, OnboardingData, FirmSettings, FirmClientOrg, FirmDashboard, SlugCheck, Quotation, DeliveryOrder, CreditNote, DebitNote, SalesPayment, SalesRefund, Organization, PurchaseOrder, GoodsReceivedNote, PurchasePayment, PurchaseRefund } from '../types'
 
 // Dashboard
 export function useDashboard() {
@@ -64,31 +64,16 @@ export function useUpdateQuotation() {
 export function useConvertQuotation() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: ({ id, target }: { id: string; target: string }) => api.post(`/quotations/${id}/convert`, { target }).then(r => r.data),
+    mutationFn: ({ id, targets }: { id: string; targets: string[] }) => api.post(`/quotations/${id}/convert`, { targets }).then(r => r.data),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['quotations'] })
       qc.invalidateQueries({ queryKey: ['invoices'] })
       qc.invalidateQueries({ queryKey: ['delivery-orders'] })
-      qc.invalidateQueries({ queryKey: ['sales-orders'] })
     },
   })
 }
 
-// Sales Orders
-export function useSalesOrders(status?: string) {
-  return useQuery<SalesOrder[]>({
-    queryKey: ['sales-orders', status],
-    queryFn: () => api.get('/sales-orders', { params: status ? { status } : {} }).then(r => r.data),
-  })
-}
 
-export function useCreateSalesOrder() {
-  const qc = useQueryClient()
-  return useMutation({
-    mutationFn: (data: Record<string, unknown>) => api.post('/sales-orders', data).then(r => r.data),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['sales-orders'] }),
-  })
-}
 
 // Delivery Orders
 export function useDeliveryOrders(status?: string) {

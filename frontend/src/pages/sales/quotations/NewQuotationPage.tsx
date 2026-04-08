@@ -1,7 +1,7 @@
-import { useState, useRef, useEffect } from "react"
+import { useState, useRef, useEffect, useMemo } from "react"
 import { useNavigate } from "react-router-dom"
 import { Plus, Trash2 } from "lucide-react"
-import { useContacts, useAccounts, useCreateQuotation } from "../../../lib/hooks"
+import { useContacts, useAccounts, useCreateQuotation, useTaxRates } from "../../../lib/hooks"
 import { useQuery } from "@tanstack/react-query"
 import api from "../../../lib/api"
 import { useTheme } from "../../../lib/theme"
@@ -12,6 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from ".
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../../../components/ui/table"
 
 interface LineItem {
+  line_type: "goods" | "services"
   description: string
   account_id: string
   quantity: number
@@ -19,6 +20,7 @@ interface LineItem {
   amount: number
   discount: number
   tax_rate: number
+  tax_code_id: string
 }
 
 const TABS = [
@@ -32,11 +34,16 @@ const TABS = [
 
 type TabKey = (typeof TABS)[number]["key"]
 
+function emptyLine(): LineItem {
+  return { line_type: "goods", description: "", account_id: "", quantity: 1, unit_price: 0, amount: 0, discount: 0, tax_rate: 0, tax_code_id: "" }
+}
+
 export default function NewQuotationPage() {
   const navigate = useNavigate()
   const { t } = useTheme()
   const { data: contacts = [] } = useContacts()
   const { data: accounts = [] } = useAccounts()
+  const { data: taxRates = [] } = useTaxRates()
   const createQuotation = useCreateQuotation()
 
   const [activeTab, setActiveTab] = useState<TabKey>("items")
@@ -59,6 +66,19 @@ export default function NewQuotationPage() {
   const productInputRef = useRef<HTMLInputElement>(null)
   const attachFileRef = useRef<HTMLInputElement>(null)
   const [attachments, setAttachments] = useState<File[]>([])
+
+  // Billing/shipping address from contact
+  const [billingAddress, setBillingAddress] = useState("")
+  const [shippingAddress, setShippingAddress] = useState("")
+
+  // Auto-fill address when contact changes
+  const selectedContact = useMemo(() => contacts.find(c => c.id === contactId), [contacts, contactId])
+  useEffect(() => {
+    if (selectedContact?.address) {
+      setBillingAddress(selectedContact.address)
+      setShippingAddress(selectedContact.address)
+    }
+  }, [selectedContact])
 
   // Close product dropdown on outside click
   useEffect(() => {
@@ -86,16 +106,30 @@ export default function NewQuotationPage() {
   // Additional Info tab
   const [footerNote, setFooterNote] = useState("")
   const [terms, setTerms] = useState("")
-  const [lineItems, setLineItems] = useState<LineItem[]>([
-    { description: "", account_id: "", quantity: 1, unit_price: 0, amount: 0, discount: 0, tax_rate: 0 },
-  ])
+  const [lineItems, setLineItems] = useState<LineItem[]>([emptyLine()])
+
+  // Build tax rate lookup
+  const activeTaxRates = useMemo(() => taxRates.filter(tr => tr.is_active), [taxRates])
 
   const updateLineItem = (index: number, field: keyof LineItem, value: string | number) => {
     setLineItems(prev => {
       const updated = [...prev]
       updated[index] = { ...updated[index], [field]: value }
+
+      // If tax_code_id changed, update tax_rate from the code
+      if (field === "tax_code_id") {
+        const tc = activeTaxRates.find(tr => tr.id === value)
+        if (tc) updated[index].tax_rate = tc.rate
+        else updated[index].tax_rate = 0
+      }
+
+      // If line_type changed to services, set quantity = 1
+      if (field === "line_type" && value === "services") {
+        updated[index].quantity = 1
+      }
+
       const item = updated[index]
-      const lineTotal = item.quantity * item.unit_price
+      const lineTotal = item.line_type === "services" ? item.unit_price : item.quantity * item.unit_price
       const afterDiscount = lineTotal - (lineTotal * item.discount) / 100
       const tax = taxInclusive ? 0 : (afterDiscount * item.tax_rate) / 100
       updated[index].amount = afterDiscount + tax
@@ -103,20 +137,17 @@ export default function NewQuotationPage() {
     })
   }
 
-  const addLineItem = () => {
-    setLineItems(prev => [
-      ...prev,
-      { description: "", account_id: "", quantity: 1, unit_price: 0, amount: 0, discount: 0, tax_rate: 0 },
-    ])
-  }
+  const addLineItem = () => setLineItems(prev => [...prev, emptyLine()])
 
   const removeLineItem = (index: number) => {
     setLineItems(prev => (prev.length <= 1 ? prev : prev.filter((_, i) => i !== index)))
   }
 
-  const subTotal = lineItems.reduce((sum, item) => sum + item.quantity * item.unit_price, 0)
+  const subTotal = lineItems.reduce((sum, item) => {
+    return sum + (item.line_type === "services" ? item.unit_price : item.quantity * item.unit_price)
+  }, 0)
   const totalDiscount = lineItems.reduce((sum, item) => {
-    const lineTotal = item.quantity * item.unit_price
+    const lineTotal = item.line_type === "services" ? item.unit_price : item.quantity * item.unit_price
     return sum + (lineTotal * item.discount) / 100
   }, 0) + discountGiven
   const rawTotal = subTotal - totalDiscount
@@ -134,7 +165,16 @@ export default function NewQuotationPage() {
         currency,
         notes: [title, summary, notes].filter(Boolean).join("\n\n") || undefined,
         terms: [paymentInstructions, footerNote, terms].filter(Boolean).join("\n\n") || undefined,
-        line_items: lineItems,
+        line_items: lineItems.map(li => ({
+          line_type: li.line_type,
+          description: li.description,
+          quantity: li.line_type === "services" ? 1 : li.quantity,
+          unit_price: li.unit_price,
+          tax_rate: li.tax_rate,
+          tax_code_id: li.tax_code_id || undefined,
+          discount: li.discount,
+          account_id: li.account_id || undefined,
+        })),
       })
       navigate("/sales/quotations")
     } catch {
@@ -227,22 +267,13 @@ export default function NewQuotationPage() {
             <div className="w-36">
               <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Currency</label>
               <Select value={currency} onValueChange={setCurrency}>
-                <SelectTrigger className="h-10 rounded-xl">
-                  <SelectValue />
-                </SelectTrigger>
+                <SelectTrigger className="h-10 rounded-xl"><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="MYR">MYR - Malaysian Ringgit</SelectItem>
-                  <SelectItem value="SGD">SGD - Singapore Dollar</SelectItem>
-                  <SelectItem value="USD">USD - US Dollar</SelectItem>
-                  <SelectItem value="HKD">HKD - Hong Kong Dollar</SelectItem>
-                  <SelectItem value="AUD">AUD - Australian Dollar</SelectItem>
-                  <SelectItem value="EUR">EUR - Euro</SelectItem>
-                  <SelectItem value="GBP">GBP - British Pound</SelectItem>
-                  <SelectItem value="JPY">JPY - Japanese Yen</SelectItem>
-                  <SelectItem value="CNY">CNY - Chinese Yuan</SelectItem>
-                  <SelectItem value="THB">THB - Thai Baht</SelectItem>
-                  <SelectItem value="IDR">IDR - Indonesian Rupiah</SelectItem>
-                  <SelectItem value="PHP">PHP - Philippine Peso</SelectItem>
+                  <SelectItem value="MYR">MYR</SelectItem>
+                  <SelectItem value="SGD">SGD</SelectItem>
+                  <SelectItem value="USD">USD</SelectItem>
+                  <SelectItem value="EUR">EUR</SelectItem>
+                  <SelectItem value="GBP">GBP</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -255,11 +286,9 @@ export default function NewQuotationPage() {
                   taxInclusive ? "bg-blue-500" : "bg-gray-300"
                 }`}
               >
-                <span
-                  className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform ${
-                    taxInclusive ? "translate-x-4" : "translate-x-0.5"
-                  }`}
-                />
+                <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform ${
+                  taxInclusive ? "translate-x-4" : "translate-x-0.5"
+                }`} />
               </button>
               <span className="text-xs font-medium text-muted-foreground">
                 {taxInclusive ? "Tax Inclusive" : "Tax Exclusive"}
@@ -273,13 +302,14 @@ export default function NewQuotationPage() {
               <TableHeader>
                 <TableRow className="border-border hover:bg-transparent">
                   <TableHead className="w-10 text-center text-muted-foreground">#</TableHead>
-                  <TableHead className="min-w-[200px] text-muted-foreground">Rate (Description)</TableHead>
+                  <TableHead className="w-[100px] text-muted-foreground">Type</TableHead>
+                  <TableHead className="min-w-[200px] text-muted-foreground">Description</TableHead>
                   <TableHead className="w-[160px] text-muted-foreground">Account</TableHead>
                   <TableHead className="w-[80px] text-muted-foreground">Qty</TableHead>
-                  <TableHead className="w-[110px] text-muted-foreground">Std Price</TableHead>
+                  <TableHead className="w-[110px] text-muted-foreground">Unit Price</TableHead>
                   <TableHead className="w-[110px] text-right text-muted-foreground">{t("common.amount")}</TableHead>
                   <TableHead className="w-[80px] text-muted-foreground">Disc %</TableHead>
-                  <TableHead className="w-[80px] text-muted-foreground">Tax %</TableHead>
+                  <TableHead className="w-[140px] text-muted-foreground">Tax Code</TableHead>
                   <TableHead className="w-10" />
                 </TableRow>
               </TableHeader>
@@ -287,6 +317,17 @@ export default function NewQuotationPage() {
                 {lineItems.map((item, idx) => (
                   <TableRow key={idx} className="border-border">
                     <TableCell className="text-center text-xs text-muted-foreground">{idx + 1}</TableCell>
+                    <TableCell>
+                      <Select value={item.line_type} onValueChange={v => updateLineItem(idx, "line_type", v)}>
+                        <SelectTrigger className="h-9 rounded-lg border-0 bg-transparent shadow-none text-xs">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="goods">Goods</SelectItem>
+                          <SelectItem value="services">Services</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </TableCell>
                     <TableCell>
                       <Input
                         value={item.description}
@@ -296,10 +337,7 @@ export default function NewQuotationPage() {
                       />
                     </TableCell>
                     <TableCell>
-                      <Select
-                        value={item.account_id}
-                        onValueChange={v => updateLineItem(idx, "account_id", v)}
-                      >
+                      <Select value={item.account_id} onValueChange={v => updateLineItem(idx, "account_id", v)}>
                         <SelectTrigger className="h-9 rounded-lg border-0 bg-transparent shadow-none">
                           <SelectValue placeholder="Account" />
                         </SelectTrigger>
@@ -312,15 +350,19 @@ export default function NewQuotationPage() {
                         </SelectContent>
                       </Select>
                     </TableCell>
-                    <TableCell>
-                      <Input
-                        type="number"
-                        min={0}
-                        value={item.quantity}
-                        onChange={e => updateLineItem(idx, "quantity", Number(e.target.value))}
-                        className="h-9 rounded-lg border-0 bg-transparent px-1 text-sm shadow-none focus-visible:ring-1"
-                      />
-                    </TableCell>
+                    {item.line_type === "services" ? (
+                      <TableCell className="text-center text-xs text-muted-foreground">—</TableCell>
+                    ) : (
+                      <TableCell>
+                        <Input
+                          type="number"
+                          min={0}
+                          value={item.quantity}
+                          onChange={e => updateLineItem(idx, "quantity", Number(e.target.value))}
+                          className="h-9 rounded-lg border-0 bg-transparent px-1 text-sm shadow-none focus-visible:ring-1"
+                        />
+                      </TableCell>
+                    )}
                     <TableCell>
                       <Input
                         type="number"
@@ -345,20 +387,22 @@ export default function NewQuotationPage() {
                       />
                     </TableCell>
                     <TableCell>
-                      <Input
-                        type="number"
-                        min={0}
-                        value={item.tax_rate}
-                        onChange={e => updateLineItem(idx, "tax_rate", Number(e.target.value))}
-                        className="h-9 rounded-lg border-0 bg-transparent px-1 text-sm shadow-none focus-visible:ring-1"
-                      />
+                      <Select value={item.tax_code_id} onValueChange={v => updateLineItem(idx, "tax_code_id", v)}>
+                        <SelectTrigger className="h-9 rounded-lg border-0 bg-transparent shadow-none text-xs">
+                          <SelectValue placeholder="Tax" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="__none__">No Tax</SelectItem>
+                          {activeTaxRates.map(tr => (
+                            <SelectItem key={tr.id} value={tr.id}>
+                              {tr.code} ({tr.rate}%)
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                     </TableCell>
                     <TableCell>
-                      <button
-                        type="button"
-                        onClick={() => removeLineItem(idx)}
-                        className="text-muted-foreground hover:text-rose-500"
-                      >
+                      <button type="button" onClick={() => removeLineItem(idx)} className="text-muted-foreground hover:text-rose-500">
                         <Trash2 className="h-4 w-4" />
                       </button>
                     </TableCell>
@@ -400,6 +444,7 @@ export default function NewQuotationPage() {
                         onMouseDown={e => {
                           e.preventDefault()
                           setLineItems(prev => [...prev, {
+                            line_type: "goods",
                             description: p.name,
                             account_id: p.account_id ?? "",
                             quantity: 1,
@@ -407,6 +452,7 @@ export default function NewQuotationPage() {
                             amount: p.unit_price,
                             discount: 0,
                             tax_rate: 0,
+                            tax_code_id: "",
                           }])
                           setProductSearch("")
                           setProductDropdownOpen(false)
@@ -434,10 +480,7 @@ export default function NewQuotationPage() {
               <div className="flex items-center justify-between">
                 <span className="text-muted-foreground">Discount Given</span>
                 <Input
-                  type="number"
-                  min={0}
-                  step={0.01}
-                  value={discountGiven}
+                  type="number" min={0} step={0.01} value={discountGiven}
                   onChange={e => setDiscountGiven(Number(e.target.value))}
                   className="h-8 w-28 rounded-lg text-right text-sm"
                 />
@@ -446,17 +489,10 @@ export default function NewQuotationPage() {
                 <div className="flex items-center gap-2">
                   <span className="text-muted-foreground">Rounding Adjustment</span>
                   <button
-                    type="button"
-                    onClick={() => setRoundingAdjustment(!roundingAdjustment)}
-                    className={`relative inline-flex h-4 w-7 items-center rounded-full transition-colors ${
-                      roundingAdjustment ? "bg-blue-500" : "bg-gray-300"
-                    }`}
+                    type="button" onClick={() => setRoundingAdjustment(!roundingAdjustment)}
+                    className={`relative inline-flex h-4 w-7 items-center rounded-full transition-colors ${roundingAdjustment ? "bg-blue-500" : "bg-gray-300"}`}
                   >
-                    <span
-                      className={`inline-block h-3 w-3 transform rounded-full bg-white transition-transform ${
-                        roundingAdjustment ? "translate-x-3.5" : "translate-x-0.5"
-                      }`}
-                    />
+                    <span className={`inline-block h-3 w-3 transform rounded-full bg-white transition-transform ${roundingAdjustment ? "translate-x-3.5" : "translate-x-0.5"}`} />
                   </button>
                 </div>
                 <span className="font-medium text-foreground">{roundingDiff >= 0 ? "+" : ""}{roundingDiff.toFixed(2)}</span>
@@ -469,43 +505,37 @@ export default function NewQuotationPage() {
               </div>
             </div>
           </div>
-
         </Card>
       )}
 
       {/* Billing & Shipping Tab */}
       {activeTab === "billing" && (
         <Card className="rounded-2xl border-border bg-card p-6 shadow-[0_0_0_1px_rgba(15,23,42,0.06),0_18px_55px_rgba(2,6,23,0.08)]">
+          {selectedContact && (
+            <div className="mb-4 rounded-lg bg-muted/50 px-3 py-2 text-xs text-muted-foreground">
+              Auto-filled from contact: <span className="font-medium text-foreground">{selectedContact.name}</span>
+            </div>
+          )}
           <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
             <div>
               <h3 className="mb-4 text-sm font-semibold text-foreground">Billing Address</h3>
-              <div className="space-y-3">
-                <Input placeholder="Address Line 1" className="h-10 rounded-xl" />
-                <Input placeholder="Address Line 2" className="h-10 rounded-xl" />
-                <div className="grid grid-cols-2 gap-3">
-                  <Input placeholder="City" className="h-10 rounded-xl" />
-                  <Input placeholder="State" className="h-10 rounded-xl" />
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <Input placeholder="Postcode" className="h-10 rounded-xl" />
-                  <Input placeholder="Country" className="h-10 rounded-xl" />
-                </div>
-              </div>
+              <textarea
+                value={billingAddress}
+                onChange={e => setBillingAddress(e.target.value)}
+                placeholder="Billing address"
+                rows={4}
+                className="w-full rounded-xl border border-border bg-card px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+              />
             </div>
             <div>
               <h3 className="mb-4 text-sm font-semibold text-foreground">Shipping Address</h3>
-              <div className="space-y-3">
-                <Input placeholder="Address Line 1" className="h-10 rounded-xl" />
-                <Input placeholder="Address Line 2" className="h-10 rounded-xl" />
-                <div className="grid grid-cols-2 gap-3">
-                  <Input placeholder="City" className="h-10 rounded-xl" />
-                  <Input placeholder="State" className="h-10 rounded-xl" />
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <Input placeholder="Postcode" className="h-10 rounded-xl" />
-                  <Input placeholder="Country" className="h-10 rounded-xl" />
-                </div>
-              </div>
+              <textarea
+                value={shippingAddress}
+                onChange={e => setShippingAddress(e.target.value)}
+                placeholder="Shipping address"
+                rows={4}
+                className="w-full rounded-xl border border-border bg-card px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+              />
             </div>
           </div>
         </Card>
@@ -521,23 +551,13 @@ export default function NewQuotationPage() {
             </div>
             <div>
               <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Summary</label>
-              <textarea
-                value={summary}
-                onChange={e => setSummary(e.target.value)}
-                placeholder="Brief summary..."
-                rows={3}
-                className="w-full rounded-xl border border-border bg-card px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-              />
+              <textarea value={summary} onChange={e => setSummary(e.target.value)} placeholder="Brief summary..." rows={3}
+                className="w-full rounded-xl border border-border bg-card px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring" />
             </div>
             <div>
               <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Notes</label>
-              <textarea
-                value={notes}
-                onChange={e => setNotes(e.target.value)}
-                placeholder="Internal notes..."
-                rows={3}
-                className="w-full rounded-xl border border-border bg-card px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-              />
+              <textarea value={notes} onChange={e => setNotes(e.target.value)} placeholder="Internal notes..." rows={3}
+                className="w-full rounded-xl border border-border bg-card px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring" />
             </div>
           </div>
         </Card>
@@ -550,9 +570,7 @@ export default function NewQuotationPage() {
             <div>
               <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Payment Terms</label>
               <Select value={paymentTerms} onValueChange={setPaymentTerms}>
-                <SelectTrigger className="h-10 rounded-xl">
-                  <SelectValue />
-                </SelectTrigger>
+                <SelectTrigger className="h-10 rounded-xl"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="due_on_receipt">Due on Receipt</SelectItem>
                   <SelectItem value="net7">Net 7</SelectItem>
@@ -560,19 +578,14 @@ export default function NewQuotationPage() {
                   <SelectItem value="net30">Net 30</SelectItem>
                   <SelectItem value="net60">Net 60</SelectItem>
                   <SelectItem value="net90">Net 90</SelectItem>
-                  <SelectItem value="custom">Custom</SelectItem>
                 </SelectContent>
               </Select>
             </div>
             <div>
               <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Payment Instructions</label>
-              <textarea
-                value={paymentInstructions}
-                onChange={e => setPaymentInstructions(e.target.value)}
-                placeholder="Bank details, payment methods..."
-                rows={4}
-                className="w-full rounded-xl border border-border bg-card px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-              />
+              <textarea value={paymentInstructions} onChange={e => setPaymentInstructions(e.target.value)}
+                placeholder="Bank details, payment methods..." rows={4}
+                className="w-full rounded-xl border border-border bg-card px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring" />
             </div>
           </div>
         </Card>
@@ -584,23 +597,15 @@ export default function NewQuotationPage() {
           <div className="max-w-lg space-y-4">
             <div>
               <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Footer Note</label>
-              <textarea
-                value={footerNote}
-                onChange={e => setFooterNote(e.target.value)}
-                placeholder="Appears at the bottom of the quotation..."
-                rows={3}
-                className="w-full rounded-xl border border-border bg-card px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-              />
+              <textarea value={footerNote} onChange={e => setFooterNote(e.target.value)}
+                placeholder="Appears at the bottom of the quotation..." rows={3}
+                className="w-full rounded-xl border border-border bg-card px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring" />
             </div>
             <div>
               <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Terms & Conditions</label>
-              <textarea
-                value={terms}
-                onChange={e => setTerms(e.target.value)}
-                placeholder="Standard terms and conditions..."
-                rows={4}
-                className="w-full rounded-xl border border-border bg-card px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-              />
+              <textarea value={terms} onChange={e => setTerms(e.target.value)}
+                placeholder="Standard terms and conditions..." rows={4}
+                className="w-full rounded-xl border border-border bg-card px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring" />
             </div>
           </div>
         </Card>
@@ -609,28 +614,15 @@ export default function NewQuotationPage() {
       {/* Attachments Tab */}
       {activeTab === "attachments" && (
         <Card className="rounded-2xl border-border bg-card p-6 shadow-[0_0_0_1px_rgba(15,23,42,0.06),0_18px_55px_rgba(2,6,23,0.08)]">
-          <input
-            ref={attachFileRef}
-            type="file"
-            multiple
-            accept=".pdf,.jpg,.jpeg,.png"
-            className="hidden"
-            onChange={e => {
-              if (e.target.files) setAttachments(prev => [...prev, ...Array.from(e.target.files!)])
-            }}
-          />
+          <input ref={attachFileRef} type="file" multiple accept=".pdf,.jpg,.jpeg,.png" className="hidden"
+            onChange={e => { if (e.target.files) setAttachments(prev => [...prev, ...Array.from(e.target.files!)]) }} />
           <div
             className="flex flex-col items-center justify-center rounded-2xl border-2 border-dashed border-border px-6 py-12 text-center cursor-pointer hover:bg-muted/30 transition-colors"
             onClick={() => attachFileRef.current?.click()}
           >
-            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-muted">
-              <Plus className="h-6 w-6 text-muted-foreground" />
-            </div>
+            <Plus className="h-6 w-6 text-muted-foreground" />
             <div className="mt-4 text-sm font-medium text-foreground">Drop files here or click to upload</div>
             <div className="mt-1 text-xs text-muted-foreground">PDF, JPG, PNG up to 10MB</div>
-            <Button type="button" variant="secondary" className="mt-4 h-9 rounded-xl px-4 text-xs font-semibold" onClick={e => { e.stopPropagation(); attachFileRef.current?.click() }}>
-              Browse Files
-            </Button>
           </div>
           {attachments.length > 0 && (
             <ul className="mt-4 space-y-1.5">
@@ -650,18 +642,11 @@ export default function NewQuotationPage() {
       {/* Persistent footer — visible on all tabs */}
       <div className="flex items-center justify-between border-t border-border pt-4">
         <label className="flex items-center gap-2 text-sm text-muted-foreground">
-          <input
-            type="checkbox"
-            checked={quickShareEmail}
-            onChange={e => setQuickShareEmail(e.target.checked)}
-            className="h-4 w-4 rounded border-border"
-          />
+          <input type="checkbox" checked={quickShareEmail} onChange={e => setQuickShareEmail(e.target.checked)} className="h-4 w-4 rounded border-border" />
           QuickShare via Email
         </label>
         <div className="flex items-center gap-3">
-          <Button type="button" variant="outline" onClick={() => navigate("/sales/quotations")}>
-            Cancel
-          </Button>
+          <Button type="button" variant="outline" onClick={() => navigate("/sales/quotations")}>Cancel</Button>
           <Button
             type="button"
             onClick={handleSave}

@@ -1,7 +1,7 @@
 import { useState } from "react"
 import { useNavigate } from "react-router-dom"
 import { Plus, Trash2 } from "lucide-react"
-import { useContacts, useAccounts, useCreateInvoice } from "../../../lib/hooks"
+import { useContacts, useAccounts, useCreateInvoice, useTaxRates } from "../../../lib/hooks"
 import { useTheme } from "../../../lib/theme"
 import { Card } from "../../../components/ui/card"
 import { Button } from "../../../components/ui/button"
@@ -17,9 +17,9 @@ interface LineItem {
   amount: number
   discount: number
   tax_rate: number
+  line_type: "goods" | "services"
+  tax_code_id: string
 }
-
-type SaleType = "service" | "item"
 
 const TABS = [
   { key: "billing", label: "Billing & Shipping" },
@@ -39,12 +39,10 @@ export default function NewInvoicePage() {
   const { data: contacts = [] } = useContacts()
   const { data: accounts = [] } = useAccounts()
   const createInvoice = useCreateInvoice()
+  const { data: taxRates = [] } = useTaxRates()
 
   // Tab state
   const [activeTab, setActiveTab] = useState<TabKey>("items")
-
-  // Sale type toggle
-  const [saleType, setSaleType] = useState<SaleType>("item")
 
   // Top fields
   const [contactId, setContactId] = useState("")
@@ -57,7 +55,7 @@ export default function NewInvoicePage() {
 
   // Line items
   const [lineItems, setLineItems] = useState<LineItem[]>([
-    { description: "", account_id: "", quantity: 1, unit_price: 0, amount: 0, discount: 0, tax_rate: 0 },
+    { description: "", account_id: "", quantity: 1, unit_price: 0, amount: 0, discount: 0, tax_rate: 0, line_type: "goods", tax_code_id: "" },
   ])
 
   // Totals
@@ -74,6 +72,15 @@ export default function NewInvoicePage() {
     setLineItems(prev => {
       const updated = [...prev]
       updated[index] = { ...updated[index], [field]: value }
+      // When tax code changes, auto-set rate
+      if (field === "tax_code_id") {
+        const tc = taxRates.find((t: any) => t.id === value)
+        if (tc) updated[index].tax_rate = tc.rate
+      }
+      // Services always qty=1
+      if (field === "line_type" && value === "services") {
+        updated[index].quantity = 1
+      }
       const item = updated[index]
       const lineTotal = item.quantity * item.unit_price
       const afterDiscount = lineTotal - (lineTotal * item.discount) / 100
@@ -86,7 +93,7 @@ export default function NewInvoicePage() {
   const addLineItem = () => {
     setLineItems(prev => [
       ...prev,
-      { description: "", account_id: "", quantity: 1, unit_price: 0, amount: 0, discount: 0, tax_rate: 0 },
+      { description: "", account_id: "", quantity: 1, unit_price: 0, amount: 0, discount: 0, tax_rate: 0, line_type: "goods", tax_code_id: "" },
     ])
   }
 
@@ -116,7 +123,6 @@ export default function NewInvoicePage() {
         invoice_date: invoiceDate,
         customer_po: customerPo,
         digital_ref: digitalRef,
-        sale_type: saleType,
         discount_given: discountGiven,
         rounding_adjustment: roundingAdjustment,
         rounding_amount: roundingAmount,
@@ -138,30 +144,6 @@ export default function NewInvoicePage() {
       <div className="flex flex-col gap-1">
         <div className="text-xs text-muted-foreground">{t("invoices.category") || "Sales"}</div>
         <div className="text-2xl font-semibold tracking-tight text-foreground">{t("invoices.new") || "New Invoice"}</div>
-      </div>
-
-      {/* Sale Type Toggle */}
-      <div className="flex items-center gap-4">
-        <label className="flex items-center gap-2 cursor-pointer">
-          <input
-            type="radio"
-            name="saleType"
-            checked={saleType === "service"}
-            onChange={() => setSaleType("service")}
-            className="h-4 w-4 accent-blue-500"
-          />
-          <span className="text-sm font-medium text-foreground">Service Sale</span>
-        </label>
-        <label className="flex items-center gap-2 cursor-pointer">
-          <input
-            type="radio"
-            name="saleType"
-            checked={saleType === "item"}
-            onChange={() => setSaleType("item")}
-            className="h-4 w-4 accent-blue-500"
-          />
-          <span className="text-sm font-medium text-foreground">Item Sale</span>
-        </label>
       </div>
 
       {/* Tabs */}
@@ -294,17 +276,14 @@ export default function NewInvoicePage() {
               <TableHeader>
                 <TableRow className="border-border hover:bg-transparent">
                   <TableHead className="w-10 text-center text-muted-foreground">#</TableHead>
-                  <TableHead className="min-w-[200px] text-muted-foreground">Rate (Description)</TableHead>
+                  <TableHead className="w-[100px] text-muted-foreground">Type</TableHead>
+                  <TableHead className="min-w-[200px] text-muted-foreground">Description</TableHead>
                   <TableHead className="w-[160px] text-muted-foreground">Account</TableHead>
-                  {saleType === "item" && (
-                    <>
-                      <TableHead className="w-[80px] text-muted-foreground">Quantity</TableHead>
-                      <TableHead className="w-[110px] text-muted-foreground">Std Price</TableHead>
-                    </>
-                  )}
+                  <TableHead className="w-[80px] text-muted-foreground">Quantity</TableHead>
+                  <TableHead className="w-[110px] text-muted-foreground">Unit Price</TableHead>
                   <TableHead className="w-[110px] text-right text-muted-foreground">{t("common.amount") || "Amount"}</TableHead>
                   <TableHead className="w-[80px] text-muted-foreground">Discount</TableHead>
-                  <TableHead className="w-[80px] text-muted-foreground">Tax</TableHead>
+                  <TableHead className="w-[120px] text-muted-foreground">Tax Code</TableHead>
                   <TableHead className="w-10" />
                 </TableRow>
               </TableHeader>
@@ -312,6 +291,17 @@ export default function NewInvoicePage() {
                 {lineItems.map((item, idx) => (
                   <TableRow key={idx} className="border-border">
                     <TableCell className="text-center text-xs text-muted-foreground">{idx + 1}</TableCell>
+                    <TableCell>
+                      <Select value={item.line_type} onValueChange={v => updateLineItem(idx, "line_type", v)}>
+                        <SelectTrigger className="h-9 rounded-lg border-0 bg-transparent shadow-none">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="goods">Goods</SelectItem>
+                          <SelectItem value="services">Services</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </TableCell>
                     <TableCell>
                       <Input
                         value={item.description}
@@ -337,33 +327,31 @@ export default function NewInvoicePage() {
                         </SelectContent>
                       </Select>
                     </TableCell>
-                    {saleType === "item" && (
-                      <>
-                        <TableCell>
-                          <Input
-                            type="number"
-                            min={0}
-                            value={item.quantity}
-                            onChange={e => updateLineItem(idx, "quantity", Number(e.target.value))}
-                            className="h-9 rounded-lg border-0 bg-transparent px-1 text-sm shadow-none focus-visible:ring-1"
-                          />
-                        </TableCell>
-                        <TableCell>
-                          <Input
-                            type="number"
-                            min={0}
-                            step={0.01}
-                            value={item.unit_price}
-                            onChange={e => updateLineItem(idx, "unit_price", Number(e.target.value))}
-                            className="h-9 rounded-lg border-0 bg-transparent px-1 text-sm shadow-none focus-visible:ring-1"
-                          />
-                        </TableCell>
-                      </>
-                    )}
+                    <TableCell>
+                      {item.line_type === "services" ? (
+                        <span className="px-1 text-sm text-muted-foreground">&mdash;</span>
+                      ) : (
+                        <Input
+                          type="number"
+                          min={0}
+                          value={item.quantity}
+                          onChange={e => updateLineItem(idx, "quantity", Number(e.target.value))}
+                          className="h-9 rounded-lg border-0 bg-transparent px-1 text-sm shadow-none focus-visible:ring-1"
+                        />
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      <Input
+                        type="number"
+                        min={0}
+                        step={0.01}
+                        value={item.unit_price}
+                        onChange={e => updateLineItem(idx, "unit_price", Number(e.target.value))}
+                        className="h-9 rounded-lg border-0 bg-transparent px-1 text-sm shadow-none focus-visible:ring-1"
+                      />
+                    </TableCell>
                     <TableCell className="text-right text-sm font-medium text-foreground">
-                      {saleType === "service"
-                        ? (item.unit_price - (item.unit_price * item.discount) / 100).toFixed(2)
-                        : item.amount.toFixed(2)}
+                      {item.amount.toFixed(2)}
                     </TableCell>
                     <TableCell>
                       <Input
@@ -377,14 +365,18 @@ export default function NewInvoicePage() {
                       />
                     </TableCell>
                     <TableCell>
-                      <Input
-                        type="number"
-                        min={0}
-                        value={item.tax_rate}
-                        onChange={e => updateLineItem(idx, "tax_rate", Number(e.target.value))}
-                        className="h-9 rounded-lg border-0 bg-transparent px-1 text-sm shadow-none focus-visible:ring-1"
-                        placeholder="%"
-                      />
+                      <Select value={item.tax_code_id} onValueChange={v => updateLineItem(idx, "tax_code_id", v)}>
+                        <SelectTrigger className="h-9 rounded-lg border-0 bg-transparent shadow-none">
+                          <SelectValue placeholder="Tax Code" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {taxRates.map((tc: any) => (
+                            <SelectItem key={tc.id} value={tc.id}>
+                              {tc.code} ({tc.rate}%)
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                     </TableCell>
                     <TableCell>
                       <button
