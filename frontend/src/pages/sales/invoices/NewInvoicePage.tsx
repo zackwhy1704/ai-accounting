@@ -107,8 +107,13 @@ export default function NewInvoicePage() {
     return sum + (lineTotal * item.discount) / 100
   }, 0)
   const afterDiscount = subTotal - totalLineDiscount - discountGiven
+  const totalTax = taxInclusive ? 0 : lineItems.reduce((sum, item) => {
+    const lineTotal = item.quantity * item.unit_price
+    const afterLineDiscount = lineTotal - (lineTotal * item.discount) / 100
+    return sum + (afterLineDiscount * item.tax_rate) / 100
+  }, 0)
   const roundingDiff = roundingAdjustment ? roundingAmount : 0
-  const total = afterDiscount + roundingDiff
+  const total = afterDiscount + totalTax + roundingDiff
   const appliedToDate = 0
   const balanceDue = total - appliedToDate
 
@@ -130,6 +135,7 @@ export default function NewInvoicePage() {
         quick_share_email: quickShareEmail,
         line_items: lineItems,
         sub_total: subTotal,
+        tax_total: totalTax,
         total,
       })
       navigate("/sales/invoices")
@@ -432,6 +438,10 @@ export default function NewInvoicePage() {
                   className="h-8 w-28 rounded-lg text-right text-sm"
                   placeholder="RM"
                 />
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-muted-foreground">Tax</span>
+                <span className="font-medium text-foreground">RM {totalTax.toFixed(2)}</span>
               </div>
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">

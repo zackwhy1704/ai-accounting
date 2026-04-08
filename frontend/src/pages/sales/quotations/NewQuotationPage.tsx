@@ -150,7 +150,12 @@ export default function NewQuotationPage() {
     const lineTotal = item.line_type === "services" ? item.unit_price : item.quantity * item.unit_price
     return sum + (lineTotal * item.discount) / 100
   }, 0) + discountGiven
-  const rawTotal = subTotal - totalDiscount
+  const totalTax = taxInclusive ? 0 : lineItems.reduce((sum, item) => {
+    const lineTotal = item.line_type === "services" ? item.unit_price : item.quantity * item.unit_price
+    const afterLineDiscount = lineTotal - (lineTotal * item.discount) / 100
+    return sum + (afterLineDiscount * item.tax_rate) / 100
+  }, 0)
+  const rawTotal = subTotal - totalDiscount + totalTax
   const total = roundingAdjustment ? Math.round(rawTotal * 20) / 20 : rawTotal
   const roundingDiff = roundingAdjustment ? total - rawTotal : 0
 
@@ -484,6 +489,10 @@ export default function NewQuotationPage() {
                   onChange={e => setDiscountGiven(Number(e.target.value))}
                   className="h-8 w-28 rounded-lg text-right text-sm"
                 />
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-muted-foreground">Tax</span>
+                <span className="font-medium text-foreground">{currency} {totalTax.toFixed(2)}</span>
               </div>
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">

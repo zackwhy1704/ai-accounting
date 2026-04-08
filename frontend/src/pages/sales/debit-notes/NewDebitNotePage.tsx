@@ -78,7 +78,8 @@ export default function NewDebitNotePage() {
   }
 
   const subTotal = lines.reduce((sum, l) => sum + l.quantity * l.unitPrice, 0)
-  const total = subTotal - discountGiven + roundingAdjustment
+  const totalTax = lines.reduce((sum, l) => sum + (l.quantity * l.unitPrice * l.taxRate) / 100, 0)
+  const total = subTotal - discountGiven + totalTax + roundingAdjustment
 
   const handleSave = () => {
     createDebitNote.mutate(
@@ -334,6 +335,10 @@ export default function NewDebitNotePage() {
                     onChange={e => setDiscountGiven(Number(e.target.value))}
                     className="h-8 w-28 rounded-lg text-right text-sm"
                   />
+                </div>
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-muted-foreground">Tax</span>
+                  <span className="text-foreground">{totalTax.toFixed(2)}</span>
                 </div>
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-muted-foreground">Rounding Adjustment</span>
