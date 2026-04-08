@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react"
 import { useNavigate } from "react-router-dom"
-import { Plus, Search, SlidersHorizontal, Filter, FileText, Copy, ArrowRightLeft, Pencil, X } from "lucide-react"
+import { Plus, Search, ArrowRightLeft, Pencil, X } from "lucide-react"
 import { RowActionsMenu } from "../../../components/ui/row-actions"
 import { useQuotations, useContacts, useConvertQuotation } from "../../../lib/hooks"
 import { formatCurrency, formatDate, cn } from "../../../lib/utils"
@@ -106,10 +106,6 @@ export default function QuotationsPage() {
                 <TabsTrigger key={st.value} value={st.value} className="rounded-lg px-3 py-1.5 text-xs">{st.label}</TabsTrigger>
               ))}
             </TabsList>
-            <div className="flex items-center gap-2">
-              <Button type="button" variant="secondary" className="h-9 rounded-xl px-3 text-xs font-semibold"><SlidersHorizontal className="mr-2 h-4 w-4" /> {t("common.views")}</Button>
-              <Button type="button" variant="secondary" className="h-9 rounded-xl px-3 text-xs font-semibold"><Filter className="mr-2 h-4 w-4" /> {t("common.filters")}</Button>
-            </div>
           </div>
 
           <div className="mt-4 grid grid-cols-1 gap-3 lg:grid-cols-12">
@@ -140,7 +136,6 @@ export default function QuotationsPage() {
             </div>
           </div>
 
-          <div className="mt-2 text-xs text-blue-600 cursor-pointer hover:underline">{t("quotations.moreFilters")}</div>
 
           <div className="mt-4">
             {isLoading ? (
@@ -178,8 +173,6 @@ export default function QuotationsPage() {
                         <TableCell className="text-right">
                           <RowActionsMenu actions={[
                             { label: "Edit", icon: <Pencil className="h-3.5 w-3.5" />, onClick: () => navigate(`/sales/quotations/${q.id}/edit`) },
-                            { label: t("quotations.duplicate"), icon: <Copy className="h-3.5 w-3.5" />, onClick: () => {} },
-                            { label: t("quotations.entryPdf"), icon: <FileText className="h-3.5 w-3.5" />, onClick: () => {} },
                             { label: "Convert to Invoice / DO", icon: <ArrowRightLeft className="h-3.5 w-3.5" />, onClick: () => { setConvertToInvoice(true); setConvertToDO(false); setConvertDialog({ open: true, quotationId: q.id, quotationNumber: q.quotation_number }) }, dividerBefore: true },
                           ]} />
                         </TableCell>

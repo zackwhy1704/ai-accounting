@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react"
 import { useQueryClient } from "@tanstack/react-query"
 import { useNavigate } from "react-router-dom"
-import { Plus, Search, CalendarDays, SlidersHorizontal, Filter, CreditCard, FileText, Copy, RefreshCw, Printer, Share2, Lock, XCircle, Truck } from "lucide-react"
+import { Plus, Search, CalendarDays, CreditCard, FileText, Copy, RefreshCw, Printer, Share2, Lock, XCircle, Truck } from "lucide-react"
 import { useInvoices, useContacts } from "../../lib/hooks"
 import api from "../../lib/api"
 import { formatCurrency, formatDate, cn } from "../../lib/utils"
@@ -87,10 +87,6 @@ export default function InvoicesPage() {
                 <TabsTrigger key={st.value} value={st.value} className="rounded-lg px-3 py-1.5 text-xs">{st.label}</TabsTrigger>
               ))}
             </TabsList>
-            <div className="flex items-center gap-2">
-              <Button type="button" variant="secondary" className="h-9 rounded-xl px-3 text-xs font-semibold"><SlidersHorizontal className="mr-2 h-4 w-4" /> {t("common.views")}</Button>
-              <Button type="button" variant="secondary" className="h-9 rounded-xl px-3 text-xs font-semibold"><Filter className="mr-2 h-4 w-4" /> {t("common.filters")}</Button>
-            </div>
           </div>
 
           <div className="mt-4 grid grid-cols-1 gap-3 lg:grid-cols-12">
@@ -161,12 +157,9 @@ export default function InvoicesPage() {
                           <RowActionsMenu actions={[
                             { label: t("invoices.addPayment"), icon: <CreditCard className="h-3.5 w-3.5" />, onClick: () => navigate(`/sales/payments/new?invoice_id=${inv.id}`) },
                             { label: t("invoices.creditNote"), icon: <FileText className="h-3.5 w-3.5" />, onClick: () => navigate(`/sales/credit-notes/new?invoice_id=${inv.id}`) },
-                            { label: t("invoices.createRecurring"), icon: <RefreshCw className="h-3.5 w-3.5" />, onClick: () => {}, dividerBefore: true },
-                            { label: t("invoices.duplicate"), icon: <Copy className="h-3.5 w-3.5" />, onClick: () => navigate(`/sales/invoices/new?copy=${inv.id}`) },
+                            { label: t("invoices.duplicate"), icon: <Copy className="h-3.5 w-3.5" />, onClick: () => navigate(`/sales/invoices/new?copy=${inv.id}`), dividerBefore: true },
                             { label: t("invoices.printPdf"), icon: <Printer className="h-3.5 w-3.5" />, onClick: () => window.print() },
-                            { label: t("invoices.quickShare"), icon: <Share2 className="h-3.5 w-3.5" />, onClick: () => {} },
                             { label: t("invoices.convertToDelivery"), icon: <Truck className="h-3.5 w-3.5" />, onClick: () => navigate(`/sales/delivery-orders/new?invoice_id=${inv.id}`), dividerBefore: true },
-                            { label: t("invoices.lock"), icon: <Lock className="h-3.5 w-3.5" />, onClick: () => {} },
                             { label: t("invoices.void"), icon: <XCircle className="h-3.5 w-3.5" />, onClick: () => { if (confirm("Void this invoice?")) api.patch(`/invoices/${inv.id}`, { status: "void" }).then(() => queryClient.invalidateQueries({ queryKey: ["invoices"] })) }, danger: true, dividerBefore: true, disabled: inv.status === "void" },
                           ]} />
                         </TableCell>
