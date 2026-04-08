@@ -48,7 +48,7 @@ def calc_totals(line_items, has_discount=True):
 @router.get("/quotations", response_model=list[QuotationResponse])
 async def list_quotations(status: str | None = None, current_user: dict = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
     org_id = current_user["org_id"]
-    q = select(Quotation).where(Quotation.organization_id == org_id).order_by(Quotation.created_at.desc())
+    q = select(Quotation).options(selectinload(Quotation.line_items)).where(Quotation.organization_id == org_id).order_by(Quotation.created_at.desc())
     if status:
         q = q.where(Quotation.status == status)
     return (await db.execute(q)).scalars().all()
@@ -78,7 +78,11 @@ async def create_quotation(data: QuotationCreate, current_user: dict = Depends(g
             tax_code_id=item.tax_code_id, discount=item.discount,
             amount=amount, account_id=item.account_id, sort_order=i,
         ))
-    return obj
+    await db.commit()
+    result = await db.execute(
+        select(Quotation).options(selectinload(Quotation.line_items)).where(Quotation.id == obj.id)
+    )
+    return result.scalar_one()
 
 
 @router.get("/quotations/{qid}", response_model=QuotationResponse)
@@ -253,7 +257,11 @@ async def create_delivery_order(data: DeliveryOrderCreate, current_user: dict = 
             unit_price=item.unit_price, tax_rate=item.tax_rate,
             amount=item.quantity * item.unit_price, sort_order=i,
         ))
-    return obj
+    await db.commit()
+    result = await db.execute(
+        select(DeliveryOrder).options(selectinload(DeliveryOrder.line_items)).where(DeliveryOrder.id == obj.id)
+    )
+    return result.scalar_one()
 
 
 @router.patch("/delivery-orders/{do_id}", response_model=DeliveryOrderResponse)
