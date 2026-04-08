@@ -31,6 +31,7 @@ export default function EditDeliveryOrderPage() {
   const navigate = useNavigate()
   const { data: deliveryOrder, isLoading } = useDeliveryOrder(id)
   const { data: contacts = [] } = useContacts()
+  const { data: taxRates = [] } = useTaxRates()
   const updateDeliveryOrder = useUpdateDeliveryOrder()
   const populated = useRef(false)
 
@@ -45,7 +46,7 @@ export default function EditDeliveryOrderPage() {
   const [deliverTo, setDeliverTo] = useState({ address1: "", address2: "", city: "", state: "", postcode: "", country: "" })
   const [shipTo, setShipTo] = useState({ address1: "", address2: "", city: "", state: "", postcode: "", country: "" })
   const [lineItems, setLineItems] = useState<LineItem[]>([
-    { description: "", quantity: 1, unit_price: 0, amount: 0 },
+    { description: "", quantity: 1, unit_price: 0, amount: 0, tax_code_id: "", tax_rate: 0 },
   ])
 
   useEffect(() => {
@@ -65,6 +66,8 @@ export default function EditDeliveryOrderPage() {
         quantity: l.quantity ?? 1,
         unit_price: l.unit_price ?? 0,
         amount: l.amount ?? 0,
+        tax_code_id: l.tax_code_id ? String(l.tax_code_id) : "",
+        tax_rate: l.tax_rate ?? 0,
       })))
     }
     populated.current = true
@@ -76,12 +79,16 @@ export default function EditDeliveryOrderPage() {
       updated[index] = { ...updated[index], [field]: value }
       const item = updated[index]
       updated[index].amount = item.quantity * item.unit_price
+      if (field === "tax_code_id") {
+        const tc = taxRates.find((t: any) => t.id === value)
+        if (tc) updated[index] = { ...updated[index], tax_rate: tc.rate }
+      }
       return updated
     })
   }
 
   const addLineItem = () => {
-    setLineItems(prev => [...prev, { description: "", quantity: 1, unit_price: 0, amount: 0 }])
+    setLineItems(prev => [...prev, { description: "", quantity: 1, unit_price: 0, amount: 0, tax_code_id: "", tax_rate: 0 }])
   }
 
   const removeLineItem = (index: number) => {
@@ -89,7 +96,8 @@ export default function EditDeliveryOrderPage() {
   }
 
   const subTotal = lineItems.reduce((sum, item) => sum + item.quantity * item.unit_price, 0)
-  const sstAmount = (subTotal * taxRate) / 100
+  const perLineTax = lineItems.reduce((s, l) => s + l.quantity * l.unit_price * (l.tax_rate / 100), 0)
+  const sstAmount = perLineTax + (subTotal * taxRate) / 100
   const total = subTotal + sstAmount
 
   const handleSave = async () => {
@@ -257,6 +265,8 @@ export default function EditDeliveryOrderPage() {
                   <TableHead className="w-[80px] text-muted-foreground">QTY</TableHead>
                   <TableHead className="min-w-[280px] text-muted-foreground">Description</TableHead>
                   <TableHead className="w-[130px] text-muted-foreground">Unit Price</TableHead>
+                  <TableHead className="w-[160px] text-muted-foreground">Tax Code</TableHead>
+                  <TableHead className="w-[80px] text-muted-foreground">Tax %</TableHead>
                   <TableHead className="w-[130px] text-right text-muted-foreground">Amount</TableHead>
                   <TableHead className="w-10" />
                 </TableRow>
@@ -272,6 +282,28 @@ export default function EditDeliveryOrderPage() {
                     </TableCell>
                     <TableCell>
                       <Input type="number" min={0} step={0.01} value={item.unit_price} onChange={e => updateLineItem(idx, "unit_price", Number(e.target.value))} className="h-9 rounded-lg border-0 bg-transparent px-1 text-sm shadow-none focus-visible:ring-1" />
+                    </TableCell>
+                    <TableCell className="w-[160px]">
+                      <Select value={item.tax_code_id} onValueChange={v => updateLineItem(idx, "tax_code_id", v === "__none__" ? "" : v)}>
+                        <SelectTrigger className="h-9 rounded-lg border-0 bg-transparent shadow-none focus:ring-1 text-xs">
+                          <SelectValue placeholder="Tax Code" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="__none__">No Tax</SelectItem>
+                          {taxRates.map((tc: any) => (
+                            <SelectItem key={tc.id} value={tc.id}>{tc.code} ({tc.rate}%)</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </TableCell>
+                    <TableCell className="w-[80px]">
+                      <Input
+                        type="number" min={0} max={100} step={0.01}
+                        value={item.tax_rate}
+                        onChange={e => updateLineItem(idx, "tax_rate", Number(e.target.value))}
+                        className="h-9 rounded-lg border-0 bg-transparent px-1 text-sm shadow-none focus-visible:ring-1"
+                        placeholder="%"
+                      />
                     </TableCell>
                     <TableCell className="text-right text-sm font-medium text-foreground">{item.amount.toFixed(2)}</TableCell>
                     <TableCell>

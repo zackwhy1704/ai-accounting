@@ -159,6 +159,7 @@ export default function NewRecurringInvoicePage() {
               <TableHead className="w-36">Account</TableHead>
               <TableHead className="w-20">Qty</TableHead>
               <TableHead className="w-28">Unit Price</TableHead>
+              <TableHead className="w-[160px]">Tax Code</TableHead>
               <TableHead className="w-20">Tax %</TableHead>
               <TableHead className="w-28 text-right">Amount</TableHead>
               <TableHead className="w-10" />
@@ -186,8 +187,27 @@ export default function NewRecurringInvoicePage() {
                 <TableCell>
                   <Input type="number" step="0.01" value={li.unit_price} onChange={e => updateLine(i, "unit_price", Number(e.target.value))} />
                 </TableCell>
-                <TableCell>
-                  <Input type="number" step="0.01" value={li.tax_rate} onChange={e => updateLine(i, "tax_rate", Number(e.target.value))} />
+                <TableCell className="w-[160px]">
+                  <Select value={li.tax_code_id} onValueChange={v => updateLine(i, "tax_code_id", v === "__none__" ? "" : v)}>
+                    <SelectTrigger className="h-9 rounded-lg border-0 bg-transparent shadow-none focus:ring-1 text-xs">
+                      <SelectValue placeholder="Tax Code" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__none__">No Tax</SelectItem>
+                      {taxRates.map((tc: any) => (
+                        <SelectItem key={tc.id} value={tc.id}>{tc.code} ({tc.rate}%)</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </TableCell>
+                <TableCell className="w-[80px]">
+                  <Input
+                    type="number" min={0} max={100} step={0.01}
+                    value={li.tax_rate}
+                    onChange={e => updateLine(i, "tax_rate", Number(e.target.value))}
+                    className="h-9 rounded-lg border-0 bg-transparent px-1 text-sm shadow-none focus-visible:ring-1"
+                    placeholder="%"
+                  />
                 </TableCell>
                 <TableCell className="text-right font-medium">{(li.quantity * li.unit_price).toFixed(2)}</TableCell>
                 <TableCell>

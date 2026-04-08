@@ -13,6 +13,7 @@ interface LineItem {
   description: string
   quantity: number
   unit_price: number
+  tax_code_id: string
   tax_rate: number
 }
 
@@ -22,6 +23,7 @@ export default function NewSaleReceiptPage() {
   const navigate = useNavigate()
   const { data: contacts = [] } = useContacts()
   const { data: accounts = [] } = useAccounts()
+  const { data: taxRates = [] } = useTaxRates()
 
   const [contactId, setContactId] = useState("")
   const [receiptDate, setReceiptDate] = useState(new Date().toISOString().split("T")[0])
@@ -31,7 +33,7 @@ export default function NewSaleReceiptPage() {
   const [currency, setCurrency] = useState("MYR")
   const [saving, setSaving] = useState(false)
   const [lineItems, setLineItems] = useState<LineItem[]>([
-    { description: "", quantity: 1, unit_price: 0, tax_rate: 0 },
+    { description: "", quantity: 1, unit_price: 0, tax_code_id: "", tax_rate: 0 },
   ])
 
   const bankAccounts = useMemo(() =>
@@ -39,10 +41,18 @@ export default function NewSaleReceiptPage() {
     [accounts]
   )
 
-  const addLine = () => setLineItems(prev => [...prev, { description: "", quantity: 1, unit_price: 0, tax_rate: 0 }])
+  const addLine = () => setLineItems(prev => [...prev, { description: "", quantity: 1, unit_price: 0, tax_code_id: "", tax_rate: 0 }])
   const removeLine = (i: number) => setLineItems(prev => prev.filter((_, idx) => idx !== i))
   const updateLine = (i: number, field: keyof LineItem, value: string | number) => {
-    setLineItems(prev => prev.map((li, idx) => idx === i ? { ...li, [field]: value } : li))
+    setLineItems(prev => prev.map((li, idx) => {
+      if (idx !== i) return li
+      const updated = { ...li, [field]: value }
+      if (field === "tax_code_id") {
+        const tc = taxRates.find((t: any) => t.id === value)
+        if (tc) updated.tax_rate = tc.rate
+      }
+      return updated
+    }))
   }
 
   const subtotal = lineItems.reduce((s, li) => s + li.quantity * li.unit_price, 0)
@@ -151,6 +161,7 @@ export default function NewSaleReceiptPage() {
               <TableHead>Description</TableHead>
               <TableHead className="w-24">Qty</TableHead>
               <TableHead className="w-32">Unit Price</TableHead>
+              <TableHead className="w-[160px]">Tax Code</TableHead>
               <TableHead className="w-24">Tax %</TableHead>
               <TableHead className="w-32 text-right">Amount</TableHead>
               <TableHead className="w-10" />
@@ -168,8 +179,21 @@ export default function NewSaleReceiptPage() {
                 <TableCell>
                   <Input type="number" step="0.01" value={li.unit_price} onChange={e => updateLine(i, "unit_price", Number(e.target.value))} />
                 </TableCell>
-                <TableCell>
-                  <Input type="number" step="0.01" value={li.tax_rate} onChange={e => updateLine(i, "tax_rate", Number(e.target.value))} />
+                <TableCell className="w-[160px]">
+                  <Select value={li.tax_code_id} onValueChange={v => updateLine(i, "tax_code_id", v === "__none__" ? "" : v)}>
+                    <SelectTrigger className="h-9 rounded-lg border-0 bg-transparent shadow-none focus:ring-1 text-xs">
+                      <SelectValue placeholder="Tax Code" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__none__">No Tax</SelectItem>
+                      {taxRates.map((tc: any) => (
+                        <SelectItem key={tc.id} value={tc.id}>{tc.code} ({tc.rate}%)</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </TableCell>
+                <TableCell className="w-[80px]">
+                  <Input type="number" min={0} max={100} step={0.01} value={li.tax_rate} onChange={e => updateLine(i, "tax_rate", Number(e.target.value))} className="h-9 rounded-lg border-0 bg-transparent px-1 text-sm shadow-none focus-visible:ring-1" placeholder="%" />
                 </TableCell>
                 <TableCell className="text-right font-medium">{(li.quantity * li.unit_price).toFixed(2)}</TableCell>
                 <TableCell>

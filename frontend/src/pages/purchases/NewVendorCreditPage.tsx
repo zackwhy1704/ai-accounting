@@ -157,6 +157,7 @@ export default function NewVendorCreditPage() {
                 <TableHead className="text-muted-foreground">Description</TableHead>
                 <TableHead className="w-[80px] text-muted-foreground">Qty</TableHead>
                 <TableHead className="w-[110px] text-muted-foreground">Unit Price</TableHead>
+                <TableHead className="w-[160px] text-muted-foreground">Tax Code</TableHead>
                 <TableHead className="w-[80px] text-muted-foreground">Tax %</TableHead>
                 <TableHead className="w-[110px] text-right text-muted-foreground">Amount</TableHead>
                 <TableHead className="w-10" />
@@ -174,8 +175,21 @@ export default function NewVendorCreditPage() {
                   <TableCell>
                     <Input type="number" min={0} step={0.01} value={item.unit_price} onChange={e => updateLine(idx, "unit_price", Number(e.target.value))} className="h-9 rounded-lg border-0 bg-transparent px-1 shadow-none focus-visible:ring-1" />
                   </TableCell>
-                  <TableCell>
-                    <Input type="number" min={0} max={100} value={item.tax_rate} onChange={e => updateLine(idx, "tax_rate", Number(e.target.value))} className="h-9 rounded-lg border-0 bg-transparent px-1 shadow-none focus-visible:ring-1" placeholder="%" />
+                  <TableCell className="w-[160px]">
+                    <Select value={item.tax_code_id} onValueChange={v => updateLine(idx, "tax_code_id", v === "__none__" ? "" : v)}>
+                      <SelectTrigger className="h-9 rounded-lg border-0 bg-transparent shadow-none focus:ring-1 text-xs">
+                        <SelectValue placeholder="Tax Code" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="__none__">No Tax</SelectItem>
+                        {taxRates.map((tc: any) => (
+                          <SelectItem key={tc.id} value={tc.id}>{tc.code} ({tc.rate}%)</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </TableCell>
+                  <TableCell className="w-[80px]">
+                    <Input type="number" min={0} max={100} step={0.01} value={item.tax_rate} onChange={e => updateLine(idx, "tax_rate", Number(e.target.value))} className="h-9 rounded-lg border-0 bg-transparent px-1 text-sm shadow-none focus-visible:ring-1" placeholder="%" />
                   </TableCell>
                   <TableCell className="text-right text-sm font-medium text-foreground">{item.amount.toFixed(2)}</TableCell>
                   <TableCell>
