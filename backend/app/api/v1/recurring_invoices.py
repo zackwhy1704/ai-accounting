@@ -28,6 +28,21 @@ class RecurringInvoiceCreate(BaseModel):
     max_runs: int | None = None
 
 
+class RecurringInvoiceUpdate(BaseModel):
+    contact_id: UUID | None = None
+    frequency: str | None = None
+    frequency_interval: int | None = None
+    start_date: datetime | None = None
+    end_date: datetime | None = None
+    due_days: int | None = None
+    currency: str | None = None
+    notes: str | None = None
+    line_items: list[dict[str, Any]] | None = None
+    tax_inclusive: bool | None = None
+    auto_send: bool | None = None
+    max_runs: int | None = None
+
+
 class RecurringInvoiceResponse(BaseModel):
     id: UUID
     organization_id: UUID
@@ -123,6 +138,43 @@ async def get_recurring(
     ri = result.scalar_one_or_none()
     if not ri:
         raise HTTPException(status_code=404, detail="Not found")
+    return ri
+
+
+@router.patch("/{ri_id}", response_model=RecurringInvoiceResponse)
+async def update_recurring(
+    ri_id: UUID,
+    data: RecurringInvoiceUpdate,
+    db: AsyncSession = Depends(get_db),
+    current_user: dict = Depends(get_current_user),
+):
+    result = await db.execute(
+        select(RecurringInvoice).where(
+            RecurringInvoice.id == ri_id,
+            RecurringInvoice.organization_id == current_user["org_id"],
+        )
+    )
+    ri = result.scalar_one_or_none()
+    if not ri:
+        raise HTTPException(status_code=404, detail="Not found")
+
+    update_data = data.model_dump(exclude_unset=True)
+
+    if "line_items" in update_data:
+        ri.line_items = update_data.pop("line_items")
+
+    # Recalculate next_run_date if schedule fields changed
+    freq = update_data.get("frequency", ri.frequency)
+    interval = update_data.get("frequency_interval", ri.frequency_interval)
+    start = update_data.get("start_date", ri.start_date)
+    if any(k in update_data for k in ("frequency", "frequency_interval", "start_date")):
+        ri.next_run_date = _calc_next_run(start, freq, interval)
+
+    for key, value in update_data.items():
+        setattr(ri, key, value)
+
+    await db.commit()
+    await db.refresh(ri)
     return ri
 
 

@@ -5,7 +5,7 @@ from uuid import UUID
 from app.core.database import get_db
 from app.core.security import get_current_user
 from app.models.models import Bill, BillLineItem
-from app.schemas.schemas import BillCreate, BillResponse
+from app.schemas.schemas import BillCreate, BillUpdate, BillResponse
 from .gl_helpers import post_gl, revert_gl
 
 router = APIRouter(prefix="/bills", tags=["Bills"])
@@ -89,6 +89,70 @@ async def get_bill(
     bill = result.scalar_one_or_none()
     if not bill:
         raise HTTPException(status_code=404, detail="Bill not found")
+    return bill
+
+
+@router.patch("/{bill_id}", response_model=BillResponse)
+async def update_bill(
+    bill_id: UUID,
+    data: BillUpdate,
+    current_user: dict = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    org_id = current_user["org_id"]
+    result = await db.execute(
+        select(Bill).where(Bill.id == bill_id, Bill.organization_id == org_id)
+    )
+    bill = result.scalar_one_or_none()
+    if not bill:
+        raise HTTPException(status_code=404, detail="Bill not found")
+
+    update_data = data.model_dump(exclude_unset=True)
+
+    if "line_items" in update_data:
+        line_items_data = update_data.pop("line_items")
+
+        # Delete old line items
+        old_items_result = await db.execute(
+            select(BillLineItem).where(BillLineItem.bill_id == bill.id)
+        )
+        for old_item in old_items_result.scalars().all():
+            await db.delete(old_item)
+
+        # Calculate totals
+        subtotal = 0
+        tax_amount = 0
+        for item in data.line_items:
+            amount = item.quantity * item.unit_price
+            tax = amount * (item.tax_rate / 100)
+            subtotal += amount
+            tax_amount += tax
+
+        bill.subtotal = subtotal
+        bill.tax_amount = tax_amount
+        bill.total = subtotal + tax_amount
+
+        # Insert new line items
+        for i, item in enumerate(data.line_items):
+            amount = item.quantity * item.unit_price
+            line = BillLineItem(
+                bill_id=bill.id,
+                description=item.description,
+                quantity=item.quantity,
+                unit_price=item.unit_price,
+                tax_rate=item.tax_rate,
+                amount=amount,
+                account_id=item.account_id,
+                sort_order=i,
+            )
+            db.add(line)
+
+    # Apply scalar field updates
+    for field, value in update_data.items():
+        setattr(bill, field, value)
+
+    await db.commit()
+    await db.refresh(bill)
     return bill
 
 

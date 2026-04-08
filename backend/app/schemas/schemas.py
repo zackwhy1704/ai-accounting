@@ -158,6 +158,14 @@ class InvoiceCreate(BaseModel):
     notes: str | None = None
     line_items: list[LineItemCreate]
 
+class InvoiceUpdate(BaseModel):
+    contact_id: UUID | None = None
+    issue_date: datetime | None = None
+    due_date: datetime | None = None
+    currency: str | None = None
+    notes: str | None = None
+    line_items: list[LineItemCreate] | None = None
+
 class InvoiceResponse(BaseModel):
     id: UUID
     invoice_number: str
@@ -291,6 +299,19 @@ class DeliveryOrderCreate(BaseModel):
     notes: str | None = None
     line_items: list[DeliveryOrderLineItemCreate]
 
+class DeliveryOrderUpdate(BaseModel):
+    contact_id: UUID | None = None
+    invoice_id: UUID | None = None
+    quotation_id: UUID | None = None
+    sales_order_id: UUID | None = None
+    delivery_date: datetime | None = None
+    ship_to_address: str | None = None
+    deliver_to_address: str | None = None
+    reference: str | None = None
+    currency: str | None = None
+    notes: str | None = None
+    line_items: list[DeliveryOrderLineItemCreate] | None = None
+
 class DeliveryOrderResponse(BaseModel):
     id: UUID
     delivery_number: str
@@ -337,6 +358,16 @@ class CreditNoteCreate(BaseModel):
     line_items: list[CreditNoteLineItemCreate]
     credit_applications: list[CreditApplicationCreate] = []
 
+class CreditNoteUpdate(BaseModel):
+    contact_id: UUID | None = None
+    invoice_id: UUID | None = None
+    issue_date: datetime | None = None
+    reference: str | None = None
+    currency: str | None = None
+    notes: str | None = None
+    line_items: list[CreditNoteLineItemCreate] | None = None
+    credit_applications: list[CreditApplicationCreate] | None = None
+
 class CreditNoteResponse(BaseModel):
     id: UUID
     credit_note_number: str
@@ -365,6 +396,15 @@ class DebitNoteCreate(BaseModel):
     currency: str = "MYR"
     notes: str | None = None
     line_items: list[CreditNoteLineItemCreate]
+
+class DebitNoteUpdate(BaseModel):
+    contact_id: UUID | None = None
+    invoice_id: UUID | None = None
+    issue_date: datetime | None = None
+    reference: str | None = None
+    currency: str | None = None
+    notes: str | None = None
+    line_items: list[CreditNoteLineItemCreate] | None = None
 
 class DebitNoteResponse(BaseModel):
     id: UUID
@@ -400,6 +440,17 @@ class SalesPaymentCreate(BaseModel):
     notes: str | None = None
     allocations: list[PaymentAllocationCreate] = []
 
+class SalesPaymentUpdate(BaseModel):
+    contact_id: UUID | None = None
+    payment_date: datetime | None = None
+    payment_method: str | None = None
+    reference: str | None = None
+    amount: float | None = None
+    bank_account_id: UUID | None = None
+    currency: str | None = None
+    notes: str | None = None
+    allocations: list[PaymentAllocationCreate] | None = None
+
 class SalesPaymentResponse(BaseModel):
     id: UUID
     payment_number: str
@@ -428,6 +479,17 @@ class SalesRefundCreate(BaseModel):
     currency: str = "MYR"
     notes: str | None = None
 
+class SalesRefundUpdate(BaseModel):
+    contact_id: UUID | None = None
+    credit_note_id: UUID | None = None
+    refund_date: datetime | None = None
+    refund_method: str | None = None
+    reference: str | None = None
+    amount: float | None = None
+    bank_account_id: UUID | None = None
+    currency: str | None = None
+    notes: str | None = None
+
 class SalesRefundResponse(BaseModel):
     id: UUID
     refund_number: str
@@ -454,6 +516,15 @@ class BillCreate(BaseModel):
     currency: str = "SGD"
     notes: str | None = None
     line_items: list[LineItemCreate]
+
+class BillUpdate(BaseModel):
+    contact_id: UUID | None = None
+    bill_number: str | None = None
+    issue_date: datetime | None = None
+    due_date: datetime | None = None
+    currency: str | None = None
+    notes: str | None = None
+    line_items: list[LineItemCreate] | None = None
 
 class BillResponse(BaseModel):
     id: UUID

@@ -16,9 +16,11 @@ from app.models.models import (
 from .gl_helpers import post_gl, revert_gl
 from app.schemas.schemas import (
     QuotationCreate, QuotationUpdate, QuotationResponse,
-    DeliveryOrderCreate, DeliveryOrderResponse, CreditNoteCreate, CreditNoteResponse,
-    DebitNoteCreate, DebitNoteResponse, SalesPaymentCreate, SalesPaymentResponse,
-    SalesRefundCreate, SalesRefundResponse,
+    DeliveryOrderCreate, DeliveryOrderUpdate, DeliveryOrderResponse,
+    CreditNoteCreate, CreditNoteUpdate, CreditNoteResponse,
+    DebitNoteCreate, DebitNoteUpdate, DebitNoteResponse,
+    SalesPaymentCreate, SalesPaymentUpdate, SalesPaymentResponse,
+    SalesRefundCreate, SalesRefundUpdate, SalesRefundResponse,
 )
 
 router = APIRouter(tags=["Sales"])
@@ -254,6 +256,46 @@ async def create_delivery_order(data: DeliveryOrderCreate, current_user: dict = 
     return obj
 
 
+@router.patch("/delivery-orders/{do_id}", response_model=DeliveryOrderResponse)
+async def update_delivery_order(do_id: UUID, data: DeliveryOrderUpdate, current_user: dict = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    result = await db.execute(
+        select(DeliveryOrder)
+        .options(selectinload(DeliveryOrder.line_items))
+        .where(DeliveryOrder.id == do_id, DeliveryOrder.organization_id == current_user["org_id"])
+    )
+    obj = result.scalar_one_or_none()
+    if not obj:
+        raise HTTPException(status_code=404, detail="Delivery order not found")
+    if obj.status not in ("draft",):
+        raise HTTPException(status_code=400, detail="Only draft delivery orders can be edited")
+
+    update_data = data.model_dump(exclude_unset=True)
+
+    if "line_items" in update_data:
+        line_items_data = update_data.pop("line_items")
+        await db.execute(delete(DeliveryOrderLineItem).where(DeliveryOrderLineItem.delivery_order_id == obj.id))
+        subtotal = sum(li["quantity"] * li["unit_price"] for li in line_items_data)
+        tax_amount = sum(li["quantity"] * li["unit_price"] * (li["tax_rate"] / 100) for li in line_items_data)
+        for i, item in enumerate(line_items_data):
+            db.add(DeliveryOrderLineItem(
+                delivery_order_id=obj.id, description=item["description"], quantity=item["quantity"],
+                unit_price=item["unit_price"], tax_rate=item["tax_rate"],
+                amount=item["quantity"] * item["unit_price"], sort_order=i,
+            ))
+        obj.subtotal = subtotal
+        obj.tax_amount = tax_amount
+        obj.total = subtotal + tax_amount
+
+    for key, value in update_data.items():
+        setattr(obj, key, value)
+
+    await db.commit()
+    result2 = await db.execute(
+        select(DeliveryOrder).options(selectinload(DeliveryOrder.line_items)).where(DeliveryOrder.id == obj.id)
+    )
+    return result2.scalar_one()
+
+
 # ═══════════════════════════════════════════════
 # CREDIT NOTES
 # ═══════════════════════════════════════════════
@@ -324,6 +366,69 @@ async def create_credit_note(data: CreditNoteCreate, current_user: dict = Depend
     return obj
 
 
+@router.patch("/credit-notes/{cn_id}", response_model=CreditNoteResponse)
+async def update_credit_note(cn_id: UUID, data: CreditNoteUpdate, current_user: dict = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    result = await db.execute(
+        select(CreditNote)
+        .options(selectinload(CreditNote.line_items), selectinload(CreditNote.credit_applications))
+        .where(CreditNote.id == cn_id, CreditNote.organization_id == current_user["org_id"])
+    )
+    obj = result.scalar_one_or_none()
+    if not obj:
+        raise HTTPException(status_code=404, detail="Credit note not found")
+    if obj.status not in ("draft",):
+        raise HTTPException(status_code=400, detail="Only draft credit notes can be edited")
+
+    update_data = data.model_dump(exclude_unset=True)
+
+    if "line_items" in update_data:
+        line_items_data = update_data.pop("line_items")
+        await db.execute(delete(CreditNoteLineItem).where(CreditNoteLineItem.credit_note_id == obj.id))
+        subtotal = sum(li["quantity"] * li["unit_price"] for li in line_items_data)
+        discount_total = sum(li.get("discount", 0) or 0 for li in line_items_data)
+        tax_amount = sum((li["quantity"] * li["unit_price"] - (li.get("discount", 0) or 0)) * (li["tax_rate"] / 100) for li in line_items_data)
+        for i, item in enumerate(line_items_data):
+            db.add(CreditNoteLineItem(
+                credit_note_id=obj.id, description=item["description"], quantity=item["quantity"],
+                unit_price=item["unit_price"], tax_rate=item["tax_rate"],
+                discount=item.get("discount", 0),
+                amount=item["quantity"] * item["unit_price"],
+                account_id=item.get("account_id"), sort_order=i,
+            ))
+        obj.subtotal = subtotal
+        obj.discount_amount = discount_total
+        obj.tax_amount = tax_amount
+        obj.total = subtotal - discount_total + tax_amount
+
+    if "credit_applications" in update_data:
+        apps_data = update_data.pop("credit_applications")
+        # Revert old credit applications on invoices
+        for existing_app in obj.credit_applications:
+            inv_result = await db.execute(select(Invoice).where(Invoice.id == existing_app.invoice_id))
+            inv = inv_result.scalar_one_or_none()
+            if inv:
+                inv.amount_paid = float(inv.amount_paid or 0) - existing_app.amount
+        await db.execute(delete(CreditApplicationModel).where(CreditApplicationModel.credit_note_id == obj.id))
+        credit_applied = 0
+        for app in apps_data:
+            db.add(CreditApplicationModel(credit_note_id=obj.id, invoice_id=app["invoice_id"], amount=app["amount"]))
+            credit_applied += app["amount"]
+            inv_result = await db.execute(select(Invoice).where(Invoice.id == app["invoice_id"]))
+            inv = inv_result.scalar_one_or_none()
+            if inv:
+                inv.amount_paid = float(inv.amount_paid or 0) + app["amount"]
+        obj.credit_applied = credit_applied
+
+    for key, value in update_data.items():
+        setattr(obj, key, value)
+
+    await db.commit()
+    result2 = await db.execute(
+        select(CreditNote).options(selectinload(CreditNote.line_items), selectinload(CreditNote.credit_applications)).where(CreditNote.id == obj.id)
+    )
+    return result2.scalar_one()
+
+
 # ═══════════════════════════════════════════════
 # DEBIT NOTES
 # ═══════════════════════════════════════════════
@@ -379,6 +484,50 @@ async def create_debit_note(data: DebitNoteCreate, current_user: dict = Depends(
     return obj
 
 
+@router.patch("/debit-notes/{dn_id}", response_model=DebitNoteResponse)
+async def update_debit_note(dn_id: UUID, data: DebitNoteUpdate, current_user: dict = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    result = await db.execute(
+        select(DebitNote)
+        .options(selectinload(DebitNote.line_items))
+        .where(DebitNote.id == dn_id, DebitNote.organization_id == current_user["org_id"])
+    )
+    obj = result.scalar_one_or_none()
+    if not obj:
+        raise HTTPException(status_code=404, detail="Debit note not found")
+    if obj.status not in ("draft",):
+        raise HTTPException(status_code=400, detail="Only draft debit notes can be edited")
+
+    update_data = data.model_dump(exclude_unset=True)
+
+    if "line_items" in update_data:
+        line_items_data = update_data.pop("line_items")
+        await db.execute(delete(DebitNoteLineItem).where(DebitNoteLineItem.debit_note_id == obj.id))
+        subtotal = sum(li["quantity"] * li["unit_price"] for li in line_items_data)
+        discount_total = sum(li.get("discount", 0) or 0 for li in line_items_data)
+        tax_amount = sum((li["quantity"] * li["unit_price"] - (li.get("discount", 0) or 0)) * (li["tax_rate"] / 100) for li in line_items_data)
+        for i, item in enumerate(line_items_data):
+            db.add(DebitNoteLineItem(
+                debit_note_id=obj.id, description=item["description"], quantity=item["quantity"],
+                unit_price=item["unit_price"], tax_rate=item["tax_rate"],
+                discount=item.get("discount", 0),
+                amount=item["quantity"] * item["unit_price"],
+                account_id=item.get("account_id"), sort_order=i,
+            ))
+        obj.subtotal = subtotal
+        obj.discount_amount = discount_total
+        obj.tax_amount = tax_amount
+        obj.total = subtotal - discount_total + tax_amount
+
+    for key, value in update_data.items():
+        setattr(obj, key, value)
+
+    await db.commit()
+    result2 = await db.execute(
+        select(DebitNote).options(selectinload(DebitNote.line_items)).where(DebitNote.id == obj.id)
+    )
+    return result2.scalar_one()
+
+
 # ═══════════════════════════════════════════════
 # SALES PAYMENTS
 # ═══════════════════════════════════════════════
@@ -429,6 +578,51 @@ async def create_sales_payment(data: SalesPaymentCreate, current_user: dict = De
     return obj
 
 
+@router.patch("/sales-payments/{sp_id}", response_model=SalesPaymentResponse)
+async def update_sales_payment(sp_id: UUID, data: SalesPaymentUpdate, current_user: dict = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    result = await db.execute(
+        select(SalesPayment)
+        .options(selectinload(SalesPayment.allocations))
+        .where(SalesPayment.id == sp_id, SalesPayment.organization_id == current_user["org_id"])
+    )
+    obj = result.scalar_one_or_none()
+    if not obj:
+        raise HTTPException(status_code=404, detail="Sales payment not found")
+    if obj.status not in ("draft",):
+        raise HTTPException(status_code=400, detail="Only draft payments can be edited")
+
+    update_data = data.model_dump(exclude_unset=True)
+
+    if "allocations" in update_data:
+        allocs_data = update_data.pop("allocations")
+        # Revert old allocations on invoices
+        for existing_alloc in obj.allocations:
+            inv_result = await db.execute(select(Invoice).where(Invoice.id == existing_alloc.invoice_id))
+            inv = inv_result.scalar_one_or_none()
+            if inv:
+                inv.amount_paid = float(inv.amount_paid or 0) - existing_alloc.amount
+                if inv.status == "paid":
+                    inv.status = "sent"
+        await db.execute(delete(PaymentAllocation).where(PaymentAllocation.payment_id == obj.id))
+        for alloc in allocs_data:
+            db.add(PaymentAllocation(payment_id=obj.id, invoice_id=alloc["invoice_id"], amount=alloc["amount"]))
+            inv_result = await db.execute(select(Invoice).where(Invoice.id == alloc["invoice_id"]))
+            inv = inv_result.scalar_one_or_none()
+            if inv:
+                inv.amount_paid = float(inv.amount_paid or 0) + alloc["amount"]
+                if inv.amount_paid >= float(inv.total):
+                    inv.status = "paid"
+
+    for key, value in update_data.items():
+        setattr(obj, key, value)
+
+    await db.commit()
+    result2 = await db.execute(
+        select(SalesPayment).options(selectinload(SalesPayment.allocations)).where(SalesPayment.id == obj.id)
+    )
+    return result2.scalar_one()
+
+
 # ═══════════════════════════════════════════════
 # SALES REFUNDS
 # ═══════════════════════════════════════════════
@@ -463,6 +657,28 @@ async def create_sales_refund(data: SalesRefundCreate, current_user: dict = Depe
         obj.refund_number, "refund", obj.id,
         [("1100", float(data.amount), 0), ("1000", 0, float(data.amount))],
     )
+
+    await db.commit()
+    await db.refresh(obj)
+    return obj
+
+
+@router.patch("/sales-refunds/{sr_id}", response_model=SalesRefundResponse)
+async def update_sales_refund(sr_id: UUID, data: SalesRefundUpdate, current_user: dict = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    result = await db.execute(
+        select(SalesRefund)
+        .where(SalesRefund.id == sr_id, SalesRefund.organization_id == current_user["org_id"])
+    )
+    obj = result.scalar_one_or_none()
+    if not obj:
+        raise HTTPException(status_code=404, detail="Sales refund not found")
+    if obj.status not in ("draft",):
+        raise HTTPException(status_code=400, detail="Only draft refunds can be edited")
+
+    update_data = data.model_dump(exclude_unset=True)
+
+    for key, value in update_data.items():
+        setattr(obj, key, value)
 
     await db.commit()
     await db.refresh(obj)

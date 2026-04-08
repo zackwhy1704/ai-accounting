@@ -1,7 +1,7 @@
 import random
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, delete
 from uuid import UUID
 from datetime import datetime, timezone
 from typing import Optional
@@ -30,6 +30,16 @@ class PurchaseOrderCreate(BaseModel):
     notes: Optional[str] = None
     delivery_address: Optional[str] = None
     line_items: list[POLineItemCreate]
+
+
+class PurchaseOrderUpdate(BaseModel):
+    contact_id: Optional[UUID] = None
+    issue_date: Optional[datetime] = None
+    expected_date: Optional[datetime] = None
+    currency: Optional[str] = None
+    notes: Optional[str] = None
+    delivery_address: Optional[str] = None
+    line_items: Optional[list[POLineItemCreate]] = None
 
 
 class POLineItemResponse(BaseModel):
@@ -149,6 +159,60 @@ async def get_purchase_order(
     po = result.scalar_one_or_none()
     if not po:
         raise HTTPException(status_code=404, detail="Purchase order not found")
+    return po
+
+
+@router.patch("/{po_id}", response_model=PurchaseOrderResponse)
+async def update_purchase_order(
+    po_id: UUID,
+    data: PurchaseOrderUpdate,
+    db: AsyncSession = Depends(get_db),
+    current_user: dict = Depends(get_current_user),
+):
+    result = await db.execute(
+        select(PurchaseOrder).where(
+            PurchaseOrder.id == po_id,
+            PurchaseOrder.organization_id == current_user["org_id"],
+        )
+    )
+    po = result.scalar_one_or_none()
+    if not po:
+        raise HTTPException(status_code=404, detail="Purchase order not found")
+
+    update_data = data.model_dump(exclude_unset=True)
+
+    if "line_items" in update_data:
+        line_items_data = update_data.pop("line_items")
+        await db.execute(
+            delete(PurchaseOrderLineItem).where(PurchaseOrderLineItem.purchase_order_id == po_id)
+        )
+        subtotal = 0.0
+        tax_amount = 0.0
+        for i, item in enumerate(data.line_items):
+            amount = item.quantity * item.unit_price
+            tax = amount * (item.tax_rate / 100)
+            subtotal += amount
+            tax_amount += tax
+            line = PurchaseOrderLineItem(
+                purchase_order_id=po.id,
+                description=item.description,
+                quantity=item.quantity,
+                unit_price=item.unit_price,
+                tax_rate=item.tax_rate,
+                amount=amount * (1 + item.tax_rate / 100),
+                account_id=item.account_id,
+                sort_order=i,
+            )
+            db.add(line)
+        po.subtotal = subtotal
+        po.tax_amount = tax_amount
+        po.total = subtotal + tax_amount
+
+    for key, value in update_data.items():
+        setattr(po, key, value)
+
+    await db.commit()
+    await db.refresh(po)
     return po
 
 

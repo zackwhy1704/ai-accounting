@@ -5,7 +5,7 @@ from uuid import UUID
 from app.core.database import get_db
 from app.core.security import get_current_user
 from app.models.models import Invoice, InvoiceLineItem
-from app.schemas.schemas import InvoiceCreate, InvoiceResponse
+from app.schemas.schemas import InvoiceCreate, InvoiceUpdate, InvoiceResponse
 from .gl_helpers import post_gl, revert_gl
 
 router = APIRouter(prefix="/invoices", tags=["Invoices"])
@@ -94,6 +94,68 @@ async def get_invoice(
     invoice = result.scalar_one_or_none()
     if not invoice:
         raise HTTPException(status_code=404, detail="Invoice not found")
+    return invoice
+
+
+@router.patch("/{invoice_id}", response_model=InvoiceResponse)
+async def update_invoice(
+    invoice_id: UUID,
+    data: InvoiceUpdate,
+    current_user: dict = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    org_id = current_user["org_id"]
+    result = await db.execute(
+        select(Invoice).where(Invoice.id == invoice_id, Invoice.organization_id == org_id)
+    )
+    invoice = result.scalar_one_or_none()
+    if not invoice:
+        raise HTTPException(status_code=404, detail="Invoice not found")
+
+    update_data = data.model_dump(exclude_unset=True)
+
+    if "line_items" in update_data:
+        line_items_data = update_data.pop("line_items")
+
+        # Delete old line items
+        old_items_result = await db.execute(
+            select(InvoiceLineItem).where(InvoiceLineItem.invoice_id == invoice.id)
+        )
+        for old_item in old_items_result.scalars().all():
+            await db.delete(old_item)
+
+        # Calculate totals
+        subtotal = 0
+        tax_amount = 0
+        for item in data.line_items:
+            amount = item.quantity * item.unit_price
+            tax = amount * (item.tax_rate / 100)
+            subtotal += amount
+            tax_amount += tax
+
+        invoice.subtotal = subtotal
+        invoice.tax_amount = tax_amount
+        invoice.total = subtotal + tax_amount
+
+        # Insert new line items
+        for i, item in enumerate(data.line_items):
+            db.add(InvoiceLineItem(
+                invoice_id=invoice.id,
+                description=item.description,
+                quantity=item.quantity,
+                unit_price=item.unit_price,
+                tax_rate=item.tax_rate,
+                amount=item.quantity * item.unit_price,
+                account_id=item.account_id,
+                sort_order=i,
+            ))
+
+    # Apply scalar field updates
+    for field, value in update_data.items():
+        setattr(invoice, field, value)
+
+    await db.commit()
+    await db.refresh(invoice)
     return invoice
 
 

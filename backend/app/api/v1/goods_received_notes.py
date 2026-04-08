@@ -1,7 +1,7 @@
 import random
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, delete
 from uuid import UUID
 from datetime import datetime, timezone
 from typing import Optional
@@ -28,6 +28,15 @@ class GRNCreate(BaseModel):
     currency: str = "SGD"
     notes: Optional[str] = None
     line_items: list[GRNLineItemCreate]
+
+
+class GRNUpdate(BaseModel):
+    contact_id: Optional[UUID] = None
+    purchase_order_id: Optional[UUID] = None
+    received_date: Optional[datetime] = None
+    currency: Optional[str] = None
+    notes: Optional[str] = None
+    line_items: Optional[list[GRNLineItemCreate]] = None
 
 
 class GRNLineItemResponse(BaseModel):
@@ -126,6 +135,49 @@ async def get_grn(
     grn = result.scalar_one_or_none()
     if not grn:
         raise HTTPException(status_code=404, detail="GRN not found")
+    return grn
+
+
+@router.patch("/{grn_id}", response_model=GRNResponse)
+async def update_grn(
+    grn_id: UUID,
+    data: GRNUpdate,
+    db: AsyncSession = Depends(get_db),
+    current_user: dict = Depends(get_current_user),
+):
+    result = await db.execute(
+        select(GoodsReceivedNote).where(
+            GoodsReceivedNote.id == grn_id,
+            GoodsReceivedNote.organization_id == current_user["org_id"],
+        )
+    )
+    grn = result.scalar_one_or_none()
+    if not grn:
+        raise HTTPException(status_code=404, detail="GRN not found")
+
+    update_data = data.model_dump(exclude_unset=True)
+
+    if "line_items" in update_data:
+        line_items_data = update_data.pop("line_items")
+        await db.execute(
+            delete(GRNLineItem).where(GRNLineItem.grn_id == grn_id)
+        )
+        for i, item in enumerate(data.line_items):
+            line = GRNLineItem(
+                grn_id=grn.id,
+                description=item.description,
+                quantity_ordered=item.quantity_ordered,
+                quantity_received=item.quantity_received,
+                unit_price=item.unit_price,
+                sort_order=i,
+            )
+            db.add(line)
+
+    for key, value in update_data.items():
+        setattr(grn, key, value)
+
+    await db.commit()
+    await db.refresh(grn)
     return grn
 
 

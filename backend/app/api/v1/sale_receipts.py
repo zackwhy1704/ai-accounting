@@ -3,13 +3,27 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
 from uuid import UUID
 
+from datetime import datetime
+from pydantic import BaseModel
+from typing import Optional
+
 from app.core.database import get_db
 from app.core.security import get_current_user
 from app.models.models import SaleReceipt
-from app.schemas.schemas import SaleReceiptCreate, SaleReceiptResponse
+from app.schemas.schemas import SaleReceiptCreate, SaleReceiptResponse, SaleReceiptLineItem
 from .gl_helpers import post_gl, revert_gl
 
 router = APIRouter(prefix="/sale-receipts", tags=["sale-receipts"])
+
+
+class SaleReceiptUpdate(BaseModel):
+    contact_id: Optional[UUID] = None
+    receipt_date: Optional[datetime] = None
+    currency: Optional[str] = None
+    payment_method: Optional[str] = None
+    bank_account_id: Optional[UUID] = None
+    notes: Optional[str] = None
+    line_items: Optional[list[SaleReceiptLineItem]] = None
 
 
 async def _next_receipt_number(org_id: UUID, db: AsyncSession) -> str:
@@ -98,6 +112,41 @@ async def get_sale_receipt(
     receipt = result.scalar_one_or_none()
     if not receipt:
         raise HTTPException(status_code=404, detail="Sale receipt not found")
+    return receipt
+
+
+@router.patch("/{receipt_id}", response_model=SaleReceiptResponse)
+async def update_sale_receipt(
+    receipt_id: UUID,
+    data: SaleReceiptUpdate,
+    db: AsyncSession = Depends(get_db),
+    current_user: dict = Depends(get_current_user),
+):
+    result = await db.execute(
+        select(SaleReceipt).where(
+            SaleReceipt.id == receipt_id,
+            SaleReceipt.organization_id == current_user["org_id"],
+        )
+    )
+    receipt = result.scalar_one_or_none()
+    if not receipt:
+        raise HTTPException(status_code=404, detail="Sale receipt not found")
+
+    update_data = data.model_dump(exclude_unset=True)
+
+    if "line_items" in update_data:
+        line_items_raw = update_data.pop("line_items")
+        subtotal, tax_amount, total = _calc_totals(data.line_items)
+        receipt.line_items = [item.model_dump() for item in data.line_items]
+        receipt.subtotal = subtotal
+        receipt.tax_amount = tax_amount
+        receipt.total = total
+
+    for key, value in update_data.items():
+        setattr(receipt, key, value)
+
+    await db.commit()
+    await db.refresh(receipt)
     return receipt
 
 
