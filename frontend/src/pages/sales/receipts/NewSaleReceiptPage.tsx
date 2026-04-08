@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react"
 import { useNavigate } from "react-router-dom"
-import { useContacts, useAccounts } from "../../../lib/hooks"
+import { useContacts, useAccounts, useTaxRates } from "../../../lib/hooks"
 import { Card } from "../../../components/ui/card"
 import { Button } from "../../../components/ui/button"
 import { Input } from "../../../components/ui/input"

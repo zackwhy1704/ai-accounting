@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useMemo } from "react"
 import { useNavigate, useParams } from "react-router-dom"
 import { Loader2, Plus, Trash2 } from "lucide-react"
-import { useSaleReceipt, useUpdateSaleReceipt, useContacts, useAccounts } from "../../../lib/hooks"
+import { useSaleReceipt, useUpdateSaleReceipt, useContacts, useAccounts, useTaxRates } from "../../../lib/hooks"
 import { Card } from "../../../components/ui/card"
 import { Button } from "../../../components/ui/button"
 import { Input } from "../../../components/ui/input"

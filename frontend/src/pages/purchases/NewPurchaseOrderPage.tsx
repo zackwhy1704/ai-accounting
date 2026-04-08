@@ -1,7 +1,7 @@
 import { useState } from "react"
 import { useNavigate } from "react-router-dom"
 import { Plus, Trash2, Loader2 } from "lucide-react"
-import { useContacts, useCreatePurchaseOrder } from "../../lib/hooks"
+import { useContacts, useCreatePurchaseOrder, useTaxRates } from "../../lib/hooks"
 import { useToast } from "../../components/ui/toast"
 import { Card } from "../../components/ui/card"
 import { Button } from "../../components/ui/button"
@@ -13,18 +13,20 @@ interface LineItem {
   description: string
   quantity: number
   unit_price: number
+  tax_code_id: string
   tax_rate: number
   amount: number
 }
 
 function newLine(): LineItem {
-  return { description: "", quantity: 1, unit_price: 0, tax_rate: 0, amount: 0 }
+  return { description: "", quantity: 1, unit_price: 0, tax_code_id: "", tax_rate: 0, amount: 0 }
 }
 
 export default function NewPurchaseOrderPage() {
   const navigate = useNavigate()
   const { toast } = useToast()
   const { data: contacts = [] } = useContacts()
+  const { data: taxRates = [] } = useTaxRates()
   const createPO = useCreatePurchaseOrder()
 
   const [contactId, setContactId] = useState("")
@@ -39,6 +41,10 @@ export default function NewPurchaseOrderPage() {
     setLineItems(prev => {
       const updated = [...prev]
       updated[idx] = { ...updated[idx], [field]: value }
+      if (field === "tax_code_id") {
+        const tc = taxRates.find((t: any) => t.id === value)
+        if (tc) updated[idx].tax_rate = tc.rate
+      }
       const item = updated[idx]
       updated[idx].amount = item.quantity * item.unit_price * (1 + item.tax_rate / 100)
       return updated

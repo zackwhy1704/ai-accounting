@@ -1,5 +1,5 @@
 import { useState } from "react"
-import { Plus, Trash2, Loader2 } from "lucide-react"
+import { Plus, Trash2, Loader2, Pencil } from "lucide-react"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { useNavigate } from "react-router-dom"
 import { Card } from "../../components/ui/card"
@@ -113,7 +113,16 @@ export default function FixedAssetsPage() {
                   <td className="px-4 py-2.5 text-xs text-muted-foreground">{formatDate(a.purchase_date)}</td>
                   <td className="px-4 py-2.5 text-right text-sm tabular-nums text-foreground">{formatCurrency(a.purchase_cost, a.currency)}</td>
                   <td className="px-4 py-2.5 text-right text-sm tabular-nums text-foreground">{formatCurrency(a.current_value, a.currency)}</td>
-                  <td className="px-4 py-2.5 text-right">
+                  <td className="px-4 py-2.5 text-right flex items-center justify-end gap-1">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7"
+                      onClick={() => navigate(`/accounting/fixed-assets/${a.id}/edit`)}
+                    >
+                      <Pencil className="h-3.5 w-3.5" />
+                    </Button>
                     <Button
                       type="button"
                       variant="ghost"

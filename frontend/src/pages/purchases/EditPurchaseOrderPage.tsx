@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react"
 import { useNavigate, useParams } from "react-router-dom"
 import { Plus, Trash2, Loader2 } from "lucide-react"
-import { useContacts, usePurchaseOrder, useUpdatePurchaseOrder } from "../../lib/hooks"
+import { useContacts, usePurchaseOrder, useUpdatePurchaseOrder, useTaxRates } from "../../lib/hooks"
 import { useToast } from "../../components/ui/toast"
 import { Card } from "../../components/ui/card"
 import { Button } from "../../components/ui/button"
@@ -13,12 +13,13 @@ interface LineItem {
   description: string
   quantity: number
   unit_price: number
+  tax_code_id: string
   tax_rate: number
   amount: number
 }
 
 function newLine(): LineItem {
-  return { description: "", quantity: 1, unit_price: 0, tax_rate: 0, amount: 0 }
+  return { description: "", quantity: 1, unit_price: 0, tax_code_id: "", tax_rate: 0, amount: 0 }
 }
 
 export default function EditPurchaseOrderPage() {
@@ -26,6 +27,7 @@ export default function EditPurchaseOrderPage() {
   const navigate = useNavigate()
   const { toast } = useToast()
   const { data: contacts = [] } = useContacts()
+  const { data: taxRates = [] } = useTaxRates()
   const { data } = usePurchaseOrder(id!)
   const updatePO = useUpdatePurchaseOrder()
 
@@ -52,6 +54,7 @@ export default function EditPurchaseOrderPage() {
           description: li.description || "",
           quantity: li.quantity || 1,
           unit_price: li.unit_price || 0,
+          tax_code_id: li.tax_code_id || "",
           tax_rate: li.tax_rate || 0,
           amount: li.amount || 0,
         })))
@@ -63,6 +66,10 @@ export default function EditPurchaseOrderPage() {
     setLineItems(prev => {
       const updated = [...prev]
       updated[idx] = { ...updated[idx], [field]: value }
+      if (field === "tax_code_id") {
+        const tc = taxRates.find((t: any) => t.id === value)
+        if (tc) updated[idx].tax_rate = tc.rate
+      }
       const item = updated[idx]
       updated[idx].amount = item.quantity * item.unit_price * (1 + item.tax_rate / 100)
       return updated

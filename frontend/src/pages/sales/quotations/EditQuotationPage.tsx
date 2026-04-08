@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react"
 import { useNavigate, useParams } from "react-router-dom"
 import { Plus, Trash2, ChevronDown, Loader2 } from "lucide-react"
-import { useQuotation, useUpdateQuotation, useContacts, useAccounts } from "../../../lib/hooks"
+import { useQuotation, useUpdateQuotation, useContacts, useAccounts, useTaxRates } from "../../../lib/hooks"
 import { Card } from "../../../components/ui/card"
 import { Button } from "../../../components/ui/button"
 import { Input } from "../../../components/ui/input"
@@ -17,6 +17,7 @@ interface LineItem {
   amount: number
   discount: number
   tax_rate: number
+  tax_code_id: string
 }
 
 const TABS = [
@@ -36,6 +37,7 @@ export default function EditQuotationPage() {
   const { data: quotation, isLoading } = useQuotation(id)
   const { data: contacts = [] } = useContacts()
   const { data: accounts = [] } = useAccounts()
+  const { data: taxRates = [] } = useTaxRates()
   const updateQuotation = useUpdateQuotation()
 
   const [activeTab, setActiveTab] = useState<TabKey>("items")
@@ -50,7 +52,7 @@ export default function EditQuotationPage() {
   const [roundingAdjustment, setRoundingAdjustment] = useState(false)
   const [productSearch, setProductSearch] = useState("")
   const [lineItems, setLineItems] = useState<LineItem[]>([
-    { description: "", account_id: "", quantity: 1, unit_price: 0, amount: 0, discount: 0, tax_rate: 0 },
+    { description: "", account_id: "", quantity: 1, unit_price: 0, amount: 0, discount: 0, tax_rate: 0, tax_code_id: "" },
   ])
   const [populated, setPopulated] = useState(false)
 
@@ -71,6 +73,7 @@ export default function EditQuotationPage() {
         amount: l.amount ?? 0,
         discount: l.discount ?? 0,
         tax_rate: l.tax_rate ?? 0,
+        tax_code_id: l.tax_code_id ? String(l.tax_code_id) : "",
       })))
     }
     setPopulated(true)
@@ -80,6 +83,10 @@ export default function EditQuotationPage() {
     setLineItems(prev => {
       const updated = [...prev]
       updated[index] = { ...updated[index], [field]: value }
+      if (field === "tax_code_id") {
+        const tc = taxRates.find((t: any) => t.id === value)
+        updated[index].tax_rate = tc ? tc.rate : updated[index].tax_rate
+      }
       const item = updated[index]
       const lineTotal = item.quantity * item.unit_price
       const afterDiscount = lineTotal - (lineTotal * item.discount) / 100
@@ -90,7 +97,7 @@ export default function EditQuotationPage() {
   }
 
   const addLineItem = () => {
-    setLineItems(prev => [...prev, { description: "", account_id: "", quantity: 1, unit_price: 0, amount: 0, discount: 0, tax_rate: 0 }])
+    setLineItems(prev => [...prev, { description: "", account_id: "", quantity: 1, unit_price: 0, amount: 0, discount: 0, tax_rate: 0, tax_code_id: "" }])
   }
 
   const removeLineItem = (index: number) => {
@@ -234,6 +241,7 @@ export default function EditQuotationPage() {
                   <TableHead className="w-[110px] text-muted-foreground">Std Price</TableHead>
                   <TableHead className="w-[110px] text-right text-muted-foreground">Amount</TableHead>
                   <TableHead className="w-[80px] text-muted-foreground">Disc %</TableHead>
+                  <TableHead className="w-[160px] text-muted-foreground">Tax Code</TableHead>
                   <TableHead className="w-[80px] text-muted-foreground">Tax %</TableHead>
                   <TableHead className="w-10" />
                 </TableRow>
@@ -267,8 +275,21 @@ export default function EditQuotationPage() {
                     <TableCell>
                       <Input type="number" min={0} max={100} value={item.discount} onChange={e => updateLineItem(idx, "discount", Number(e.target.value))} className="h-9 rounded-lg border-0 bg-transparent px-1 text-sm shadow-none focus-visible:ring-1" />
                     </TableCell>
-                    <TableCell>
-                      <Input type="number" min={0} value={item.tax_rate} onChange={e => updateLineItem(idx, "tax_rate", Number(e.target.value))} className="h-9 rounded-lg border-0 bg-transparent px-1 text-sm shadow-none focus-visible:ring-1" />
+                    <TableCell className="w-[160px]">
+                      <Select value={item.tax_code_id} onValueChange={v => updateLineItem(idx, "tax_code_id", v === "__none__" ? "" : v)}>
+                        <SelectTrigger className="h-9 rounded-lg border-0 bg-transparent shadow-none focus:ring-1 text-xs">
+                          <SelectValue placeholder="Tax Code" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="__none__">No Tax</SelectItem>
+                          {taxRates.map((tc: any) => (
+                            <SelectItem key={tc.id} value={tc.id}>{tc.code} ({tc.rate}%)</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </TableCell>
+                    <TableCell className="w-[80px]">
+                      <Input type="number" min={0} max={100} step={0.01} value={item.tax_rate} onChange={e => updateLineItem(idx, "tax_rate", Number(e.target.value))} className="h-9 rounded-lg border-0 bg-transparent px-1 text-sm shadow-none focus-visible:ring-1" placeholder="%" />
                     </TableCell>
                     <TableCell>
                       <button type="button" onClick={() => removeLineItem(idx)} className="text-muted-foreground hover:text-rose-500">

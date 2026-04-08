@@ -1,6 +1,6 @@
 import { useState } from "react"
 import { useNavigate } from "react-router-dom"
-import { useContacts, useAccounts } from "../../../lib/hooks"
+import { useContacts, useAccounts, useTaxRates } from "../../../lib/hooks"
 import { Card } from "../../../components/ui/card"
 import { Button } from "../../../components/ui/button"
 import { Input } from "../../../components/ui/input"
@@ -14,6 +14,7 @@ interface LineItem {
   account_id: string
   quantity: number
   unit_price: number
+  tax_code_id: string
   tax_rate: number
 }
 
@@ -23,6 +24,7 @@ export default function NewRecurringInvoicePage() {
   const navigate = useNavigate()
   const { data: contacts = [] } = useContacts()
   const { data: accounts = [] } = useAccounts()
+  const { data: taxRates = [] } = useTaxRates()
 
   const [contactId, setContactId] = useState("")
   const [frequency, setFrequency] = useState("monthly")
@@ -33,13 +35,20 @@ export default function NewRecurringInvoicePage() {
   const [autoSend, setAutoSend] = useState(false)
   const [saving, setSaving] = useState(false)
   const [lineItems, setLineItems] = useState<LineItem[]>([
-    { description: "", account_id: "", quantity: 1, unit_price: 0, tax_rate: 0 },
+    { description: "", account_id: "", quantity: 1, unit_price: 0, tax_code_id: "", tax_rate: 0 },
   ])
 
-  const addLine = () => setLineItems(prev => [...prev, { description: "", account_id: "", quantity: 1, unit_price: 0, tax_rate: 0 }])
+  const addLine = () => setLineItems(prev => [...prev, { description: "", account_id: "", quantity: 1, unit_price: 0, tax_code_id: "", tax_rate: 0 }])
   const removeLine = (i: number) => setLineItems(prev => prev.filter((_, idx) => idx !== i))
   const updateLine = (i: number, field: keyof LineItem, value: string | number) => {
-    setLineItems(prev => prev.map((li, idx) => idx === i ? { ...li, [field]: value } : li))
+    setLineItems(prev => {
+      const updated = prev.map((li, idx) => idx === i ? { ...li, [field]: value } : li)
+      if (field === "tax_code_id") {
+        const tc = taxRates.find((t: any) => t.id === value)
+        if (tc) updated[i] = { ...updated[i], tax_rate: tc.rate }
+      }
+      return updated
+    })
   }
 
   const subtotal = lineItems.reduce((s, li) => s + li.quantity * li.unit_price, 0)

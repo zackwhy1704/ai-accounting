@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react"
 import { useNavigate, useParams } from "react-router-dom"
 import { Plus, Trash2, Loader2 } from "lucide-react"
-import { useDeliveryOrder, useUpdateDeliveryOrder, useContacts } from "../../../lib/hooks"
+import { useDeliveryOrder, useUpdateDeliveryOrder, useContacts, useTaxRates } from "../../../lib/hooks"
 import { Card } from "../../../components/ui/card"
 import { Button } from "../../../components/ui/button"
 import { Input } from "../../../components/ui/input"
@@ -13,6 +13,8 @@ interface LineItem {
   quantity: number
   unit_price: number
   amount: number
+  tax_code_id: string
+  tax_rate: number
 }
 
 const TABS = [

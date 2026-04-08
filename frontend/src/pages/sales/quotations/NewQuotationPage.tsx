@@ -314,7 +314,8 @@ export default function NewQuotationPage() {
                   <TableHead className="w-[110px] text-muted-foreground">Unit Price</TableHead>
                   <TableHead className="w-[110px] text-right text-muted-foreground">{t("common.amount")}</TableHead>
                   <TableHead className="w-[80px] text-muted-foreground">Disc %</TableHead>
-                  <TableHead className="w-[140px] text-muted-foreground">Tax Code</TableHead>
+                  <TableHead className="w-[160px] text-muted-foreground">Tax Code</TableHead>
+                  <TableHead className="w-[80px] text-muted-foreground">Tax %</TableHead>
                   <TableHead className="w-10" />
                 </TableRow>
               </TableHeader>
@@ -391,10 +392,10 @@ export default function NewQuotationPage() {
                         className="h-9 rounded-lg border-0 bg-transparent px-1 text-sm shadow-none focus-visible:ring-1"
                       />
                     </TableCell>
-                    <TableCell>
-                      <Select value={item.tax_code_id} onValueChange={v => updateLineItem(idx, "tax_code_id", v)}>
-                        <SelectTrigger className="h-9 rounded-lg border-0 bg-transparent shadow-none text-xs">
-                          <SelectValue placeholder="Tax" />
+                    <TableCell className="w-[160px]">
+                      <Select value={item.tax_code_id} onValueChange={v => updateLineItem(idx, "tax_code_id", v === "__none__" ? "" : v)}>
+                        <SelectTrigger className="h-9 rounded-lg border-0 bg-transparent shadow-none focus:ring-1 text-xs">
+                          <SelectValue placeholder="Tax Code" />
                         </SelectTrigger>
                         <SelectContent>
                           <SelectItem value="__none__">No Tax</SelectItem>
@@ -405,6 +406,15 @@ export default function NewQuotationPage() {
                           ))}
                         </SelectContent>
                       </Select>
+                    </TableCell>
+                    <TableCell className="w-[80px]">
+                      <Input
+                        type="number" min={0} max={100} step={0.01}
+                        value={item.tax_rate}
+                        onChange={e => updateLineItem(idx, "tax_rate", Number(e.target.value))}
+                        className="h-9 rounded-lg border-0 bg-transparent px-1 text-sm shadow-none focus-visible:ring-1"
+                        placeholder="%"
+                      />
                     </TableCell>
                     <TableCell>
                       <button type="button" onClick={() => removeLineItem(idx)} className="text-muted-foreground hover:text-rose-500">
