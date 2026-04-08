@@ -84,23 +84,20 @@ export default function NewDebitNotePage() {
   const handleSave = () => {
     createDebitNote.mutate(
       {
-        debit_note_number: debitNoteNumber,
         contact_id: customerId,
-        linked_invoice_id: linkedInvoiceId,
+        invoice_id: linkedInvoiceId || undefined,
         issue_date: date,
         reference,
-        lines: lines.map(l => ({
+        notes: null,
+        line_items: lines.map(l => ({
           description: l.description,
-          account_id: l.accountId,
+          account_id: l.accountId || undefined,
           quantity: l.quantity,
           unit_price: l.unitPrice,
           tax_rate: l.taxRate,
           line_type: l.lineType,
           tax_code_id: l.taxCodeId || undefined,
         })),
-        discount_given: discountGiven,
-        rounding_adjustment: roundingAdjustment,
-        quick_share_email: quickShareEmail,
       } as any,
       { onSuccess: () => navigate("/sales/debit-notes") }
     )

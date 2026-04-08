@@ -62,14 +62,14 @@ export default function NewPaymentPage() {
   const handleSave = async () => {
     const allocationsList = Object.entries(allocations)
       .filter(([id]) => selectedInvoices[id])
-      .map(([invoice_id, amount_applied]) => ({ invoice_id, amount_applied }))
+      .map(([invoice_id, amt]) => ({ invoice_id, amount: amt }))
 
     await createPayment.mutateAsync({
-      customer_id: customerId,
+      contact_id: customerId,
       payment_date: paymentDate,
       payment_method: paymentMethod,
       reference,
-      bank_account_id: bankAccountId,
+      bank_account_id: bankAccountId || undefined,
       amount: parseFloat(amount) || 0,
       currency,
       allocations: allocationsList,

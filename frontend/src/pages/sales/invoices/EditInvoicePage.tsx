@@ -140,23 +140,21 @@ export default function EditInvoicePage() {
     try {
       await updateInvoice.mutateAsync({
         id,
-        invoice_number: invoiceNumber,
         contact_id: contactId,
-        lhdn_name: lhdnName,
-        terms,
-        tax_inclusive: taxInclusive,
-        invoice_date: invoiceDate,
-        customer_po: customerPo,
-        digital_ref: digitalRef,
-        discount_given: discountGiven,
-        rounding_adjustment: roundingAdjustment,
-        rounding_amount: roundingAmount,
-        journal_memo: journalMemo,
-        quick_share_email: quickShareEmail,
-        line_items: lineItems,
-        sub_total: subTotal,
-        tax_total: totalTax,
-        total,
+        issue_date: invoiceDate,
+        due_date: invoiceDate,
+        currency: "MYR",
+        notes: journalMemo || null,
+        line_items: lineItems.map(li => ({
+          description: li.description,
+          account_id: li.account_id || undefined,
+          quantity: li.quantity,
+          unit_price: li.unit_price,
+          tax_rate: li.tax_rate,
+          tax_code_id: li.tax_code_id || undefined,
+          line_type: li.line_type,
+          discount: li.discount,
+        })),
       })
       navigate("/sales/invoices")
     } catch {

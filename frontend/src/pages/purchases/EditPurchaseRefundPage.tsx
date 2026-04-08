@@ -45,7 +45,7 @@ export default function EditPurchaseRefundPage() {
       await updateRefund.mutateAsync({
         id: id!,
         contact_id: contactId || null,
-        payment_date: new Date(paymentDate).toISOString(),
+        refund_date: new Date(paymentDate).toISOString(),
         amount: Number(amount),
         currency,
         payment_method: paymentMethod,

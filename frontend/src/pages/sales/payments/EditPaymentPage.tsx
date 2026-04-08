@@ -87,11 +87,11 @@ export default function EditPaymentPage() {
   const handleSave = async () => {
     const allocationsList = Object.entries(allocations)
       .filter(([invId]) => selectedInvoices[invId])
-      .map(([invoice_id, amount_applied]) => ({ invoice_id, amount_applied }))
+      .map(([invoice_id, amt]) => ({ invoice_id, amount: amt }))
 
     await updatePayment.mutateAsync({
       id,
-      customer_id: customerId,
+      contact_id: customerId,
       payment_date: paymentDate,
       payment_method: paymentMethod,
       reference,

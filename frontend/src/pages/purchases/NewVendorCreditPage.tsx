@@ -68,7 +68,7 @@ export default function NewVendorCreditPage() {
       await createVendorCredit.mutateAsync({
         contact_id: contactId,
         bill_id: billId || null,
-        credit_date: new Date(issueDate).toISOString(),
+        issue_date: new Date(issueDate).toISOString(),
         currency,
         notes: notes || null,
         line_items: lineItems.map((item, i) => ({

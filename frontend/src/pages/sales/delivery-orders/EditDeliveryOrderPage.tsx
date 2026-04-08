@@ -104,19 +104,20 @@ export default function EditDeliveryOrderPage() {
     try {
       await updateDeliveryOrder.mutateAsync({
         id,
-        do_number: doNumber,
         contact_id: contactId,
         delivery_date: deliveryDate,
-        due_date: dueDate,
-        po_number: poNumber,
+        reference: poNumber || null,
         currency,
-        tax_rate: taxRate,
-        deliver_to: deliverTo,
-        ship_to: shipTo,
-        line_items: lineItems,
-        sub_total: subTotal,
-        sst: sstAmount,
-        total,
+        deliver_to_address: [deliverTo.address1, deliverTo.address2, deliverTo.city, deliverTo.state, deliverTo.postcode, deliverTo.country].filter(Boolean).join(", ") || null,
+        ship_to_address: [shipTo.address1, shipTo.address2, shipTo.city, shipTo.state, shipTo.postcode, shipTo.country].filter(Boolean).join(", ") || null,
+        notes: null,
+        line_items: lineItems.map(li => ({
+          description: li.description,
+          quantity: li.quantity,
+          unit_price: li.unit_price,
+          tax_rate: li.tax_rate,
+          tax_code_id: li.tax_code_id || undefined,
+        })),
       })
       navigate("/sales/delivery-orders")
     } catch {

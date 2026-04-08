@@ -28,7 +28,7 @@ export default function NewPurchaseRefundPage() {
     try {
       await createRefund.mutateAsync({
         contact_id: contactId || null,
-        payment_date: new Date(paymentDate).toISOString(),
+        refund_date: new Date(paymentDate).toISOString(),
         amount: Number(amount),
         currency,
         payment_method: paymentMethod,

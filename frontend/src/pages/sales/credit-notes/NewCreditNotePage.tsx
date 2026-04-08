@@ -143,20 +143,24 @@ export default function NewCreditNotePage() {
   const handleSave = async () => {
     try {
       await createCreditNote.mutateAsync({
-        credit_note_number: creditNoteNumber,
         contact_id: contactId,
-        credit_note_date: creditNoteDate,
+        issue_date: creditNoteDate,
         reference,
         currency,
-        tax_inclusive: taxInclusive,
-        discount_given: discountGiven,
-        rounding_adjustment: roundingAdjustment,
-        quick_share_email: quickShareEmail,
-        line_items: lineItems,
-        apply_credit_lines: applyCreditLines.filter(l => l.selected),
-        sub_total: subTotal,
-        total,
-        credit_applied: creditApplied,
+        notes: null,
+        line_items: lineItems.map(li => ({
+          description: li.description,
+          account_id: li.account_id || undefined,
+          quantity: li.quantity,
+          unit_price: li.unit_price,
+          tax_rate: li.tax_rate,
+          tax_code_id: li.tax_code_id || undefined,
+          line_type: li.line_type,
+          discount: li.discount,
+        })),
+        credit_applications: applyCreditLines
+          .filter(l => l.selected && l.apply_amount > 0)
+          .map(l => ({ invoice_id: l.invoice_id, amount: l.apply_amount })),
       })
       navigate("/sales/credit-notes")
     } catch {

@@ -129,18 +129,21 @@ export default function EditCreditNotePage() {
     try {
       await updateCreditNote.mutateAsync({
         id,
-        credit_note_number: creditNoteNumber,
         contact_id: contactId,
-        credit_note_date: creditNoteDate,
+        issue_date: creditNoteDate,
         reference,
         currency,
-        tax_inclusive: taxInclusive,
-        discount_given: discountGiven,
-        rounding_adjustment: roundingAdjustment,
-        quick_share_email: quickShareEmail,
-        line_items: lineItems,
-        sub_total: subTotal,
-        total,
+        notes: null,
+        line_items: lineItems.map(li => ({
+          description: li.description,
+          account_id: li.account_id || undefined,
+          quantity: li.quantity,
+          unit_price: li.unit_price,
+          tax_rate: li.tax_rate,
+          tax_code_id: li.tax_code_id || undefined,
+          line_type: li.line_type,
+          discount: li.discount,
+        })),
       })
       navigate("/sales/credit-notes")
     } catch {
