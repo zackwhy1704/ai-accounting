@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react"
 import { useNavigate, useParams } from "react-router-dom"
 import { Plus, Trash2, Loader2 } from "lucide-react"
-import { useCreditNote, useUpdateCreditNote, useContacts, useAccounts, useInvoices, useTaxRates } from "../../../lib/hooks"
+import { useCreditNote, useUpdateCreditNote, useContacts, useAccounts, useTaxRates } from "../../../lib/hooks"
 import { Card } from "../../../components/ui/card"
 import { Button } from "../../../components/ui/button"
 import { Input } from "../../../components/ui/input"

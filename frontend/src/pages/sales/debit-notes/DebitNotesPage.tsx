@@ -1,7 +1,6 @@
 import { useMemo, useState } from "react"
 import { useNavigate } from "react-router-dom"
-import { Plus, Search, Pencil } from "lucide-react"
-import { RowActionsMenu } from "../../../components/ui/row-actions"
+import { Plus, Search } from "lucide-react"
 import { useDebitNotes, useContacts } from "../../../lib/hooks"
 import { formatCurrency, formatDate, cn } from "../../../lib/utils"
 import { useTheme } from "../../../lib/theme"
@@ -135,6 +134,7 @@ export default function DebitNotesPage() {
                       <TableHead className="w-[150px] text-muted-foreground">{t("debitNotes.linkedInvoice")}</TableHead>
                       <TableHead className="w-[160px] text-right text-muted-foreground">{t("common.amount")}</TableHead>
                       <TableHead className="w-[150px] text-muted-foreground">{t("common.status")}</TableHead>
+                      <TableHead className="w-[90px] text-right text-muted-foreground">{t("common.action")}</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -147,6 +147,11 @@ export default function DebitNotesPage() {
                         <TableCell className="text-right text-foreground">{formatCurrency(dn.total)}</TableCell>
                         <TableCell>
                           <Badge variant="outline" className={cn("rounded-lg px-2 py-0.5 text-[11px] font-semibold", statusColors[dn.status] ?? "")}>{dn.status.charAt(0).toUpperCase() + dn.status.slice(1)}</Badge>
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <RowActionsMenu actions={[
+                            { label: "Edit", icon: <Pencil className="h-3.5 w-3.5" />, onClick: () => navigate(`/sales/debit-notes/${dn.id}/edit`) },
+                          ]} />
                         </TableCell>
                       </TableRow>
                     ))}

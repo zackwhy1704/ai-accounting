@@ -63,7 +63,7 @@ export default function EditProductPage() {
     if (!name) return
     updateProduct.mutate(
       {
-        id,
+        id: id!,
         code: code || null,
         name,
         description: description || null,
