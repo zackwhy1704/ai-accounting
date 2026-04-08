@@ -2,6 +2,7 @@ import random
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, delete
+from sqlalchemy.orm import selectinload
 from uuid import UUID
 from datetime import datetime, timezone
 from typing import Optional
@@ -84,7 +85,7 @@ async def list_purchase_orders(
     db: AsyncSession = Depends(get_db),
     current_user: dict = Depends(get_current_user),
 ):
-    q = select(PurchaseOrder).where(
+    q = select(PurchaseOrder).options(selectinload(PurchaseOrder.line_items)).where(
         PurchaseOrder.organization_id == current_user["org_id"]
     ).order_by(PurchaseOrder.created_at.desc())
     if status:
@@ -140,8 +141,10 @@ async def create_purchase_order(
         db.add(line)
 
     await db.commit()
-    await db.refresh(po)
-    return po
+    result = await db.execute(
+        select(PurchaseOrder).options(selectinload(PurchaseOrder.line_items)).where(PurchaseOrder.id == po.id)
+    )
+    return result.scalar_one()
 
 
 @router.get("/{po_id}", response_model=PurchaseOrderResponse)
@@ -151,7 +154,7 @@ async def get_purchase_order(
     current_user: dict = Depends(get_current_user),
 ):
     result = await db.execute(
-        select(PurchaseOrder).where(
+        select(PurchaseOrder).options(selectinload(PurchaseOrder.line_items)).where(
             PurchaseOrder.id == po_id,
             PurchaseOrder.organization_id == current_user["org_id"],
         )
@@ -212,8 +215,10 @@ async def update_purchase_order(
         setattr(po, key, value)
 
     await db.commit()
-    await db.refresh(po)
-    return po
+    result = await db.execute(
+        select(PurchaseOrder).options(selectinload(PurchaseOrder.line_items)).where(PurchaseOrder.id == po_id)
+    )
+    return result.scalar_one()
 
 
 @router.patch("/{po_id}/status")

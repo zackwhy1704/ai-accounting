@@ -228,7 +228,7 @@ async def convert_quotation(qid: UUID, body: ConvertQuotationRequest, current_us
 @router.get("/delivery-orders", response_model=list[DeliveryOrderResponse])
 async def list_delivery_orders(status: str | None = None, current_user: dict = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
     org_id = current_user["org_id"]
-    q = select(DeliveryOrder).where(DeliveryOrder.organization_id == org_id).order_by(DeliveryOrder.created_at.desc())
+    q = select(DeliveryOrder).options(selectinload(DeliveryOrder.line_items)).where(DeliveryOrder.organization_id == org_id).order_by(DeliveryOrder.created_at.desc())
     if status:
         q = q.where(DeliveryOrder.status == status)
     return (await db.execute(q)).scalars().all()

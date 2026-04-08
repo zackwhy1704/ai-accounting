@@ -2,6 +2,7 @@ import random
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, delete
+from sqlalchemy.orm import selectinload
 from uuid import UUID
 from datetime import datetime, timezone
 from typing import Optional
@@ -75,7 +76,7 @@ async def list_grns(
     db: AsyncSession = Depends(get_db),
     current_user: dict = Depends(get_current_user),
 ):
-    q = select(GoodsReceivedNote).where(
+    q = select(GoodsReceivedNote).options(selectinload(GoodsReceivedNote.line_items)).where(
         GoodsReceivedNote.organization_id == current_user["org_id"]
     ).order_by(GoodsReceivedNote.created_at.desc())
     if status:
@@ -116,8 +117,10 @@ async def create_grn(
         db.add(line)
 
     await db.commit()
-    await db.refresh(grn)
-    return grn
+    result = await db.execute(
+        select(GoodsReceivedNote).options(selectinload(GoodsReceivedNote.line_items)).where(GoodsReceivedNote.id == grn.id)
+    )
+    return result.scalar_one()
 
 
 @router.get("/{grn_id}", response_model=GRNResponse)
@@ -127,7 +130,7 @@ async def get_grn(
     current_user: dict = Depends(get_current_user),
 ):
     result = await db.execute(
-        select(GoodsReceivedNote).where(
+        select(GoodsReceivedNote).options(selectinload(GoodsReceivedNote.line_items)).where(
             GoodsReceivedNote.id == grn_id,
             GoodsReceivedNote.organization_id == current_user["org_id"],
         )
@@ -177,8 +180,10 @@ async def update_grn(
         setattr(grn, key, value)
 
     await db.commit()
-    await db.refresh(grn)
-    return grn
+    result = await db.execute(
+        select(GoodsReceivedNote).options(selectinload(GoodsReceivedNote.line_items)).where(GoodsReceivedNote.id == grn_id)
+    )
+    return result.scalar_one()
 
 
 @router.patch("/{grn_id}/status")
