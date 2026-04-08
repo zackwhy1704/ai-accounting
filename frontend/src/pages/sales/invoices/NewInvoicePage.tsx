@@ -52,6 +52,53 @@ export default function NewInvoicePage() {
   const [customerPo, setCustomerPo] = useState("")
   const [digitalRef, setDigitalRef] = useState("")
 
+  // Billing & Shipping address (auto-populated from contact)
+  const [billingLine1, setBillingLine1] = useState("")
+  const [billingLine2, setBillingLine2] = useState("")
+  const [billingCity, setBillingCity] = useState("")
+  const [billingState, setBillingState] = useState("")
+  const [billingPostcode, setBillingPostcode] = useState("")
+  const [billingCountry, setBillingCountry] = useState("")
+  const [shippingLine1, setShippingLine1] = useState("")
+  const [shippingLine2, setShippingLine2] = useState("")
+  const [shippingCity, setShippingCity] = useState("")
+  const [shippingState, setShippingState] = useState("")
+  const [shippingPostcode, setShippingPostcode] = useState("")
+  const [shippingCountry, setShippingCountry] = useState("")
+
+  // Handle customer selection — auto-populate from contact + localStorage prefs
+  const handleContactChange = (id: string) => {
+    if (id === "__add_new__") { navigate("/contacts/new"); return }
+    setContactId(id)
+    const contact = contacts.find((c: any) => c.id === id) as any
+    if (contact) {
+      // Populate billing address from backend
+      setBillingLine1(contact.billing_address_line1 ?? "")
+      setBillingLine2(contact.billing_address_line2 ?? "")
+      setBillingCity(contact.billing_city ?? "")
+      setBillingState(contact.billing_state ?? "")
+      setBillingPostcode(contact.billing_postcode ?? "")
+      setBillingCountry(contact.billing_country ?? "")
+      setShippingLine1(contact.shipping_address_line1 ?? "")
+      setShippingLine2(contact.shipping_address_line2 ?? "")
+      setShippingCity(contact.shipping_city ?? "")
+      setShippingState(contact.shipping_state ?? "")
+      setShippingPostcode(contact.shipping_postcode ?? "")
+      setShippingCountry(contact.shipping_country ?? "")
+      // Populate currency + payment terms from backend defaults
+      if (contact.default_currency) setCurrency(contact.default_currency)
+      if (contact.default_payment_terms) setTerms(contact.default_payment_terms)
+    }
+    // Read cached tax_inclusive pref from localStorage
+    const cached = localStorage.getItem(`contact_prefs_${id}`)
+    if (cached) {
+      try {
+        const prefs = JSON.parse(cached)
+        if (prefs.tax_inclusive !== undefined) setTaxInclusive(prefs.tax_inclusive)
+      } catch { /* ignore */ }
+    }
+  }
+
   // Line items
   const [lineItems, setLineItems] = useState<LineItem[]>([
     { description: "", account_id: "", quantity: 1, unit_price: 0, amount: 0, discount: 0, tax_rate: 0, line_type: "goods", tax_code_id: "" },
@@ -63,8 +110,20 @@ export default function NewInvoicePage() {
   const [roundingAmount, setRoundingAmount] = useState(0)
 
   // Bottom
+  const [currency, setCurrency] = useState("MYR")
   const [journalMemo, setJournalMemo] = useState("")
   const [quickShareEmail, setQuickShareEmail] = useState(false)
+
+  // Persist tax_inclusive preference to localStorage whenever it changes and a contact is selected
+  const handleTaxInclusiveToggle = () => {
+    const newVal = !taxInclusive
+    setTaxInclusive(newVal)
+    if (contactId) {
+      const cached = localStorage.getItem(`contact_prefs_${contactId}`)
+      const prefs = cached ? JSON.parse(cached) : {}
+      localStorage.setItem(`contact_prefs_${contactId}`, JSON.stringify({ ...prefs, tax_inclusive: newVal }))
+    }
+  }
 
   // Line item helpers
   const updateLineItem = (index: number, field: keyof LineItem, value: string | number) => {
@@ -123,7 +182,7 @@ export default function NewInvoicePage() {
         contact_id: contactId,
         issue_date: invoiceDate,
         due_date: invoiceDate,
-        currency: "MYR",
+        currency,
         notes: journalMemo || null,
         line_items: lineItems.map(li => ({
           description: li.description,
@@ -183,7 +242,7 @@ export default function NewInvoicePage() {
             </div>
             <div>
               <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Customer</label>
-              <Select value={contactId} onValueChange={v => v === "__add_new__" ? navigate("/contacts/new") : setContactId(v)}>
+              <Select value={contactId} onValueChange={handleContactChange}>
                 <SelectTrigger className="h-10 rounded-xl">
                   <SelectValue placeholder="Select customer" />
                 </SelectTrigger>
@@ -232,7 +291,7 @@ export default function NewInvoicePage() {
               <div className="flex items-center gap-2">
                 <button
                   type="button"
-                  onClick={() => setTaxInclusive(!taxInclusive)}
+                  onClick={handleTaxInclusiveToggle}
                   className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${
                     taxInclusive ? "bg-blue-500" : "bg-gray-300"
                   }`}
@@ -560,30 +619,30 @@ export default function NewInvoicePage() {
             <div>
               <h3 className="mb-4 text-sm font-semibold text-foreground">Billing Address</h3>
               <div className="space-y-3">
-                <Input placeholder="Address Line 1" className="h-10 rounded-xl" />
-                <Input placeholder="Address Line 2" className="h-10 rounded-xl" />
+                <Input placeholder="Address Line 1" value={billingLine1} onChange={e => setBillingLine1(e.target.value)} className="h-10 rounded-xl" />
+                <Input placeholder="Address Line 2" value={billingLine2} onChange={e => setBillingLine2(e.target.value)} className="h-10 rounded-xl" />
                 <div className="grid grid-cols-2 gap-3">
-                  <Input placeholder="City" className="h-10 rounded-xl" />
-                  <Input placeholder="State" className="h-10 rounded-xl" />
+                  <Input placeholder="City" value={billingCity} onChange={e => setBillingCity(e.target.value)} className="h-10 rounded-xl" />
+                  <Input placeholder="State" value={billingState} onChange={e => setBillingState(e.target.value)} className="h-10 rounded-xl" />
                 </div>
                 <div className="grid grid-cols-2 gap-3">
-                  <Input placeholder="Postcode" className="h-10 rounded-xl" />
-                  <Input placeholder="Country" className="h-10 rounded-xl" />
+                  <Input placeholder="Postcode" value={billingPostcode} onChange={e => setBillingPostcode(e.target.value)} className="h-10 rounded-xl" />
+                  <Input placeholder="Country" value={billingCountry} onChange={e => setBillingCountry(e.target.value)} className="h-10 rounded-xl" />
                 </div>
               </div>
             </div>
             <div>
               <h3 className="mb-4 text-sm font-semibold text-foreground">Shipping Address</h3>
               <div className="space-y-3">
-                <Input placeholder="Address Line 1" className="h-10 rounded-xl" />
-                <Input placeholder="Address Line 2" className="h-10 rounded-xl" />
+                <Input placeholder="Address Line 1" value={shippingLine1} onChange={e => setShippingLine1(e.target.value)} className="h-10 rounded-xl" />
+                <Input placeholder="Address Line 2" value={shippingLine2} onChange={e => setShippingLine2(e.target.value)} className="h-10 rounded-xl" />
                 <div className="grid grid-cols-2 gap-3">
-                  <Input placeholder="City" className="h-10 rounded-xl" />
-                  <Input placeholder="State" className="h-10 rounded-xl" />
+                  <Input placeholder="City" value={shippingCity} onChange={e => setShippingCity(e.target.value)} className="h-10 rounded-xl" />
+                  <Input placeholder="State" value={shippingState} onChange={e => setShippingState(e.target.value)} className="h-10 rounded-xl" />
                 </div>
                 <div className="grid grid-cols-2 gap-3">
-                  <Input placeholder="Postcode" className="h-10 rounded-xl" />
-                  <Input placeholder="Country" className="h-10 rounded-xl" />
+                  <Input placeholder="Postcode" value={shippingPostcode} onChange={e => setShippingPostcode(e.target.value)} className="h-10 rounded-xl" />
+                  <Input placeholder="Country" value={shippingCountry} onChange={e => setShippingCountry(e.target.value)} className="h-10 rounded-xl" />
                 </div>
               </div>
             </div>

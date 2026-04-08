@@ -202,6 +202,23 @@ class Contact(Base):
     ic_number: Mapped[str | None] = mapped_column(String(20))  # MyKad IC number (individual)
     tin: Mapped[str | None] = mapped_column(String(50))  # Tax Identification Number
     msic_code: Mapped[str | None] = mapped_column(String(20))  # MSIC code
+    # Structured billing address
+    billing_address_line1: Mapped[str | None] = mapped_column(String(255))
+    billing_address_line2: Mapped[str | None] = mapped_column(String(255))
+    billing_city: Mapped[str | None] = mapped_column(String(100))
+    billing_state: Mapped[str | None] = mapped_column(String(100))
+    billing_postcode: Mapped[str | None] = mapped_column(String(20))
+    billing_country: Mapped[str | None] = mapped_column(String(100))
+    # Structured shipping address
+    shipping_address_line1: Mapped[str | None] = mapped_column(String(255))
+    shipping_address_line2: Mapped[str | None] = mapped_column(String(255))
+    shipping_city: Mapped[str | None] = mapped_column(String(100))
+    shipping_state: Mapped[str | None] = mapped_column(String(100))
+    shipping_postcode: Mapped[str | None] = mapped_column(String(20))
+    shipping_country: Mapped[str | None] = mapped_column(String(100))
+    # Default preferences
+    default_currency: Mapped[str | None] = mapped_column(String(3))
+    default_payment_terms: Mapped[str | None] = mapped_column(String(50))
     notes: Mapped[str | None] = mapped_column(Text)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)

@@ -67,18 +67,51 @@ export default function NewQuotationPage() {
   const attachFileRef = useRef<HTMLInputElement>(null)
   const [attachments, setAttachments] = useState<File[]>([])
 
-  // Billing/shipping address from contact
-  const [billingAddress, setBillingAddress] = useState("")
-  const [shippingAddress, setShippingAddress] = useState("")
+  // Billing/shipping address (structured, auto-populated from contact)
+  const [billingLine1, setBillingLine1] = useState("")
+  const [billingLine2, setBillingLine2] = useState("")
+  const [billingCity, setBillingCity] = useState("")
+  const [billingState, setBillingState] = useState("")
+  const [billingPostcode, setBillingPostcode] = useState("")
+  const [billingCountry, setBillingCountry] = useState("")
+  const [shippingLine1, setShippingLine1] = useState("")
+  const [shippingLine2, setShippingLine2] = useState("")
+  const [shippingCity, setShippingCity] = useState("")
+  const [shippingState, setShippingState] = useState("")
+  const [shippingPostcode, setShippingPostcode] = useState("")
+  const [shippingCountry, setShippingCountry] = useState("")
 
-  // Auto-fill address when contact changes
-  const selectedContact = useMemo(() => contacts.find(c => c.id === contactId), [contacts, contactId])
-  useEffect(() => {
-    if (selectedContact?.address) {
-      setBillingAddress(selectedContact.address)
-      setShippingAddress(selectedContact.address)
+  const selectedContact = useMemo(() => contacts.find((c: any) => c.id === contactId), [contacts, contactId])
+
+  // Auto-fill address + prefs when contact changes
+  const handleContactSelect = (id: string) => {
+    if (id === "__add_new__") { navigate("/contacts/new"); return }
+    setContactId(id)
+    const contact = contacts.find((c: any) => c.id === id) as any
+    if (contact) {
+      setBillingLine1(contact.billing_address_line1 ?? "")
+      setBillingLine2(contact.billing_address_line2 ?? "")
+      setBillingCity(contact.billing_city ?? "")
+      setBillingState(contact.billing_state ?? "")
+      setBillingPostcode(contact.billing_postcode ?? "")
+      setBillingCountry(contact.billing_country ?? "")
+      setShippingLine1(contact.shipping_address_line1 ?? "")
+      setShippingLine2(contact.shipping_address_line2 ?? "")
+      setShippingCity(contact.shipping_city ?? "")
+      setShippingState(contact.shipping_state ?? "")
+      setShippingPostcode(contact.shipping_postcode ?? "")
+      setShippingCountry(contact.shipping_country ?? "")
+      if (contact.default_currency) setCurrency(contact.default_currency)
+      if (contact.default_payment_terms) setPaymentTerms(contact.default_payment_terms)
     }
-  }, [selectedContact])
+    const cached = localStorage.getItem(`contact_prefs_${id}`)
+    if (cached) {
+      try {
+        const prefs = JSON.parse(cached)
+        if (prefs.tax_inclusive !== undefined) setTaxInclusive(prefs.tax_inclusive)
+      } catch { /* ignore */ }
+    }
+  }
 
   // Close product dropdown on outside click
   useEffect(() => {
@@ -219,7 +252,7 @@ export default function NewQuotationPage() {
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
             <div>
               <label className="mb-1.5 block text-xs font-medium text-muted-foreground">{t("quotations.customer")}</label>
-              <Select value={contactId} onValueChange={v => v === "__add_new__" ? navigate("/contacts/new") : setContactId(v)}>
+              <Select value={contactId} onValueChange={handleContactSelect}>
                 <SelectTrigger className="h-10 rounded-xl">
                   <SelectValue placeholder="Select customer" />
                 </SelectTrigger>
@@ -538,23 +571,33 @@ export default function NewQuotationPage() {
           <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
             <div>
               <h3 className="mb-4 text-sm font-semibold text-foreground">Billing Address</h3>
-              <textarea
-                value={billingAddress}
-                onChange={e => setBillingAddress(e.target.value)}
-                placeholder="Billing address"
-                rows={4}
-                className="w-full rounded-xl border border-border bg-card px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-              />
+              <div className="space-y-3">
+                <Input placeholder="Address Line 1" value={billingLine1} onChange={e => setBillingLine1(e.target.value)} className="h-10 rounded-xl" />
+                <Input placeholder="Address Line 2" value={billingLine2} onChange={e => setBillingLine2(e.target.value)} className="h-10 rounded-xl" />
+                <div className="grid grid-cols-2 gap-3">
+                  <Input placeholder="City" value={billingCity} onChange={e => setBillingCity(e.target.value)} className="h-10 rounded-xl" />
+                  <Input placeholder="State" value={billingState} onChange={e => setBillingState(e.target.value)} className="h-10 rounded-xl" />
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <Input placeholder="Postcode" value={billingPostcode} onChange={e => setBillingPostcode(e.target.value)} className="h-10 rounded-xl" />
+                  <Input placeholder="Country" value={billingCountry} onChange={e => setBillingCountry(e.target.value)} className="h-10 rounded-xl" />
+                </div>
+              </div>
             </div>
             <div>
               <h3 className="mb-4 text-sm font-semibold text-foreground">Shipping Address</h3>
-              <textarea
-                value={shippingAddress}
-                onChange={e => setShippingAddress(e.target.value)}
-                placeholder="Shipping address"
-                rows={4}
-                className="w-full rounded-xl border border-border bg-card px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-              />
+              <div className="space-y-3">
+                <Input placeholder="Address Line 1" value={shippingLine1} onChange={e => setShippingLine1(e.target.value)} className="h-10 rounded-xl" />
+                <Input placeholder="Address Line 2" value={shippingLine2} onChange={e => setShippingLine2(e.target.value)} className="h-10 rounded-xl" />
+                <div className="grid grid-cols-2 gap-3">
+                  <Input placeholder="City" value={shippingCity} onChange={e => setShippingCity(e.target.value)} className="h-10 rounded-xl" />
+                  <Input placeholder="State" value={shippingState} onChange={e => setShippingState(e.target.value)} className="h-10 rounded-xl" />
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <Input placeholder="Postcode" value={shippingPostcode} onChange={e => setShippingPostcode(e.target.value)} className="h-10 rounded-xl" />
+                  <Input placeholder="Country" value={shippingCountry} onChange={e => setShippingCountry(e.target.value)} className="h-10 rounded-xl" />
+                </div>
+              </div>
             </div>
           </div>
         </Card>

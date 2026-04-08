@@ -93,6 +93,20 @@ class ContactCreate(BaseModel):
     ic_number: str | None = None
     tin: str | None = None
     msic_code: str | None = None
+    billing_address_line1: str | None = None
+    billing_address_line2: str | None = None
+    billing_city: str | None = None
+    billing_state: str | None = None
+    billing_postcode: str | None = None
+    billing_country: str | None = None
+    shipping_address_line1: str | None = None
+    shipping_address_line2: str | None = None
+    shipping_city: str | None = None
+    shipping_state: str | None = None
+    shipping_postcode: str | None = None
+    shipping_country: str | None = None
+    default_currency: str | None = None
+    default_payment_terms: str | None = None
 
 class ContactResponse(BaseModel):
     id: UUID
@@ -108,6 +122,20 @@ class ContactResponse(BaseModel):
     ic_number: str | None
     tin: str | None
     msic_code: str | None
+    billing_address_line1: str | None = None
+    billing_address_line2: str | None = None
+    billing_city: str | None = None
+    billing_state: str | None = None
+    billing_postcode: str | None = None
+    billing_country: str | None = None
+    shipping_address_line1: str | None = None
+    shipping_address_line2: str | None = None
+    shipping_city: str | None = None
+    shipping_state: str | None = None
+    shipping_postcode: str | None = None
+    shipping_country: str | None = None
+    default_currency: str | None = None
+    default_payment_terms: str | None = None
     created_at: datetime
     model_config = {"from_attributes": True}
 
