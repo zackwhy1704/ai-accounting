@@ -222,8 +222,8 @@ export default function EditInvoicePage() {
               </Select>
             </div>
             <div>
-              <label className="mb-1.5 block text-xs font-medium text-muted-foreground">LHDN Name</label>
-              <Input value={lhdnName} onChange={e => setLhdnName(e.target.value)} placeholder="LHDN registered name" className="h-10 rounded-xl" />
+              <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Company Name</label>
+              <Input value={lhdnName} onChange={e => setLhdnName(e.target.value)} placeholder="Registered company name" className="h-10 rounded-xl" />
             </div>
             <div>
               <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Terms</label>

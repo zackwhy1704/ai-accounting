@@ -197,11 +197,11 @@ export default function NewInvoicePage() {
             </div>
 
             <div>
-              <label className="mb-1.5 block text-xs font-medium text-muted-foreground">LHDN Name</label>
+              <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Company Name</label>
               <Input
                 value={lhdnName}
                 onChange={e => setLhdnName(e.target.value)}
-                placeholder="LHDN registered name"
+                placeholder="Registered company name"
                 className="h-10 rounded-xl"
               />
             </div>
