@@ -264,6 +264,18 @@ async def create_delivery_order(data: DeliveryOrderCreate, current_user: dict = 
     return result.scalar_one()
 
 
+@router.get("/delivery-orders/{do_id}", response_model=DeliveryOrderResponse)
+async def get_delivery_order(do_id: UUID, current_user: dict = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    result = await db.execute(
+        select(DeliveryOrder).options(selectinload(DeliveryOrder.line_items))
+        .where(DeliveryOrder.id == do_id, DeliveryOrder.organization_id == current_user["org_id"])
+    )
+    obj = result.scalar_one_or_none()
+    if not obj:
+        raise HTTPException(status_code=404, detail="Delivery order not found")
+    return obj
+
+
 @router.patch("/delivery-orders/{do_id}", response_model=DeliveryOrderResponse)
 async def update_delivery_order(do_id: UUID, data: DeliveryOrderUpdate, current_user: dict = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
     result = await db.execute(
@@ -314,6 +326,17 @@ async def list_credit_notes(status: str | None = None, current_user: dict = Depe
     if status:
         q = q.where(CreditNote.status == status)
     return (await db.execute(q)).scalars().all()
+
+
+@router.get("/credit-notes/{cn_id}", response_model=CreditNoteResponse)
+async def get_credit_note(cn_id: UUID, current_user: dict = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    result = await db.execute(
+        select(CreditNote).where(CreditNote.id == cn_id, CreditNote.organization_id == current_user["org_id"])
+    )
+    obj = result.scalar_one_or_none()
+    if not obj:
+        raise HTTPException(status_code=404, detail="Credit note not found")
+    return obj
 
 
 @router.post("/credit-notes", response_model=CreditNoteResponse, status_code=201)
@@ -449,6 +472,17 @@ async def list_debit_notes(status: str | None = None, current_user: dict = Depen
     return (await db.execute(q)).scalars().all()
 
 
+@router.get("/debit-notes/{dn_id}", response_model=DebitNoteResponse)
+async def get_debit_note(dn_id: UUID, current_user: dict = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    result = await db.execute(
+        select(DebitNote).where(DebitNote.id == dn_id, DebitNote.organization_id == current_user["org_id"])
+    )
+    obj = result.scalar_one_or_none()
+    if not obj:
+        raise HTTPException(status_code=404, detail="Debit note not found")
+    return obj
+
+
 @router.post("/debit-notes", response_model=DebitNoteResponse, status_code=201)
 async def create_debit_note(data: DebitNoteCreate, current_user: dict = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
     org_id = current_user["org_id"]
@@ -548,6 +582,17 @@ async def list_sales_payments(status: str | None = None, current_user: dict = De
     return (await db.execute(q)).scalars().all()
 
 
+@router.get("/sales-payments/{sp_id}", response_model=SalesPaymentResponse)
+async def get_sales_payment(sp_id: UUID, current_user: dict = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    result = await db.execute(
+        select(SalesPayment).where(SalesPayment.id == sp_id, SalesPayment.organization_id == current_user["org_id"])
+    )
+    obj = result.scalar_one_or_none()
+    if not obj:
+        raise HTTPException(status_code=404, detail="Sales payment not found")
+    return obj
+
+
 @router.post("/sales-payments", response_model=SalesPaymentResponse, status_code=201)
 async def create_sales_payment(data: SalesPaymentCreate, current_user: dict = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
     org_id = current_user["org_id"]
@@ -641,6 +686,17 @@ async def list_sales_refunds(status: str | None = None, current_user: dict = Dep
     if status:
         q = q.where(SalesRefund.status == status)
     return (await db.execute(q)).scalars().all()
+
+
+@router.get("/sales-refunds/{sr_id}", response_model=SalesRefundResponse)
+async def get_sales_refund(sr_id: UUID, current_user: dict = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    result = await db.execute(
+        select(SalesRefund).where(SalesRefund.id == sr_id, SalesRefund.organization_id == current_user["org_id"])
+    )
+    obj = result.scalar_one_or_none()
+    if not obj:
+        raise HTTPException(status_code=404, detail="Sales refund not found")
+    return obj
 
 
 @router.post("/sales-refunds", response_model=SalesRefundResponse, status_code=201)
