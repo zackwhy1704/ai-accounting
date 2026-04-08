@@ -314,14 +314,15 @@ export default function NewCreditNotePage() {
                   <TableHead className="w-[110px] text-muted-foreground">Unit Price</TableHead>
                   <TableHead className="w-[110px] text-right text-muted-foreground">Amount</TableHead>
                   <TableHead className="w-[80px] text-muted-foreground">Disc %</TableHead>
-                  <TableHead className="w-[120px] text-muted-foreground">Tax Code</TableHead>
+                  <TableHead className="w-[160px] text-muted-foreground">Tax Code</TableHead>
+                  <TableHead className="w-[80px] text-muted-foreground">Tax %</TableHead>
                   <TableHead className="w-10" />
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {lineItems.length === 0 ? (
                   <TableRow className="border-border">
-                    <TableCell colSpan={9} className="py-8 text-center text-sm text-muted-foreground">
+                    <TableCell colSpan={10} className="py-8 text-center text-sm text-muted-foreground">
                       No Data
                     </TableCell>
                   </TableRow>
@@ -401,12 +402,13 @@ export default function NewCreditNotePage() {
                           className="h-9 rounded-lg border-0 bg-transparent px-1 text-sm shadow-none focus-visible:ring-1"
                         />
                       </TableCell>
-                      <TableCell>
-                        <Select value={item.tax_code_id} onValueChange={v => updateLineItem(idx, "tax_code_id", v)}>
-                          <SelectTrigger className="h-9 rounded-lg border-0 bg-transparent shadow-none">
+                      <TableCell className="w-[160px]">
+                        <Select value={item.tax_code_id} onValueChange={v => updateLineItem(idx, "tax_code_id", v === "__none__" ? "" : v)}>
+                          <SelectTrigger className="h-9 rounded-lg border-0 bg-transparent shadow-none focus:ring-1 text-xs">
                             <SelectValue placeholder="Tax Code" />
                           </SelectTrigger>
                           <SelectContent>
+                            <SelectItem value="__none__">No Tax</SelectItem>
                             {taxRates.map((tc: any) => (
                               <SelectItem key={tc.id} value={tc.id}>
                                 {tc.code} ({tc.rate}%)
@@ -414,6 +416,15 @@ export default function NewCreditNotePage() {
                             ))}
                           </SelectContent>
                         </Select>
+                      </TableCell>
+                      <TableCell className="w-[80px]">
+                        <Input
+                          type="number" min={0} max={100} step={0.01}
+                          value={item.tax_rate}
+                          onChange={e => updateLineItem(idx, "tax_rate", Number(e.target.value))}
+                          className="h-9 rounded-lg border-0 bg-transparent px-1 text-sm shadow-none focus-visible:ring-1"
+                          placeholder="%"
+                        />
                       </TableCell>
                       <TableCell>
                         <button
