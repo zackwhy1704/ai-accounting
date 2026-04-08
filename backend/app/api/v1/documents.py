@@ -782,7 +782,81 @@ async def suggest_journal_from_document(
         subtotal = total - tax
 
     category = doc.category or "other"
-    lines = _build_journal_lines(category, subtotal, tax, total)
+
+    # ── Try learned pattern from past confirmed documents (same vendor + category) ──
+    learned_source = None
+    learned_count = 0
+    vendor_name = data.get("vendor_name") or data.get("customer_name")
+
+    if vendor_name and category != "other":
+        from collections import Counter
+        past_result = await db.execute(
+            select(Document.confirmed_journal_pattern, Document.ai_extracted_data).where(
+                Document.organization_id == org_id,
+                Document.status == "done",
+                Document.category == category,
+                Document.confirmed_journal_pattern.isnot(None),
+                Document.id != document_id,
+                Document.ai_extracted_data["vendor_name"].astext.ilike(f"%{str(vendor_name)[:30]}%"),
+            ).order_by(Document.uploaded_at.desc()).limit(10)
+        )
+        past_docs = past_result.all()
+
+        if past_docs:
+            learned_count = len(past_docs)
+            # Use the most recent confirmed pattern's account structure
+            best_pattern = past_docs[0][0]  # most recent
+
+            # Rebuild journal lines using learned accounts + current amounts
+            learned_lines = []
+            for entry in best_pattern:
+                side = entry.get("side", "debit")
+                if side == "debit":
+                    # Determine value: match account_code to know if it's subtotal/tax/total slot
+                    code = entry["account_code"]
+                    # Heuristic: tax accounts get tax amount, AP/AR get total, rest get subtotal
+                    if code in ("1200", "2100"):  # GST accounts
+                        amount = round(tax, 2)
+                        if amount == 0:
+                            continue  # skip tax line if no tax
+                    elif code in ("2000", "1100"):  # AP / AR
+                        amount = round(total, 2)
+                    else:
+                        amount = round(subtotal, 2)
+                    learned_lines.append({
+                        "account_code": code,
+                        "account_name": entry["account_name"],
+                        "description":  entry["description"],
+                        "debit": amount,
+                        "credit": 0.0,
+                    })
+                else:
+                    code = entry["account_code"]
+                    if code in ("1200", "2100"):
+                        amount = round(tax, 2)
+                        if amount == 0:
+                            continue
+                    elif code in ("2000", "1100"):
+                        amount = round(total, 2)
+                    else:
+                        amount = round(subtotal, 2)
+                    learned_lines.append({
+                        "account_code": code,
+                        "account_name": entry["account_name"],
+                        "description":  entry["description"],
+                        "debit": 0.0,
+                        "credit": amount,
+                    })
+
+            if learned_lines:
+                lines = learned_lines
+                learned_source = f"Based on {learned_count} past transaction{'s' if learned_count > 1 else ''} with {vendor_name}"
+            else:
+                lines = _build_journal_lines(category, subtotal, tax, total)
+        else:
+            lines = _build_journal_lines(category, subtotal, tax, total)
+    else:
+        lines = _build_journal_lines(category, subtotal, tax, total)
 
     return {
         "document_id": str(document_id),
@@ -792,6 +866,9 @@ async def suggest_journal_from_document(
         "total": round(total, 2),
         "journal_lines": lines,
         "memo_only": len(lines) == 0,
+        "learned": learned_source is not None,
+        "learned_source": learned_source,
+        "learned_count": learned_count,
     }
 
 
@@ -861,6 +938,19 @@ async def create_journal_from_document(
         doc.linked_record_type = result_info["record_type"]
 
     doc.status = "done"
+
+    # ── Learn: save the confirmed journal pattern for future suggestions ──
+    # Strip amounts (they vary per document) — keep only account_code + account_name + side (debit/credit)
+    doc.confirmed_journal_pattern = [
+        {
+            "account_code": ln["account_code"],
+            "account_name": ln["account_name"],
+            "description":  ln["description"],
+            "side": "debit" if ln["debit"] > 0 else "credit",
+        }
+        for ln in lines
+    ]
+
     await db.commit()
 
     return {

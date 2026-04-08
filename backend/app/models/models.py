@@ -713,6 +713,7 @@ class Document(Base):
     linked_record_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)
     linked_record_type: Mapped[str | None] = mapped_column(String(50), nullable=True)
     error_message: Mapped[str | None] = mapped_column(Text)
+    confirmed_journal_pattern: Mapped[list | None] = mapped_column(JSONB, nullable=True)
     uploaded_by: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("users.id"))
     uploaded_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
     processed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))

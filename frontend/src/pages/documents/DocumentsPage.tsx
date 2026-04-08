@@ -935,6 +935,9 @@ interface JournalSuggestion {
   total: number
   journal_lines: JournalLine[]
   memo_only: boolean
+  learned: boolean
+  learned_source: string | null
+  learned_count: number
 }
 
 const CONFIRM_LABEL: Record<string, string> = {
@@ -1216,9 +1219,15 @@ function InlineJournalPreview({ documentId, category }: { documentId: string; ca
       <div className="flex items-center gap-2">
         <BookOpen className="h-4 w-4 text-blue-500 shrink-0" />
         <span className="text-xs font-semibold text-foreground">Journal Entry Preview</span>
-        <span className="rounded-md bg-blue-50 px-1.5 py-0.5 text-[10px] font-medium text-blue-600 dark:bg-blue-900/30 dark:text-blue-400 flex items-center gap-1">
-          <Bot className="h-3 w-3" />AI Suggested
-        </span>
+        {data.learned ? (
+          <span className="rounded-md bg-emerald-50 px-1.5 py-0.5 text-[10px] font-medium text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400 flex items-center gap-1" title={data.learned_source ?? undefined}>
+            <Sparkles className="h-3 w-3" />Learned · {data.learned_count}×
+          </span>
+        ) : (
+          <span className="rounded-md bg-blue-50 px-1.5 py-0.5 text-[10px] font-medium text-blue-600 dark:bg-blue-900/30 dark:text-blue-400 flex items-center gap-1">
+            <Bot className="h-3 w-3" />AI Suggested
+          </span>
+        )}
         {!balanced && (
           <span className="rounded-md bg-rose-50 px-1.5 py-0.5 text-[10px] font-medium text-rose-600">Unbalanced</span>
         )}
