@@ -235,5 +235,5 @@ async def cancel_recurring(
     ri = result.scalar_one_or_none()
     if not ri:
         raise HTTPException(status_code=404, detail="Not found")
-    ri.status = "cancelled"
+    await db.delete(ri)
     await db.commit()

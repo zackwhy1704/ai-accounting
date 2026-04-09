@@ -153,7 +153,7 @@ export default function RefundsPage() {
                         </TableCell>
                         <TableCell className="text-right">
                           <RowActionsMenu actions={[
-                            { label: "Edit", icon: <Pencil className="h-3.5 w-3.5" />, onClick: () => navigate(`/sales-refunds/${r.id}/edit`), disabled: r.status === "void" },
+                            { label: "Edit", icon: <Pencil className="h-3.5 w-3.5" />, onClick: () => navigate(`/sales/refunds/${r.id}/edit`), disabled: r.status === "void" },
                             { label: "Mark as Completed", icon: <CheckCircle className="h-3.5 w-3.5" />, onClick: () => updateRefundStatus.mutate({ id: r.id, status: "completed" }), dividerBefore: true, disabled: r.status !== "draft" },
                             { label: t("refunds.void"), icon: <XCircle className="h-3.5 w-3.5" />, onClick: () => { if (confirm("Void this refund?")) updateRefundStatus.mutate({ id: r.id, status: "void" }) }, danger: true, disabled: r.status === "void" },
                             { label: "Delete", icon: <Trash2 className="h-3.5 w-3.5" />, onClick: () => { if (confirm("Delete this refund?")) deleteRefund.mutate(r.id) }, danger: true, disabled: r.status === "void" },

@@ -229,7 +229,7 @@ export default function PaymentsPage() {
                         </TableCell>
                         <TableCell className="text-right">
                           <RowActionsMenu actions={[
-                            { label: "Edit", icon: <Pencil className="h-3.5 w-3.5" />, onClick: () => navigate(`/sales-payments/${p.id}/edit`), disabled: p.status === "void" },
+                            { label: "Edit", icon: <Pencil className="h-3.5 w-3.5" />, onClick: () => navigate(`/sales/payments/${p.id}/edit`), disabled: p.status === "void" },
                             { label: "Mark as Completed", icon: <Receipt className="h-3.5 w-3.5" />, onClick: () => updatePaymentStatus.mutate({ id: p.id, status: "completed" }), dividerBefore: true, disabled: p.status !== "draft" },
                             { label: "Download Receipt", icon: <FileText className="h-3.5 w-3.5" />, onClick: () => window.print() },
                             { label: t("payments.void"), icon: <XCircle className="h-3.5 w-3.5" />, onClick: () => { if (confirm("Void this payment?")) updatePaymentStatus.mutate({ id: p.id, status: "void" }) }, danger: true, dividerBefore: true, disabled: p.status === "void" },
