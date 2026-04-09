@@ -102,10 +102,10 @@ export default function VendorCreditsPage() {
                     </TableCell>
                     <TableCell className="text-right">
                       <RowActionsMenu actions={[
-                        { label: "Edit", icon: <Pencil className="h-3.5 w-3.5" />, onClick: () => navigate(`/purchases/vendor-credits/${vc.id}/edit`) },
+                        { label: "Edit", icon: <Pencil className="h-3.5 w-3.5" />, onClick: () => navigate(`/purchases/vendor-credits/${vc.id}/edit`), disabled: vc.status === "void" },
                         { label: "View", icon: <FileText className="h-3.5 w-3.5" />, onClick: () => setViewItem(vc) },
-                        { label: "Apply to Bill", icon: <ArrowRightLeft className="h-3.5 w-3.5" />, onClick: () => navigate(`/purchases/bills/new?credit_id=${vc.id}`), dividerBefore: true },
-                        { label: "Void", icon: <XCircle className="h-3.5 w-3.5" />, onClick: () => { if (confirm("Void this vendor credit?")) api.patch(`/vendor-credits/${vc.id}`, { status: "void" }).then(() => queryClient.invalidateQueries({ queryKey: ["vendor-credits"] })) }, danger: true, dividerBefore: true },
+                        { label: "Apply to Bill", icon: <ArrowRightLeft className="h-3.5 w-3.5" />, onClick: () => navigate(`/purchases/bills/new?credit_id=${vc.id}`), dividerBefore: true, disabled: vc.status === "void" || vc.status === "applied" },
+                        { label: "Void", icon: <XCircle className="h-3.5 w-3.5" />, onClick: () => { if (confirm("Void this vendor credit?")) api.patch(`/vendor-credits/${vc.id}`, { status: "void" }).then(() => queryClient.invalidateQueries({ queryKey: ["vendor-credits"] })) }, danger: true, dividerBefore: true, disabled: vc.status === "void" || vc.status === "applied" },
                       ]} />
                     </TableCell>
                   </TableRow>

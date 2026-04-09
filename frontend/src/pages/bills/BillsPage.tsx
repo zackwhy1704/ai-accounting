@@ -2,7 +2,7 @@ import { useMemo, useState, useRef } from "react"
 import { useQueryClient } from "@tanstack/react-query"
 import { useNavigate } from "react-router-dom"
 import { ViewDetailSheet } from "../../components/ui/view-detail-sheet"
-import { Plus, Search, CalendarDays, FileText, Copy, Printer, XCircle, CreditCard, Pencil } from "lucide-react"
+import { Plus, Search, CalendarDays, FileText, Copy, Printer, XCircle, CreditCard, Pencil, PackageCheck } from "lucide-react"
 import { useBills, useContacts } from "../../lib/hooks"
 import api from "../../lib/api"
 import { formatCurrency, formatDate, cn } from "../../lib/utils"
@@ -42,10 +42,11 @@ export default function BillsPage() {
 
   const statusTabs = [
     { label: t("common.all"), value: "all" },
-    { label: t("bills.draft"), value: "draft" },
-    { label: t("bills.outstanding"), value: "outstanding" },
-    { label: t("bills.overdue"), value: "overdue" },
-    { label: t("bills.paid"), value: "paid" },
+    { label: "Draft", value: "draft" },
+    { label: "Outstanding", value: "outstanding" },
+    { label: "Overdue", value: "overdue" },
+    { label: "Paid", value: "paid" },
+    { label: "Void", value: "void" },
   ]
 
   const contactMap = useMemo(() => {
@@ -163,12 +164,13 @@ export default function BillsPage() {
                             <TableCell><Badge variant="outline" className={cn("rounded-lg px-2 py-0.5 text-[11px] font-semibold", statusColors[bill.status] ?? "")}>{bill.status.charAt(0).toUpperCase() + bill.status.slice(1)}</Badge></TableCell>
                             <TableCell className="text-right">
                               <RowActionsMenu actions={[
-                                { label: "Edit", icon: <Pencil className="h-3.5 w-3.5" />, onClick: () => navigate(`/purchases/bills/${bill.id}/edit`) },
+                                { label: "Edit", icon: <Pencil className="h-3.5 w-3.5" />, onClick: () => navigate(`/purchases/bills/${bill.id}/edit`), disabled: bill.status === "void" },
                                 { label: "View", icon: <FileText className="h-3.5 w-3.5" />, onClick: () => setViewItem(bill) },
-                                { label: t("invoices.addPayment"), icon: <CreditCard className="h-3.5 w-3.5" />, onClick: () => navigate(`/purchases/payments/new?bill_id=${bill.id}`), dividerBefore: true },
+                                { label: "Mark as Received", icon: <PackageCheck className="h-3.5 w-3.5" />, onClick: () => api.patch(`/bills/${bill.id}`, { status: "outstanding" }).then(() => queryClient.invalidateQueries({ queryKey: ["bills"] })), dividerBefore: true, disabled: bill.status !== "draft" },
+                                { label: t("invoices.addPayment"), icon: <CreditCard className="h-3.5 w-3.5" />, onClick: () => navigate(`/purchases/payments/new?bill_id=${bill.id}`), disabled: bill.status === "void" || bill.status === "draft" || bill.status === "paid" },
                                 { label: t("invoices.duplicate"), icon: <Copy className="h-3.5 w-3.5" />, onClick: () => navigate(`/purchases/bills/new?copy=${bill.id}`) },
                                 { label: t("invoices.printPdf"), icon: <Printer className="h-3.5 w-3.5" />, onClick: () => window.print() },
-                                { label: t("invoices.void"), icon: <XCircle className="h-3.5 w-3.5" />, onClick: () => { if (confirm("Void this bill?")) api.patch(`/bills/${bill.id}`, { status: "void" }).then(() => queryClient.invalidateQueries({ queryKey: ["bills"] })) }, danger: true, dividerBefore: true, disabled: bill.status === "void" },
+                                { label: t("invoices.void"), icon: <XCircle className="h-3.5 w-3.5" />, onClick: () => { if (confirm("Void this bill?")) api.patch(`/bills/${bill.id}`, { status: "void" }).then(() => queryClient.invalidateQueries({ queryKey: ["bills"] })) }, danger: true, dividerBefore: true, disabled: bill.status === "void" || bill.status === "paid" },
                               ]} />
                             </TableCell>
                           </TableRow>

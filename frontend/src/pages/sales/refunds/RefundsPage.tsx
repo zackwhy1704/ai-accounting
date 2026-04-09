@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react"
 import { useQueryClient } from "@tanstack/react-query"
 import { useNavigate } from "react-router-dom"
-import { Plus, Search, XCircle, Pencil } from "lucide-react"
+import { Plus, Search, XCircle, Pencil, CheckCircle } from "lucide-react"
 import { RowActionsMenu } from "../../../components/ui/row-actions"
 import { useSalesRefunds, useContacts } from "../../../lib/hooks"
 import api from "../../../lib/api"
@@ -154,8 +154,9 @@ export default function RefundsPage() {
                         </TableCell>
                         <TableCell className="text-right">
                           <RowActionsMenu actions={[
-                            { label: "Edit", icon: <Pencil className="h-3.5 w-3.5" />, onClick: () => navigate(`/sales/refunds/${r.id}/edit`) },
-                            { label: t("refunds.void"), icon: <XCircle className="h-3.5 w-3.5" />, onClick: () => { if (confirm("Void this refund?")) api.patch(`/sales/refunds/${r.id}`, { status: "void" }).then(() => queryClient.invalidateQueries({ queryKey: ["sales-refunds"] })) }, danger: true, dividerBefore: true },
+                            { label: "Edit", icon: <Pencil className="h-3.5 w-3.5" />, onClick: () => navigate(`/sales/refunds/${r.id}/edit`), disabled: r.status === "void" },
+                            { label: "Mark as Completed", icon: <CheckCircle className="h-3.5 w-3.5" />, onClick: () => api.patch(`/sales/refunds/${r.id}`, { status: "completed" }).then(() => queryClient.invalidateQueries({ queryKey: ["sales-refunds"] })), dividerBefore: true, disabled: r.status !== "draft" },
+                            { label: t("refunds.void"), icon: <XCircle className="h-3.5 w-3.5" />, onClick: () => { if (confirm("Void this refund?")) api.patch(`/sales/refunds/${r.id}`, { status: "void" }).then(() => queryClient.invalidateQueries({ queryKey: ["sales-refunds"] })) }, danger: true, disabled: r.status === "void" },
                           ]} />
                         </TableCell>
                       </TableRow>

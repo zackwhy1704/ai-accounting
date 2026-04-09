@@ -2,7 +2,7 @@ import { useMemo, useState } from "react"
 import { useQueryClient } from "@tanstack/react-query"
 import { useNavigate } from "react-router-dom"
 import { ViewDetailSheet } from "../../components/ui/view-detail-sheet"
-import { Plus, ShoppingCart, FileText, Pencil, ArrowRightLeft, Copy, XCircle } from "lucide-react"
+import { Plus, ShoppingCart, FileText, Pencil, ArrowRightLeft, Copy, XCircle, Send, PackageCheck } from "lucide-react"
 import { usePurchaseOrders, useContacts } from "../../lib/hooks"
 import api from "../../lib/api"
 import { formatCurrency, formatDate, cn } from "../../lib/utils"
@@ -138,10 +138,12 @@ export default function PurchaseOrdersPage() {
                     <TableCell className="text-right">
                       <RowActionsMenu actions={[
                         { label: "View", icon: <FileText className="h-3.5 w-3.5" />, onClick: () => setViewItem(po) },
-                        { label: "Edit", icon: <Pencil className="h-3.5 w-3.5" />, onClick: () => navigate(`/purchases/purchase-orders/${po.id}/edit`) },
-                        { label: "Convert to Bill", icon: <ArrowRightLeft className="h-3.5 w-3.5" />, onClick: () => navigate(`/purchases/bills/new?from_po=${po.id}`), dividerBefore: true },
+                        { label: "Edit", icon: <Pencil className="h-3.5 w-3.5" />, onClick: () => navigate(`/purchases/purchase-orders/${po.id}/edit`), disabled: po.status === "cancelled" || po.status === "void" },
+                        { label: "Mark as Sent", icon: <Send className="h-3.5 w-3.5" />, onClick: () => api.patch(`/purchase-orders/${po.id}`, { status: "sent" }).then(() => queryClient.invalidateQueries({ queryKey: ["purchase-orders"] })), dividerBefore: true, disabled: po.status !== "draft" },
+                        { label: "Mark as Received", icon: <PackageCheck className="h-3.5 w-3.5" />, onClick: () => api.patch(`/purchase-orders/${po.id}`, { status: "received" }).then(() => queryClient.invalidateQueries({ queryKey: ["purchase-orders"] })), disabled: po.status !== "sent" },
+                        { label: "Convert to Bill", icon: <ArrowRightLeft className="h-3.5 w-3.5" />, onClick: () => navigate(`/purchases/bills/new?from_po=${po.id}`), dividerBefore: true, disabled: po.status === "cancelled" || po.status === "void" || po.status === "draft" },
                         { label: "Duplicate", icon: <Copy className="h-3.5 w-3.5" />, onClick: () => navigate(`/purchases/orders/new?copy=${po.id}`) },
-                        { label: "Void", icon: <XCircle className="h-3.5 w-3.5" />, onClick: () => { if (confirm("Void this purchase order?")) api.patch(`/purchase-orders/${po.id}`, { status: "void" }).then(() => queryClient.invalidateQueries({ queryKey: ["purchase-orders"] })) }, danger: true, dividerBefore: true, disabled: po.status === "void" },
+                        { label: "Cancel", icon: <XCircle className="h-3.5 w-3.5" />, onClick: () => { if (confirm("Cancel this purchase order?")) api.patch(`/purchase-orders/${po.id}`, { status: "cancelled" }).then(() => queryClient.invalidateQueries({ queryKey: ["purchase-orders"] })) }, danger: true, dividerBefore: true, disabled: po.status === "cancelled" || po.status === "billed" },
                       ]} />
                     </TableCell>
                   </TableRow>

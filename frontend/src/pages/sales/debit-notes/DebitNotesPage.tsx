@@ -1,8 +1,10 @@
 import { useMemo, useState } from "react"
 import { useNavigate } from "react-router-dom"
-import { Plus, Search, Pencil } from "lucide-react"
+import { useQueryClient } from "@tanstack/react-query"
+import { Plus, Search, Pencil, Send, XCircle } from "lucide-react"
 import { RowActionsMenu } from "../../../components/ui/row-actions"
 import { useDebitNotes, useContacts } from "../../../lib/hooks"
+import api from "../../../lib/api"
 import { formatCurrency, formatDate, cn } from "../../../lib/utils"
 import { useTheme } from "../../../lib/theme"
 import { Card } from "../../../components/ui/card"
@@ -22,6 +24,9 @@ const statusColors: Record<string, string> = {
 
 export default function DebitNotesPage() {
   const navigate = useNavigate()
+  const queryClient = useQueryClient()
+  const patch = (id: string, status: string) =>
+    api.patch(`/debit-notes/${id}`, { status }).then(() => queryClient.invalidateQueries({ queryKey: ["debit-notes"] }))
   const [tab, setTab] = useState("all")
   const [search, setSearch] = useState("")
   const [contactFilter, setContactFilter] = useState("all")
@@ -151,7 +156,9 @@ export default function DebitNotesPage() {
                         </TableCell>
                         <TableCell className="text-right">
                           <RowActionsMenu actions={[
-                            { label: "Edit", icon: <Pencil className="h-3.5 w-3.5" />, onClick: () => navigate(`/sales/debit-notes/${dn.id}/edit`) },
+                            { label: "Edit", icon: <Pencil className="h-3.5 w-3.5" />, onClick: () => navigate(`/sales/debit-notes/${dn.id}/edit`), disabled: dn.status === "void" },
+                            { label: "Mark as Issued", icon: <Send className="h-3.5 w-3.5" />, onClick: () => patch(dn.id, "issued"), dividerBefore: true, disabled: dn.status !== "draft" },
+                            { label: "Void", icon: <XCircle className="h-3.5 w-3.5" />, onClick: () => { if (confirm("Void this debit note?")) patch(dn.id, "void") }, danger: true, disabled: dn.status === "void" || dn.status === "applied" },
                           ]} />
                         </TableCell>
                       </TableRow>

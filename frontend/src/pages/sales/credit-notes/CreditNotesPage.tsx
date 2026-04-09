@@ -1,8 +1,10 @@
 import { useMemo, useState } from "react"
 import { useNavigate } from "react-router-dom"
-import { Plus, Search, ArrowRightLeft, Pencil } from "lucide-react"
+import { useQueryClient } from "@tanstack/react-query"
+import { Plus, Search, ArrowRightLeft, Pencil, Send, XCircle } from "lucide-react"
 import { RowActionsMenu } from "../../../components/ui/row-actions"
 import { useCreditNotes, useContacts } from "../../../lib/hooks"
+import api from "../../../lib/api"
 import { formatCurrency, formatDate, cn } from "../../../lib/utils"
 import { useTheme } from "../../../lib/theme"
 import { Card } from "../../../components/ui/card"
@@ -22,6 +24,9 @@ const statusColors: Record<string, string> = {
 
 export default function CreditNotesPage() {
   const navigate = useNavigate()
+  const queryClient = useQueryClient()
+  const patch = (id: string, status: string) =>
+    api.patch(`/credit-notes/${id}`, { status }).then(() => queryClient.invalidateQueries({ queryKey: ["credit-notes"] }))
   const [tab, setTab] = useState("all")
   const [search, setSearch] = useState("")
   const [contactFilter, setContactFilter] = useState("all")
@@ -153,8 +158,10 @@ export default function CreditNotesPage() {
                         </TableCell>
                         <TableCell className="text-right">
                           <RowActionsMenu actions={[
-                            { label: "Edit", icon: <Pencil className="h-3.5 w-3.5" />, onClick: () => navigate(`/sales/credit-notes/${row.id}/edit`) },
-                            { label: t("creditNotes.applyToInvoice"), icon: <ArrowRightLeft className="h-3.5 w-3.5" />, onClick: () => navigate(`/sales/credit-notes/${row.id}/apply`), dividerBefore: true },
+                            { label: "Edit", icon: <Pencil className="h-3.5 w-3.5" />, onClick: () => navigate(`/sales/credit-notes/${row.id}/edit`), disabled: row.status === "void" },
+                            { label: "Mark as Issued", icon: <Send className="h-3.5 w-3.5" />, onClick: () => patch(row.id, "issued"), dividerBefore: true, disabled: row.status !== "draft" },
+                            { label: t("creditNotes.applyToInvoice"), icon: <ArrowRightLeft className="h-3.5 w-3.5" />, onClick: () => navigate(`/sales/credit-notes/${row.id}/apply`), disabled: row.status === "void" || row.status === "draft" },
+                            { label: "Void", icon: <XCircle className="h-3.5 w-3.5" />, onClick: () => { if (confirm("Void this credit note?")) patch(row.id, "void") }, danger: true, dividerBefore: true, disabled: row.status === "void" || row.status === "applied" },
                           ]} />
                         </TableCell>
                       </TableRow>

@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react"
 import { useQueryClient } from "@tanstack/react-query"
 import { useNavigate } from "react-router-dom"
-import { Plus, Search, CreditCard, FileText, Copy, Printer, XCircle, Truck, Pencil } from "lucide-react"
+import { Plus, Search, CreditCard, FileText, Copy, Printer, XCircle, Truck, Pencil, Send } from "lucide-react"
 import { useInvoices, useContacts } from "../../lib/hooks"
 import api from "../../lib/api"
 import { formatCurrency, formatDate, cn } from "../../lib/utils"
@@ -40,11 +40,11 @@ export default function InvoicesPage() {
 
   const statusTabs = [
     { label: t("common.all"), value: "all" },
-    { label: t("invoices.outstanding"), value: "outstanding" },
-    { label: t("invoices.comingDue"), value: "coming_due" },
-    { label: t("invoices.overdue"), value: "overdue" },
-    { label: t("invoices.partiallyPaid"), value: "partially_paid" },
-    { label: t("invoices.paid"), value: "paid" },
+    { label: "Draft", value: "draft" },
+    { label: "Outstanding", value: "outstanding" },
+    { label: "Overdue", value: "overdue" },
+    { label: "Paid", value: "paid" },
+    { label: "Void", value: "void" },
   ]
 
   const contactMap = useMemo(() => {
@@ -158,8 +158,9 @@ export default function InvoicesPage() {
                         </TableCell>
                         <TableCell className="text-right">
                           <RowActionsMenu actions={[
-                            { label: "Edit", icon: <Pencil className="h-3.5 w-3.5" />, onClick: () => navigate(`/sales/invoices/${inv.id}/edit`) },
-                            { label: t("invoices.addPayment"), icon: <CreditCard className="h-3.5 w-3.5" />, onClick: () => navigate(`/sales/payments/new?invoice_id=${inv.id}`), dividerBefore: true },
+                            { label: "Edit", icon: <Pencil className="h-3.5 w-3.5" />, onClick: () => navigate(`/sales/invoices/${inv.id}/edit`), disabled: inv.status === "void" },
+                            { label: "Mark as Sent", icon: <Send className="h-3.5 w-3.5" />, onClick: () => api.patch(`/invoices/${inv.id}`, { status: "sent" }).then(() => queryClient.invalidateQueries({ queryKey: ["invoices"] })), dividerBefore: true, disabled: inv.status !== "draft" },
+                            { label: t("invoices.addPayment"), icon: <CreditCard className="h-3.5 w-3.5" />, onClick: () => navigate(`/sales/payments/new?invoice_id=${inv.id}`), disabled: inv.status === "void" || inv.status === "draft" },
                             { label: t("invoices.creditNote"), icon: <FileText className="h-3.5 w-3.5" />, onClick: () => navigate(`/sales/credit-notes/new?invoice_id=${inv.id}`) },
                             { label: t("invoices.duplicate"), icon: <Copy className="h-3.5 w-3.5" />, onClick: () => navigate(`/sales/invoices/new?copy=${inv.id}`), dividerBefore: true },
                             { label: t("invoices.printPdf"), icon: <Printer className="h-3.5 w-3.5" />, onClick: () => window.print() },

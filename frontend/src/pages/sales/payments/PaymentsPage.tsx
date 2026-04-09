@@ -227,9 +227,10 @@ export default function PaymentsPage() {
                         </TableCell>
                         <TableCell className="text-right">
                           <RowActionsMenu actions={[
-                            { label: "Edit", icon: <Pencil className="h-3.5 w-3.5" />, onClick: () => navigate(`/sales/payments/${p.id}/edit`) },
-                            { label: "Download Receipt", icon: <FileText className="h-3.5 w-3.5" />, onClick: () => window.print(), dividerBefore: true },
-                            { label: t("payments.void"), icon: <XCircle className="h-3.5 w-3.5" />, onClick: () => { if (confirm("Void this payment?")) api.patch(`/sales/payments/${p.id}`, { status: "void" }).then(() => queryClient.invalidateQueries({ queryKey: ["sales-payments"] })) }, danger: true, dividerBefore: true },
+                            { label: "Edit", icon: <Pencil className="h-3.5 w-3.5" />, onClick: () => navigate(`/sales/payments/${p.id}/edit`), disabled: p.status === "void" },
+                            { label: "Mark as Completed", icon: <Receipt className="h-3.5 w-3.5" />, onClick: () => api.patch(`/sales/payments/${p.id}`, { status: "completed" }).then(() => queryClient.invalidateQueries({ queryKey: ["sales-payments"] })), dividerBefore: true, disabled: p.status !== "draft" },
+                            { label: "Download Receipt", icon: <FileText className="h-3.5 w-3.5" />, onClick: () => window.print() },
+                            { label: t("payments.void"), icon: <XCircle className="h-3.5 w-3.5" />, onClick: () => { if (confirm("Void this payment?")) api.patch(`/sales/payments/${p.id}`, { status: "void" }).then(() => queryClient.invalidateQueries({ queryKey: ["sales-payments"] })) }, danger: true, dividerBefore: true, disabled: p.status === "void" },
                           ]} />
                         </TableCell>
                       </TableRow>
