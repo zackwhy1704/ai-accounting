@@ -77,7 +77,7 @@ export default function EditInvoicePage() {
     setContactId(String(invoice.contact_id ?? ""))
     setLhdnName(invoice.lhdn_name ?? "")
     setTerms(invoice.terms ?? "cbd")
-    setTaxInclusive(invoice.tax_inclusive ?? true)
+    setTaxInclusive(invoice.tax_inclusive ?? false)
     setInvoiceDate(invoice.invoice_date?.slice(0, 10) ?? "")
     setCustomerPo(invoice.customer_po ?? "")
     setDigitalRef(invoice.digital_ref ?? "")
@@ -187,6 +187,7 @@ export default function EditInvoicePage() {
     try {
       await updateInvoice.mutateAsync({
         id,
+        invoice_number: invoiceNumber,
         contact_id: contactId,
         issue_date: invoiceDate,
         due_date: invoiceDate,

@@ -140,6 +140,7 @@ export default function EditDeliveryOrderPage() {
     try {
       await updateDeliveryOrder.mutateAsync({
         id,
+        delivery_number: doNumber,
         contact_id: contactId,
         delivery_date: deliveryDate,
         reference: poNumber || null,
