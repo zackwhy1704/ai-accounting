@@ -136,6 +136,153 @@ export default function NewDeliveryOrderPage() {
         <div className="text-2xl font-semibold tracking-tight text-foreground">{t("deliveryOrders.new") || "New Delivery Order"}</div>
       </div>
 
+      {/* Billing & Shipping Card */}
+      <Card className="rounded-2xl border-border bg-card p-6 shadow-[0_0_0_1px_rgba(15,23,42,0.06),0_18px_55px_rgba(2,6,23,0.08)]">
+        <h3 className="mb-4 text-sm font-semibold text-foreground">Billing & Shipping</h3>
+        <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+          <div>
+            <h3 className="mb-4 text-sm font-semibold text-foreground">DELIVER TO</h3>
+            <div className="space-y-3">
+              <Input
+                placeholder="Address Line 1"
+                value={deliverTo.address1}
+                onChange={e => setDeliverTo(prev => ({ ...prev, address1: e.target.value }))}
+                className="h-10 rounded-xl"
+              />
+              <Input
+                placeholder="Address Line 2"
+                value={deliverTo.address2}
+                onChange={e => setDeliverTo(prev => ({ ...prev, address2: e.target.value }))}
+                className="h-10 rounded-xl"
+              />
+              <div className="grid grid-cols-2 gap-3">
+                <Input
+                  placeholder="City"
+                  value={deliverTo.city}
+                  onChange={e => setDeliverTo(prev => ({ ...prev, city: e.target.value }))}
+                  className="h-10 rounded-xl"
+                />
+                <Input
+                  placeholder="State"
+                  value={deliverTo.state}
+                  onChange={e => setDeliverTo(prev => ({ ...prev, state: e.target.value }))}
+                  className="h-10 rounded-xl"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <Input
+                  placeholder="Postcode"
+                  value={deliverTo.postcode}
+                  onChange={e => setDeliverTo(prev => ({ ...prev, postcode: e.target.value }))}
+                  className="h-10 rounded-xl"
+                />
+                <Input
+                  placeholder="Country"
+                  value={deliverTo.country}
+                  onChange={e => setDeliverTo(prev => ({ ...prev, country: e.target.value }))}
+                  className="h-10 rounded-xl"
+                />
+              </div>
+            </div>
+          </div>
+          <div>
+            <h3 className="mb-4 text-sm font-semibold text-foreground">SHIP TO</h3>
+            <div className="space-y-3">
+              <Input
+                placeholder="Address Line 1"
+                value={shipTo.address1}
+                onChange={e => setShipTo(prev => ({ ...prev, address1: e.target.value }))}
+                className="h-10 rounded-xl"
+              />
+              <Input
+                placeholder="Address Line 2"
+                value={shipTo.address2}
+                onChange={e => setShipTo(prev => ({ ...prev, address2: e.target.value }))}
+                className="h-10 rounded-xl"
+              />
+              <div className="grid grid-cols-2 gap-3">
+                <Input
+                  placeholder="City"
+                  value={shipTo.city}
+                  onChange={e => setShipTo(prev => ({ ...prev, city: e.target.value }))}
+                  className="h-10 rounded-xl"
+                />
+                <Input
+                  placeholder="State"
+                  value={shipTo.state}
+                  onChange={e => setShipTo(prev => ({ ...prev, state: e.target.value }))}
+                  className="h-10 rounded-xl"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <Input
+                  placeholder="Postcode"
+                  value={shipTo.postcode}
+                  onChange={e => setShipTo(prev => ({ ...prev, postcode: e.target.value }))}
+                  className="h-10 rounded-xl"
+                />
+                <Input
+                  placeholder="Country"
+                  value={shipTo.country}
+                  onChange={e => setShipTo(prev => ({ ...prev, country: e.target.value }))}
+                  className="h-10 rounded-xl"
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+      </Card>
+
+      {/* General Info Card */}
+      <Card className="rounded-2xl border-border bg-card p-6 shadow-[0_0_0_1px_rgba(15,23,42,0.06),0_18px_55px_rgba(2,6,23,0.08)]">
+        <h3 className="mb-4 text-sm font-semibold text-foreground">General Info</h3>
+        <div className="max-w-lg space-y-4">
+          <div>
+            <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Title</label>
+            <Input placeholder="Delivery order title" className="h-10 rounded-xl" />
+          </div>
+          <div>
+            <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Summary</label>
+            <textarea
+              placeholder="Brief summary..."
+              rows={3}
+              className="w-full rounded-xl border border-border bg-card px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+            />
+          </div>
+          <div>
+            <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Notes</label>
+            <textarea
+              placeholder="Internal notes..."
+              rows={3}
+              className="w-full rounded-xl border border-border bg-card px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+            />
+          </div>
+        </div>
+      </Card>
+
+      {/* Additional Info Card */}
+      <Card className="rounded-2xl border-border bg-card p-6 shadow-[0_0_0_1px_rgba(15,23,42,0.06),0_18px_55px_rgba(2,6,23,0.08)]">
+        <h3 className="mb-4 text-sm font-semibold text-foreground">Additional Info</h3>
+        <div className="max-w-lg space-y-4">
+          <div>
+            <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Footer Note</label>
+            <textarea
+              placeholder="Appears at the bottom of the delivery order..."
+              rows={3}
+              className="w-full rounded-xl border border-border bg-card px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+            />
+          </div>
+          <div>
+            <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Terms & Conditions</label>
+            <textarea
+              placeholder="Standard terms and conditions..."
+              rows={4}
+              className="w-full rounded-xl border border-border bg-card px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+            />
+          </div>
+        </div>
+      </Card>
+
       {/* Items Card */}
       <Card className="rounded-2xl border-border bg-card p-6 shadow-[0_0_0_1px_rgba(15,23,42,0.06),0_18px_55px_rgba(2,6,23,0.08)]">
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
@@ -343,153 +490,6 @@ export default function NewDeliveryOrderPage() {
                 <span className="text-foreground">{currency} {total.toFixed(2)}</span>
               </div>
             </div>
-          </div>
-        </div>
-      </Card>
-
-      {/* Billing & Shipping Card */}
-      <Card className="rounded-2xl border-border bg-card p-6 shadow-[0_0_0_1px_rgba(15,23,42,0.06),0_18px_55px_rgba(2,6,23,0.08)]">
-        <h3 className="mb-4 text-sm font-semibold text-foreground">Billing & Shipping</h3>
-        <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-          <div>
-            <h3 className="mb-4 text-sm font-semibold text-foreground">DELIVER TO</h3>
-            <div className="space-y-3">
-              <Input
-                placeholder="Address Line 1"
-                value={deliverTo.address1}
-                onChange={e => setDeliverTo(prev => ({ ...prev, address1: e.target.value }))}
-                className="h-10 rounded-xl"
-              />
-              <Input
-                placeholder="Address Line 2"
-                value={deliverTo.address2}
-                onChange={e => setDeliverTo(prev => ({ ...prev, address2: e.target.value }))}
-                className="h-10 rounded-xl"
-              />
-              <div className="grid grid-cols-2 gap-3">
-                <Input
-                  placeholder="City"
-                  value={deliverTo.city}
-                  onChange={e => setDeliverTo(prev => ({ ...prev, city: e.target.value }))}
-                  className="h-10 rounded-xl"
-                />
-                <Input
-                  placeholder="State"
-                  value={deliverTo.state}
-                  onChange={e => setDeliverTo(prev => ({ ...prev, state: e.target.value }))}
-                  className="h-10 rounded-xl"
-                />
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <Input
-                  placeholder="Postcode"
-                  value={deliverTo.postcode}
-                  onChange={e => setDeliverTo(prev => ({ ...prev, postcode: e.target.value }))}
-                  className="h-10 rounded-xl"
-                />
-                <Input
-                  placeholder="Country"
-                  value={deliverTo.country}
-                  onChange={e => setDeliverTo(prev => ({ ...prev, country: e.target.value }))}
-                  className="h-10 rounded-xl"
-                />
-              </div>
-            </div>
-          </div>
-          <div>
-            <h3 className="mb-4 text-sm font-semibold text-foreground">SHIP TO</h3>
-            <div className="space-y-3">
-              <Input
-                placeholder="Address Line 1"
-                value={shipTo.address1}
-                onChange={e => setShipTo(prev => ({ ...prev, address1: e.target.value }))}
-                className="h-10 rounded-xl"
-              />
-              <Input
-                placeholder="Address Line 2"
-                value={shipTo.address2}
-                onChange={e => setShipTo(prev => ({ ...prev, address2: e.target.value }))}
-                className="h-10 rounded-xl"
-              />
-              <div className="grid grid-cols-2 gap-3">
-                <Input
-                  placeholder="City"
-                  value={shipTo.city}
-                  onChange={e => setShipTo(prev => ({ ...prev, city: e.target.value }))}
-                  className="h-10 rounded-xl"
-                />
-                <Input
-                  placeholder="State"
-                  value={shipTo.state}
-                  onChange={e => setShipTo(prev => ({ ...prev, state: e.target.value }))}
-                  className="h-10 rounded-xl"
-                />
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <Input
-                  placeholder="Postcode"
-                  value={shipTo.postcode}
-                  onChange={e => setShipTo(prev => ({ ...prev, postcode: e.target.value }))}
-                  className="h-10 rounded-xl"
-                />
-                <Input
-                  placeholder="Country"
-                  value={shipTo.country}
-                  onChange={e => setShipTo(prev => ({ ...prev, country: e.target.value }))}
-                  className="h-10 rounded-xl"
-                />
-              </div>
-            </div>
-          </div>
-        </div>
-      </Card>
-
-      {/* General Info Card */}
-      <Card className="rounded-2xl border-border bg-card p-6 shadow-[0_0_0_1px_rgba(15,23,42,0.06),0_18px_55px_rgba(2,6,23,0.08)]">
-        <h3 className="mb-4 text-sm font-semibold text-foreground">General Info</h3>
-        <div className="max-w-lg space-y-4">
-          <div>
-            <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Title</label>
-            <Input placeholder="Delivery order title" className="h-10 rounded-xl" />
-          </div>
-          <div>
-            <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Summary</label>
-            <textarea
-              placeholder="Brief summary..."
-              rows={3}
-              className="w-full rounded-xl border border-border bg-card px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-            />
-          </div>
-          <div>
-            <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Notes</label>
-            <textarea
-              placeholder="Internal notes..."
-              rows={3}
-              className="w-full rounded-xl border border-border bg-card px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-            />
-          </div>
-        </div>
-      </Card>
-
-      {/* Additional Info Card */}
-      <Card className="rounded-2xl border-border bg-card p-6 shadow-[0_0_0_1px_rgba(15,23,42,0.06),0_18px_55px_rgba(2,6,23,0.08)]">
-        <h3 className="mb-4 text-sm font-semibold text-foreground">Additional Info</h3>
-        <div className="max-w-lg space-y-4">
-          <div>
-            <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Footer Note</label>
-            <textarea
-              placeholder="Appears at the bottom of the delivery order..."
-              rows={3}
-              className="w-full rounded-xl border border-border bg-card px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-            />
-          </div>
-          <div>
-            <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Terms & Conditions</label>
-            <textarea
-              placeholder="Standard terms and conditions..."
-              rows={4}
-              className="w-full rounded-xl border border-border bg-card px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-            />
           </div>
         </div>
       </Card>
