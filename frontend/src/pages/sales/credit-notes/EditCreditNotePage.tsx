@@ -127,8 +127,9 @@ export default function EditCreditNotePage() {
   const customerInvoices = useMemo(() => {
     if (!contactId) return []
     return invoices.filter((inv: any) =>
-      (inv.contact_id === contactId) &&
-      (inv.status === "sent" || inv.status === "outstanding" || inv.status === "overdue" || inv.status === "partial")
+      String(inv.contact_id) === String(contactId) &&
+      (inv.status === "sent" || inv.status === "viewed" || inv.status === "overdue" || inv.status === "partial" || inv.status === "outstanding") &&
+      (inv.total - (inv.amount_paid || 0)) > 0
     )
   }, [invoices, contactId])
 

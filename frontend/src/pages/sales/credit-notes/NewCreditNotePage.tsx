@@ -74,7 +74,10 @@ export default function NewCreditNotePage() {
 
   // Filter invoices for the selected customer
   const customerInvoices = invoices.filter(
-    (inv: any) => inv.contact_id === contactId
+    (inv: any) =>
+      String(inv.contact_id) === String(contactId) &&
+      (inv.status === "sent" || inv.status === "viewed" || inv.status === "overdue" || inv.status === "partial" || inv.status === "outstanding") &&
+      (inv.total - (inv.amount_paid || 0)) > 0
   )
 
   // When customer changes, auto-populate address + rebuild apply credit lines
