@@ -47,7 +47,7 @@ export default function NewCreditNotePage() {
   const customerInvoices = invoices.filter(
     (inv: any) =>
       String(inv.contact_id) === String(contactId) &&
-      (inv.status === "sent" || inv.status === "viewed" || inv.status === "overdue" || inv.status === "partial" || inv.status === "outstanding") &&
+      (inv.status === "draft" || inv.status === "sent" || inv.status === "viewed" || inv.status === "overdue" || inv.status === "partial" || inv.status === "outstanding") &&
       (inv.total - (inv.amount_paid || 0)) > 0
   )
 

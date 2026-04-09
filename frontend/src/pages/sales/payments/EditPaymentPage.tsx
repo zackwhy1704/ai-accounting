@@ -59,7 +59,7 @@ export default function EditPaymentPage() {
     if (!invoices || !customerId) return []
     return invoices.filter((inv: any) =>
       (inv.customer_id === customerId || inv.contact_id === customerId) &&
-      (inv.status === "sent" || inv.status === "outstanding" || inv.status === "partial" || inv.status === "overdue") &&
+      (inv.status === "draft" || inv.status === "sent" || inv.status === "viewed" || inv.status === "outstanding" || inv.status === "partial" || inv.status === "overdue") &&
       (inv.balance ?? inv.amount_due ?? (inv.total - (inv.amount_paid || 0))) > 0
     )
   }, [invoices, customerId])

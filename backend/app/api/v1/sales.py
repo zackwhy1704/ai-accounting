@@ -658,8 +658,8 @@ async def update_sales_payment(sp_id: UUID, data: SalesPaymentUpdate, current_us
     obj = result.scalar_one_or_none()
     if not obj:
         raise HTTPException(status_code=404, detail="Sales payment not found")
-    if obj.status not in ("draft",):
-        raise HTTPException(status_code=400, detail="Only draft payments can be edited")
+    if obj.status in ("void",):
+        raise HTTPException(status_code=400, detail="Voided payments cannot be edited")
 
     update_data = data.model_dump(exclude_unset=True)
 

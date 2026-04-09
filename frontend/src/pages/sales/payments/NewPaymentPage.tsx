@@ -57,7 +57,7 @@ export default function NewPaymentPage() {
     return invoices.filter(
       (inv: any) =>
         (inv.customer_id === customerId || inv.contact_id === customerId) &&
-        (inv.status === "sent" || inv.status === "viewed" || inv.status === "outstanding" || inv.status === "partial" || inv.status === "overdue") &&
+        (inv.status === "draft" || inv.status === "sent" || inv.status === "viewed" || inv.status === "outstanding" || inv.status === "partial" || inv.status === "overdue") &&
         (inv.balance ?? inv.amount_due ?? (inv.total - (inv.amount_paid || 0))) > 0
     )
   }, [invoices, customerId])
@@ -103,7 +103,7 @@ export default function NewPaymentPage() {
     navigate("/sales/payments")
   }
 
-  const isFormValid = !!customerId && !!paymentMethod && !!bankAccountId && !!amount && parseFloat(amount) > 0
+  const isFormValid = !!customerId && !!paymentMethod && !!amount && parseFloat(amount) > 0
 
   const getBalance = (inv: any) =>
     inv.balance ?? inv.amount_due ?? (inv.total - (inv.amount_paid || 0))
