@@ -1,8 +1,8 @@
 import { useMemo, useState } from "react"
 import { useNavigate } from "react-router-dom"
-import { Plus, Search, ArrowRightLeft, Pencil, X } from "lucide-react"
+import { Plus, Search, ArrowRightLeft, Pencil, X, Send, CheckCircle, XCircle } from "lucide-react"
 import { RowActionsMenu } from "../../../components/ui/row-actions"
-import { useQuotations, useContacts, useConvertQuotation } from "../../../lib/hooks"
+import { useQuotations, useContacts, useConvertQuotation, useUpdateQuotation } from "../../../lib/hooks"
 import { formatCurrency, formatDate, cn } from "../../../lib/utils"
 import { useTheme } from "../../../lib/theme"
 import { Card } from "../../../components/ui/card"
@@ -33,6 +33,9 @@ export default function QuotationsPage() {
   const { data: contacts = [] } = useContacts()
   const { t } = useTheme()
   const convertQuotation = useConvertQuotation()
+  const updateQuotation = useUpdateQuotation()
+
+  const markStatus = (id: string, status: string) => updateQuotation.mutateAsync({ id, status } as any)
 
   // Conversion dialog state
   const [convertDialog, setConvertDialog] = useState<{ open: boolean; quotationId: string; quotationNumber: string }>({ open: false, quotationId: "", quotationNumber: "" })
@@ -54,12 +57,11 @@ export default function QuotationsPage() {
 
   const statusTabs = [
     { label: t("common.all"), value: "all" },
-    { label: t("quotations.draft"), value: "draft" },
-    { label: t("quotations.sent"), value: "sent" },
-    { label: t("quotations.accepted"), value: "accepted" },
-    { label: t("quotations.declined"), value: "declined" },
-    { label: t("quotations.expired"), value: "expired" },
-    { label: t("quotations.converted"), value: "converted" },
+    { label: "Draft", value: "draft" },
+    { label: "Sent", value: "sent" },
+    { label: "Accepted", value: "accepted" },
+    { label: "Declined", value: "declined" },
+    { label: "Converted", value: "converted" },
   ]
 
   const contactMap = useMemo(() => {
@@ -173,7 +175,10 @@ export default function QuotationsPage() {
                         <TableCell className="text-right">
                           <RowActionsMenu actions={[
                             { label: "Edit", icon: <Pencil className="h-3.5 w-3.5" />, onClick: () => navigate(`/sales/quotations/${q.id}/edit`) },
-                            { label: "Convert to Invoice / DO", icon: <ArrowRightLeft className="h-3.5 w-3.5" />, onClick: () => { setConvertToInvoice(true); setConvertToDO(false); setConvertDialog({ open: true, quotationId: q.id, quotationNumber: q.quotation_number }) }, dividerBefore: true },
+                            { label: "Mark as Sent", icon: <Send className="h-3.5 w-3.5" />, onClick: () => markStatus(q.id, "sent"), dividerBefore: true, disabled: q.status === "sent" || q.status === "converted" },
+                            { label: "Mark as Accepted", icon: <CheckCircle className="h-3.5 w-3.5" />, onClick: () => markStatus(q.id, "accepted"), disabled: q.status === "accepted" || q.status === "converted" },
+                            { label: "Mark as Declined", icon: <XCircle className="h-3.5 w-3.5" />, onClick: () => markStatus(q.id, "declined"), danger: true, disabled: q.status === "declined" || q.status === "converted" },
+                            { label: "Convert to Invoice / DO", icon: <ArrowRightLeft className="h-3.5 w-3.5" />, onClick: () => { setConvertToInvoice(true); setConvertToDO(false); setConvertDialog({ open: true, quotationId: q.id, quotationNumber: q.quotation_number }) }, dividerBefore: true, disabled: q.status === "converted" },
                           ]} />
                         </TableCell>
                       </TableRow>

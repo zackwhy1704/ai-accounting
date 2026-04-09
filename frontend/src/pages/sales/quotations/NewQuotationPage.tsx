@@ -395,7 +395,7 @@ export default function NewQuotationPage() {
                           min={0}
                           value={item.quantity}
                           onChange={e => updateLineItem(idx, "quantity", Number(e.target.value))}
-                          className="h-9 rounded-lg border-0 bg-transparent px-1 text-sm shadow-none focus-visible:ring-1"
+                          className="h-9 rounded-lg px-2 text-sm focus-visible:ring-1"
                         />
                       </TableCell>
                     )}
