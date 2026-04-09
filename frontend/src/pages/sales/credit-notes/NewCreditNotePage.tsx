@@ -728,7 +728,7 @@ export default function NewCreditNotePage() {
             type="button"
             onClick={handleSave}
             disabled={createCreditNote.isPending || !contactId || !lineItems.some(li => li.description.trim())}
-            className="h-10 rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-600 px-6 text-sm font-semibold text-white shadow-sm hover:opacity-95"
+            className="h-10 rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-600 px-6 text-sm font-semibold text-white shadow-sm hover:opacity-95 disabled:opacity-40 disabled:cursor-not-allowed"
           >
             {createCreditNote.isPending ? "Saving..." : "Save"}
           </Button>

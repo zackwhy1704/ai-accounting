@@ -181,7 +181,7 @@ export default function EditRefundPage() {
           <Button
             onClick={handleSave}
             disabled={updateRefund.isPending || !contactId || !refundDate || !refundMethod || !amount || parseFloat(amount) <= 0}
-            className="bg-gradient-to-r from-emerald-500 to-emerald-600 text-white shadow-md hover:from-emerald-600 hover:to-emerald-700"
+            className="bg-gradient-to-r from-emerald-500 to-emerald-600 text-white shadow-md hover:from-emerald-600 hover:to-emerald-700 disabled:opacity-40 disabled:cursor-not-allowed"
           >
             {updateRefund.isPending ? "Saving..." : "Save Changes"}
           </Button>

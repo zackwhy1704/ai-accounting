@@ -235,7 +235,7 @@ export default function NewRecurringInvoicePage() {
 
       <div className="flex justify-end gap-3">
         <Button type="button" variant="outline" onClick={() => navigate("/sales/recurring")}>Cancel</Button>
-        <Button onClick={handleSave} disabled={createRecurring.isPending || !contactId || !startDate || !lineItems.some(li => li.description.trim())} className="bg-gradient-to-r from-emerald-500 to-emerald-600 text-white hover:from-emerald-600 hover:to-emerald-700">
+        <Button onClick={handleSave} disabled={createRecurring.isPending || !contactId || !startDate || !lineItems.some(li => li.description.trim())} className="bg-gradient-to-r from-emerald-500 to-emerald-600 text-white hover:from-emerald-600 hover:to-emerald-700 disabled:opacity-40 disabled:cursor-not-allowed">
           {createRecurring.isPending ? "Saving..." : "Save Recurring Invoice"}
         </Button>
       </div>

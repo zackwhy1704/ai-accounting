@@ -398,7 +398,7 @@ export default function NewDebitNotePage() {
                   type="button"
                   onClick={handleSave}
                   disabled={createDebitNote.isPending || !isFormValid}
-                  className="h-9 rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-600 px-6 text-xs font-semibold text-white shadow-sm hover:opacity-95"
+                  className="h-9 rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-600 px-6 text-xs font-semibold text-white shadow-sm hover:opacity-95 disabled:opacity-40 disabled:cursor-not-allowed"
                 >
                   Save
                 </Button>

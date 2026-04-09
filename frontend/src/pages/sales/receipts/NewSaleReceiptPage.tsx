@@ -220,7 +220,7 @@ export default function NewSaleReceiptPage() {
 
       <div className="flex justify-end gap-3">
         <Button type="button" variant="outline" onClick={() => navigate("/sales/receipts")}>Cancel</Button>
-        <Button onClick={handleSave} disabled={createReceipt.isPending || !contactId || !lineItems.some(li => li.description.trim())} className="bg-gradient-to-r from-emerald-500 to-emerald-600 text-white hover:from-emerald-600 hover:to-emerald-700">
+        <Button onClick={handleSave} disabled={createReceipt.isPending || !contactId || !lineItems.some(li => li.description.trim())} className="bg-gradient-to-r from-emerald-500 to-emerald-600 text-white hover:from-emerald-600 hover:to-emerald-700 disabled:opacity-40 disabled:cursor-not-allowed">
           {createReceipt.isPending ? "Saving..." : "Save Receipt"}
         </Button>
       </div>
