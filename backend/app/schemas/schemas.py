@@ -326,6 +326,17 @@ class DeliveryOrderUpdate(BaseModel):
     notes: str | None = None
     line_items: list[DeliveryOrderLineItemCreate] | None = None
 
+class DeliveryOrderLineItemResponse(BaseModel):
+    id: UUID
+    description: str
+    quantity: float
+    unit_price: float
+    tax_rate: float
+    tax_code_id: UUID | None = None
+    amount: float
+    sort_order: int = 0
+    model_config = {"from_attributes": True}
+
 class DeliveryOrderResponse(BaseModel):
     id: UUID
     delivery_number: str
@@ -344,6 +355,7 @@ class DeliveryOrderResponse(BaseModel):
     currency: str
     notes: str | None
     created_at: datetime
+    line_items: list[DeliveryOrderLineItemResponse] = []
     model_config = {"from_attributes": True}
 
 

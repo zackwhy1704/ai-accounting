@@ -313,6 +313,25 @@ export default function NewDeliveryOrderPage() {
           {/* Top fields */}
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
             <div>
+              <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Customer *</label>
+              <Select value={contactId} onValueChange={handleCustomerChange}>
+                <SelectTrigger className="h-10 rounded-xl">
+                  <SelectValue placeholder="Select customer" />
+                </SelectTrigger>
+                <SelectContent>
+                  {contacts
+                    .filter(c => c.type === "customer" || c.type === "both")
+                    .map(c => (
+                      <SelectItem key={c.id} value={c.id}>
+                        {c.name}
+                      </SelectItem>
+                    ))}
+                  <SelectItem value="__add_new__" className="text-primary font-medium">+ Add New Customer</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
               <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Delivery #</label>
               <Input
                 value={doNumber}

@@ -51,6 +51,7 @@ export interface Invoice {
   currency: string
   notes: string | null
   created_at: string
+  line_items?: LineItem[]
 }
 
 export interface Bill {
@@ -67,6 +68,7 @@ export interface Bill {
   amount_paid: number
   currency: string
   created_at: string
+  line_items?: LineItem[]
 }
 
 export interface LineItem {

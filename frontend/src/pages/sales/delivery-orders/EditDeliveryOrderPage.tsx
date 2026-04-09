@@ -260,6 +260,18 @@ export default function EditDeliveryOrderPage() {
         <Card className="rounded-2xl border-border bg-card p-6 shadow-[0_0_0_1px_rgba(15,23,42,0.06),0_18px_55px_rgba(2,6,23,0.08)]">
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
             <div>
+              <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Customer *</label>
+              <Select value={contactId} onValueChange={handleCustomerChange}>
+                <SelectTrigger className="h-10 rounded-xl"><SelectValue placeholder="Select customer" /></SelectTrigger>
+                <SelectContent>
+                  {contacts.filter((c: any) => c.type === "customer" || c.type === "both").map((c: any) => (
+                    <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                  ))}
+                  <SelectItem value="__add_new__" className="text-primary font-medium">+ Add New Customer</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
               <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Delivery #</label>
               <Input value={doNumber} onChange={e => setDoNumber(e.target.value)} placeholder="DO-000000" className="h-10 rounded-xl" />
             </div>
