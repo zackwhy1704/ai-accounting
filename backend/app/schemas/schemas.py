@@ -185,6 +185,7 @@ class InvoiceCreate(BaseModel):
 
 class InvoiceUpdate(BaseModel):
     contact_id: UUID | None = None
+    invoice_number: str | None = None
     issue_date: datetime | None = None
     due_date: datetime | None = None
     currency: str | None = None

@@ -74,9 +74,6 @@ export default function NewSaleReceiptPage() {
         tax_rate: li.tax_rate,
         amount: li.quantity * li.unit_price,
       })),
-      subtotal,
-      tax_total: taxTotal,
-      total,
     })
     navigate("/sales/payments")
   }

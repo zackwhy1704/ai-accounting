@@ -149,7 +149,16 @@ export default function EditQuotationPage() {
         billing_state: billingState || null,
         billing_postcode: billingPostcode || null,
         billing_country: billingCountry || null,
-        line_items: lineItems,
+        line_items: lineItems.map(li => ({
+          line_type: li.line_type ?? "goods",
+          description: li.description,
+          quantity: li.quantity,
+          unit_price: li.unit_price,
+          tax_rate: li.tax_rate,
+          tax_code_id: li.tax_code_id || undefined,
+          discount: li.discount,
+          account_id: li.account_id || undefined,
+        })),
       })
       toast("Quotation updated", "success")
       navigate("/sales/quotations")

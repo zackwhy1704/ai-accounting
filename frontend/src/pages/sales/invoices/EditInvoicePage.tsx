@@ -37,6 +37,7 @@ export default function EditInvoicePage() {
   const [taxInclusive, setTaxInclusive] = useState(false)
   const [invoiceDate, setInvoiceDate] = useState("")
   const [customerPo, setCustomerPo] = useState("")
+  const [currency, setCurrency] = useState("MYR")
   const [journalMemo, setJournalMemo] = useState("")
   const [billingLine1, setBillingLine1] = useState("")
   const [billingLine2, setBillingLine2] = useState("")
@@ -56,6 +57,7 @@ export default function EditInvoicePage() {
     setTaxInclusive(invoice.tax_inclusive ?? false)
     setInvoiceDate(invoice.invoice_date?.slice(0, 10) ?? "")
     setCustomerPo(invoice.customer_po ?? "")
+    setCurrency(invoice.currency ?? "MYR")
     setJournalMemo(invoice.journal_memo ?? "")
     if (invoice.line_items?.length) {
       setLineItems(invoice.line_items.map((l: any) => ({
@@ -149,7 +151,7 @@ export default function EditInvoicePage() {
         contact_id: contactId,
         issue_date: invoiceDate,
         due_date: invoiceDate,
-        currency: "MYR",
+        currency,
         notes: journalMemo || null,
         billing_address_line1: billingLine1 || null,
         billing_address_line2: billingLine2 || null,

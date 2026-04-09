@@ -64,6 +64,18 @@ async def create_invoice(
         total=subtotal + tax_amount,
         currency=data.currency,
         notes=data.notes,
+        billing_address_line1=data.billing_address_line1,
+        billing_address_line2=data.billing_address_line2,
+        billing_city=data.billing_city,
+        billing_state=data.billing_state,
+        billing_postcode=data.billing_postcode,
+        billing_country=data.billing_country,
+        shipping_address_line1=data.shipping_address_line1,
+        shipping_address_line2=data.shipping_address_line2,
+        shipping_city=data.shipping_city,
+        shipping_state=data.shipping_state,
+        shipping_postcode=data.shipping_postcode,
+        shipping_country=data.shipping_country,
     )
     db.add(invoice)
     await db.flush()
@@ -72,18 +84,22 @@ async def create_invoice(
     for i, item in enumerate(data.line_items):
         db.add(InvoiceLineItem(
             invoice_id=invoice.id,
+            line_type=item.line_type,
             description=item.description,
             quantity=item.quantity,
             unit_price=item.unit_price,
             tax_rate=item.tax_rate,
+            tax_code_id=item.tax_code_id,
             amount=item.quantity * item.unit_price,
             account_id=item.account_id,
             sort_order=i,
         ))
 
     await db.commit()
-    await db.refresh(invoice)
-    return invoice
+    result = await db.execute(
+        select(Invoice).options(selectinload(Invoice.line_items)).where(Invoice.id == invoice.id)
+    )
+    return result.scalar_one()
 
 
 @router.get("/{invoice_id}", response_model=InvoiceResponse)
@@ -145,10 +161,12 @@ async def update_invoice(
         for i, item in enumerate(data.line_items):
             db.add(InvoiceLineItem(
                 invoice_id=invoice.id,
+                line_type=item.line_type,
                 description=item.description,
                 quantity=item.quantity,
                 unit_price=item.unit_price,
                 tax_rate=item.tax_rate,
+                tax_code_id=item.tax_code_id,
                 amount=item.quantity * item.unit_price,
                 account_id=item.account_id,
                 sort_order=i,
