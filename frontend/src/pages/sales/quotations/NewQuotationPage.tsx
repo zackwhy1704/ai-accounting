@@ -201,142 +201,6 @@ export default function NewQuotationPage() {
         <div className="text-2xl font-semibold tracking-tight text-foreground">{t("quotations.new")}</div>
       </div>
 
-      {/* Billing & Shipping Card */}
-      <Card className="rounded-2xl border-border bg-card p-6 shadow-[0_0_0_1px_rgba(15,23,42,0.06),0_18px_55px_rgba(2,6,23,0.08)]">
-        <h3 className="mb-4 text-sm font-semibold text-foreground">Billing & Shipping</h3>
-        {selectedContact && (
-          <div className="mb-4 rounded-lg bg-muted/50 px-3 py-2 text-xs text-muted-foreground">
-            Auto-filled from contact: <span className="font-medium text-foreground">{selectedContact.name}</span>
-          </div>
-        )}
-        <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-          <div>
-            <h3 className="mb-4 text-sm font-semibold text-foreground">Billing Address</h3>
-            <div className="space-y-3">
-              <Input placeholder="Address Line 1" value={billingLine1} onChange={e => setBillingLine1(e.target.value)} className="h-10 rounded-xl" />
-              <Input placeholder="Address Line 2" value={billingLine2} onChange={e => setBillingLine2(e.target.value)} className="h-10 rounded-xl" />
-              <div className="grid grid-cols-2 gap-3">
-                <Input placeholder="City" value={billingCity} onChange={e => setBillingCity(e.target.value)} className="h-10 rounded-xl" />
-                <Input placeholder="State" value={billingState} onChange={e => setBillingState(e.target.value)} className="h-10 rounded-xl" />
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <Input placeholder="Postcode" value={billingPostcode} onChange={e => setBillingPostcode(e.target.value)} className="h-10 rounded-xl" />
-                <Input placeholder="Country" value={billingCountry} onChange={e => setBillingCountry(e.target.value)} className="h-10 rounded-xl" />
-              </div>
-            </div>
-          </div>
-          <div>
-            <h3 className="mb-4 text-sm font-semibold text-foreground">Shipping Address</h3>
-            <div className="space-y-3">
-              <Input placeholder="Address Line 1" value={shippingLine1} onChange={e => setShippingLine1(e.target.value)} className="h-10 rounded-xl" />
-              <Input placeholder="Address Line 2" value={shippingLine2} onChange={e => setShippingLine2(e.target.value)} className="h-10 rounded-xl" />
-              <div className="grid grid-cols-2 gap-3">
-                <Input placeholder="City" value={shippingCity} onChange={e => setShippingCity(e.target.value)} className="h-10 rounded-xl" />
-                <Input placeholder="State" value={shippingState} onChange={e => setShippingState(e.target.value)} className="h-10 rounded-xl" />
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <Input placeholder="Postcode" value={shippingPostcode} onChange={e => setShippingPostcode(e.target.value)} className="h-10 rounded-xl" />
-                <Input placeholder="Country" value={shippingCountry} onChange={e => setShippingCountry(e.target.value)} className="h-10 rounded-xl" />
-              </div>
-            </div>
-          </div>
-        </div>
-      </Card>
-
-      {/* General Info Card */}
-      <Card className="rounded-2xl border-border bg-card p-6 shadow-[0_0_0_1px_rgba(15,23,42,0.06),0_18px_55px_rgba(2,6,23,0.08)]">
-        <h3 className="mb-4 text-sm font-semibold text-foreground">General Info</h3>
-        <div className="max-w-lg space-y-4">
-          <div>
-            <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Title</label>
-            <Input value={title} onChange={e => setTitle(e.target.value)} placeholder="Quotation title" className="h-10 rounded-xl" />
-          </div>
-          <div>
-            <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Summary</label>
-            <textarea value={summary} onChange={e => setSummary(e.target.value)} placeholder="Brief summary..." rows={3}
-              className="w-full rounded-xl border border-border bg-card px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring" />
-          </div>
-          <div>
-            <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Notes</label>
-            <textarea value={notes} onChange={e => setNotes(e.target.value)} placeholder="Internal notes..." rows={3}
-              className="w-full rounded-xl border border-border bg-card px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring" />
-          </div>
-        </div>
-      </Card>
-
-      {/* Payment Terms Card */}
-      <Card className="rounded-2xl border-border bg-card p-6 shadow-[0_0_0_1px_rgba(15,23,42,0.06),0_18px_55px_rgba(2,6,23,0.08)]">
-        <h3 className="mb-4 text-sm font-semibold text-foreground">Payment Terms</h3>
-        <div className="max-w-lg space-y-4">
-          <div>
-            <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Payment Terms</label>
-            <Select value={paymentTerms} onValueChange={setPaymentTerms}>
-              <SelectTrigger className="h-10 rounded-xl"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="due_on_receipt">Due on Receipt</SelectItem>
-                <SelectItem value="net7">Net 7</SelectItem>
-                <SelectItem value="net15">Net 15</SelectItem>
-                <SelectItem value="net30">Net 30</SelectItem>
-                <SelectItem value="net60">Net 60</SelectItem>
-                <SelectItem value="net90">Net 90</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <div>
-            <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Payment Instructions</label>
-            <textarea value={paymentInstructions} onChange={e => setPaymentInstructions(e.target.value)}
-              placeholder="Bank details, payment methods..." rows={4}
-              className="w-full rounded-xl border border-border bg-card px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring" />
-          </div>
-        </div>
-      </Card>
-
-      {/* Additional Info Card */}
-      <Card className="rounded-2xl border-border bg-card p-6 shadow-[0_0_0_1px_rgba(15,23,42,0.06),0_18px_55px_rgba(2,6,23,0.08)]">
-        <h3 className="mb-4 text-sm font-semibold text-foreground">Additional Info</h3>
-        <div className="max-w-lg space-y-4">
-          <div>
-            <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Footer Note</label>
-            <textarea value={footerNote} onChange={e => setFooterNote(e.target.value)}
-              placeholder="Appears at the bottom of the quotation..." rows={3}
-              className="w-full rounded-xl border border-border bg-card px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring" />
-          </div>
-          <div>
-            <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Terms & Conditions</label>
-            <textarea value={terms} onChange={e => setTerms(e.target.value)}
-              placeholder="Standard terms and conditions..." rows={4}
-              className="w-full rounded-xl border border-border bg-card px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring" />
-          </div>
-        </div>
-      </Card>
-
-      {/* Attachments Card */}
-      <Card className="rounded-2xl border-border bg-card p-6 shadow-[0_0_0_1px_rgba(15,23,42,0.06),0_18px_55px_rgba(2,6,23,0.08)]">
-        <h3 className="mb-4 text-sm font-semibold text-foreground">Attachments</h3>
-        <input ref={attachFileRef} type="file" multiple accept=".pdf,.jpg,.jpeg,.png" className="hidden"
-          onChange={e => { if (e.target.files) setAttachments(prev => [...prev, ...Array.from(e.target.files!)]) }} />
-        <div
-          className="flex flex-col items-center justify-center rounded-2xl border-2 border-dashed border-border px-6 py-12 text-center cursor-pointer hover:bg-muted/30 transition-colors"
-          onClick={() => attachFileRef.current?.click()}
-        >
-          <Plus className="h-6 w-6 text-muted-foreground" />
-          <div className="mt-4 text-sm font-medium text-foreground">Drop files here or click to upload</div>
-          <div className="mt-1 text-xs text-muted-foreground">PDF, JPG, PNG up to 10MB</div>
-        </div>
-        {attachments.length > 0 && (
-          <ul className="mt-4 space-y-1.5">
-            {attachments.map((f, i) => (
-              <li key={i} className="flex items-center justify-between rounded-lg border border-border px-3 py-2 text-xs">
-                <span className="truncate text-foreground">{f.name}</span>
-                <button type="button" onClick={() => setAttachments(prev => prev.filter((_, j) => j !== i))} className="ml-3 text-muted-foreground hover:text-rose-500">
-                  <Trash2 className="h-3.5 w-3.5" />
-                </button>
-              </li>
-            ))}
-          </ul>
-        )}
-      </Card>
-
       {/* Items Card */}
       <Card className="rounded-2xl border-border bg-card p-6 shadow-[0_0_0_1px_rgba(15,23,42,0.06),0_18px_55px_rgba(2,6,23,0.08)]">
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
@@ -643,6 +507,142 @@ export default function NewQuotationPage() {
             </div>
           </div>
         </div>
+      </Card>
+
+      {/* Billing & Shipping Card */}
+      <Card className="rounded-2xl border-border bg-card p-6 shadow-[0_0_0_1px_rgba(15,23,42,0.06),0_18px_55px_rgba(2,6,23,0.08)]">
+        <h3 className="mb-4 text-sm font-semibold text-foreground">Billing & Shipping</h3>
+        {selectedContact && (
+          <div className="mb-4 rounded-lg bg-muted/50 px-3 py-2 text-xs text-muted-foreground">
+            Auto-filled from contact: <span className="font-medium text-foreground">{selectedContact.name}</span>
+          </div>
+        )}
+        <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+          <div>
+            <h3 className="mb-4 text-sm font-semibold text-foreground">Billing Address</h3>
+            <div className="space-y-3">
+              <Input placeholder="Address Line 1" value={billingLine1} onChange={e => setBillingLine1(e.target.value)} className="h-10 rounded-xl" />
+              <Input placeholder="Address Line 2" value={billingLine2} onChange={e => setBillingLine2(e.target.value)} className="h-10 rounded-xl" />
+              <div className="grid grid-cols-2 gap-3">
+                <Input placeholder="City" value={billingCity} onChange={e => setBillingCity(e.target.value)} className="h-10 rounded-xl" />
+                <Input placeholder="State" value={billingState} onChange={e => setBillingState(e.target.value)} className="h-10 rounded-xl" />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <Input placeholder="Postcode" value={billingPostcode} onChange={e => setBillingPostcode(e.target.value)} className="h-10 rounded-xl" />
+                <Input placeholder="Country" value={billingCountry} onChange={e => setBillingCountry(e.target.value)} className="h-10 rounded-xl" />
+              </div>
+            </div>
+          </div>
+          <div>
+            <h3 className="mb-4 text-sm font-semibold text-foreground">Shipping Address</h3>
+            <div className="space-y-3">
+              <Input placeholder="Address Line 1" value={shippingLine1} onChange={e => setShippingLine1(e.target.value)} className="h-10 rounded-xl" />
+              <Input placeholder="Address Line 2" value={shippingLine2} onChange={e => setShippingLine2(e.target.value)} className="h-10 rounded-xl" />
+              <div className="grid grid-cols-2 gap-3">
+                <Input placeholder="City" value={shippingCity} onChange={e => setShippingCity(e.target.value)} className="h-10 rounded-xl" />
+                <Input placeholder="State" value={shippingState} onChange={e => setShippingState(e.target.value)} className="h-10 rounded-xl" />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <Input placeholder="Postcode" value={shippingPostcode} onChange={e => setShippingPostcode(e.target.value)} className="h-10 rounded-xl" />
+                <Input placeholder="Country" value={shippingCountry} onChange={e => setShippingCountry(e.target.value)} className="h-10 rounded-xl" />
+              </div>
+            </div>
+          </div>
+        </div>
+      </Card>
+
+      {/* General Info Card */}
+      <Card className="rounded-2xl border-border bg-card p-6 shadow-[0_0_0_1px_rgba(15,23,42,0.06),0_18px_55px_rgba(2,6,23,0.08)]">
+        <h3 className="mb-4 text-sm font-semibold text-foreground">General Info</h3>
+        <div className="max-w-lg space-y-4">
+          <div>
+            <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Title</label>
+            <Input value={title} onChange={e => setTitle(e.target.value)} placeholder="Quotation title" className="h-10 rounded-xl" />
+          </div>
+          <div>
+            <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Summary</label>
+            <textarea value={summary} onChange={e => setSummary(e.target.value)} placeholder="Brief summary..." rows={3}
+              className="w-full rounded-xl border border-border bg-card px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring" />
+          </div>
+          <div>
+            <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Notes</label>
+            <textarea value={notes} onChange={e => setNotes(e.target.value)} placeholder="Internal notes..." rows={3}
+              className="w-full rounded-xl border border-border bg-card px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring" />
+          </div>
+        </div>
+      </Card>
+
+      {/* Payment Terms Card */}
+      <Card className="rounded-2xl border-border bg-card p-6 shadow-[0_0_0_1px_rgba(15,23,42,0.06),0_18px_55px_rgba(2,6,23,0.08)]">
+        <h3 className="mb-4 text-sm font-semibold text-foreground">Payment Terms</h3>
+        <div className="max-w-lg space-y-4">
+          <div>
+            <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Payment Terms</label>
+            <Select value={paymentTerms} onValueChange={setPaymentTerms}>
+              <SelectTrigger className="h-10 rounded-xl"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="due_on_receipt">Due on Receipt</SelectItem>
+                <SelectItem value="net7">Net 7</SelectItem>
+                <SelectItem value="net15">Net 15</SelectItem>
+                <SelectItem value="net30">Net 30</SelectItem>
+                <SelectItem value="net60">Net 60</SelectItem>
+                <SelectItem value="net90">Net 90</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Payment Instructions</label>
+            <textarea value={paymentInstructions} onChange={e => setPaymentInstructions(e.target.value)}
+              placeholder="Bank details, payment methods..." rows={4}
+              className="w-full rounded-xl border border-border bg-card px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring" />
+          </div>
+        </div>
+      </Card>
+
+      {/* Additional Info Card */}
+      <Card className="rounded-2xl border-border bg-card p-6 shadow-[0_0_0_1px_rgba(15,23,42,0.06),0_18px_55px_rgba(2,6,23,0.08)]">
+        <h3 className="mb-4 text-sm font-semibold text-foreground">Additional Info</h3>
+        <div className="max-w-lg space-y-4">
+          <div>
+            <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Footer Note</label>
+            <textarea value={footerNote} onChange={e => setFooterNote(e.target.value)}
+              placeholder="Appears at the bottom of the quotation..." rows={3}
+              className="w-full rounded-xl border border-border bg-card px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring" />
+          </div>
+          <div>
+            <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Terms & Conditions</label>
+            <textarea value={terms} onChange={e => setTerms(e.target.value)}
+              placeholder="Standard terms and conditions..." rows={4}
+              className="w-full rounded-xl border border-border bg-card px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring" />
+          </div>
+        </div>
+      </Card>
+
+      {/* Attachments Card */}
+      <Card className="rounded-2xl border-border bg-card p-6 shadow-[0_0_0_1px_rgba(15,23,42,0.06),0_18px_55px_rgba(2,6,23,0.08)]">
+        <h3 className="mb-4 text-sm font-semibold text-foreground">Attachments</h3>
+        <input ref={attachFileRef} type="file" multiple accept=".pdf,.jpg,.jpeg,.png" className="hidden"
+          onChange={e => { if (e.target.files) setAttachments(prev => [...prev, ...Array.from(e.target.files!)]) }} />
+        <div
+          className="flex flex-col items-center justify-center rounded-2xl border-2 border-dashed border-border px-6 py-12 text-center cursor-pointer hover:bg-muted/30 transition-colors"
+          onClick={() => attachFileRef.current?.click()}
+        >
+          <Plus className="h-6 w-6 text-muted-foreground" />
+          <div className="mt-4 text-sm font-medium text-foreground">Drop files here or click to upload</div>
+          <div className="mt-1 text-xs text-muted-foreground">PDF, JPG, PNG up to 10MB</div>
+        </div>
+        {attachments.length > 0 && (
+          <ul className="mt-4 space-y-1.5">
+            {attachments.map((f, i) => (
+              <li key={i} className="flex items-center justify-between rounded-lg border border-border px-3 py-2 text-xs">
+                <span className="truncate text-foreground">{f.name}</span>
+                <button type="button" onClick={() => setAttachments(prev => prev.filter((_, j) => j !== i))} className="ml-3 text-muted-foreground hover:text-rose-500">
+                  <Trash2 className="h-3.5 w-3.5" />
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
       </Card>
 
       {/* Save/Cancel Footer */}

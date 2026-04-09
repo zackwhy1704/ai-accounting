@@ -218,99 +218,6 @@ export default function EditInvoicePage() {
         <div className="text-2xl font-semibold tracking-tight text-foreground">Edit Invoice {invoice.invoice_number}</div>
       </div>
 
-      {/* Billing & Shipping Card */}
-      <Card className="rounded-2xl border-border bg-card p-6 shadow-[0_0_0_1px_rgba(15,23,42,0.06),0_18px_55px_rgba(2,6,23,0.08)]">
-        <h3 className="mb-4 text-sm font-semibold text-foreground">Billing & Shipping</h3>
-        <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-          <div>
-            <h3 className="mb-4 text-sm font-semibold text-foreground">Billing Address</h3>
-            <div className="space-y-3">
-              <Input placeholder="Address Line 1" className="h-10 rounded-xl" value={billingLine1} onChange={e => setBillingLine1(e.target.value)} />
-              <Input placeholder="Address Line 2" className="h-10 rounded-xl" value={billingLine2} onChange={e => setBillingLine2(e.target.value)} />
-              <div className="grid grid-cols-2 gap-3">
-                <Input placeholder="City" className="h-10 rounded-xl" value={billingCity} onChange={e => setBillingCity(e.target.value)} />
-                <Input placeholder="State" className="h-10 rounded-xl" value={billingState} onChange={e => setBillingState(e.target.value)} />
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <Input placeholder="Postcode" className="h-10 rounded-xl" value={billingPostcode} onChange={e => setBillingPostcode(e.target.value)} />
-                <Input placeholder="Country" className="h-10 rounded-xl" value={billingCountry} onChange={e => setBillingCountry(e.target.value)} />
-              </div>
-            </div>
-          </div>
-          <div>
-            <h3 className="mb-4 text-sm font-semibold text-foreground">Shipping Address</h3>
-            <div className="space-y-3">
-              <Input placeholder="Address Line 1" className="h-10 rounded-xl" value={shippingLine1} onChange={e => setShippingLine1(e.target.value)} />
-              <Input placeholder="Address Line 2" className="h-10 rounded-xl" value={shippingLine2} onChange={e => setShippingLine2(e.target.value)} />
-              <div className="grid grid-cols-2 gap-3">
-                <Input placeholder="City" className="h-10 rounded-xl" value={shippingCity} onChange={e => setShippingCity(e.target.value)} />
-                <Input placeholder="State" className="h-10 rounded-xl" value={shippingState} onChange={e => setShippingState(e.target.value)} />
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <Input placeholder="Postcode" className="h-10 rounded-xl" value={shippingPostcode} onChange={e => setShippingPostcode(e.target.value)} />
-                <Input placeholder="Country" className="h-10 rounded-xl" value={shippingCountry} onChange={e => setShippingCountry(e.target.value)} />
-              </div>
-            </div>
-          </div>
-        </div>
-      </Card>
-
-      {/* General Info Card */}
-      <Card className="rounded-2xl border-border bg-card p-6 shadow-[0_0_0_1px_rgba(15,23,42,0.06),0_18px_55px_rgba(2,6,23,0.08)]">
-        <h3 className="mb-4 text-sm font-semibold text-foreground">General Info</h3>
-        <div className="max-w-lg space-y-4">
-          <div>
-            <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Title</label>
-            <Input placeholder="Invoice title" className="h-10 rounded-xl" />
-          </div>
-          <div>
-            <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Notes</label>
-            <textarea placeholder="Internal notes..." rows={3} className="w-full rounded-xl border border-border bg-card px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring" />
-          </div>
-        </div>
-      </Card>
-
-      {/* Payment Terms Card */}
-      <Card className="rounded-2xl border-border bg-card p-6 shadow-[0_0_0_1px_rgba(15,23,42,0.06),0_18px_55px_rgba(2,6,23,0.08)]">
-        <h3 className="mb-4 text-sm font-semibold text-foreground">Payment Terms</h3>
-        <div className="max-w-lg space-y-4">
-          <div>
-            <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Payment Terms</label>
-            <Select value={terms} onValueChange={setTerms}>
-              <SelectTrigger className="h-10 rounded-xl"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="cbd">C.B.D.</SelectItem>
-                <SelectItem value="due_on_receipt">Due on Receipt</SelectItem>
-                <SelectItem value="net7">Net 7</SelectItem>
-                <SelectItem value="net15">Net 15</SelectItem>
-                <SelectItem value="net30">Net 30</SelectItem>
-                <SelectItem value="net60">Net 60</SelectItem>
-                <SelectItem value="net90">Net 90</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <div>
-            <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Payment Instructions</label>
-            <textarea placeholder="Bank details, payment methods..." rows={4} className="w-full rounded-xl border border-border bg-card px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring" />
-          </div>
-        </div>
-      </Card>
-
-      {/* Additional Info Card */}
-      <Card className="rounded-2xl border-border bg-card p-6 shadow-[0_0_0_1px_rgba(15,23,42,0.06),0_18px_55px_rgba(2,6,23,0.08)]">
-        <h3 className="mb-4 text-sm font-semibold text-foreground">Additional Info</h3>
-        <div className="max-w-lg space-y-4">
-          <div>
-            <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Footer Note</label>
-            <textarea placeholder="Appears at the bottom of the invoice..." rows={3} className="w-full rounded-xl border border-border bg-card px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring" />
-          </div>
-          <div>
-            <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Terms & Conditions</label>
-            <textarea placeholder="Standard terms and conditions..." rows={4} className="w-full rounded-xl border border-border bg-card px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring" />
-          </div>
-        </div>
-      </Card>
-
       {/* Items Card */}
       <Card className="rounded-2xl border-border bg-card p-6 shadow-[0_0_0_1px_rgba(15,23,42,0.06),0_18px_55px_rgba(2,6,23,0.08)]">
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
@@ -526,6 +433,99 @@ export default function EditInvoicePage() {
               <span className="text-muted-foreground">Balance Due:</span>
               <span className="font-semibold text-foreground">RM {balanceDue.toFixed(2)}</span>
             </div>
+          </div>
+        </div>
+      </Card>
+
+      {/* Billing & Shipping Card */}
+      <Card className="rounded-2xl border-border bg-card p-6 shadow-[0_0_0_1px_rgba(15,23,42,0.06),0_18px_55px_rgba(2,6,23,0.08)]">
+        <h3 className="mb-4 text-sm font-semibold text-foreground">Billing & Shipping</h3>
+        <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+          <div>
+            <h3 className="mb-4 text-sm font-semibold text-foreground">Billing Address</h3>
+            <div className="space-y-3">
+              <Input placeholder="Address Line 1" className="h-10 rounded-xl" value={billingLine1} onChange={e => setBillingLine1(e.target.value)} />
+              <Input placeholder="Address Line 2" className="h-10 rounded-xl" value={billingLine2} onChange={e => setBillingLine2(e.target.value)} />
+              <div className="grid grid-cols-2 gap-3">
+                <Input placeholder="City" className="h-10 rounded-xl" value={billingCity} onChange={e => setBillingCity(e.target.value)} />
+                <Input placeholder="State" className="h-10 rounded-xl" value={billingState} onChange={e => setBillingState(e.target.value)} />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <Input placeholder="Postcode" className="h-10 rounded-xl" value={billingPostcode} onChange={e => setBillingPostcode(e.target.value)} />
+                <Input placeholder="Country" className="h-10 rounded-xl" value={billingCountry} onChange={e => setBillingCountry(e.target.value)} />
+              </div>
+            </div>
+          </div>
+          <div>
+            <h3 className="mb-4 text-sm font-semibold text-foreground">Shipping Address</h3>
+            <div className="space-y-3">
+              <Input placeholder="Address Line 1" className="h-10 rounded-xl" value={shippingLine1} onChange={e => setShippingLine1(e.target.value)} />
+              <Input placeholder="Address Line 2" className="h-10 rounded-xl" value={shippingLine2} onChange={e => setShippingLine2(e.target.value)} />
+              <div className="grid grid-cols-2 gap-3">
+                <Input placeholder="City" className="h-10 rounded-xl" value={shippingCity} onChange={e => setShippingCity(e.target.value)} />
+                <Input placeholder="State" className="h-10 rounded-xl" value={shippingState} onChange={e => setShippingState(e.target.value)} />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <Input placeholder="Postcode" className="h-10 rounded-xl" value={shippingPostcode} onChange={e => setShippingPostcode(e.target.value)} />
+                <Input placeholder="Country" className="h-10 rounded-xl" value={shippingCountry} onChange={e => setShippingCountry(e.target.value)} />
+              </div>
+            </div>
+          </div>
+        </div>
+      </Card>
+
+      {/* General Info Card */}
+      <Card className="rounded-2xl border-border bg-card p-6 shadow-[0_0_0_1px_rgba(15,23,42,0.06),0_18px_55px_rgba(2,6,23,0.08)]">
+        <h3 className="mb-4 text-sm font-semibold text-foreground">General Info</h3>
+        <div className="max-w-lg space-y-4">
+          <div>
+            <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Title</label>
+            <Input placeholder="Invoice title" className="h-10 rounded-xl" />
+          </div>
+          <div>
+            <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Notes</label>
+            <textarea placeholder="Internal notes..." rows={3} className="w-full rounded-xl border border-border bg-card px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring" />
+          </div>
+        </div>
+      </Card>
+
+      {/* Payment Terms Card */}
+      <Card className="rounded-2xl border-border bg-card p-6 shadow-[0_0_0_1px_rgba(15,23,42,0.06),0_18px_55px_rgba(2,6,23,0.08)]">
+        <h3 className="mb-4 text-sm font-semibold text-foreground">Payment Terms</h3>
+        <div className="max-w-lg space-y-4">
+          <div>
+            <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Payment Terms</label>
+            <Select value={terms} onValueChange={setTerms}>
+              <SelectTrigger className="h-10 rounded-xl"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="cbd">C.B.D.</SelectItem>
+                <SelectItem value="due_on_receipt">Due on Receipt</SelectItem>
+                <SelectItem value="net7">Net 7</SelectItem>
+                <SelectItem value="net15">Net 15</SelectItem>
+                <SelectItem value="net30">Net 30</SelectItem>
+                <SelectItem value="net60">Net 60</SelectItem>
+                <SelectItem value="net90">Net 90</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Payment Instructions</label>
+            <textarea placeholder="Bank details, payment methods..." rows={4} className="w-full rounded-xl border border-border bg-card px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring" />
+          </div>
+        </div>
+      </Card>
+
+      {/* Additional Info Card */}
+      <Card className="rounded-2xl border-border bg-card p-6 shadow-[0_0_0_1px_rgba(15,23,42,0.06),0_18px_55px_rgba(2,6,23,0.08)]">
+        <h3 className="mb-4 text-sm font-semibold text-foreground">Additional Info</h3>
+        <div className="max-w-lg space-y-4">
+          <div>
+            <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Footer Note</label>
+            <textarea placeholder="Appears at the bottom of the invoice..." rows={3} className="w-full rounded-xl border border-border bg-card px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring" />
+          </div>
+          <div>
+            <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Terms & Conditions</label>
+            <textarea placeholder="Standard terms and conditions..." rows={4} className="w-full rounded-xl border border-border bg-card px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring" />
           </div>
         </div>
       </Card>
