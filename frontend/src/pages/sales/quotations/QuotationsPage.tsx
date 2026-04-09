@@ -2,7 +2,7 @@ import { useMemo, useState } from "react"
 import { useNavigate } from "react-router-dom"
 import { Plus, Search, ArrowRightLeft, Pencil, X, Send, CheckCircle, XCircle, Trash2 } from "lucide-react"
 import { RowActionsMenu } from "../../../components/ui/row-actions"
-import { useQuotations, useContacts, useConvertQuotation, useUpdateQuotation, useUpdateQuotationStatus, useDeleteQuotation } from "../../../lib/hooks"
+import { useQuotations, useContacts, useConvertQuotation, useUpdateQuotationStatus, useDeleteQuotation } from "../../../lib/hooks"
 import { formatCurrency, formatDate, cn } from "../../../lib/utils"
 import { useTheme } from "../../../lib/theme"
 import { Card } from "../../../components/ui/card"
@@ -33,7 +33,6 @@ export default function QuotationsPage() {
   const { data: contacts = [] } = useContacts()
   const { t } = useTheme()
   const convertQuotation = useConvertQuotation()
-  const updateQuotation = useUpdateQuotation()
   const updateStatus = useUpdateQuotationStatus()
   const deleteQuotation = useDeleteQuotation()
 

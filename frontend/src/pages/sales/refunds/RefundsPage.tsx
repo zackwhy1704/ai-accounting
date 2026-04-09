@@ -1,10 +1,8 @@
 import { useMemo, useState } from "react"
-import { useQueryClient } from "@tanstack/react-query"
 import { useNavigate } from "react-router-dom"
 import { Plus, Search, XCircle, Pencil, CheckCircle, Trash2 } from "lucide-react"
 import { RowActionsMenu } from "../../../components/ui/row-actions"
 import { useSalesRefunds, useContacts, useUpdateSalesRefundStatus, useDeleteSalesRefund } from "../../../lib/hooks"
-import api from "../../../lib/api"
 import { formatCurrency, formatDate, cn } from "../../../lib/utils"
 import { useTheme } from "../../../lib/theme"
 import { Card } from "../../../components/ui/card"
@@ -23,7 +21,6 @@ const statusColors: Record<string, string> = {
 
 export default function RefundsPage() {
   const navigate = useNavigate()
-  const queryClient = useQueryClient()
   const updateRefundStatus = useUpdateSalesRefundStatus()
   const deleteRefund = useDeleteSalesRefund()
   const [tab, setTab] = useState("all")

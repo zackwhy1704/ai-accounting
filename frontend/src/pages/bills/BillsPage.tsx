@@ -1,10 +1,8 @@
 import { useMemo, useState, useRef } from "react"
-import { useQueryClient } from "@tanstack/react-query"
 import { useNavigate } from "react-router-dom"
 import { ViewDetailSheet } from "../../components/ui/view-detail-sheet"
 import { Plus, Search, CalendarDays, FileText, Copy, Printer, XCircle, CreditCard, Pencil, PackageCheck, Trash2 } from "lucide-react"
 import { useBills, useContacts, useUpdateBillStatus, useDeleteBill } from "../../lib/hooks"
-import api from "../../lib/api"
 import { formatCurrency, formatDate, cn } from "../../lib/utils"
 import { useTheme } from "../../lib/theme"
 import { Card } from "../../components/ui/card"
@@ -27,7 +25,6 @@ const statusColors: Record<string, string> = {
 
 export default function BillsPage() {
   const navigate = useNavigate()
-  const queryClient = useQueryClient()
   const updateBillStatus = useUpdateBillStatus()
   const deleteBill = useDeleteBill()
   const [tab, setTab] = useState("all")
