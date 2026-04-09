@@ -47,9 +47,6 @@ export default function NewQuotationPage() {
   const [currency, setCurrency] = useState("MYR")
   const [taxInclusive, setTaxInclusive] = useState(false)
   const [paymentTerms, setPaymentTerms] = useState("net30")
-  const [discountGiven, setDiscountGiven] = useState(0)
-  const [roundingAdjustment, setRoundingAdjustment] = useState(false)
-  const [quickShareEmail, setQuickShareEmail] = useState(false)
   const [productSearch, setProductSearch] = useState("")
   const [productDropdownOpen, setProductDropdownOpen] = useState(false)
   const productInputRef = useRef<HTMLInputElement>(null)
@@ -62,13 +59,6 @@ export default function NewQuotationPage() {
   const [billingState, setBillingState] = useState("")
   const [billingPostcode, setBillingPostcode] = useState("")
   const [billingCountry, setBillingCountry] = useState("")
-  const [shippingLine1, setShippingLine1] = useState("")
-  const [shippingLine2, setShippingLine2] = useState("")
-  const [shippingCity, setShippingCity] = useState("")
-  const [shippingState, setShippingState] = useState("")
-  const [shippingPostcode, setShippingPostcode] = useState("")
-  const [shippingCountry, setShippingCountry] = useState("")
-
   const selectedContact = useMemo(() => contacts.find((c: any) => c.id === contactId), [contacts, contactId])
 
   const handleContactSelect = (id: string) => {
@@ -82,12 +72,6 @@ export default function NewQuotationPage() {
       setBillingState(contact.billing_state ?? "")
       setBillingPostcode(contact.billing_postcode ?? "")
       setBillingCountry(contact.billing_country ?? "")
-      setShippingLine1(contact.shipping_address_line1 ?? "")
-      setShippingLine2(contact.shipping_address_line2 ?? "")
-      setShippingCity(contact.shipping_city ?? "")
-      setShippingState(contact.shipping_state ?? "")
-      setShippingPostcode(contact.shipping_postcode ?? "")
-      setShippingCountry(contact.shipping_country ?? "")
       if (contact.default_payment_terms) setPaymentTerms(contact.default_payment_terms)
     }
     const prefs = getContactPrefs(id)
@@ -112,8 +96,6 @@ export default function NewQuotationPage() {
     staleTime: 5 * 60_000,
   })
 
-  const [title, setTitle] = useState("")
-  const [summary, setSummary] = useState("")
   const [notes, setNotes] = useState("")
   const [paymentInstructions, setPaymentInstructions] = useState("")
   const [footerNote, setFooterNote] = useState("")
@@ -155,15 +137,13 @@ export default function NewQuotationPage() {
   const totalDiscount = lineItems.reduce((sum, item) => {
     const lineTotal = item.line_type === "services" ? item.unit_price : item.quantity * item.unit_price
     return sum + (lineTotal * item.discount) / 100
-  }, 0) + discountGiven
+  }, 0)
   const totalTax = taxInclusive ? 0 : lineItems.reduce((sum, item) => {
     const lineTotal = item.line_type === "services" ? item.unit_price : item.quantity * item.unit_price
     const afterLineDiscount = lineTotal - (lineTotal * item.discount) / 100
     return sum + (afterLineDiscount * item.tax_rate) / 100
   }, 0)
-  const rawTotal = subTotal - totalDiscount + totalTax
-  const total = roundingAdjustment ? Math.round(rawTotal * 20) / 20 : rawTotal
-  const roundingDiff = roundingAdjustment ? total - rawTotal : 0
+  const total = subTotal - totalDiscount + totalTax
 
   const handleSave = async () => {
     if (!contactId) return
@@ -174,7 +154,7 @@ export default function NewQuotationPage() {
         expiry_date: expiryDate,
         reference: reference || undefined,
         currency,
-        notes: [title, summary, notes].filter(Boolean).join("\n\n") || undefined,
+        notes: notes || undefined,
         terms: [paymentInstructions, footerNote, terms].filter(Boolean).join("\n\n") || undefined,
         billing_address_line1: billingLine1 || null,
         billing_address_line2: billingLine2 || null,
@@ -182,12 +162,6 @@ export default function NewQuotationPage() {
         billing_state: billingState || null,
         billing_postcode: billingPostcode || null,
         billing_country: billingCountry || null,
-        shipping_address_line1: shippingLine1 || null,
-        shipping_address_line2: shippingLine2 || null,
-        shipping_city: shippingCity || null,
-        shipping_state: shippingState || null,
-        shipping_postcode: shippingPostcode || null,
-        shipping_country: shippingCountry || null,
         line_items: lineItems.map(li => ({
           line_type: li.line_type,
           description: li.description,
@@ -488,28 +462,8 @@ export default function NewQuotationPage() {
               <span className="font-medium text-foreground">{currency} {subTotal.toFixed(2)}</span>
             </div>
             <div className="flex items-center justify-between">
-              <span className="text-muted-foreground">Discount Given</span>
-              <Input
-                type="number" min={0} step={0.01} value={discountGiven}
-                onChange={e => setDiscountGiven(Number(e.target.value))}
-                className="h-8 w-28 rounded-lg text-right text-sm"
-              />
-            </div>
-            <div className="flex items-center justify-between">
               <span className="text-muted-foreground">Tax</span>
               <span className="font-medium text-foreground">{currency} {totalTax.toFixed(2)}</span>
-            </div>
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <span className="text-muted-foreground">Rounding Adjustment</span>
-                <button
-                  type="button" onClick={() => setRoundingAdjustment(!roundingAdjustment)}
-                  className={`relative inline-flex h-4 w-7 items-center rounded-full transition-colors ${roundingAdjustment ? "bg-blue-500" : "bg-gray-300"}`}
-                >
-                  <span className={`inline-block h-3 w-3 transform rounded-full bg-white transition-transform ${roundingAdjustment ? "translate-x-3.5" : "translate-x-0.5"}`} />
-                </button>
-              </div>
-              <span className="font-medium text-foreground">{roundingDiff >= 0 ? "+" : ""}{roundingDiff.toFixed(2)}</span>
             </div>
             <div className="border-t border-border pt-2">
               <div className="flex items-center justify-between text-base font-semibold">
@@ -521,44 +475,24 @@ export default function NewQuotationPage() {
         </div>
       </Card>
 
-      {/* Billing & Shipping Card */}
+      {/* Billing Address Card */}
       <Card className="rounded-2xl border-border bg-card p-6 shadow-[0_0_0_1px_rgba(15,23,42,0.06),0_18px_55px_rgba(2,6,23,0.08)]">
-        <h3 className="mb-4 text-sm font-semibold text-foreground">Billing & Shipping</h3>
+        <h3 className="mb-4 text-sm font-semibold text-foreground">Billing Address</h3>
         {selectedContact && (
           <div className="mb-4 rounded-lg bg-muted/50 px-3 py-2 text-xs text-muted-foreground">
             Auto-filled from contact: <span className="font-medium text-foreground">{selectedContact.name}</span>
           </div>
         )}
-        <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-          <div>
-            <h3 className="mb-4 text-sm font-semibold text-foreground">Billing Address</h3>
-            <div className="space-y-3">
-              <Input placeholder="Address Line 1" value={billingLine1} onChange={e => setBillingLine1(e.target.value)} className="h-10 rounded-xl" />
-              <Input placeholder="Address Line 2" value={billingLine2} onChange={e => setBillingLine2(e.target.value)} className="h-10 rounded-xl" />
-              <div className="grid grid-cols-2 gap-3">
-                <Input placeholder="City" value={billingCity} onChange={e => setBillingCity(e.target.value)} className="h-10 rounded-xl" />
-                <Input placeholder="State" value={billingState} onChange={e => setBillingState(e.target.value)} className="h-10 rounded-xl" />
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <Input placeholder="Postcode" value={billingPostcode} onChange={e => setBillingPostcode(e.target.value)} className="h-10 rounded-xl" />
-                <Input placeholder="Country" value={billingCountry} onChange={e => setBillingCountry(e.target.value)} className="h-10 rounded-xl" />
-              </div>
-            </div>
+        <div className="max-w-lg space-y-3">
+          <Input placeholder="Address Line 1" value={billingLine1} onChange={e => setBillingLine1(e.target.value)} className="h-10 rounded-xl" />
+          <Input placeholder="Address Line 2" value={billingLine2} onChange={e => setBillingLine2(e.target.value)} className="h-10 rounded-xl" />
+          <div className="grid grid-cols-2 gap-3">
+            <Input placeholder="City" value={billingCity} onChange={e => setBillingCity(e.target.value)} className="h-10 rounded-xl" />
+            <Input placeholder="State" value={billingState} onChange={e => setBillingState(e.target.value)} className="h-10 rounded-xl" />
           </div>
-          <div>
-            <h3 className="mb-4 text-sm font-semibold text-foreground">Shipping Address</h3>
-            <div className="space-y-3">
-              <Input placeholder="Address Line 1" value={shippingLine1} onChange={e => setShippingLine1(e.target.value)} className="h-10 rounded-xl" />
-              <Input placeholder="Address Line 2" value={shippingLine2} onChange={e => setShippingLine2(e.target.value)} className="h-10 rounded-xl" />
-              <div className="grid grid-cols-2 gap-3">
-                <Input placeholder="City" value={shippingCity} onChange={e => setShippingCity(e.target.value)} className="h-10 rounded-xl" />
-                <Input placeholder="State" value={shippingState} onChange={e => setShippingState(e.target.value)} className="h-10 rounded-xl" />
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <Input placeholder="Postcode" value={shippingPostcode} onChange={e => setShippingPostcode(e.target.value)} className="h-10 rounded-xl" />
-                <Input placeholder="Country" value={shippingCountry} onChange={e => setShippingCountry(e.target.value)} className="h-10 rounded-xl" />
-              </div>
-            </div>
+          <div className="grid grid-cols-2 gap-3">
+            <Input placeholder="Postcode" value={billingPostcode} onChange={e => setBillingPostcode(e.target.value)} className="h-10 rounded-xl" />
+            <Input placeholder="Country" value={billingCountry} onChange={e => setBillingCountry(e.target.value)} className="h-10 rounded-xl" />
           </div>
         </div>
       </Card>
@@ -567,15 +501,6 @@ export default function NewQuotationPage() {
       <Card className="rounded-2xl border-border bg-card p-6 shadow-[0_0_0_1px_rgba(15,23,42,0.06),0_18px_55px_rgba(2,6,23,0.08)]">
         <h3 className="mb-4 text-sm font-semibold text-foreground">General Info</h3>
         <div className="max-w-lg space-y-4">
-          <div>
-            <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Title</label>
-            <Input value={title} onChange={e => setTitle(e.target.value)} placeholder="Quotation title" className="h-10 rounded-xl" />
-          </div>
-          <div>
-            <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Summary</label>
-            <textarea value={summary} onChange={e => setSummary(e.target.value)} placeholder="Brief summary..." rows={3}
-              className="w-full rounded-xl border border-border bg-card px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring" />
-          </div>
           <div>
             <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Notes</label>
             <textarea value={notes} onChange={e => setNotes(e.target.value)} placeholder="Internal notes..." rows={3}
@@ -658,22 +583,16 @@ export default function NewQuotationPage() {
       </Card>
 
       {/* Save/Cancel Footer */}
-      <div className="flex items-center justify-between border-t border-border pt-4">
-        <label className="flex items-center gap-2 text-sm text-muted-foreground">
-          <input type="checkbox" checked={quickShareEmail} onChange={e => setQuickShareEmail(e.target.checked)} className="h-4 w-4 rounded border-border" />
-          QuickShare via Email
-        </label>
-        <div className="flex items-center gap-3">
-          <Button type="button" variant="outline" onClick={() => navigate("/sales/quotations")}>Cancel</Button>
-          <Button
-            type="button"
-            onClick={handleSave}
-            disabled={!contactId || createQuotation.isPending}
-            className="h-10 rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-600 px-6 text-sm font-semibold text-white shadow-sm hover:opacity-95"
-          >
-            {createQuotation.isPending ? "Saving..." : t("form.save") || "Save"}
-          </Button>
-        </div>
+      <div className="flex items-center justify-end gap-3 border-t border-border pt-4">
+        <Button type="button" variant="outline" onClick={() => navigate("/sales/quotations")}>Cancel</Button>
+        <Button
+          type="button"
+          onClick={handleSave}
+          disabled={!contactId || createQuotation.isPending}
+          className="h-10 rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-600 px-6 text-sm font-semibold text-white shadow-sm hover:opacity-95"
+        >
+          {createQuotation.isPending ? "Saving..." : t("form.save") || "Save"}
+        </Button>
       </div>
     </div>
   )

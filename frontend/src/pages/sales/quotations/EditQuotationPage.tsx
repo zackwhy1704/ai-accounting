@@ -38,20 +38,12 @@ export default function EditQuotationPage() {
   const [currency, setCurrency] = useState("MYR")
   const [taxInclusive, setTaxInclusive] = useState(false)
   const [paymentTerms, setPaymentTerms] = useState("net30")
-  const [discountGiven, setDiscountGiven] = useState(0)
-  const [roundingAdjustment, setRoundingAdjustment] = useState(false)
   const [billingLine1, setBillingLine1] = useState("")
   const [billingLine2, setBillingLine2] = useState("")
   const [billingCity, setBillingCity] = useState("")
   const [billingState, setBillingState] = useState("")
   const [billingPostcode, setBillingPostcode] = useState("")
   const [billingCountry, setBillingCountry] = useState("")
-  const [shippingLine1, setShippingLine1] = useState("")
-  const [shippingLine2, setShippingLine2] = useState("")
-  const [shippingCity, setShippingCity] = useState("")
-  const [shippingState, setShippingState] = useState("")
-  const [shippingPostcode, setShippingPostcode] = useState("")
-  const [shippingCountry, setShippingCountry] = useState("")
   const [productSearch, setProductSearch] = useState("")
   const [lineItems, setLineItems] = useState<LineItem[]>([
     { description: "", account_id: "", quantity: 1, unit_price: 0, amount: 0, discount: 0, tax_rate: 0, tax_code_id: "" },
@@ -83,12 +75,6 @@ export default function EditQuotationPage() {
     setBillingState(quotation.billing_state ?? "")
     setBillingPostcode(quotation.billing_postcode ?? "")
     setBillingCountry(quotation.billing_country ?? "")
-    setShippingLine1(quotation.shipping_address_line1 ?? "")
-    setShippingLine2(quotation.shipping_address_line2 ?? "")
-    setShippingCity(quotation.shipping_city ?? "")
-    setShippingState(quotation.shipping_state ?? "")
-    setShippingPostcode(quotation.shipping_postcode ?? "")
-    setShippingCountry(quotation.shipping_country ?? "")
     if (quotation.payment_terms) setPaymentTerms(quotation.payment_terms)
     if (quotation.tax_inclusive !== undefined) setTaxInclusive(quotation.tax_inclusive)
     setPopulated(true)
@@ -105,12 +91,6 @@ export default function EditQuotationPage() {
     setBillingState(contact.billing_state ?? "")
     setBillingPostcode(contact.billing_postcode ?? "")
     setBillingCountry(contact.billing_country ?? "")
-    setShippingLine1(contact.shipping_address_line1 ?? "")
-    setShippingLine2(contact.shipping_address_line2 ?? "")
-    setShippingCity(contact.shipping_city ?? "")
-    setShippingState(contact.shipping_state ?? "")
-    setShippingPostcode(contact.shipping_postcode ?? "")
-    setShippingCountry(contact.shipping_country ?? "")
     if (contact.default_payment_terms) setPaymentTerms(contact.default_payment_terms)
     const prefs = getContactPrefs(v)
     if (prefs.currency) setCurrency(prefs.currency)
@@ -146,15 +126,13 @@ export default function EditQuotationPage() {
   const totalDiscount = lineItems.reduce((sum, item) => {
     const lineTotal = item.quantity * item.unit_price
     return sum + (lineTotal * item.discount) / 100
-  }, 0) + discountGiven
+  }, 0)
   const totalTax = taxInclusive ? 0 : lineItems.reduce((sum, item) => {
     const lineTotal = item.quantity * item.unit_price
     const afterLineDiscount = lineTotal - (lineTotal * item.discount) / 100
     return sum + (afterLineDiscount * item.tax_rate) / 100
   }, 0)
-  const rawTotal = subTotal - totalDiscount + totalTax
-  const total = roundingAdjustment ? Math.round(rawTotal * 20) / 20 : rawTotal
-  const roundingDiff = roundingAdjustment ? total - rawTotal : 0
+  const total = subTotal - totalDiscount + totalTax
 
   const handleSave = async () => {
     try {
@@ -171,12 +149,6 @@ export default function EditQuotationPage() {
         billing_state: billingState || null,
         billing_postcode: billingPostcode || null,
         billing_country: billingCountry || null,
-        shipping_address_line1: shippingLine1 || null,
-        shipping_address_line2: shippingLine2 || null,
-        shipping_city: shippingCity || null,
-        shipping_state: shippingState || null,
-        shipping_postcode: shippingPostcode || null,
-        shipping_country: shippingCountry || null,
         line_items: lineItems,
       })
       toast("Quotation updated", "success")
@@ -353,21 +325,8 @@ export default function EditQuotationPage() {
               <span className="font-medium text-foreground">{currency} {subTotal.toFixed(2)}</span>
             </div>
             <div className="flex items-center justify-between">
-              <span className="text-muted-foreground">Discount Given</span>
-              <Input type="number" min={0} step={0.01} value={discountGiven} onChange={e => setDiscountGiven(Number(e.target.value))} className="h-8 w-28 rounded-lg text-right text-sm" />
-            </div>
-            <div className="flex items-center justify-between">
               <span className="text-muted-foreground">Tax</span>
               <span className="font-medium text-foreground">{currency} {totalTax.toFixed(2)}</span>
-            </div>
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <span className="text-muted-foreground">Rounding Adjustment</span>
-                <button type="button" onClick={() => setRoundingAdjustment(!roundingAdjustment)} className={`relative inline-flex h-4 w-7 items-center rounded-full transition-colors ${roundingAdjustment ? "bg-blue-500" : "bg-gray-300"}`}>
-                  <span className={`inline-block h-3 w-3 transform rounded-full bg-white transition-transform ${roundingAdjustment ? "translate-x-3.5" : "translate-x-0.5"}`} />
-                </button>
-              </div>
-              <span className="font-medium text-foreground">{roundingDiff >= 0 ? "+" : ""}{roundingDiff.toFixed(2)}</span>
             </div>
             <div className="border-t border-border pt-2">
               <div className="flex items-center justify-between text-base font-semibold">
@@ -379,39 +338,19 @@ export default function EditQuotationPage() {
         </div>
       </Card>
 
-      {/* Billing & Shipping Card */}
+      {/* Billing Address Card */}
       <Card className="rounded-2xl border-border bg-card p-6 shadow-[0_0_0_1px_rgba(15,23,42,0.06),0_18px_55px_rgba(2,6,23,0.08)]">
-        <h3 className="mb-4 text-sm font-semibold text-foreground">Billing & Shipping</h3>
-        <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-          <div>
-            <h3 className="mb-4 text-sm font-semibold text-foreground">Billing Address</h3>
-            <div className="space-y-3">
-              <Input placeholder="Address Line 1" className="h-10 rounded-xl" value={billingLine1} onChange={e => setBillingLine1(e.target.value)} />
-              <Input placeholder="Address Line 2" className="h-10 rounded-xl" value={billingLine2} onChange={e => setBillingLine2(e.target.value)} />
-              <div className="grid grid-cols-2 gap-3">
-                <Input placeholder="City" className="h-10 rounded-xl" value={billingCity} onChange={e => setBillingCity(e.target.value)} />
-                <Input placeholder="State" className="h-10 rounded-xl" value={billingState} onChange={e => setBillingState(e.target.value)} />
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <Input placeholder="Postcode" className="h-10 rounded-xl" value={billingPostcode} onChange={e => setBillingPostcode(e.target.value)} />
-                <Input placeholder="Country" className="h-10 rounded-xl" value={billingCountry} onChange={e => setBillingCountry(e.target.value)} />
-              </div>
-            </div>
+        <h3 className="mb-4 text-sm font-semibold text-foreground">Billing Address</h3>
+        <div className="max-w-lg space-y-3">
+          <Input placeholder="Address Line 1" className="h-10 rounded-xl" value={billingLine1} onChange={e => setBillingLine1(e.target.value)} />
+          <Input placeholder="Address Line 2" className="h-10 rounded-xl" value={billingLine2} onChange={e => setBillingLine2(e.target.value)} />
+          <div className="grid grid-cols-2 gap-3">
+            <Input placeholder="City" className="h-10 rounded-xl" value={billingCity} onChange={e => setBillingCity(e.target.value)} />
+            <Input placeholder="State" className="h-10 rounded-xl" value={billingState} onChange={e => setBillingState(e.target.value)} />
           </div>
-          <div>
-            <h3 className="mb-4 text-sm font-semibold text-foreground">Shipping Address</h3>
-            <div className="space-y-3">
-              <Input placeholder="Address Line 1" className="h-10 rounded-xl" value={shippingLine1} onChange={e => setShippingLine1(e.target.value)} />
-              <Input placeholder="Address Line 2" className="h-10 rounded-xl" value={shippingLine2} onChange={e => setShippingLine2(e.target.value)} />
-              <div className="grid grid-cols-2 gap-3">
-                <Input placeholder="City" className="h-10 rounded-xl" value={shippingCity} onChange={e => setShippingCity(e.target.value)} />
-                <Input placeholder="State" className="h-10 rounded-xl" value={shippingState} onChange={e => setShippingState(e.target.value)} />
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <Input placeholder="Postcode" className="h-10 rounded-xl" value={shippingPostcode} onChange={e => setShippingPostcode(e.target.value)} />
-                <Input placeholder="Country" className="h-10 rounded-xl" value={shippingCountry} onChange={e => setShippingCountry(e.target.value)} />
-              </div>
-            </div>
+          <div className="grid grid-cols-2 gap-3">
+            <Input placeholder="Postcode" className="h-10 rounded-xl" value={billingPostcode} onChange={e => setBillingPostcode(e.target.value)} />
+            <Input placeholder="Country" className="h-10 rounded-xl" value={billingCountry} onChange={e => setBillingCountry(e.target.value)} />
           </div>
         </div>
       </Card>

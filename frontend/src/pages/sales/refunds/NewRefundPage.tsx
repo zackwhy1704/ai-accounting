@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect } from "react"
 import { useNavigate, useSearchParams } from "react-router-dom"
-import { useContacts, useAccounts, useCreditNotes, useCreateSalesRefund } from "../../../lib/hooks"
+import { useContacts, useCreditNotes, useCreateSalesRefund } from "../../../lib/hooks"
 import { formatCurrency } from "../../../lib/utils"
 import { Card } from "../../../components/ui/card"
 import { Button } from "../../../components/ui/button"
@@ -18,7 +18,6 @@ export default function NewRefundPage() {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const { data: contacts = [] } = useContacts()
-  const { data: accounts = [] } = useAccounts()
   const { data: creditNotes = [] } = useCreditNotes()
   const createRefund = useCreateSalesRefund()
 
@@ -26,7 +25,6 @@ export default function NewRefundPage() {
   const [refundDate, setRefundDate] = useState(new Date().toISOString().slice(0, 10))
   const [refundMethod, setRefundMethod] = useState("")
   const [reference, setReference] = useState("")
-  const [bankAccountId, setBankAccountId] = useState("")
   const [creditNoteId, setCreditNoteId] = useState("")
   const [amount, setAmount] = useState("")
   const [currency, setCurrency] = useState("MYR")
@@ -40,11 +38,6 @@ export default function NewRefundPage() {
     if (amt) setAmount(amt)
     if (cId) setContactId(cId)
   }, [searchParams])
-
-  const bankAccounts = useMemo(
-    () => accounts.filter((a: any) => a.subtype === "bank" || a.subtype === "cash" || a.type === "bank" || a.type === "cash"),
-    [accounts]
-  )
 
   const filteredCreditNotes = useMemo(
     () => (contactId ? creditNotes.filter((cn) => cn.contact_id === contactId) : []),
@@ -60,7 +53,6 @@ export default function NewRefundPage() {
         refund_date: refundDate,
         refund_method: refundMethod,
         reference: reference || null,
-        bank_account_id: bankAccountId || null,
         credit_note_id: creditNoteId || null,
         amount: parseFloat(amount),
         currency,
@@ -136,23 +128,6 @@ export default function NewRefundPage() {
               value={reference}
               onChange={(e) => setReference(e.target.value)}
             />
-          </div>
-
-          {/* Bank Account */}
-          <div className="space-y-1.5">
-            <label className="text-sm font-medium text-foreground">Bank Account</label>
-            <Select value={bankAccountId} onValueChange={setBankAccountId}>
-              <SelectTrigger>
-                <SelectValue placeholder="Select bank account" />
-              </SelectTrigger>
-              <SelectContent>
-                {bankAccounts.map((a) => (
-                  <SelectItem key={a.id} value={a.id}>
-                    {a.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
           </div>
 
           {/* Linked Credit Note */}

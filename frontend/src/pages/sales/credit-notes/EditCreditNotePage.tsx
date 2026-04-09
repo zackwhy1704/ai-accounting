@@ -48,9 +48,6 @@ export default function EditCreditNotePage() {
   const [reference, setReference] = useState("")
   const [currency, setCurrency] = useState("MYR")
   const [taxInclusive, setTaxInclusive] = useState(false)
-  const [discountGiven, setDiscountGiven] = useState(0)
-  const [roundingAdjustment, setRoundingAdjustment] = useState(false)
-  const [quickShareEmail, setQuickShareEmail] = useState(false)
   const [lineItems, setLineItems] = useState<LineItem[]>([])
 
   useEffect(() => {
@@ -61,9 +58,6 @@ export default function EditCreditNotePage() {
     setReference(creditNote.reference ?? "")
     setCurrency(creditNote.currency ?? "MYR")
     setTaxInclusive(creditNote.tax_inclusive ?? false)
-    setDiscountGiven(creditNote.discount_given ?? 0)
-    setRoundingAdjustment(creditNote.rounding_adjustment ?? false)
-    setQuickShareEmail(creditNote.quick_share_email ?? false)
     if (creditNote.line_items?.length) {
       setLineItems(creditNote.line_items.map((l: any) => ({
         description: l.description ?? "",
@@ -163,15 +157,13 @@ export default function EditCreditNotePage() {
   const totalDiscount = lineItems.reduce((sum, item) => {
     const lineTotal = item.quantity * item.unit_price
     return sum + (lineTotal * item.discount) / 100
-  }, 0) + discountGiven
+  }, 0)
   const totalTax = taxInclusive ? 0 : lineItems.reduce((sum, item) => {
     const lineTotal = item.quantity * item.unit_price
     const afterLineDiscount = lineTotal - (lineTotal * item.discount) / 100
     return sum + (afterLineDiscount * item.tax_rate) / 100
   }, 0)
-  const rawTotal = subTotal - totalDiscount + totalTax
-  const total = roundingAdjustment ? Math.round(rawTotal * 20) / 20 : rawTotal
-  const roundingDiff = roundingAdjustment ? total - rawTotal : 0
+  const total = subTotal - totalDiscount + totalTax
 
   const handleSave = async () => {
     try {
@@ -390,21 +382,8 @@ export default function EditCreditNotePage() {
                 <span className="font-medium text-foreground">{currency} {subTotal.toFixed(2)}</span>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-muted-foreground">Discount Given</span>
-                <Input type="number" min={0} step={0.01} value={discountGiven} onChange={e => setDiscountGiven(Number(e.target.value))} className="h-8 w-28 rounded-lg text-right text-sm" />
-              </div>
-              <div className="flex items-center justify-between">
                 <span className="text-muted-foreground">Tax</span>
                 <span className="font-medium text-foreground">{currency} {totalTax.toFixed(2)}</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <span className="text-muted-foreground">Rounding Adjustment</span>
-                  <button type="button" onClick={() => setRoundingAdjustment(!roundingAdjustment)} className={`relative inline-flex h-4 w-7 items-center rounded-full transition-colors ${roundingAdjustment ? "bg-blue-500" : "bg-gray-300"}`}>
-                    <span className={`inline-block h-3 w-3 transform rounded-full bg-white transition-transform ${roundingAdjustment ? "translate-x-3.5" : "translate-x-0.5"}`} />
-                  </button>
-                </div>
-                <span className="font-medium text-foreground">{currency} {roundingDiff >= 0 ? "" : "-"}{Math.abs(roundingDiff).toFixed(2)}</span>
               </div>
               <div className="border-t border-border pt-2">
                 <div className="flex items-center justify-between text-base font-semibold">
@@ -478,44 +457,13 @@ export default function EditCreditNotePage() {
           </div>
         </Card>
 
-        {/* General Info Card */}
-        <Card className={cardClass}>
-          <h3 className="mb-4 text-sm font-semibold text-foreground">General Info</h3>
-          <div className="max-w-lg space-y-4">
-            <div>
-              <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Notes</label>
-              <textarea placeholder="Internal notes..." rows={3} className="w-full rounded-xl border border-border bg-card px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring" />
-            </div>
-          </div>
-        </Card>
-
-        {/* Additional Info Card */}
-        <Card className={cardClass}>
-          <h3 className="mb-4 text-sm font-semibold text-foreground">Additional Info</h3>
-          <div className="max-w-lg space-y-4">
-            <div>
-              <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Footer Note</label>
-              <textarea placeholder="Appears at the bottom of the credit note..." rows={3} className="w-full rounded-xl border border-border bg-card px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring" />
-            </div>
-            <div>
-              <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Terms & Conditions</label>
-              <textarea placeholder="Standard terms and conditions..." rows={4} className="w-full rounded-xl border border-border bg-card px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring" />
-            </div>
-          </div>
-        </Card>
       </div>
 
-      <div className="flex items-center justify-between">
-        <label className="flex items-center gap-2 text-sm text-muted-foreground">
-          <input type="checkbox" checked={quickShareEmail} onChange={e => setQuickShareEmail(e.target.checked)} className="h-4 w-4 rounded border-border" />
-          QuickShare via Email
-        </label>
-        <div className="flex items-center gap-3">
-          <Button type="button" variant="outline" onClick={() => navigate("/sales/credit-notes")}>Cancel</Button>
-          <Button type="button" onClick={handleSave} disabled={updateCreditNote.isPending || !contactId || !lineItems.some(li => li.description.trim())} className="h-10 rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-600 px-6 text-sm font-semibold text-white shadow-sm hover:opacity-95">
-            {updateCreditNote.isPending ? "Saving..." : "Save Changes"}
-          </Button>
-        </div>
+      <div className="flex items-center justify-end gap-3">
+        <Button type="button" variant="outline" onClick={() => navigate("/sales/credit-notes")}>Cancel</Button>
+        <Button type="button" onClick={handleSave} disabled={updateCreditNote.isPending || !contactId || !lineItems.some(li => li.description.trim())} className="h-10 rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-600 px-6 text-sm font-semibold text-white shadow-sm hover:opacity-95">
+          {updateCreditNote.isPending ? "Saving..." : "Save Changes"}
+        </Button>
       </div>
     </div>
   )

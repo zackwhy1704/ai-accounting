@@ -32,12 +32,10 @@ export default function NewInvoicePage() {
 
   const [invoiceNumber, setInvoiceNumber] = useState(() => `INV-${Date.now().toString().slice(-6)}`)
   const [contactId, setContactId] = useState("")
-  const [lhdnName, setLhdnName] = useState("")
   const [terms, setTerms] = useState("cbd")
   const [taxInclusive, setTaxInclusive] = useState(false)
   const [invoiceDate, setInvoiceDate] = useState(() => new Date().toISOString().slice(0, 10))
   const [customerPo, setCustomerPo] = useState("")
-  const [digitalRef, setDigitalRef] = useState("")
 
   const [billingLine1, setBillingLine1] = useState("")
   const [billingLine2, setBillingLine2] = useState("")
@@ -45,12 +43,6 @@ export default function NewInvoicePage() {
   const [billingState, setBillingState] = useState("")
   const [billingPostcode, setBillingPostcode] = useState("")
   const [billingCountry, setBillingCountry] = useState("")
-  const [shippingLine1, setShippingLine1] = useState("")
-  const [shippingLine2, setShippingLine2] = useState("")
-  const [shippingCity, setShippingCity] = useState("")
-  const [shippingState, setShippingState] = useState("")
-  const [shippingPostcode, setShippingPostcode] = useState("")
-  const [shippingCountry, setShippingCountry] = useState("")
 
   const handleContactChange = (id: string) => {
     if (id === "__add_new__") { navigate("/contacts/new"); return }
@@ -80,14 +72,9 @@ export default function NewInvoicePage() {
     { description: "", account_id: "", quantity: 1, unit_price: 0, amount: 0, discount: 0, tax_rate: 0, line_type: "goods", tax_code_id: "" },
   ])
 
-  const [discountGiven, setDiscountGiven] = useState(0)
-  const [roundingAdjustment, setRoundingAdjustment] = useState(false)
-  const [roundingAmount, setRoundingAmount] = useState(0)
 
   const [currency, setCurrency] = useState("MYR")
   const [journalMemo, setJournalMemo] = useState("")
-  const [quickShareEmail, setQuickShareEmail] = useState(false)
-
   const handleTaxInclusiveToggle = () => {
     const newVal = !taxInclusive
     setTaxInclusive(newVal)
@@ -130,14 +117,13 @@ export default function NewInvoicePage() {
     const lineTotal = item.quantity * item.unit_price
     return sum + (lineTotal * item.discount) / 100
   }, 0)
-  const afterDiscount = subTotal - totalLineDiscount - discountGiven
+  const afterDiscount = subTotal - totalLineDiscount
   const totalTax = taxInclusive ? 0 : lineItems.reduce((sum, item) => {
     const lineTotal = item.quantity * item.unit_price
     const afterLineDiscount = lineTotal - (lineTotal * item.discount) / 100
     return sum + (afterLineDiscount * item.tax_rate) / 100
   }, 0)
-  const roundingDiff = roundingAdjustment ? roundingAmount : 0
-  const total = afterDiscount + totalTax + roundingDiff
+  const total = afterDiscount + totalTax
   const appliedToDate = 0
   const balanceDue = total - appliedToDate
 
@@ -156,12 +142,6 @@ export default function NewInvoicePage() {
         billing_state: billingState || null,
         billing_postcode: billingPostcode || null,
         billing_country: billingCountry || null,
-        shipping_address_line1: shippingLine1 || null,
-        shipping_address_line2: shippingLine2 || null,
-        shipping_city: shippingCity || null,
-        shipping_state: shippingState || null,
-        shipping_postcode: shippingPostcode || null,
-        shipping_country: shippingCountry || null,
         line_items: lineItems.map(li => ({
           description: li.description,
           account_id: li.account_id || undefined,
@@ -216,16 +196,6 @@ export default function NewInvoicePage() {
                 <SelectItem value="__add_new__" className="text-primary font-medium">+ Add New Customer</SelectItem>
               </SelectContent>
             </Select>
-          </div>
-
-          <div>
-            <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Company Name</label>
-            <Input
-              value={lhdnName}
-              onChange={e => setLhdnName(e.target.value)}
-              placeholder="Registered company name"
-              className="h-10 rounded-xl"
-            />
           </div>
 
           <div>
@@ -289,15 +259,6 @@ export default function NewInvoicePage() {
             />
           </div>
 
-          <div>
-            <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Digital Ref</label>
-            <Input
-              value={digitalRef}
-              onChange={e => setDigitalRef(e.target.value)}
-              placeholder="Digital reference"
-              className="h-10 rounded-xl"
-            />
-          </div>
         </div>
 
         <div className="mt-6 overflow-x-auto rounded-2xl border border-border">
@@ -450,50 +411,8 @@ export default function NewInvoicePage() {
               <span className="font-medium text-foreground">RM {subTotal.toFixed(2)}</span>
             </div>
             <div className="flex items-center justify-between">
-              <span className="text-muted-foreground">Discount Given</span>
-              <Input
-                type="number"
-                min={0}
-                step={0.01}
-                value={discountGiven}
-                onChange={e => setDiscountGiven(Number(e.target.value))}
-                className="h-8 w-28 rounded-lg text-right text-sm"
-                placeholder="RM"
-              />
-            </div>
-            <div className="flex items-center justify-between">
               <span className="text-muted-foreground">Tax</span>
               <span className="font-medium text-foreground">RM {totalTax.toFixed(2)}</span>
-            </div>
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <span className="text-muted-foreground">Rounding Adjustment</span>
-                <button
-                  type="button"
-                  onClick={() => setRoundingAdjustment(!roundingAdjustment)}
-                  className={`relative inline-flex h-4 w-7 items-center rounded-full transition-colors ${
-                    roundingAdjustment ? "bg-blue-500" : "bg-gray-300"
-                  }`}
-                >
-                  <span
-                    className={`inline-block h-3 w-3 transform rounded-full bg-white transition-transform ${
-                      roundingAdjustment ? "translate-x-3.5" : "translate-x-0.5"
-                    }`}
-                  />
-                </button>
-              </div>
-              {roundingAdjustment ? (
-                <Input
-                  type="number"
-                  step={0.01}
-                  value={roundingAmount}
-                  onChange={e => setRoundingAmount(Number(e.target.value))}
-                  className="h-8 w-28 rounded-lg text-right text-sm"
-                  placeholder="RM"
-                />
-              ) : (
-                <span className="font-medium text-foreground">0.00</span>
-              )}
             </div>
             <div className="border-t border-border pt-2">
               <div className="flex items-center justify-between text-base font-bold">
@@ -555,21 +474,6 @@ export default function NewInvoicePage() {
               </div>
             </div>
           </div>
-          <div>
-            <h3 className="mb-4 text-sm font-semibold text-foreground">Shipping Address</h3>
-            <div className="space-y-3">
-              <Input placeholder="Address Line 1" value={shippingLine1} onChange={e => setShippingLine1(e.target.value)} className="h-10 rounded-xl" />
-              <Input placeholder="Address Line 2" value={shippingLine2} onChange={e => setShippingLine2(e.target.value)} className="h-10 rounded-xl" />
-              <div className="grid grid-cols-2 gap-3">
-                <Input placeholder="City" value={shippingCity} onChange={e => setShippingCity(e.target.value)} className="h-10 rounded-xl" />
-                <Input placeholder="State" value={shippingState} onChange={e => setShippingState(e.target.value)} className="h-10 rounded-xl" />
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <Input placeholder="Postcode" value={shippingPostcode} onChange={e => setShippingPostcode(e.target.value)} className="h-10 rounded-xl" />
-                <Input placeholder="Country" value={shippingCountry} onChange={e => setShippingCountry(e.target.value)} className="h-10 rounded-xl" />
-              </div>
-            </div>
-          </div>
         </div>
       </Card>
 
@@ -577,18 +481,6 @@ export default function NewInvoicePage() {
       <Card className="rounded-2xl border-border bg-card p-6 shadow-[0_0_0_1px_rgba(15,23,42,0.06),0_18px_55px_rgba(2,6,23,0.08)]">
         <h3 className="mb-4 text-sm font-semibold text-foreground">General Info</h3>
         <div className="max-w-lg space-y-4">
-          <div>
-            <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Title</label>
-            <Input placeholder="Invoice title" className="h-10 rounded-xl" />
-          </div>
-          <div>
-            <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Summary</label>
-            <textarea
-              placeholder="Brief summary..."
-              rows={3}
-              className="w-full rounded-xl border border-border bg-card px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-            />
-          </div>
           <div>
             <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Notes</label>
             <textarea
@@ -656,28 +548,16 @@ export default function NewInvoicePage() {
       </Card>
 
       {/* Save/Cancel Footer */}
-      <div className="flex items-center justify-between">
-        <label className="flex items-center gap-2 text-sm text-muted-foreground cursor-pointer">
-          <input
-            type="checkbox"
-            checked={quickShareEmail}
-            onChange={e => setQuickShareEmail(e.target.checked)}
-            className="h-4 w-4 rounded border-border"
-          />
-          QuickShare via Email
-        </label>
-
-        <div className="flex items-center gap-3">
-          <Button type="button" variant="outline" onClick={() => navigate("/sales/invoices")}>Cancel</Button>
-          <Button
-            type="button"
-            onClick={handleSave}
-            disabled={createInvoice.isPending || !contactId || !lineItems.some(li => li.description.trim())}
-            className="h-10 rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-600 px-6 text-sm font-semibold text-white shadow-sm hover:opacity-95"
-          >
-            {createInvoice.isPending ? "Saving..." : t("form.save") || "Save"}
-          </Button>
-        </div>
+      <div className="flex items-center justify-end gap-3">
+        <Button type="button" variant="outline" onClick={() => navigate("/sales/invoices")}>Cancel</Button>
+        <Button
+          type="button"
+          onClick={handleSave}
+          disabled={createInvoice.isPending || !contactId || !lineItems.some(li => li.description.trim())}
+          className="h-10 rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-600 px-6 text-sm font-semibold text-white shadow-sm hover:opacity-95"
+        >
+          {createInvoice.isPending ? "Saving..." : t("form.save") || "Save"}
+        </Button>
       </div>
     </div>
   )

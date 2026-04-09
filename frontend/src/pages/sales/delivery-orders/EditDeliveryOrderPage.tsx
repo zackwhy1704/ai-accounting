@@ -2,7 +2,6 @@ import { useState, useEffect, useRef } from "react"
 import { useNavigate, useParams } from "react-router-dom"
 import { Plus, Trash2, Loader2 } from "lucide-react"
 import { useDeliveryOrder, useUpdateDeliveryOrder, useContacts, useTaxRates } from "../../../lib/hooks"
-import { getContactPrefs, saveContactPref } from "../../../lib/contact-prefs"
 import { Card } from "../../../components/ui/card"
 import { Button } from "../../../components/ui/button"
 import { Input } from "../../../components/ui/input"
@@ -30,9 +29,7 @@ export default function EditDeliveryOrderPage() {
   const [doNumber, setDoNumber] = useState("")
   const [contactId, setContactId] = useState("")
   const [deliveryDate, setDeliveryDate] = useState("")
-  const [dueDate, setDueDate] = useState("")
   const [poNumber, setPoNumber] = useState("")
-  const [currency, setCurrency] = useState("MYR")
   const [taxRate, setTaxRate] = useState(0)
   const [deliverTo, setDeliverTo] = useState({ address1: "", address2: "", city: "", state: "", postcode: "", country: "" })
   const [shipTo, setShipTo] = useState({ address1: "", address2: "", city: "", state: "", postcode: "", country: "" })
@@ -45,9 +42,7 @@ export default function EditDeliveryOrderPage() {
     setDoNumber(deliveryOrder.delivery_number ?? "")
     setContactId(String(deliveryOrder.contact_id ?? ""))
     setDeliveryDate(deliveryOrder.delivery_date?.slice(0, 10) ?? "")
-    setDueDate(deliveryOrder.due_date?.slice(0, 10) ?? "")
     setPoNumber(deliveryOrder.reference ?? "")
-    setCurrency(deliveryOrder.currency ?? "MYR")
     setTaxRate(deliveryOrder.tax_rate ?? 0)
     if (deliveryOrder.deliver_to_address) {
       setDeliverTo(prev => ({ ...prev, address1: deliveryOrder.deliver_to_address ?? "" }))
@@ -90,15 +85,6 @@ export default function EditDeliveryOrderPage() {
         country: contact.shipping_country ?? "",
       })
     }
-    const prefs = getContactPrefs(v)
-    if (prefs.currency) setCurrency(prefs.currency)
-  }
-
-  const handleCurrencyChange = (v: string) => {
-    setCurrency(v)
-    if (contactId) saveContactPref(contactId, "currency", v)
-  }
-
   const updateLineItem = (index: number, field: keyof LineItem, value: string | number) => {
     setLineItems(prev => {
       const updated = [...prev]
@@ -134,7 +120,6 @@ export default function EditDeliveryOrderPage() {
         contact_id: contactId,
         delivery_date: deliveryDate,
         reference: poNumber || null,
-        currency,
         deliver_to_address: [deliverTo.address1, deliverTo.address2, deliverTo.city, deliverTo.state, deliverTo.postcode, deliverTo.country].filter(Boolean).join(", ") || null,
         ship_to_address: [shipTo.address1, shipTo.address2, shipTo.city, shipTo.state, shipTo.postcode, shipTo.country].filter(Boolean).join(", ") || null,
         notes: null,
@@ -197,28 +182,6 @@ export default function EditDeliveryOrderPage() {
           <div>
             <label className="mb-1.5 block text-xs font-medium text-muted-foreground">P.O. Number</label>
             <Input value={poNumber} onChange={e => setPoNumber(e.target.value)} placeholder="P.O. #" className="h-10 rounded-xl" />
-          </div>
-          <div>
-            <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Due Date</label>
-            <Input type="date" value={dueDate} onChange={e => setDueDate(e.target.value)} className="h-10 rounded-xl" />
-          </div>
-        </div>
-
-        <div className="mt-4 flex flex-wrap items-center gap-4">
-          <div className="w-36">
-            <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Currency</label>
-            <Select value={currency} onValueChange={handleCurrencyChange}>
-              <SelectTrigger className="h-10 rounded-xl"><SelectValue placeholder="Select currency" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="MYR">MYR - Malaysian Ringgit</SelectItem>
-                <SelectItem value="SGD">SGD - Singapore Dollar</SelectItem>
-                <SelectItem value="USD">USD - US Dollar</SelectItem>
-                <SelectItem value="HKD">HKD - Hong Kong Dollar</SelectItem>
-                <SelectItem value="AUD">AUD - Australian Dollar</SelectItem>
-                <SelectItem value="EUR">EUR - Euro</SelectItem>
-                <SelectItem value="GBP">GBP - British Pound</SelectItem>
-              </SelectContent>
-            </Select>
           </div>
         </div>
 
@@ -291,7 +254,7 @@ export default function EditDeliveryOrderPage() {
           <div className="w-full max-w-xs space-y-2 text-sm">
             <div className="flex items-center justify-between">
               <span className="text-muted-foreground">Subtotal</span>
-              <span className="font-medium text-foreground">{currency} {subTotal.toFixed(2)}</span>
+              <span className="font-medium text-foreground">{subTotal.toFixed(2)}</span>
             </div>
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
@@ -299,12 +262,12 @@ export default function EditDeliveryOrderPage() {
                 <Input type="number" min={0} max={100} value={taxRate} onChange={e => setTaxRate(Number(e.target.value))} className="h-8 w-16 rounded-lg text-right text-sm" />
                 <span className="text-muted-foreground">%</span>
               </div>
-              <span className="font-medium text-foreground">{currency} {sstAmount.toFixed(2)}</span>
+              <span className="font-medium text-foreground">{sstAmount.toFixed(2)}</span>
             </div>
             <div className="border-t border-border pt-2">
               <div className="flex items-center justify-between text-base font-semibold">
                 <span className="text-foreground">TOTAL</span>
-                <span className="text-foreground">{currency} {total.toFixed(2)}</span>
+                <span className="text-foreground">{total.toFixed(2)}</span>
               </div>
             </div>
           </div>
@@ -353,27 +316,8 @@ export default function EditDeliveryOrderPage() {
         <h3 className="mb-4 text-sm font-semibold text-foreground">General Info</h3>
         <div className="max-w-lg space-y-4">
           <div>
-            <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Title</label>
-            <Input placeholder="Delivery order title" className="h-10 rounded-xl" />
-          </div>
-          <div>
             <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Notes</label>
             <textarea placeholder="Internal notes..." rows={3} className="w-full rounded-xl border border-border bg-card px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring" />
-          </div>
-        </div>
-      </Card>
-
-      {/* Additional Info Card */}
-      <Card className="rounded-2xl border-border bg-card p-6 shadow-[0_0_0_1px_rgba(15,23,42,0.06),0_18px_55px_rgba(2,6,23,0.08)]">
-        <h3 className="mb-4 text-sm font-semibold text-foreground">Additional Info</h3>
-        <div className="max-w-lg space-y-4">
-          <div>
-            <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Footer Note</label>
-            <textarea placeholder="Appears at the bottom of the delivery order..." rows={3} className="w-full rounded-xl border border-border bg-card px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring" />
-          </div>
-          <div>
-            <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Terms & Conditions</label>
-            <textarea placeholder="Standard terms and conditions..." rows={4} className="w-full rounded-xl border border-border bg-card px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring" />
           </div>
         </div>
       </Card>

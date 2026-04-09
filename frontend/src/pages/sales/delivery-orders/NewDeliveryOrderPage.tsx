@@ -2,7 +2,6 @@ import { useState } from "react"
 import { useNavigate } from "react-router-dom"
 import { Plus, Trash2 } from "lucide-react"
 import { useContacts, useCreateDeliveryOrder, useTaxRates } from "../../../lib/hooks"
-import { getContactPrefs, saveContactPref } from "../../../lib/contact-prefs"
 import { useTheme } from "../../../lib/theme"
 import { Card } from "../../../components/ui/card"
 import { Button } from "../../../components/ui/button"
@@ -29,13 +28,7 @@ export default function NewDeliveryOrderPage() {
   const [doNumber, setDoNumber] = useState(() => `DO-${Date.now().toString().slice(-6)}`)
   const [contactId, setContactId] = useState("")
   const [deliveryDate, setDeliveryDate] = useState(() => new Date().toISOString().slice(0, 10))
-  const [dueDate, setDueDate] = useState(() => {
-    const d = new Date()
-    d.setDate(d.getDate() + 30)
-    return d.toISOString().slice(0, 10)
-  })
   const [poNumber, setPoNumber] = useState("")
-  const [currency, setCurrency] = useState("MYR")
   const [taxRate, setTaxRate] = useState(0)
   const [deliverTo, setDeliverTo] = useState({ address1: "", address2: "", city: "", state: "", postcode: "", country: "" })
   const [shipTo, setShipTo] = useState({ address1: "", address2: "", city: "", state: "", postcode: "", country: "" })
@@ -65,15 +58,6 @@ export default function NewDeliveryOrderPage() {
         country: contact.shipping_country ?? "",
       })
     }
-    const prefs = getContactPrefs(v)
-    if (prefs.currency) setCurrency(prefs.currency)
-  }
-
-  const handleCurrencyChange = (v: string) => {
-    setCurrency(v)
-    if (contactId) saveContactPref(contactId, "currency", v)
-  }
-
   const updateLineItem = (index: number, field: keyof LineItem, value: string | number) => {
     setLineItems(prev => {
       const updated = [...prev]
@@ -110,7 +94,6 @@ export default function NewDeliveryOrderPage() {
         contact_id: contactId,
         delivery_date: deliveryDate,
         reference: poNumber || null,
-        currency,
         deliver_to_address: [deliverTo.address1, deliverTo.address2, deliverTo.city, deliverTo.state, deliverTo.postcode, deliverTo.country].filter(Boolean).join(", ") || null,
         ship_to_address: [shipTo.address1, shipTo.address2, shipTo.city, shipTo.state, shipTo.postcode, shipTo.country].filter(Boolean).join(", ") || null,
         notes: null,
@@ -188,39 +171,6 @@ export default function NewDeliveryOrderPage() {
             />
           </div>
 
-          <div>
-            <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Due Date</label>
-            <Input
-              type="date"
-              value={dueDate}
-              onChange={e => setDueDate(e.target.value)}
-              className="h-10 rounded-xl"
-            />
-          </div>
-        </div>
-
-        <div className="mt-4 flex flex-wrap items-center gap-4">
-          <div className="w-36">
-            <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Currency</label>
-            <Select value={currency} onValueChange={handleCurrencyChange}>
-              <SelectTrigger className="h-10 rounded-xl"><SelectValue placeholder="Select currency" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="MYR">MYR - Malaysian Ringgit</SelectItem>
-                <SelectItem value="SGD">SGD - Singapore Dollar</SelectItem>
-                <SelectItem value="USD">USD - US Dollar</SelectItem>
-                <SelectItem value="HKD">HKD - Hong Kong Dollar</SelectItem>
-                <SelectItem value="AUD">AUD - Australian Dollar</SelectItem>
-                <SelectItem value="EUR">EUR - Euro</SelectItem>
-                <SelectItem value="GBP">GBP - British Pound</SelectItem>
-                <SelectItem value="JPY">JPY - Japanese Yen</SelectItem>
-                <SelectItem value="CNY">CNY - Chinese Yuan</SelectItem>
-                <SelectItem value="THB">THB - Thai Baht</SelectItem>
-                <SelectItem value="IDR">IDR - Indonesian Rupiah</SelectItem>
-                <SelectItem value="PHP">PHP - Philippine Peso</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
         </div>
 
         <div className="mt-6 overflow-x-auto rounded-2xl border border-border">
@@ -320,7 +270,7 @@ export default function NewDeliveryOrderPage() {
           <div className="w-full max-w-xs space-y-2 text-sm">
             <div className="flex items-center justify-between">
               <span className="text-muted-foreground">Subtotal</span>
-              <span className="font-medium text-foreground">{currency} {subTotal.toFixed(2)}</span>
+              <span className="font-medium text-foreground">{subTotal.toFixed(2)}</span>
             </div>
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
@@ -335,12 +285,12 @@ export default function NewDeliveryOrderPage() {
                 />
                 <span className="text-muted-foreground">%</span>
               </div>
-              <span className="font-medium text-foreground">{currency} {sstAmount.toFixed(2)}</span>
+              <span className="font-medium text-foreground">{sstAmount.toFixed(2)}</span>
             </div>
             <div className="border-t border-border pt-2">
               <div className="flex items-center justify-between text-base font-semibold">
                 <span className="text-foreground">TOTAL</span>
-                <span className="text-foreground">{currency} {total.toFixed(2)}</span>
+                <span className="text-foreground">{total.toFixed(2)}</span>
               </div>
             </div>
           </div>
@@ -449,45 +399,10 @@ export default function NewDeliveryOrderPage() {
         <h3 className="mb-4 text-sm font-semibold text-foreground">General Info</h3>
         <div className="max-w-lg space-y-4">
           <div>
-            <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Title</label>
-            <Input placeholder="Delivery order title" className="h-10 rounded-xl" />
-          </div>
-          <div>
-            <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Summary</label>
-            <textarea
-              placeholder="Brief summary..."
-              rows={3}
-              className="w-full rounded-xl border border-border bg-card px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-            />
-          </div>
-          <div>
             <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Notes</label>
             <textarea
               placeholder="Internal notes..."
               rows={3}
-              className="w-full rounded-xl border border-border bg-card px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-            />
-          </div>
-        </div>
-      </Card>
-
-      {/* Additional Info Card */}
-      <Card className="rounded-2xl border-border bg-card p-6 shadow-[0_0_0_1px_rgba(15,23,42,0.06),0_18px_55px_rgba(2,6,23,0.08)]">
-        <h3 className="mb-4 text-sm font-semibold text-foreground">Additional Info</h3>
-        <div className="max-w-lg space-y-4">
-          <div>
-            <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Footer Note</label>
-            <textarea
-              placeholder="Appears at the bottom of the delivery order..."
-              rows={3}
-              className="w-full rounded-xl border border-border bg-card px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-            />
-          </div>
-          <div>
-            <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Terms & Conditions</label>
-            <textarea
-              placeholder="Standard terms and conditions..."
-              rows={4}
               className="w-full rounded-xl border border-border bg-card px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
             />
           </div>
