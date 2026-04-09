@@ -1,9 +1,9 @@
 import { useMemo, useState } from "react"
 import { useQueryClient } from "@tanstack/react-query"
 import { useNavigate } from "react-router-dom"
-import { Plus, Search, FileText, XCircle, Pencil, Receipt } from "lucide-react"
+import { Plus, Search, FileText, XCircle, Pencil, Receipt, Trash2 } from "lucide-react"
 import { RowActionsMenu } from "../../../components/ui/row-actions"
-import { useSalesPayments, useContacts, useSaleReceipts } from "../../../lib/hooks"
+import { useSalesPayments, useContacts, useSaleReceipts, useUpdateSalesPaymentStatus, useDeleteSalesPayment } from "../../../lib/hooks"
 import api from "../../../lib/api"
 import { formatCurrency, formatDate, cn } from "../../../lib/utils"
 import { useTheme } from "../../../lib/theme"
@@ -34,6 +34,8 @@ const receiptStatusColors: Record<string, string> = {
 export default function PaymentsPage() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
+  const updatePaymentStatus = useUpdateSalesPaymentStatus()
+  const deletePayment = useDeleteSalesPayment()
   const [mainTab, setMainTab] = useState("payments")
   const [tab, setTab] = useState("all")
   const [search, setSearch] = useState("")
@@ -227,10 +229,11 @@ export default function PaymentsPage() {
                         </TableCell>
                         <TableCell className="text-right">
                           <RowActionsMenu actions={[
-                            { label: "Edit", icon: <Pencil className="h-3.5 w-3.5" />, onClick: () => navigate(`/sales/payments/${p.id}/edit`), disabled: p.status === "void" },
-                            { label: "Mark as Completed", icon: <Receipt className="h-3.5 w-3.5" />, onClick: () => api.patch(`/sales/payments/${p.id}`, { status: "completed" }).then(() => queryClient.invalidateQueries({ queryKey: ["sales-payments"] })), dividerBefore: true, disabled: p.status !== "draft" },
+                            { label: "Edit", icon: <Pencil className="h-3.5 w-3.5" />, onClick: () => navigate(`/sales-payments/${p.id}/edit`), disabled: p.status === "void" },
+                            { label: "Mark as Completed", icon: <Receipt className="h-3.5 w-3.5" />, onClick: () => updatePaymentStatus.mutate({ id: p.id, status: "completed" }), dividerBefore: true, disabled: p.status !== "draft" },
                             { label: "Download Receipt", icon: <FileText className="h-3.5 w-3.5" />, onClick: () => window.print() },
-                            { label: t("payments.void"), icon: <XCircle className="h-3.5 w-3.5" />, onClick: () => { if (confirm("Void this payment?")) api.patch(`/sales/payments/${p.id}`, { status: "void" }).then(() => queryClient.invalidateQueries({ queryKey: ["sales-payments"] })) }, danger: true, dividerBefore: true, disabled: p.status === "void" },
+                            { label: t("payments.void"), icon: <XCircle className="h-3.5 w-3.5" />, onClick: () => { if (confirm("Void this payment?")) updatePaymentStatus.mutate({ id: p.id, status: "void" }) }, danger: true, dividerBefore: true, disabled: p.status === "void" },
+                            { label: "Delete", icon: <Trash2 className="h-3.5 w-3.5" />, onClick: () => { if (confirm("Delete this payment?")) deletePayment.mutate(p.id) }, danger: true, disabled: p.status === "void" },
                           ]} />
                         </TableCell>
                       </TableRow>

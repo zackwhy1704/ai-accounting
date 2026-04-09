@@ -995,3 +995,152 @@ export function useUpdateFixedAsset() {
     onSuccess: (_d, v) => { qc.invalidateQueries({ queryKey: ['fixed-assets'] }); qc.invalidateQueries({ queryKey: ['fixed-asset', v.id] }) },
   })
 }
+
+// Status-only update hooks for sales modules
+export function useUpdateQuotationStatus() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, status }: { id: string; status: string }) => api.patch(`/quotations/${id}/status`, null, { params: { status } }).then(r => r.data),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['quotations'] }) },
+  })
+}
+export function useDeleteQuotation() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) => api.delete(`/quotations/${id}`).then(r => r.data),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['quotations'] }) },
+  })
+}
+export function useUpdateSalesOrderStatus() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, status }: { id: string; status: string }) => api.patch(`/sales-orders/${id}/status`, null, { params: { status } }).then(r => r.data),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['sales-orders'] }) },
+  })
+}
+export function useDeleteSalesOrder() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) => api.delete(`/sales-orders/${id}`).then(r => r.data),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['sales-orders'] }) },
+  })
+}
+export function useUpdateDeliveryOrderStatus() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, status }: { id: string; status: string }) => api.patch(`/delivery-orders/${id}/status`, null, { params: { status } }).then(r => r.data),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['delivery-orders'] }) },
+  })
+}
+export function useDeleteDeliveryOrder() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) => api.delete(`/delivery-orders/${id}`).then(r => r.data),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['delivery-orders'] }) },
+  })
+}
+export function useUpdateCreditNoteStatus() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, status }: { id: string; status: string }) => api.patch(`/credit-notes/${id}/status`, null, { params: { status } }).then(r => r.data),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['credit-notes'] }) },
+  })
+}
+export function useDeleteCreditNote() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) => api.delete(`/credit-notes/${id}`).then(r => r.data),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['credit-notes'] }) },
+  })
+}
+export function useUpdateDebitNoteStatus() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, status }: { id: string; status: string }) => api.patch(`/debit-notes/${id}/status`, null, { params: { status } }).then(r => r.data),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['debit-notes'] }) },
+  })
+}
+export function useDeleteDebitNote() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) => api.delete(`/debit-notes/${id}`).then(r => r.data),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['debit-notes'] }) },
+  })
+}
+export function useUpdateSalesPaymentStatus() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, status }: { id: string; status: string }) => api.patch(`/sales-payments/${id}/status`, null, { params: { status } }).then(r => r.data),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['sales-payments'] }) },
+  })
+}
+export function useDeleteSalesPayment() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) => api.delete(`/sales-payments/${id}`).then(r => r.data),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['sales-payments'] }) },
+  })
+}
+export function useUpdateSalesRefundStatus() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, status }: { id: string; status: string }) => api.patch(`/sales-refunds/${id}/status`, null, { params: { status } }).then(r => r.data),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['sales-refunds'] }) },
+  })
+}
+export function useDeleteSalesRefund() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) => api.delete(`/sales-refunds/${id}`).then(r => r.data),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['sales-refunds'] }) },
+  })
+}
+export function useUpdateInvoiceStatus() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, status }: { id: string; status: string }) => api.patch(`/invoices/${id}/status`, null, { params: { status } }).then(r => r.data),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['invoices'] }) },
+  })
+}
+export function useDeleteInvoice() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) => api.delete(`/invoices/${id}`).then(r => r.data),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['invoices'] }) },
+  })
+}
+export function useUpdateBillStatus() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, status }: { id: string; status: string }) => api.patch(`/bills/${id}/status`, null, { params: { status } }).then(r => r.data),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['bills'] }) },
+  })
+}
+export function useDeleteBill() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) => api.delete(`/bills/${id}`).then(r => r.data),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['bills'] }) },
+  })
+}
+export function useDeleteGRN() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) => api.delete(`/goods-received-notes/${id}`).then(r => r.data),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['goods-received-notes'] }) },
+  })
+}
+export function useDeleteVendorCredit() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) => api.delete(`/vendor-credits/${id}`).then(r => r.data),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['vendor-credits'] }) },
+  })
+}
+export function useDeleteRecurringInvoice() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) => api.delete(`/recurring-invoices/${id}`).then(r => r.data),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['recurring-invoices'] }) },
+  })
+}

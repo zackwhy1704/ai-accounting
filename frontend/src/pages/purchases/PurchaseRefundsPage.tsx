@@ -138,6 +138,7 @@ export default function PurchaseRefundsPage() {
                         { label: "Mark as Completed", icon: <CheckCircle className="h-3.5 w-3.5" />, onClick: () => api.patch(`/purchase-refunds/${r.id}`, { status: "completed" }).then(() => queryClient.invalidateQueries({ queryKey: ["purchase-refunds"] })), dividerBefore: true, disabled: r.status !== "draft" },
                         { label: "Download Receipt", icon: <Download className="h-3.5 w-3.5" />, onClick: () => window.print() },
                         { label: "Void", icon: <XCircle className="h-3.5 w-3.5" />, onClick: () => { if (confirm("Void this refund?")) api.patch(`/purchase-refunds/${r.id}`, { status: "void" }).then(() => queryClient.invalidateQueries({ queryKey: ["purchase-refunds"] })) }, danger: true, dividerBefore: true, disabled: r.status === "void" },
+                        { label: "Delete", icon: <Trash2 className="h-3.5 w-3.5" />, onClick: () => { if (confirm("Delete this refund?")) api.delete(`/purchase-refunds/${r.id}`).then(() => queryClient.invalidateQueries({ queryKey: ["purchase-refunds"] })) }, danger: true, disabled: r.status === "void" },
                       ]} />
                     </TableCell>
                   </TableRow>

@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func
+from sqlalchemy import select, func, delete
 from sqlalchemy.orm import selectinload
 from uuid import UUID
 from app.core.database import get_db
@@ -211,3 +211,25 @@ async def update_bill_status(
 
     await db.commit()
     return {"status": bill.status}
+
+
+@router.delete("/{bill_id}", status_code=204)
+async def delete_bill(
+    bill_id: UUID,
+    current_user: dict = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    org_id = current_user["org_id"]
+    result = await db.execute(
+        select(Bill).where(Bill.id == bill_id, Bill.organization_id == org_id)
+    )
+    bill = result.scalar_one_or_none()
+    if not bill:
+        raise HTTPException(status_code=404, detail="Bill not found")
+    if bill.status in ("paid",):
+        raise HTTPException(status_code=400, detail="Cannot delete a paid bill")
+    await db.execute(
+        delete(BillLineItem).where(BillLineItem.bill_id == bill_id)
+    )
+    await db.delete(bill)
+    await db.commit()

@@ -1,9 +1,9 @@
 import { useMemo, useState } from "react"
 import { useQueryClient } from "@tanstack/react-query"
 import { useNavigate } from "react-router-dom"
-import { Plus, Search, XCircle, Pencil, CheckCircle } from "lucide-react"
+import { Plus, Search, XCircle, Pencil, CheckCircle, Trash2 } from "lucide-react"
 import { RowActionsMenu } from "../../../components/ui/row-actions"
-import { useSalesRefunds, useContacts } from "../../../lib/hooks"
+import { useSalesRefunds, useContacts, useUpdateSalesRefundStatus, useDeleteSalesRefund } from "../../../lib/hooks"
 import api from "../../../lib/api"
 import { formatCurrency, formatDate, cn } from "../../../lib/utils"
 import { useTheme } from "../../../lib/theme"
@@ -24,6 +24,8 @@ const statusColors: Record<string, string> = {
 export default function RefundsPage() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
+  const updateRefundStatus = useUpdateSalesRefundStatus()
+  const deleteRefund = useDeleteSalesRefund()
   const [tab, setTab] = useState("all")
   const [search, setSearch] = useState("")
   const [contactFilter, setContactFilter] = useState("all")
@@ -154,9 +156,10 @@ export default function RefundsPage() {
                         </TableCell>
                         <TableCell className="text-right">
                           <RowActionsMenu actions={[
-                            { label: "Edit", icon: <Pencil className="h-3.5 w-3.5" />, onClick: () => navigate(`/sales/refunds/${r.id}/edit`), disabled: r.status === "void" },
-                            { label: "Mark as Completed", icon: <CheckCircle className="h-3.5 w-3.5" />, onClick: () => api.patch(`/sales/refunds/${r.id}`, { status: "completed" }).then(() => queryClient.invalidateQueries({ queryKey: ["sales-refunds"] })), dividerBefore: true, disabled: r.status !== "draft" },
-                            { label: t("refunds.void"), icon: <XCircle className="h-3.5 w-3.5" />, onClick: () => { if (confirm("Void this refund?")) api.patch(`/sales/refunds/${r.id}`, { status: "void" }).then(() => queryClient.invalidateQueries({ queryKey: ["sales-refunds"] })) }, danger: true, disabled: r.status === "void" },
+                            { label: "Edit", icon: <Pencil className="h-3.5 w-3.5" />, onClick: () => navigate(`/sales-refunds/${r.id}/edit`), disabled: r.status === "void" },
+                            { label: "Mark as Completed", icon: <CheckCircle className="h-3.5 w-3.5" />, onClick: () => updateRefundStatus.mutate({ id: r.id, status: "completed" }), dividerBefore: true, disabled: r.status !== "draft" },
+                            { label: t("refunds.void"), icon: <XCircle className="h-3.5 w-3.5" />, onClick: () => { if (confirm("Void this refund?")) updateRefundStatus.mutate({ id: r.id, status: "void" }) }, danger: true, disabled: r.status === "void" },
+                            { label: "Delete", icon: <Trash2 className="h-3.5 w-3.5" />, onClick: () => { if (confirm("Delete this refund?")) deleteRefund.mutate(r.id) }, danger: true, disabled: r.status === "void" },
                           ]} />
                         </TableCell>
                       </TableRow>

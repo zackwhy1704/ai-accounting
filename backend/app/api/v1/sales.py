@@ -754,3 +754,163 @@ async def update_sales_refund(sr_id: UUID, data: SalesRefundUpdate, current_user
     await db.commit()
     await db.refresh(obj)
     return obj
+
+
+# ═══════════════════════════════════════════════
+# STATUS-ONLY ENDPOINTS (allow transitions from any status)
+# ═══════════════════════════════════════════════
+
+@router.patch("/quotations/{qid}/status")
+async def update_quotation_status(qid: UUID, status: str, current_user: dict = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    result = await db.execute(select(Quotation).where(Quotation.id == qid, Quotation.organization_id == current_user["org_id"]))
+    obj = result.scalar_one_or_none()
+    if not obj:
+        raise HTTPException(status_code=404, detail="Quotation not found")
+    valid = {"draft", "sent", "accepted", "declined", "converted", "void"}
+    if status not in valid:
+        raise HTTPException(status_code=400, detail=f"Invalid status. Must be one of: {', '.join(valid)}")
+    obj.status = status
+    await db.commit()
+    return {"id": str(qid), "status": status}
+
+
+@router.patch("/delivery-orders/{do_id}/status")
+async def update_delivery_order_status(do_id: UUID, status: str, current_user: dict = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    result = await db.execute(select(DeliveryOrder).where(DeliveryOrder.id == do_id, DeliveryOrder.organization_id == current_user["org_id"]))
+    obj = result.scalar_one_or_none()
+    if not obj:
+        raise HTTPException(status_code=404, detail="Delivery order not found")
+    valid = {"draft", "sent", "delivered", "cancelled"}
+    if status not in valid:
+        raise HTTPException(status_code=400, detail=f"Invalid status. Must be one of: {', '.join(valid)}")
+    obj.status = status
+    await db.commit()
+    return {"id": str(do_id), "status": status}
+
+
+@router.patch("/credit-notes/{cn_id}/status")
+async def update_credit_note_status(cn_id: UUID, status: str, current_user: dict = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    result = await db.execute(select(CreditNote).where(CreditNote.id == cn_id, CreditNote.organization_id == current_user["org_id"]))
+    obj = result.scalar_one_or_none()
+    if not obj:
+        raise HTTPException(status_code=404, detail="Credit note not found")
+    valid = {"draft", "issued", "applied", "void"}
+    if status not in valid:
+        raise HTTPException(status_code=400, detail=f"Invalid status. Must be one of: {', '.join(valid)}")
+    obj.status = status
+    await db.commit()
+    return {"id": str(cn_id), "status": status}
+
+
+@router.patch("/debit-notes/{dn_id}/status")
+async def update_debit_note_status(dn_id: UUID, status: str, current_user: dict = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    result = await db.execute(select(DebitNote).where(DebitNote.id == dn_id, DebitNote.organization_id == current_user["org_id"]))
+    obj = result.scalar_one_or_none()
+    if not obj:
+        raise HTTPException(status_code=404, detail="Debit note not found")
+    valid = {"draft", "issued", "void"}
+    if status not in valid:
+        raise HTTPException(status_code=400, detail=f"Invalid status. Must be one of: {', '.join(valid)}")
+    obj.status = status
+    await db.commit()
+    return {"id": str(dn_id), "status": status}
+
+
+@router.patch("/sales-payments/{sp_id}/status")
+async def update_sales_payment_status(sp_id: UUID, status: str, current_user: dict = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    result = await db.execute(select(SalesPayment).where(SalesPayment.id == sp_id, SalesPayment.organization_id == current_user["org_id"]))
+    obj = result.scalar_one_or_none()
+    if not obj:
+        raise HTTPException(status_code=404, detail="Sales payment not found")
+    valid = {"draft", "completed", "void"}
+    if status not in valid:
+        raise HTTPException(status_code=400, detail=f"Invalid status. Must be one of: {', '.join(valid)}")
+    obj.status = status
+    await db.commit()
+    return {"id": str(sp_id), "status": status}
+
+
+@router.patch("/sales-refunds/{sr_id}/status")
+async def update_sales_refund_status(sr_id: UUID, status: str, current_user: dict = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    result = await db.execute(select(SalesRefund).where(SalesRefund.id == sr_id, SalesRefund.organization_id == current_user["org_id"]))
+    obj = result.scalar_one_or_none()
+    if not obj:
+        raise HTTPException(status_code=404, detail="Sales refund not found")
+    valid = {"draft", "completed", "void"}
+    if status not in valid:
+        raise HTTPException(status_code=400, detail=f"Invalid status. Must be one of: {', '.join(valid)}")
+    obj.status = status
+    await db.commit()
+    return {"id": str(sr_id), "status": status}
+
+
+# ═══════════════════════════════════════════════
+# DELETE ENDPOINTS
+# ═══════════════════════════════════════════════
+
+@router.delete("/quotations/{qid}", status_code=204)
+async def delete_quotation(qid: UUID, current_user: dict = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    result = await db.execute(select(Quotation).where(Quotation.id == qid, Quotation.organization_id == current_user["org_id"]))
+    obj = result.scalar_one_or_none()
+    if not obj:
+        raise HTTPException(status_code=404, detail="Quotation not found")
+    if obj.status not in ("draft", "declined", "void"):
+        raise HTTPException(status_code=400, detail="Only draft, declined or void quotations can be deleted")
+    await db.delete(obj)
+    await db.commit()
+
+
+@router.delete("/delivery-orders/{do_id}", status_code=204)
+async def delete_delivery_order(do_id: UUID, current_user: dict = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    result = await db.execute(select(DeliveryOrder).where(DeliveryOrder.id == do_id, DeliveryOrder.organization_id == current_user["org_id"]))
+    obj = result.scalar_one_or_none()
+    if not obj:
+        raise HTTPException(status_code=404, detail="Delivery order not found")
+    if obj.status not in ("draft", "cancelled"):
+        raise HTTPException(status_code=400, detail="Only draft or cancelled delivery orders can be deleted")
+    await db.delete(obj)
+    await db.commit()
+
+
+@router.delete("/credit-notes/{cn_id}", status_code=204)
+async def delete_credit_note(cn_id: UUID, current_user: dict = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    result = await db.execute(select(CreditNote).where(CreditNote.id == cn_id, CreditNote.organization_id == current_user["org_id"]))
+    obj = result.scalar_one_or_none()
+    if not obj:
+        raise HTTPException(status_code=404, detail="Credit note not found")
+    if obj.status not in ("draft", "void"):
+        raise HTTPException(status_code=400, detail="Only draft or void credit notes can be deleted")
+    await db.delete(obj)
+    await db.commit()
+
+
+@router.delete("/debit-notes/{dn_id}", status_code=204)
+async def delete_debit_note(dn_id: UUID, current_user: dict = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    result = await db.execute(select(DebitNote).where(DebitNote.id == dn_id, DebitNote.organization_id == current_user["org_id"]))
+    obj = result.scalar_one_or_none()
+    if not obj:
+        raise HTTPException(status_code=404, detail="Debit note not found")
+    if obj.status not in ("draft", "void"):
+        raise HTTPException(status_code=400, detail="Only draft or void debit notes can be deleted")
+    await db.delete(obj)
+    await db.commit()
+
+
+@router.delete("/sales-payments/{sp_id}", status_code=204)
+async def delete_sales_payment(sp_id: UUID, current_user: dict = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    result = await db.execute(select(SalesPayment).where(SalesPayment.id == sp_id, SalesPayment.organization_id == current_user["org_id"]))
+    obj = result.scalar_one_or_none()
+    if not obj:
+        raise HTTPException(status_code=404, detail="Sales payment not found")
+    await db.delete(obj)
+    await db.commit()
+
+
+@router.delete("/sales-refunds/{sr_id}", status_code=204)
+async def delete_sales_refund(sr_id: UUID, current_user: dict = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    result = await db.execute(select(SalesRefund).where(SalesRefund.id == sr_id, SalesRefund.organization_id == current_user["org_id"]))
+    obj = result.scalar_one_or_none()
+    if not obj:
+        raise HTTPException(status_code=404, detail="Sales refund not found")
+    await db.delete(obj)
+    await db.commit()

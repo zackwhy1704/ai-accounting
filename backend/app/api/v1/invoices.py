@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func
+from sqlalchemy import select, func, delete
 from sqlalchemy.orm import selectinload
 from uuid import UUID
 from app.core.database import get_db
@@ -212,3 +212,25 @@ async def update_invoice_status(
 
     await db.commit()
     return {"status": invoice.status}
+
+
+@router.delete("/{invoice_id}", status_code=204)
+async def delete_invoice(
+    invoice_id: UUID,
+    current_user: dict = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    org_id = current_user["org_id"]
+    result = await db.execute(
+        select(Invoice).where(Invoice.id == invoice_id, Invoice.organization_id == org_id)
+    )
+    invoice = result.scalar_one_or_none()
+    if not invoice:
+        raise HTTPException(status_code=404, detail="Invoice not found")
+    if invoice.status in ("paid",):
+        raise HTTPException(status_code=400, detail="Cannot delete a paid invoice")
+    await db.execute(
+        delete(InvoiceLineItem).where(InvoiceLineItem.invoice_id == invoice_id)
+    )
+    await db.delete(invoice)
+    await db.commit()

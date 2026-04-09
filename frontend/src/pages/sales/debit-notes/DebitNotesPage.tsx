@@ -1,10 +1,8 @@
 import { useMemo, useState } from "react"
 import { useNavigate } from "react-router-dom"
-import { useQueryClient } from "@tanstack/react-query"
-import { Plus, Search, Pencil, Send, XCircle, CreditCard } from "lucide-react"
+import { Plus, Search, Pencil, Send, XCircle, CreditCard, Trash2 } from "lucide-react"
 import { RowActionsMenu } from "../../../components/ui/row-actions"
-import { useDebitNotes, useContacts, useInvoices } from "../../../lib/hooks"
-import api from "../../../lib/api"
+import { useDebitNotes, useContacts, useInvoices, useUpdateDebitNoteStatus, useDeleteDebitNote } from "../../../lib/hooks"
 import { formatCurrency, formatDate, cn } from "../../../lib/utils"
 import { useTheme } from "../../../lib/theme"
 import { Card } from "../../../components/ui/card"
@@ -24,9 +22,9 @@ const statusColors: Record<string, string> = {
 
 export default function DebitNotesPage() {
   const navigate = useNavigate()
-  const queryClient = useQueryClient()
-  const patch = (id: string, status: string) =>
-    api.patch(`/debit-notes/${id}`, { status }).then(() => queryClient.invalidateQueries({ queryKey: ["debit-notes"] }))
+  const updateStatus = useUpdateDebitNoteStatus()
+  const deleteDebitNote = useDeleteDebitNote()
+  const patch = (id: string, status: string) => updateStatus.mutate({ id, status })
   const [tab, setTab] = useState("all")
   const [search, setSearch] = useState("")
   const [contactFilter, setContactFilter] = useState("all")
@@ -167,6 +165,7 @@ export default function DebitNotesPage() {
                             { label: "Add Payment", icon: <CreditCard className="h-3.5 w-3.5" />, onClick: () => navigate(`/sales/payments/new?contact_id=${dn.contact_id}&amount=${dn.total}`), dividerBefore: true, disabled: dn.status === "void" || dn.status === "draft" },
                             { label: "Mark as Issued", icon: <Send className="h-3.5 w-3.5" />, onClick: () => patch(dn.id, "issued"), disabled: dn.status !== "draft" },
                             { label: "Void", icon: <XCircle className="h-3.5 w-3.5" />, onClick: () => { if (confirm("Void this debit note?")) patch(dn.id, "void") }, danger: true, dividerBefore: true, disabled: dn.status === "void" || dn.status === "applied" },
+                            { label: "Delete", icon: <Trash2 className="h-3.5 w-3.5" />, onClick: () => { if (confirm("Delete this debit note?")) deleteDebitNote.mutate(dn.id) }, danger: true, disabled: dn.status === "applied" },
                           ]} />
                         </TableCell>
                       </TableRow>

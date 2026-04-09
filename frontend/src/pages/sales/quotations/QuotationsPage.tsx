@@ -1,8 +1,8 @@
 import { useMemo, useState } from "react"
 import { useNavigate } from "react-router-dom"
-import { Plus, Search, ArrowRightLeft, Pencil, X, Send, CheckCircle, XCircle } from "lucide-react"
+import { Plus, Search, ArrowRightLeft, Pencil, X, Send, CheckCircle, XCircle, Trash2 } from "lucide-react"
 import { RowActionsMenu } from "../../../components/ui/row-actions"
-import { useQuotations, useContacts, useConvertQuotation, useUpdateQuotation } from "../../../lib/hooks"
+import { useQuotations, useContacts, useConvertQuotation, useUpdateQuotation, useUpdateQuotationStatus, useDeleteQuotation } from "../../../lib/hooks"
 import { formatCurrency, formatDate, cn } from "../../../lib/utils"
 import { useTheme } from "../../../lib/theme"
 import { Card } from "../../../components/ui/card"
@@ -34,8 +34,10 @@ export default function QuotationsPage() {
   const { t } = useTheme()
   const convertQuotation = useConvertQuotation()
   const updateQuotation = useUpdateQuotation()
+  const updateStatus = useUpdateQuotationStatus()
+  const deleteQuotation = useDeleteQuotation()
 
-  const markStatus = (id: string, status: string) => updateQuotation.mutateAsync({ id, status } as any)
+  const markStatus = (id: string, status: string) => updateStatus.mutateAsync({ id, status })
 
   // Conversion dialog state
   const [convertDialog, setConvertDialog] = useState<{ open: boolean; quotationId: string; quotationNumber: string }>({ open: false, quotationId: "", quotationNumber: "" })
@@ -179,6 +181,7 @@ export default function QuotationsPage() {
                             { label: "Mark as Accepted", icon: <CheckCircle className="h-3.5 w-3.5" />, onClick: () => markStatus(q.id, "accepted"), disabled: q.status === "accepted" || q.status === "converted" },
                             { label: "Mark as Declined", icon: <XCircle className="h-3.5 w-3.5" />, onClick: () => markStatus(q.id, "declined"), danger: true, disabled: q.status === "declined" || q.status === "converted" },
                             { label: "Convert to Invoice / DO", icon: <ArrowRightLeft className="h-3.5 w-3.5" />, onClick: () => { setConvertToInvoice(true); setConvertToDO(false); setConvertDialog({ open: true, quotationId: q.id, quotationNumber: q.quotation_number }) }, dividerBefore: true, disabled: q.status === "converted" },
+                            { label: "Delete", icon: <Trash2 className="h-3.5 w-3.5" />, onClick: () => { if (confirm("Delete this quotation?")) deleteQuotation.mutate(q.id) }, danger: true, dividerBefore: true, disabled: q.status === "converted" },
                           ]} />
                         </TableCell>
                       </TableRow>

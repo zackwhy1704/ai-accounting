@@ -1,8 +1,8 @@
 import { useMemo, useState } from "react"
 import { useQueryClient } from "@tanstack/react-query"
 import { useNavigate } from "react-router-dom"
-import { Plus, Search, CreditCard, FileText, Copy, Printer, XCircle, Truck, Pencil, Send } from "lucide-react"
-import { useInvoices, useContacts } from "../../lib/hooks"
+import { Plus, Search, CreditCard, FileText, Copy, Printer, XCircle, Truck, Pencil, Send, Trash2 } from "lucide-react"
+import { useInvoices, useContacts, useUpdateInvoiceStatus, useDeleteInvoice } from "../../lib/hooks"
 import api from "../../lib/api"
 import { formatCurrency, formatDate, cn } from "../../lib/utils"
 import { useTheme } from "../../lib/theme"
@@ -28,6 +28,8 @@ const statusColors: Record<string, string> = {
 export default function InvoicesPage() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
+  const updateInvoiceStatus = useUpdateInvoiceStatus()
+  const deleteInvoice = useDeleteInvoice()
   const [tab, setTab] = useState("all")
   const [search, setSearch] = useState("")
   const [contactFilter, setContactFilter] = useState("all")
@@ -159,13 +161,14 @@ export default function InvoicesPage() {
                         <TableCell className="text-right">
                           <RowActionsMenu actions={[
                             { label: "Edit", icon: <Pencil className="h-3.5 w-3.5" />, onClick: () => navigate(`/sales/invoices/${inv.id}/edit`), disabled: inv.status === "void" },
-                            { label: "Mark as Sent", icon: <Send className="h-3.5 w-3.5" />, onClick: () => api.patch(`/invoices/${inv.id}`, { status: "sent" }).then(() => queryClient.invalidateQueries({ queryKey: ["invoices"] })), dividerBefore: true, disabled: inv.status !== "draft" },
+                            { label: "Mark as Sent", icon: <Send className="h-3.5 w-3.5" />, onClick: () => updateInvoiceStatus.mutate({ id: inv.id, status: "sent" }), dividerBefore: true, disabled: inv.status !== "draft" },
                             { label: t("invoices.addPayment"), icon: <CreditCard className="h-3.5 w-3.5" />, onClick: () => navigate(`/sales/payments/new?invoice_id=${inv.id}`), disabled: inv.status === "void" || inv.status === "draft" },
                             { label: t("invoices.creditNote"), icon: <FileText className="h-3.5 w-3.5" />, onClick: () => navigate(`/sales/credit-notes/new?invoice_id=${inv.id}`) },
                             { label: t("invoices.duplicate"), icon: <Copy className="h-3.5 w-3.5" />, onClick: () => navigate(`/sales/invoices/new?copy=${inv.id}`), dividerBefore: true },
                             { label: t("invoices.printPdf"), icon: <Printer className="h-3.5 w-3.5" />, onClick: () => window.print() },
                             { label: t("invoices.convertToDelivery"), icon: <Truck className="h-3.5 w-3.5" />, onClick: () => navigate(`/sales/delivery-orders/new?invoice_id=${inv.id}`), dividerBefore: true },
-                            { label: t("invoices.void"), icon: <XCircle className="h-3.5 w-3.5" />, onClick: () => { if (confirm("Void this invoice?")) api.patch(`/invoices/${inv.id}`, { status: "void" }).then(() => queryClient.invalidateQueries({ queryKey: ["invoices"] })) }, danger: true, dividerBefore: true, disabled: inv.status === "void" },
+                            { label: t("invoices.void"), icon: <XCircle className="h-3.5 w-3.5" />, onClick: () => { if (confirm("Void this invoice?")) updateInvoiceStatus.mutate({ id: inv.id, status: "void" }) }, danger: true, dividerBefore: true, disabled: inv.status === "void" },
+                            { label: "Delete", icon: <Trash2 className="h-3.5 w-3.5" />, onClick: () => { if (confirm("Delete this invoice?")) deleteInvoice.mutate(inv.id) }, danger: true, disabled: inv.status === "paid" },
                           ]} />
                         </TableCell>
                       </TableRow>

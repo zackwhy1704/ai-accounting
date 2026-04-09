@@ -1,5 +1,5 @@
-import { useState, useMemo } from "react"
-import { useNavigate } from "react-router-dom"
+import { useState, useMemo, useEffect } from "react"
+import { useNavigate, useSearchParams } from "react-router-dom"
 import { useContacts, useAccounts, useCreditNotes, useCreateSalesRefund } from "../../../lib/hooks"
 import { formatCurrency } from "../../../lib/utils"
 import { Card } from "../../../components/ui/card"
@@ -16,6 +16,7 @@ const refundMethods = [
 
 export default function NewRefundPage() {
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
   const { data: contacts = [] } = useContacts()
   const { data: accounts = [] } = useAccounts()
   const { data: creditNotes = [] } = useCreditNotes()
@@ -31,8 +32,17 @@ export default function NewRefundPage() {
   const [currency, setCurrency] = useState("MYR")
   const [notes, setNotes] = useState("")
 
+  useEffect(() => {
+    const cnId = searchParams.get("credit_note_id")
+    const amt = searchParams.get("amount")
+    const cId = searchParams.get("contact_id")
+    if (cnId) setCreditNoteId(cnId)
+    if (amt) setAmount(amt)
+    if (cId) setContactId(cId)
+  }, [searchParams])
+
   const bankAccounts = useMemo(
-    () => accounts.filter((a) => a.type === "bank" || a.type === "cash"),
+    () => accounts.filter((a: any) => a.subtype === "bank" || a.subtype === "cash" || a.type === "bank" || a.type === "cash"),
     [accounts]
   )
 

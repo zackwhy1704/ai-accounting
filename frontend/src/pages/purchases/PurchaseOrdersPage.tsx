@@ -2,7 +2,7 @@ import { useMemo, useState } from "react"
 import { useQueryClient } from "@tanstack/react-query"
 import { useNavigate } from "react-router-dom"
 import { ViewDetailSheet } from "../../components/ui/view-detail-sheet"
-import { Plus, ShoppingCart, FileText, Pencil, ArrowRightLeft, Copy, XCircle, Send, PackageCheck } from "lucide-react"
+import { Plus, ShoppingCart, FileText, Pencil, ArrowRightLeft, Copy, XCircle, Send, PackageCheck, Trash2 } from "lucide-react"
 import { usePurchaseOrders, useContacts } from "../../lib/hooks"
 import api from "../../lib/api"
 import { formatCurrency, formatDate, cn } from "../../lib/utils"
@@ -144,6 +144,7 @@ export default function PurchaseOrdersPage() {
                         { label: "Convert to Bill", icon: <ArrowRightLeft className="h-3.5 w-3.5" />, onClick: () => navigate(`/purchases/bills/new?from_po=${po.id}`), dividerBefore: true, disabled: po.status === "cancelled" || po.status === "void" || po.status === "draft" },
                         { label: "Duplicate", icon: <Copy className="h-3.5 w-3.5" />, onClick: () => navigate(`/purchases/orders/new?copy=${po.id}`) },
                         { label: "Cancel", icon: <XCircle className="h-3.5 w-3.5" />, onClick: () => { if (confirm("Cancel this purchase order?")) api.patch(`/purchase-orders/${po.id}`, { status: "cancelled" }).then(() => queryClient.invalidateQueries({ queryKey: ["purchase-orders"] })) }, danger: true, dividerBefore: true, disabled: po.status === "cancelled" || po.status === "billed" },
+                        { label: "Delete", icon: <Trash2 className="h-3.5 w-3.5" />, onClick: () => { if (confirm("Delete this purchase order?")) api.delete(`/purchase-orders/${po.id}`).then(() => queryClient.invalidateQueries({ queryKey: ["purchase-orders"] })) }, danger: true, disabled: po.status === "billed" },
                       ]} />
                     </TableCell>
                   </TableRow>

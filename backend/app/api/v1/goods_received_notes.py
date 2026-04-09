@@ -210,3 +210,25 @@ async def update_grn_status(
     grn.status = status
     await db.commit()
     return {"status": grn.status}
+
+
+@router.delete("/{grn_id}", status_code=204)
+async def delete_grn(
+    grn_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: dict = Depends(get_current_user),
+):
+    result = await db.execute(
+        select(GoodsReceivedNote).where(
+            GoodsReceivedNote.id == grn_id,
+            GoodsReceivedNote.organization_id == current_user["org_id"],
+        )
+    )
+    grn = result.scalar_one_or_none()
+    if not grn:
+        raise HTTPException(status_code=404, detail="GRN not found")
+    if grn.status == "billed":
+        raise HTTPException(status_code=400, detail="Cannot delete a billed GRN")
+    await db.execute(delete(GRNLineItem).where(GRNLineItem.grn_id == grn_id))
+    await db.delete(grn)
+    await db.commit()

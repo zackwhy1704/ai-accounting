@@ -2,7 +2,7 @@ import { useState } from "react"
 import { useNavigate } from "react-router-dom"
 import { ViewDetailSheet } from "../../components/ui/view-detail-sheet"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
-import { Plus, Search, CreditCard, FileText, Download, XCircle, Pencil, CheckCircle } from "lucide-react"
+import { Plus, Search, CreditCard, FileText, Download, XCircle, Pencil, CheckCircle, Trash2 } from "lucide-react"
 import api from "../../lib/api"
 import { formatCurrency, formatDate, cn } from "../../lib/utils"
 import { Card } from "../../components/ui/card"
@@ -138,6 +138,7 @@ export default function PurchasePaymentsPage() {
                         { label: "Mark as Completed", icon: <CheckCircle className="h-3.5 w-3.5" />, onClick: () => api.patch(`/purchase-payments/${p.id}`, { status: "completed" }).then(() => queryClient.invalidateQueries({ queryKey: ["purchase-payments"] })), dividerBefore: true, disabled: p.status !== "draft" },
                         { label: "Download Receipt", icon: <Download className="h-3.5 w-3.5" />, onClick: () => window.print() },
                         { label: "Void", icon: <XCircle className="h-3.5 w-3.5" />, onClick: () => { if (confirm("Void this payment?")) api.patch(`/purchase-payments/${p.id}`, { status: "void" }).then(() => queryClient.invalidateQueries({ queryKey: ["purchase-payments"] })) }, danger: true, dividerBefore: true, disabled: p.status === "void" },
+                        { label: "Delete", icon: <Trash2 className="h-3.5 w-3.5" />, onClick: () => { if (confirm("Delete this payment?")) api.delete(`/purchase-payments/${p.id}`).then(() => queryClient.invalidateQueries({ queryKey: ["purchase-payments"] })) }, danger: true, disabled: p.status === "void" },
                       ]} />
                     </TableCell>
                   </TableRow>

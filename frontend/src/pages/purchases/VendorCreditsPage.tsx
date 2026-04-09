@@ -2,8 +2,8 @@ import { useMemo, useState } from "react"
 import { useQueryClient } from "@tanstack/react-query"
 import { useNavigate } from "react-router-dom"
 import { ViewDetailSheet } from "../../components/ui/view-detail-sheet"
-import { Plus, Search, FileText, ArrowRightLeft, XCircle, Pencil } from "lucide-react"
-import { useVendorCredits, useContacts } from "../../lib/hooks"
+import { Plus, Search, FileText, ArrowRightLeft, XCircle, Pencil, Trash2 } from "lucide-react"
+import { useVendorCredits, useContacts, useDeleteVendorCredit } from "../../lib/hooks"
 import api from "../../lib/api"
 import { formatCurrency, formatDate, cn } from "../../lib/utils"
 import { Card } from "../../components/ui/card"
@@ -22,6 +22,7 @@ const statusColors: Record<string, string> = {
 export default function VendorCreditsPage() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
+  const deleteVendorCredit = useDeleteVendorCredit()
   const [search, setSearch] = useState("")
   const { data: vendorCredits = [], isLoading } = useVendorCredits()
   const [viewItem, setViewItem] = useState<typeof vendorCredits[0] | null>(null)
@@ -105,7 +106,8 @@ export default function VendorCreditsPage() {
                         { label: "Edit", icon: <Pencil className="h-3.5 w-3.5" />, onClick: () => navigate(`/purchases/vendor-credits/${vc.id}/edit`), disabled: vc.status === "void" },
                         { label: "View", icon: <FileText className="h-3.5 w-3.5" />, onClick: () => setViewItem(vc) },
                         { label: "Apply to Bill", icon: <ArrowRightLeft className="h-3.5 w-3.5" />, onClick: () => navigate(`/purchases/bills/new?credit_id=${vc.id}`), dividerBefore: true, disabled: vc.status === "void" || vc.status === "applied" },
-                        { label: "Void", icon: <XCircle className="h-3.5 w-3.5" />, onClick: () => { if (confirm("Void this vendor credit?")) api.patch(`/vendor-credits/${vc.id}`, { status: "void" }).then(() => queryClient.invalidateQueries({ queryKey: ["vendor-credits"] })) }, danger: true, dividerBefore: true, disabled: vc.status === "void" || vc.status === "applied" },
+                        { label: "Void", icon: <XCircle className="h-3.5 w-3.5" />, onClick: () => { if (confirm("Void this vendor credit?")) api.post(`/vendor-credits/${vc.id}/void`).then(() => queryClient.invalidateQueries({ queryKey: ["vendor-credits"] })) }, danger: true, dividerBefore: true, disabled: vc.status === "void" || vc.status === "applied" },
+                        { label: "Delete", icon: <Trash2 className="h-3.5 w-3.5" />, onClick: () => { if (confirm("Delete this vendor credit?")) deleteVendorCredit.mutate(vc.id) }, danger: true, disabled: vc.status === "applied" },
                       ]} />
                     </TableCell>
                   </TableRow>

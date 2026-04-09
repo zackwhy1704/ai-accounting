@@ -170,3 +170,25 @@ async def void_vendor_credit(
     await db.commit()
     await db.refresh(vc)
     return vc
+
+
+@router.delete("/{vc_id}", status_code=204)
+async def delete_vendor_credit(
+    vc_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: dict = Depends(get_current_user),
+):
+    from sqlalchemy import delete as sa_delete
+    result = await db.execute(
+        select(VendorCredit).where(
+            VendorCredit.id == vc_id,
+            VendorCredit.organization_id == current_user["org_id"],
+        )
+    )
+    vc = result.scalar_one_or_none()
+    if not vc:
+        raise HTTPException(status_code=404, detail="Vendor credit not found")
+    if vc.status == "applied":
+        raise HTTPException(status_code=400, detail="Cannot delete an applied vendor credit")
+    await db.delete(vc)
+    await db.commit()

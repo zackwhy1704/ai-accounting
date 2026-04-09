@@ -1,10 +1,8 @@
 import { useMemo, useState } from "react"
 import { useNavigate } from "react-router-dom"
-import { useQueryClient } from "@tanstack/react-query"
-import { Plus, Search, ArrowRightLeft, Pencil, Send, XCircle, RotateCcw } from "lucide-react"
+import { Plus, Search, ArrowRightLeft, Pencil, Send, XCircle, RotateCcw, Trash2 } from "lucide-react"
 import { RowActionsMenu } from "../../../components/ui/row-actions"
-import { useCreditNotes, useContacts, useInvoices } from "../../../lib/hooks"
-import api from "../../../lib/api"
+import { useCreditNotes, useContacts, useInvoices, useUpdateCreditNoteStatus, useDeleteCreditNote } from "../../../lib/hooks"
 import { formatCurrency, formatDate, cn } from "../../../lib/utils"
 import { useTheme } from "../../../lib/theme"
 import { Card } from "../../../components/ui/card"
@@ -24,9 +22,9 @@ const statusColors: Record<string, string> = {
 
 export default function CreditNotesPage() {
   const navigate = useNavigate()
-  const queryClient = useQueryClient()
-  const patch = (id: string, status: string) =>
-    api.patch(`/credit-notes/${id}`, { status }).then(() => queryClient.invalidateQueries({ queryKey: ["credit-notes"] }))
+  const updateStatus = useUpdateCreditNoteStatus()
+  const deleteCreditNote = useDeleteCreditNote()
+  const patch = (id: string, status: string) => updateStatus.mutate({ id, status })
   const [tab, setTab] = useState("all")
   const [search, setSearch] = useState("")
   const [contactFilter, setContactFilter] = useState("all")
@@ -170,6 +168,7 @@ export default function CreditNotesPage() {
                             { label: t("creditNotes.applyToInvoice"), icon: <ArrowRightLeft className="h-3.5 w-3.5" />, onClick: () => navigate(`/sales/credit-notes/${row.id}/edit?tab=apply_credit`), disabled: row.status === "void" || row.status === "draft" },
                             { label: "Issue Refund", icon: <RotateCcw className="h-3.5 w-3.5" />, onClick: () => navigate(`/sales/refunds/new?credit_note_id=${row.id}&amount=${row.total}&contact_id=${row.contact_id}`), disabled: row.status === "void" || row.status === "applied" },
                             { label: "Void", icon: <XCircle className="h-3.5 w-3.5" />, onClick: () => { if (confirm("Void this credit note?")) patch(row.id, "void") }, danger: true, dividerBefore: true, disabled: row.status === "void" || row.status === "applied" },
+                            { label: "Delete", icon: <Trash2 className="h-3.5 w-3.5" />, onClick: () => { if (confirm("Delete this credit note?")) deleteCreditNote.mutate(row.id) }, danger: true, disabled: row.status === "applied" },
                           ]} />
                         </TableCell>
                       </TableRow>

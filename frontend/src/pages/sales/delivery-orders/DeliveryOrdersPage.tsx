@@ -1,10 +1,8 @@
 import { useMemo, useState } from "react"
 import { useNavigate } from "react-router-dom"
-import { useQueryClient } from "@tanstack/react-query"
-import { Plus, Search, FileText, Pencil, Truck, XCircle } from "lucide-react"
+import { Plus, Search, FileText, Pencil, Truck, XCircle, Trash2 } from "lucide-react"
 import { RowActionsMenu } from "../../../components/ui/row-actions"
-import { useDeliveryOrders, useContacts } from "../../../lib/hooks"
-import api from "../../../lib/api"
+import { useDeliveryOrders, useContacts, useUpdateDeliveryOrderStatus, useDeleteDeliveryOrder } from "../../../lib/hooks"
 import { formatCurrency, formatDate, cn } from "../../../lib/utils"
 import { useTheme } from "../../../lib/theme"
 import { Card } from "../../../components/ui/card"
@@ -23,9 +21,9 @@ const statusColors: Record<string, string> = {
 
 export default function DeliveryOrdersPage() {
   const navigate = useNavigate()
-  const queryClient = useQueryClient()
-  const patch = (id: string, status: string) =>
-    api.patch(`/delivery-orders/${id}`, { status }).then(() => queryClient.invalidateQueries({ queryKey: ["delivery-orders"] }))
+  const updateStatus = useUpdateDeliveryOrderStatus()
+  const deleteDeliveryOrder = useDeleteDeliveryOrder()
+  const patch = (id: string, status: string) => updateStatus.mutate({ id, status })
   const [tab, setTab] = useState("all")
   const [search, setSearch] = useState("")
   const [contactFilter, setContactFilter] = useState("all")
@@ -158,6 +156,7 @@ export default function DeliveryOrdersPage() {
                             { label: "Mark as Delivered", icon: <Truck className="h-3.5 w-3.5" />, onClick: () => patch(d.id, "delivered"), dividerBefore: true, disabled: d.status === "delivered" || d.status === "cancelled" },
                             { label: "Cancel", icon: <XCircle className="h-3.5 w-3.5" />, onClick: () => { if (confirm("Cancel this delivery order?")) patch(d.id, "cancelled") }, danger: true, disabled: d.status === "cancelled" || d.status === "delivered" },
                             { label: t("deliveryOrders.printPdf"), icon: <FileText className="h-3.5 w-3.5" />, onClick: () => window.print(), dividerBefore: true },
+                            { label: "Delete", icon: <Trash2 className="h-3.5 w-3.5" />, onClick: () => { if (confirm("Delete this delivery order?")) deleteDeliveryOrder.mutate(d.id) }, danger: true, disabled: d.status === "delivered" },
                           ]} />
                         </TableCell>
                       </TableRow>

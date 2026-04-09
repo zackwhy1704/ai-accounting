@@ -1,8 +1,8 @@
 import { useMemo } from "react"
 import { useNavigate } from "react-router-dom"
-import { Plus, RefreshCw, Pause, Play, Pencil } from "lucide-react"
+import { Plus, RefreshCw, Pause, Play, Pencil, Trash2 } from "lucide-react"
 import { RowActionsMenu } from "../../../components/ui/row-actions"
-import { useRecurringInvoices, useContacts, usePauseRecurringInvoice, useResumeRecurringInvoice } from "../../../lib/hooks"
+import { useRecurringInvoices, useContacts, usePauseRecurringInvoice, useResumeRecurringInvoice, useDeleteRecurringInvoice } from "../../../lib/hooks"
 import { formatDate, cn } from "../../../lib/utils"
 import { Card } from "../../../components/ui/card"
 import { Button } from "../../../components/ui/button"
@@ -28,6 +28,7 @@ export default function RecurringInvoicesPage() {
   const { data: contacts = [] } = useContacts()
   const pause = usePauseRecurringInvoice()
   const resume = useResumeRecurringInvoice()
+  const deleteRecurring = useDeleteRecurringInvoice()
   const contactMap = useMemo(() => {
     const m = new Map<string, string>()
     contacts.forEach(c => m.set(c.id, c.name))
@@ -103,6 +104,7 @@ export default function RecurringInvoicesPage() {
                         { label: "Edit", icon: <Pencil className="h-3.5 w-3.5" />, onClick: () => navigate(`/sales/recurring/${r.id}/edit`) },
                         ...(r.status === "active" ? [{ label: "Pause", icon: <Pause className="h-3.5 w-3.5" />, onClick: () => handlePause(r.id) }] : []),
                         ...(r.status === "paused" ? [{ label: "Resume", icon: <Play className="h-3.5 w-3.5" />, onClick: () => handleResume(r.id) }] : []),
+                        { label: "Delete", icon: <Trash2 className="h-3.5 w-3.5" />, onClick: () => { if (confirm("Delete this recurring invoice?")) deleteRecurring.mutate(r.id) }, danger: true, dividerBefore: true },
                       ]} />
                     </TableCell>
                   </TableRow>
