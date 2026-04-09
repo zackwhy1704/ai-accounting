@@ -162,7 +162,7 @@ export default function DebitNotesPage() {
                         <TableCell className="text-right">
                           <RowActionsMenu actions={[
                             { label: "Edit", icon: <Pencil className="h-3.5 w-3.5" />, onClick: () => navigate(`/sales/debit-notes/${dn.id}/edit`), disabled: dn.status === "void" },
-                            { label: "Add Payment", icon: <CreditCard className="h-3.5 w-3.5" />, onClick: () => navigate(`/sales/payments/new?contact_id=${dn.contact_id}&amount=${dn.total}`), dividerBefore: true, disabled: dn.status === "void" || dn.status === "draft" },
+                            { label: "Make Payment", icon: <CreditCard className="h-3.5 w-3.5" />, onClick: () => navigate(`/sales/payments/new?contact_id=${dn.contact_id}&amount=${dn.total}&debit_note_id=${dn.id}${dn.invoice_id ? `&invoice_id=${dn.invoice_id}` : ""}`), dividerBefore: true, disabled: dn.status === "void" || dn.status === "applied" },
                             { label: "Mark as Issued", icon: <Send className="h-3.5 w-3.5" />, onClick: () => patch(dn.id, "issued"), disabled: dn.status !== "draft" },
                             { label: "Void", icon: <XCircle className="h-3.5 w-3.5" />, onClick: () => { if (confirm("Void this debit note?")) patch(dn.id, "void") }, danger: true, dividerBefore: true, disabled: dn.status === "void" || dn.status === "applied" },
                             { label: "Delete", icon: <Trash2 className="h-3.5 w-3.5" />, onClick: () => { if (confirm("Delete this debit note?")) deleteDebitNote.mutate(dn.id) }, danger: true, disabled: dn.status === "applied" },

@@ -808,7 +808,7 @@ async def update_debit_note_status(dn_id: UUID, status: str, current_user: dict 
     obj = result.scalar_one_or_none()
     if not obj:
         raise HTTPException(status_code=404, detail="Debit note not found")
-    valid = {"draft", "issued", "void"}
+    valid = {"draft", "issued", "applied", "void"}
     if status not in valid:
         raise HTTPException(status_code=400, detail=f"Invalid status. Must be one of: {', '.join(valid)}")
     obj.status = status
@@ -914,3 +914,65 @@ async def delete_sales_refund(sr_id: UUID, current_user: dict = Depends(get_curr
         raise HTTPException(status_code=404, detail="Sales refund not found")
     await db.delete(obj)
     await db.commit()
+
+
+@router.post("/debit-notes/{dn_id}/pay", status_code=201)
+async def pay_debit_note(
+    dn_id: UUID,
+    data: SalesPaymentCreate,
+    current_user: dict = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Create a sales payment for a debit note and mark it as applied."""
+    org_id = current_user["org_id"]
+    result = await db.execute(
+        select(DebitNote).where(DebitNote.id == dn_id, DebitNote.organization_id == org_id)
+    )
+    dn = result.scalar_one_or_none()
+    if not dn:
+        raise HTTPException(status_code=404, detail="Debit note not found")
+    if dn.status == "void":
+        raise HTTPException(status_code=400, detail="Cannot pay a voided debit note")
+
+    # Auto-generate payment number
+    count = (await db.execute(
+        select(func.count(SalesPayment.id)).where(SalesPayment.organization_id == org_id)
+    )).scalar() or 0
+    payment_number = f"PAY-{count + 1:04d}"
+
+    payment = SalesPayment(
+        organization_id=org_id,
+        contact_id=data.contact_id,
+        payment_number=payment_number,
+        payment_date=data.payment_date,
+        payment_method=data.payment_method,
+        reference=data.reference,
+        amount=data.amount,
+        bank_account_id=data.bank_account_id,
+        currency=data.currency,
+        notes=data.notes,
+        status="completed",
+    )
+    db.add(payment)
+    await db.flush()
+
+    # Allocate to linked invoice if provided
+    for alloc in data.allocations:
+        db.add(PaymentAllocation(
+            payment_id=payment.id,
+            invoice_id=alloc.invoice_id,
+            amount=alloc.amount,
+        ))
+        # Update invoice amount_paid
+        inv_result = await db.execute(select(Invoice).where(Invoice.id == alloc.invoice_id))
+        inv = inv_result.scalar_one_or_none()
+        if inv:
+            inv.amount_paid = float(inv.amount_paid or 0) + float(alloc.amount)
+            if inv.amount_paid >= inv.total:
+                inv.status = "paid"
+
+    # Mark debit note as applied
+    dn.status = "applied"
+
+    await db.commit()
+    return {"id": str(payment.id), "payment_number": payment_number, "status": "completed"}

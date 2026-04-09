@@ -181,7 +181,7 @@ export interface DebitNote {
   debit_note_number: string
   contact_id: string
   contact_name?: string
-  invoice_id: string
+  invoice_id: string | null
   status: string // draft, issued, applied, void
   issue_date: string
   reference: string | null

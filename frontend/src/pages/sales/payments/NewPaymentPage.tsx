@@ -1,6 +1,7 @@
 import { useState, useMemo, useEffect } from "react"
 import { useNavigate, useSearchParams } from "react-router-dom"
 import { useContacts, useBankAccounts, useInvoices, useCreateSalesPayment } from "../../../lib/hooks"
+import api from "../../../lib/api"
 import { formatCurrency, formatDate } from "../../../lib/utils"
 import { Card } from "../../../components/ui/card"
 import { Button } from "../../../components/ui/button"
@@ -34,16 +35,21 @@ export default function NewPaymentPage() {
     const invoiceId = searchParams.get("invoice_id")
     const directContactId = searchParams.get("contact_id")
     const directAmount = searchParams.get("amount")
+    const debitNoteId = searchParams.get("debit_note_id")
     if (directContactId) setCustomerId(directContactId)
     if (directAmount) setAmount(directAmount)
-    if (!invoiceId || !invoices) return
-    const inv = invoices.find((i) => i.id === invoiceId)
-    if (!inv) return
-    if (inv.contact_id) setCustomerId(inv.contact_id)
-    setSelectedInvoices({ [invoiceId]: true })
-    const balance = inv.total - (inv.amount_paid || 0)
-    setAllocations({ [invoiceId]: balance })
-    setAmount(String(balance))
+    if (!invoices) return
+    if (invoiceId) {
+      const inv = invoices.find((i) => i.id === invoiceId)
+      if (inv) {
+        if (!directContactId && inv.contact_id) setCustomerId(inv.contact_id)
+        setSelectedInvoices((prev) => ({ ...prev, [invoiceId]: true }))
+        // When from debit note use the debit note amount, otherwise use balance
+        const applyAmt = debitNoteId && directAmount ? parseFloat(directAmount) : (inv.total - (inv.amount_paid || 0))
+        setAllocations((prev) => ({ ...prev, [invoiceId]: applyAmt }))
+        if (!directAmount) setAmount(String(applyAmt))
+      }
+    }
   }, [searchParams, invoices])
 
   const outstandingInvoices = useMemo(() => {
@@ -51,7 +57,7 @@ export default function NewPaymentPage() {
     return invoices.filter(
       (inv: any) =>
         (inv.customer_id === customerId || inv.contact_id === customerId) &&
-        (inv.status === "sent" || inv.status === "outstanding" || inv.status === "partial" || inv.status === "overdue") &&
+        (inv.status === "sent" || inv.status === "viewed" || inv.status === "outstanding" || inv.status === "partial" || inv.status === "overdue") &&
         (inv.balance ?? inv.amount_due ?? (inv.total - (inv.amount_paid || 0))) > 0
     )
   }, [invoices, customerId])
@@ -76,7 +82,7 @@ export default function NewPaymentPage() {
       .filter(([id]) => selectedInvoices[id])
       .map(([invoice_id, amt]) => ({ invoice_id, amount: amt }))
 
-    await createPayment.mutateAsync({
+    const payload = {
       contact_id: customerId,
       payment_date: paymentDate,
       payment_method: paymentMethod,
@@ -85,7 +91,14 @@ export default function NewPaymentPage() {
       amount: parseFloat(amount) || 0,
       currency,
       allocations: allocationsList,
-    })
+    }
+
+    const debitNoteId = searchParams.get("debit_note_id")
+    if (debitNoteId) {
+      await api.post(`/debit-notes/${debitNoteId}/pay`, payload)
+    } else {
+      await createPayment.mutateAsync(payload)
+    }
 
     navigate("/sales/payments")
   }
@@ -97,7 +110,7 @@ export default function NewPaymentPage() {
 
   return (
     <div className="mx-auto max-w-4xl space-y-6 p-6">
-      <h1 className="text-2xl font-bold text-foreground">New Payment Received</h1>
+      <h1 className="text-2xl font-bold text-foreground">{searchParams.get("debit_note_id") ? "Pay Debit Note" : "New Payment Received"}</h1>
 
       <Card className={cardClass}>
         <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
