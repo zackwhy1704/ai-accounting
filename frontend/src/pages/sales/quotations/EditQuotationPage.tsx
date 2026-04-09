@@ -394,8 +394,8 @@ export default function EditQuotationPage() {
             </div>
           </div>
 
-          <div className="mt-6 flex items-center justify-between border-t border-border pt-4">
-            <Button type="button" variant="secondary" onClick={() => navigate("/sales/quotations")} className="h-10 rounded-xl px-4 text-sm">
+          <div className="mt-6 flex items-center justify-end gap-3 border-t border-border pt-4">
+            <Button type="button" variant="outline" onClick={() => navigate("/sales/quotations")} className="h-10 rounded-xl px-4 text-sm">
               Cancel
             </Button>
             <Button type="button" onClick={handleSave} disabled={updateQuotation.isPending} className="h-10 rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-600 px-6 text-sm font-semibold text-white shadow-sm hover:opacity-95">
