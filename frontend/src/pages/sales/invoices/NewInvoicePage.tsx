@@ -55,12 +55,6 @@ export default function NewInvoicePage() {
       setBillingState(contact.billing_state ?? "")
       setBillingPostcode(contact.billing_postcode ?? "")
       setBillingCountry(contact.billing_country ?? "")
-      setShippingLine1(contact.shipping_address_line1 ?? "")
-      setShippingLine2(contact.shipping_address_line2 ?? "")
-      setShippingCity(contact.shipping_city ?? "")
-      setShippingState(contact.shipping_state ?? "")
-      setShippingPostcode(contact.shipping_postcode ?? "")
-      setShippingCountry(contact.shipping_country ?? "")
       if (contact.default_payment_terms) setTerms(contact.default_payment_terms)
     }
     const prefs = getContactPrefs(id)
