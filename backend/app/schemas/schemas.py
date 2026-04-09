@@ -150,6 +150,18 @@ class LineItemCreate(BaseModel):
     tax_code_id: UUID | None = None
     account_id: UUID | None = None
 
+class LineItemResponse(BaseModel):
+    id: UUID
+    description: str
+    quantity: float
+    unit_price: float
+    tax_rate: float
+    tax_code_id: UUID | None = None
+    account_id: UUID | None = None
+    amount: float
+    sort_order: int = 0
+    model_config = {"from_attributes": True}
+
 class InvoiceCreate(BaseModel):
     contact_id: UUID
     invoice_number: str | None = None
@@ -181,6 +193,7 @@ class InvoiceResponse(BaseModel):
     currency: str
     notes: str | None
     created_at: datetime
+    line_items: list[LineItemResponse] = []
     model_config = {"from_attributes": True}
 
 
@@ -571,6 +584,7 @@ class BillResponse(BaseModel):
     currency: str
     notes: str | None
     created_at: datetime
+    line_items: list[LineItemResponse] = []
     model_config = {"from_attributes": True}
 
 
