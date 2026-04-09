@@ -930,6 +930,9 @@ export function useProduct(id: string | undefined) {
   return useQuery({ queryKey: ['product', id], queryFn: () => api.get(`/products/${id}`).then(r => r.data), enabled: !!id })
 }
 
+export function useBankAccounts() {
+  return useQuery({ queryKey: ['bank-accounts'], queryFn: () => api.get('/bank-accounts').then(r => r.data) })
+}
 export function useBankAccount(id: string | undefined) {
   return useQuery({ queryKey: ['bank-account', id], queryFn: () => api.get(`/bank-accounts/${id}`).then(r => r.data), enabled: !!id })
 }

@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useMemo } from "react"
 import { useNavigate, useParams } from "react-router-dom"
 import { Loader2 } from "lucide-react"
-import { useSalesPayment, useUpdateSalesPayment, useContacts, useAccounts, useInvoices } from "../../../lib/hooks"
+import { useSalesPayment, useUpdateSalesPayment, useContacts, useBankAccounts, useInvoices } from "../../../lib/hooks"
 import { formatCurrency, formatDate } from "../../../lib/utils"
 import { Card } from "../../../components/ui/card"
 import { Button } from "../../../components/ui/button"
@@ -17,7 +17,7 @@ export default function EditPaymentPage() {
   const navigate = useNavigate()
   const { data: payment, isLoading } = useSalesPayment(id)
   const { data: contacts } = useContacts()
-  const { data: accounts } = useAccounts()
+  const { data: bankAccounts = [] } = useBankAccounts()
   const { data: invoices } = useInvoices()
   const updatePayment = useUpdateSalesPayment()
   const populated = useRef(false)
@@ -54,10 +54,6 @@ export default function EditPaymentPage() {
     populated.current = true
   }, [payment])
 
-  const bankAccounts = useMemo(() => {
-    if (!accounts) return []
-    return accounts.filter((a: any) => a.type === "bank" || a.type === "cash" || a.account_type === "bank" || a.account_type === "cash")
-  }, [accounts])
 
   const outstandingInvoices = useMemo(() => {
     if (!invoices || !customerId) return []

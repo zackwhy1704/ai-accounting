@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect } from "react"
 import { useNavigate, useSearchParams } from "react-router-dom"
-import { useContacts, useAccounts, useInvoices, useCreateSalesPayment } from "../../../lib/hooks"
+import { useContacts, useBankAccounts, useInvoices, useCreateSalesPayment } from "../../../lib/hooks"
 import { formatCurrency, formatDate } from "../../../lib/utils"
 import { Card } from "../../../components/ui/card"
 import { Button } from "../../../components/ui/button"
@@ -15,7 +15,7 @@ export default function NewPaymentPage() {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const { data: contacts } = useContacts()
-  const { data: accounts } = useAccounts()
+  const { data: bankAccounts = [] } = useBankAccounts()
   const { data: invoices } = useInvoices()
   const createPayment = useCreateSalesPayment()
 
@@ -45,13 +45,6 @@ export default function NewPaymentPage() {
     setAllocations({ [invoiceId]: balance })
     setAmount(String(balance))
   }, [searchParams, invoices])
-
-  const bankAccounts = useMemo(() => {
-    if (!accounts) return []
-    return accounts.filter(
-      (a: any) => a.subtype === "bank" || a.subtype === "cash" || a.type === "bank" || a.type === "cash"
-    )
-  }, [accounts])
 
   const outstandingInvoices = useMemo(() => {
     if (!invoices || !customerId) return []
