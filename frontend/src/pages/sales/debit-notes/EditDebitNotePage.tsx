@@ -16,7 +16,6 @@ interface LineItem {
   quantity: number
   unitPrice: number
   taxRate: number
-  lineType: "goods" | "services"
   taxCodeId: string
 }
 
@@ -27,7 +26,6 @@ const emptyLine = (): LineItem => ({
   quantity: 1,
   unitPrice: 0,
   taxRate: 0,
-  lineType: "goods",
   taxCodeId: "",
 })
 
@@ -48,10 +46,7 @@ export default function EditDebitNotePage() {
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10))
   const [reference, setReference] = useState("")
   const [lines, setLines] = useState<LineItem[]>([emptyLine()])
-  const [discountGiven, setDiscountGiven] = useState(0)
-  const [roundingAdjustment, setRoundingAdjustment] = useState(0)
   const [, setCurrency] = useState("MYR")
-  const [quickShareEmail, setQuickShareEmail] = useState(false)
 
   useEffect(() => {
     if (!debitNote || populated.current) return
@@ -60,9 +55,6 @@ export default function EditDebitNotePage() {
     setLinkedInvoiceId(String(debitNote.invoice_id ?? ""))
     setDate(debitNote.issue_date?.slice(0, 10) ?? new Date().toISOString().slice(0, 10))
     setReference(debitNote.reference ?? "")
-    setDiscountGiven(debitNote.discount_given ?? 0)
-    setRoundingAdjustment(debitNote.rounding_adjustment ?? 0)
-    setQuickShareEmail(debitNote.quick_share_email ?? false)
     if (debitNote.line_items?.length) {
       setLines(debitNote.line_items.map((l: any) => ({
         id: crypto.randomUUID(),
@@ -71,7 +63,6 @@ export default function EditDebitNotePage() {
         quantity: l.quantity ?? 1,
         unitPrice: l.unit_price ?? 0,
         taxRate: l.tax_rate ?? 0,
-        lineType: l.line_type ?? "goods",
         taxCodeId: l.tax_code_id ? String(l.tax_code_id) : "",
       })))
     }
@@ -97,9 +88,6 @@ export default function EditDebitNotePage() {
         const tc = taxRates.find((t: any) => t.id === value)
         if (tc) updated.taxRate = tc.rate
       }
-      if (field === "lineType" && value === "services") {
-        updated.quantity = 1
-      }
       return updated
     }))
   }
@@ -110,7 +98,7 @@ export default function EditDebitNotePage() {
 
   const subTotal = lines.reduce((sum, l) => sum + l.quantity * l.unitPrice, 0)
   const totalTax = lines.reduce((sum, l) => sum + (l.quantity * l.unitPrice * l.taxRate) / 100, 0)
-  const total = subTotal - discountGiven + totalTax + roundingAdjustment
+  const total = subTotal + totalTax
 
   const handleSave = () => {
     updateDebitNote.mutate(
@@ -127,7 +115,6 @@ export default function EditDebitNotePage() {
           quantity: l.quantity,
           unit_price: l.unitPrice,
           tax_rate: l.taxRate,
-          line_type: l.lineType,
           tax_code_id: l.taxCodeId || undefined,
         })),
       } as any,
@@ -195,7 +182,6 @@ export default function EditDebitNotePage() {
               <TableHeader>
                 <TableRow className="border-border hover:bg-transparent">
                   <TableHead className="w-[50px] text-muted-foreground">#</TableHead>
-                  <TableHead className="w-[100px] text-muted-foreground">Type</TableHead>
                   <TableHead className="text-muted-foreground">Description</TableHead>
                   <TableHead className="w-[180px] text-muted-foreground">Account</TableHead>
                   <TableHead className="w-[100px] text-muted-foreground">Quantity</TableHead>
@@ -211,15 +197,6 @@ export default function EditDebitNotePage() {
                   <TableRow key={line.id} className="border-border hover:bg-muted/50">
                     <TableCell className="text-muted-foreground">{idx + 1}</TableCell>
                     <TableCell>
-                      <Select value={line.lineType} onValueChange={v => updateLine(line.id, "lineType", v)}>
-                        <SelectTrigger className="h-9 rounded-lg border-0 bg-transparent shadow-none focus:ring-1"><SelectValue /></SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="goods">Goods</SelectItem>
-                          <SelectItem value="services">Services</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </TableCell>
-                    <TableCell>
                       <Input value={line.description} onChange={e => updateLine(line.id, "description", e.target.value)} placeholder="Item description" className="h-9 rounded-lg border-0 bg-transparent px-2 text-sm shadow-none focus-visible:ring-1" />
                     </TableCell>
                     <TableCell>
@@ -231,11 +208,7 @@ export default function EditDebitNotePage() {
                       </Select>
                     </TableCell>
                     <TableCell>
-                      {line.lineType === "services" ? (
-                        <span className="px-2 text-sm text-muted-foreground">&mdash;</span>
-                      ) : (
-                        <Input type="number" min={0} value={line.quantity} onChange={e => updateLine(line.id, "quantity", Number(e.target.value))} className="h-9 rounded-lg border-0 bg-transparent px-2 text-sm shadow-none focus-visible:ring-1" />
-                      )}
+                      <Input type="number" min={0} value={line.quantity} onChange={e => updateLine(line.id, "quantity", Number(e.target.value))} className="h-9 rounded-lg border-0 bg-transparent px-2 text-sm shadow-none focus-visible:ring-1" />
                     </TableCell>
                     <TableCell>
                       <Input type="number" min={0} step={0.01} value={line.unitPrice} onChange={e => updateLine(line.id, "unitPrice", Number(e.target.value))} className="h-9 rounded-lg border-0 bg-transparent px-2 text-sm shadow-none focus-visible:ring-1" />
@@ -283,16 +256,8 @@ export default function EditDebitNotePage() {
                 <span className="text-foreground">{subTotal.toFixed(2)}</span>
               </div>
               <div className="flex items-center justify-between text-sm">
-                <span className="text-muted-foreground">Discount Given</span>
-                <Input type="number" min={0} step={0.01} value={discountGiven} onChange={e => setDiscountGiven(Number(e.target.value))} className="h-8 w-28 rounded-lg text-right text-sm" />
-              </div>
-              <div className="flex items-center justify-between text-sm">
                 <span className="text-muted-foreground">Tax</span>
                 <span className="text-foreground">{totalTax.toFixed(2)}</span>
-              </div>
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-muted-foreground">Rounding Adjustment</span>
-                <Input type="number" step={0.01} value={roundingAdjustment} onChange={e => setRoundingAdjustment(Number(e.target.value))} className="h-8 w-28 rounded-lg text-right text-sm" />
               </div>
               <div className="border-t border-border pt-2 flex items-center justify-between text-sm font-semibold">
                 <span className="text-foreground">TOTAL</span>
@@ -303,11 +268,7 @@ export default function EditDebitNotePage() {
         </div>
       </Card>
 
-      <div className="flex items-center justify-between">
-        <label className="flex items-center gap-2 text-sm text-muted-foreground">
-          <input type="checkbox" checked={quickShareEmail} onChange={e => setQuickShareEmail(e.target.checked)} className="h-4 w-4 rounded border-border" />
-          QuickShare via Email
-        </label>
+      <div className="flex items-center justify-end">
         <div className="flex items-center gap-3">
           <Button type="button" variant="outline" onClick={() => navigate("/sales/debit-notes")}>Cancel</Button>
           <Button type="button" onClick={handleSave} disabled={updateDebitNote.isPending || !customerId || !lines.some((l: any) => l.description?.trim())} className="h-9 rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-600 px-6 text-xs font-semibold text-white shadow-sm hover:opacity-95">

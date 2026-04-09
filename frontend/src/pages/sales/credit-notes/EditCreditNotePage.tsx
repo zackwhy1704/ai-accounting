@@ -51,18 +51,6 @@ export default function EditCreditNotePage() {
   const [discountGiven, setDiscountGiven] = useState(0)
   const [roundingAdjustment, setRoundingAdjustment] = useState(false)
   const [quickShareEmail, setQuickShareEmail] = useState(false)
-  const [billingLine1, setBillingLine1] = useState("")
-  const [billingLine2, setBillingLine2] = useState("")
-  const [billingCity, setBillingCity] = useState("")
-  const [billingState, setBillingState] = useState("")
-  const [billingPostcode, setBillingPostcode] = useState("")
-  const [billingCountry, setBillingCountry] = useState("")
-  const [shippingLine1, setShippingLine1] = useState("")
-  const [shippingLine2, setShippingLine2] = useState("")
-  const [shippingCity, setShippingCity] = useState("")
-  const [shippingState, setShippingState] = useState("")
-  const [shippingPostcode, setShippingPostcode] = useState("")
-  const [shippingCountry, setShippingCountry] = useState("")
   const [lineItems, setLineItems] = useState<LineItem[]>([])
 
   useEffect(() => {
@@ -89,18 +77,6 @@ export default function EditCreditNotePage() {
         tax_code_id: l.tax_code_id ? String(l.tax_code_id) : "",
       })))
     }
-    setBillingLine1(creditNote.billing_address_line1 ?? "")
-    setBillingLine2(creditNote.billing_address_line2 ?? "")
-    setBillingCity(creditNote.billing_city ?? "")
-    setBillingState(creditNote.billing_state ?? "")
-    setBillingPostcode(creditNote.billing_postcode ?? "")
-    setBillingCountry(creditNote.billing_country ?? "")
-    setShippingLine1(creditNote.shipping_address_line1 ?? "")
-    setShippingLine2(creditNote.shipping_address_line2 ?? "")
-    setShippingCity(creditNote.shipping_city ?? "")
-    setShippingState(creditNote.shipping_state ?? "")
-    setShippingPostcode(creditNote.shipping_postcode ?? "")
-    setShippingCountry(creditNote.shipping_country ?? "")
     if (creditNote.credit_applications?.length) {
       setApplyCreditLines(creditNote.credit_applications.map((a: any) => ({
         invoice_id: String(a.invoice_id),
@@ -147,20 +123,6 @@ export default function EditCreditNotePage() {
   const handleContactChange = (v: string) => {
     if (v === "__add_new__") { navigate("/contacts/new"); return }
     setContactId(v)
-    const contact = contacts.find((c: any) => c.id === v)
-    if (!contact) return
-    setBillingLine1(contact.billing_address_line1 ?? "")
-    setBillingLine2(contact.billing_address_line2 ?? "")
-    setBillingCity(contact.billing_city ?? "")
-    setBillingState(contact.billing_state ?? "")
-    setBillingPostcode(contact.billing_postcode ?? "")
-    setBillingCountry(contact.billing_country ?? "")
-    setShippingLine1(contact.shipping_address_line1 ?? "")
-    setShippingLine2(contact.shipping_address_line2 ?? "")
-    setShippingCity(contact.shipping_city ?? "")
-    setShippingState(contact.shipping_state ?? "")
-    setShippingPostcode(contact.shipping_postcode ?? "")
-    setShippingCountry(contact.shipping_country ?? "")
     const prefs = getContactPrefs(v)
     if (prefs.currency) setCurrency(prefs.currency)
     if (prefs.tax_inclusive !== undefined) setTaxInclusive(prefs.tax_inclusive)
@@ -220,18 +182,6 @@ export default function EditCreditNotePage() {
         reference,
         currency,
         notes: null,
-        billing_address_line1: billingLine1 || null,
-        billing_address_line2: billingLine2 || null,
-        billing_city: billingCity || null,
-        billing_state: billingState || null,
-        billing_postcode: billingPostcode || null,
-        billing_country: billingCountry || null,
-        shipping_address_line1: shippingLine1 || null,
-        shipping_address_line2: shippingLine2 || null,
-        shipping_city: shippingCity || null,
-        shipping_state: shippingState || null,
-        shipping_postcode: shippingPostcode || null,
-        shipping_country: shippingCountry || null,
         line_items: lineItems.map(li => ({
           description: li.description,
           account_id: li.account_id || undefined,
@@ -525,43 +475,6 @@ export default function EditCreditNotePage() {
             <Button type="button" onClick={handleApplyOnly} disabled={updateCreditNote.isPending || creditApplied <= 0} className="h-9 rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-600 px-6 text-sm font-semibold text-white disabled:opacity-40 disabled:cursor-not-allowed">
               {updateCreditNote.isPending ? "Saving..." : "Apply Credit"}
             </Button>
-          </div>
-        </Card>
-
-        {/* Billing & Shipping Card */}
-        <Card className={cardClass}>
-          <h3 className="mb-4 text-sm font-semibold text-foreground">Billing & Shipping</h3>
-          <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-            <div>
-              <h3 className="mb-4 text-sm font-semibold text-foreground">Billing Address</h3>
-              <div className="space-y-3">
-                <Input placeholder="Address Line 1" className="h-10 rounded-xl" value={billingLine1} onChange={e => setBillingLine1(e.target.value)} />
-                <Input placeholder="Address Line 2" className="h-10 rounded-xl" value={billingLine2} onChange={e => setBillingLine2(e.target.value)} />
-                <div className="grid grid-cols-2 gap-3">
-                  <Input placeholder="City" className="h-10 rounded-xl" value={billingCity} onChange={e => setBillingCity(e.target.value)} />
-                  <Input placeholder="State" className="h-10 rounded-xl" value={billingState} onChange={e => setBillingState(e.target.value)} />
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <Input placeholder="Postcode" className="h-10 rounded-xl" value={billingPostcode} onChange={e => setBillingPostcode(e.target.value)} />
-                  <Input placeholder="Country" className="h-10 rounded-xl" value={billingCountry} onChange={e => setBillingCountry(e.target.value)} />
-                </div>
-              </div>
-            </div>
-            <div>
-              <h3 className="mb-4 text-sm font-semibold text-foreground">Shipping Address</h3>
-              <div className="space-y-3">
-                <Input placeholder="Address Line 1" className="h-10 rounded-xl" value={shippingLine1} onChange={e => setShippingLine1(e.target.value)} />
-                <Input placeholder="Address Line 2" className="h-10 rounded-xl" value={shippingLine2} onChange={e => setShippingLine2(e.target.value)} />
-                <div className="grid grid-cols-2 gap-3">
-                  <Input placeholder="City" className="h-10 rounded-xl" value={shippingCity} onChange={e => setShippingCity(e.target.value)} />
-                  <Input placeholder="State" className="h-10 rounded-xl" value={shippingState} onChange={e => setShippingState(e.target.value)} />
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <Input placeholder="Postcode" className="h-10 rounded-xl" value={shippingPostcode} onChange={e => setShippingPostcode(e.target.value)} />
-                  <Input placeholder="Country" className="h-10 rounded-xl" value={shippingCountry} onChange={e => setShippingCountry(e.target.value)} />
-                </div>
-              </div>
-            </div>
           </div>
         </Card>
 

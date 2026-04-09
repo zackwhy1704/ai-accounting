@@ -47,19 +47,6 @@ export default function NewCreditNotePage() {
   const [lineItems, setLineItems] = useState<LineItem[]>([])
   const [applyCreditLines, setApplyCreditLines] = useState<ApplyCreditLine[]>([])
 
-  const [billingLine1, setBillingLine1] = useState("")
-  const [billingLine2, setBillingLine2] = useState("")
-  const [billingCity, setBillingCity] = useState("")
-  const [billingState, setBillingState] = useState("")
-  const [billingPostcode, setBillingPostcode] = useState("")
-  const [billingCountry, setBillingCountry] = useState("")
-  const [shippingLine1, setShippingLine1] = useState("")
-  const [shippingLine2, setShippingLine2] = useState("")
-  const [shippingCity, setShippingCity] = useState("")
-  const [shippingState, setShippingState] = useState("")
-  const [shippingPostcode, setShippingPostcode] = useState("")
-  const [shippingCountry, setShippingCountry] = useState("")
-
   const customerInvoices = invoices.filter(
     (inv: any) =>
       String(inv.contact_id) === String(contactId) &&
@@ -70,21 +57,6 @@ export default function NewCreditNotePage() {
   const handleContactChange = (id: string) => {
     if (id === "__add_new__") { navigate("/contacts/new"); return }
     setContactId(id)
-    const contact = contacts.find((c: any) => c.id === id) as any
-    if (contact) {
-      setBillingLine1(contact.billing_address_line1 ?? "")
-      setBillingLine2(contact.billing_address_line2 ?? "")
-      setBillingCity(contact.billing_city ?? "")
-      setBillingState(contact.billing_state ?? "")
-      setBillingPostcode(contact.billing_postcode ?? "")
-      setBillingCountry(contact.billing_country ?? "")
-      setShippingLine1(contact.shipping_address_line1 ?? "")
-      setShippingLine2(contact.shipping_address_line2 ?? "")
-      setShippingCity(contact.shipping_city ?? "")
-      setShippingState(contact.shipping_state ?? "")
-      setShippingPostcode(contact.shipping_postcode ?? "")
-      setShippingCountry(contact.shipping_country ?? "")
-    }
     const prefs = getContactPrefs(id)
     if (prefs.currency) setCurrency(prefs.currency)
     if (prefs.tax_inclusive !== undefined) setTaxInclusive(prefs.tax_inclusive)
@@ -171,18 +143,6 @@ export default function NewCreditNotePage() {
         reference,
         currency,
         notes: null,
-        billing_address_line1: billingLine1 || null,
-        billing_address_line2: billingLine2 || null,
-        billing_city: billingCity || null,
-        billing_state: billingState || null,
-        billing_postcode: billingPostcode || null,
-        billing_country: billingCountry || null,
-        shipping_address_line1: shippingLine1 || null,
-        shipping_address_line2: shippingLine2 || null,
-        shipping_city: shippingCity || null,
-        shipping_state: shippingState || null,
-        shipping_postcode: shippingPostcode || null,
-        shipping_country: shippingCountry || null,
         line_items: lineItems.map(li => ({
           description: li.description,
           account_id: li.account_id || undefined,
@@ -588,43 +548,6 @@ export default function NewCreditNotePage() {
             <div className="flex items-center justify-between">
               <span className="text-muted-foreground">Credit Applied</span>
               <span className="font-medium text-foreground">{currency} {creditApplied.toFixed(2)}</span>
-            </div>
-          </div>
-        </div>
-      </Card>
-
-      {/* Billing & Shipping Card */}
-      <Card className={cardClass}>
-        <h3 className="mb-4 text-sm font-semibold text-foreground">Billing & Shipping</h3>
-        <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-          <div>
-            <h3 className="mb-4 text-sm font-semibold text-foreground">Billing Address</h3>
-            <div className="space-y-3">
-              <Input placeholder="Address Line 1" value={billingLine1} onChange={e => setBillingLine1(e.target.value)} className="h-10 rounded-xl" />
-              <Input placeholder="Address Line 2" value={billingLine2} onChange={e => setBillingLine2(e.target.value)} className="h-10 rounded-xl" />
-              <div className="grid grid-cols-2 gap-3">
-                <Input placeholder="City" value={billingCity} onChange={e => setBillingCity(e.target.value)} className="h-10 rounded-xl" />
-                <Input placeholder="State" value={billingState} onChange={e => setBillingState(e.target.value)} className="h-10 rounded-xl" />
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <Input placeholder="Postcode" value={billingPostcode} onChange={e => setBillingPostcode(e.target.value)} className="h-10 rounded-xl" />
-                <Input placeholder="Country" value={billingCountry} onChange={e => setBillingCountry(e.target.value)} className="h-10 rounded-xl" />
-              </div>
-            </div>
-          </div>
-          <div>
-            <h3 className="mb-4 text-sm font-semibold text-foreground">Shipping Address</h3>
-            <div className="space-y-3">
-              <Input placeholder="Address Line 1" value={shippingLine1} onChange={e => setShippingLine1(e.target.value)} className="h-10 rounded-xl" />
-              <Input placeholder="Address Line 2" value={shippingLine2} onChange={e => setShippingLine2(e.target.value)} className="h-10 rounded-xl" />
-              <div className="grid grid-cols-2 gap-3">
-                <Input placeholder="City" value={shippingCity} onChange={e => setShippingCity(e.target.value)} className="h-10 rounded-xl" />
-                <Input placeholder="State" value={shippingState} onChange={e => setShippingState(e.target.value)} className="h-10 rounded-xl" />
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <Input placeholder="Postcode" value={shippingPostcode} onChange={e => setShippingPostcode(e.target.value)} className="h-10 rounded-xl" />
-                <Input placeholder="Country" value={shippingCountry} onChange={e => setShippingCountry(e.target.value)} className="h-10 rounded-xl" />
-              </div>
             </div>
           </div>
         </div>
