@@ -172,3 +172,34 @@ async def void_purchase_refund(
         refund.refund_no,
     )
     await db.commit()
+
+
+@router.patch("/{refund_id}/status")
+async def update_purchase_refund_status(
+    refund_id: UUID,
+    status: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: dict = Depends(get_current_user),
+):
+    valid = {"draft", "completed", "void"}
+    if status not in valid:
+        raise HTTPException(status_code=400, detail=f"Invalid status. Must be one of: {valid}")
+    result = await db.execute(
+        select(PurchaseRefund).where(
+            PurchaseRefund.id == refund_id,
+            PurchaseRefund.organization_id == current_user["org_id"],
+        )
+    )
+    refund = result.scalar_one_or_none()
+    if not refund:
+        raise HTTPException(status_code=404, detail="Purchase refund not found")
+    if status == "void" and refund.status != "void":
+        await revert_gl(
+            db, current_user["org_id"], refund_id, "purchase_refund",
+            refund.refund_date,
+            f"Reversal: Purchase refund {refund.refund_no} voided",
+            refund.refund_no,
+        )
+    refund.status = status
+    await db.commit()
+    return {"id": str(refund_id), "status": status}

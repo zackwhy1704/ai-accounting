@@ -2,7 +2,7 @@ import { useMemo, useState } from "react"
 import { useQueryClient } from "@tanstack/react-query"
 import { useNavigate } from "react-router-dom"
 import { ViewDetailSheet } from "../../components/ui/view-detail-sheet"
-import { Plus, ClipboardList, FileText, Pencil, Trash2 } from "lucide-react"
+import { Plus, ClipboardList, FileText, Pencil, Trash2, PackageCheck, Receipt } from "lucide-react"
 import { useGoodsReceivedNotes, useContacts } from "../../lib/hooks"
 import api from "../../lib/api"
 import { formatDate, cn } from "../../lib/utils"
@@ -111,8 +111,10 @@ export default function GoodsReceivedNotesPage() {
                     <TableCell className="text-right">
                       <RowActionsMenu actions={[
                         { label: "View", icon: <FileText className="h-3.5 w-3.5" />, onClick: () => setViewItem(grn) },
-                        { label: "Edit", icon: <Pencil className="h-3.5 w-3.5" />, onClick: () => navigate(`/goods-received-notes/${grn.id}/edit`) },
-                        { label: "Delete", icon: <Trash2 className="h-3.5 w-3.5" />, onClick: () => { if (confirm("Delete this GRN?")) api.delete(`/goods-received-notes/${grn.id}`).then(() => queryClient.invalidateQueries({ queryKey: ["goods-received-notes"] })) }, danger: true, dividerBefore: true },
+                        { label: "Edit", icon: <Pencil className="h-3.5 w-3.5" />, onClick: () => navigate(`/purchases/goods-received-notes/${grn.id}/edit`) },
+                        { label: "Mark as Received", icon: <PackageCheck className="h-3.5 w-3.5" />, onClick: () => api.patch(`/goods-received-notes/${grn.id}/status`, null, { params: { status: "received" } }).then(() => queryClient.invalidateQueries({ queryKey: ["goods-received-notes"] })), dividerBefore: true, disabled: grn.status !== "draft" },
+                        { label: "Mark as Billed", icon: <Receipt className="h-3.5 w-3.5" />, onClick: () => api.patch(`/goods-received-notes/${grn.id}/status`, null, { params: { status: "billed" } }).then(() => queryClient.invalidateQueries({ queryKey: ["goods-received-notes"] })), disabled: grn.status === "billed" || grn.status === "draft" },
+                        { label: "Delete", icon: <Trash2 className="h-3.5 w-3.5" />, onClick: () => { if (confirm("Delete this GRN?")) api.delete(`/goods-received-notes/${grn.id}`).then(() => queryClient.invalidateQueries({ queryKey: ["goods-received-notes"] })) }, danger: true, dividerBefore: true, disabled: grn.status === "billed" },
                       ]} />
                     </TableCell>
                   </TableRow>
