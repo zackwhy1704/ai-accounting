@@ -406,7 +406,7 @@ class CreditNoteResponse(BaseModel):
 # ── Debit Note ──
 class DebitNoteCreate(BaseModel):
     contact_id: UUID
-    invoice_id: UUID
+    invoice_id: UUID | None = None
     issue_date: datetime
     reference: str | None = None
     currency: str = "MYR"
@@ -440,7 +440,7 @@ class DebitNoteResponse(BaseModel):
     id: UUID
     debit_note_number: str
     contact_id: UUID
-    invoice_id: UUID
+    invoice_id: UUID | None
     status: str
     issue_date: datetime
     reference: str | None

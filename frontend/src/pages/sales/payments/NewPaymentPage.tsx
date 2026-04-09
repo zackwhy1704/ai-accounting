@@ -29,9 +29,13 @@ export default function NewPaymentPage() {
   const [allocations, setAllocations] = useState<Record<string, number>>({})
   const [selectedInvoices, setSelectedInvoices] = useState<Record<string, boolean>>({})
 
-  // Pre-fill from invoice link
+  // Pre-fill from invoice link or direct contact/amount
   useEffect(() => {
     const invoiceId = searchParams.get("invoice_id")
+    const directContactId = searchParams.get("contact_id")
+    const directAmount = searchParams.get("amount")
+    if (directContactId) setCustomerId(directContactId)
+    if (directAmount) setAmount(directAmount)
     if (!invoiceId || !invoices) return
     const inv = invoices.find((i) => i.id === invoiceId)
     if (!inv) return

@@ -31,6 +31,8 @@ export default function NewRecurringInvoicePage() {
   const [frequency, setFrequency] = useState("monthly")
   const [startDate, setStartDate] = useState(new Date().toISOString().split("T")[0])
   const [endDate, setEndDate] = useState("")
+  const [periodStart, setPeriodStart] = useState(new Date().toISOString().split("T")[0])
+  const [periodEnd, setPeriodEnd] = useState("")
   const [currency, setCurrency] = useState("MYR")
   const [reference, setReference] = useState("")
   const [autoSend, setAutoSend] = useState(false)
@@ -63,7 +65,7 @@ export default function NewRecurringInvoicePage() {
         start_date: startDate,
         end_date: endDate || undefined,
         currency,
-        notes: reference || undefined,
+        notes: [reference, periodStart && periodEnd ? `Period: ${periodStart} to ${periodEnd}` : ""].filter(Boolean).join(" | ") || undefined,
         auto_send: autoSend,
         line_items: lineItems.map(li => ({
           description: li.description,
@@ -141,6 +143,21 @@ export default function NewRecurringInvoicePage() {
           <div className="space-y-1.5">
             <label className="text-sm font-medium text-foreground">Reference</label>
             <Input value={reference} onChange={e => setReference(e.target.value)} placeholder="Reference note" />
+          </div>
+
+          <div className="space-y-1.5 md:col-span-2">
+            <label className="text-sm font-medium text-foreground">First Billing Period</label>
+            <p className="text-xs text-muted-foreground">The date range this first invoice covers. Subsequent invoices will automatically advance by the frequency interval.</p>
+            <div className="flex items-center gap-3">
+              <div className="flex-1">
+                <label className="mb-1 block text-xs text-muted-foreground">Period Start</label>
+                <Input type="date" value={periodStart} onChange={e => setPeriodStart(e.target.value)} />
+              </div>
+              <div className="flex-1">
+                <label className="mb-1 block text-xs text-muted-foreground">Period End</label>
+                <Input type="date" value={periodEnd} onChange={e => setPeriodEnd(e.target.value)} />
+              </div>
+            </div>
           </div>
 
           <div className="flex items-center gap-2 md:col-span-2">

@@ -1,9 +1,9 @@
 import { useMemo, useState } from "react"
 import { useNavigate } from "react-router-dom"
 import { useQueryClient } from "@tanstack/react-query"
-import { Plus, Search, ArrowRightLeft, Pencil, Send, XCircle } from "lucide-react"
+import { Plus, Search, ArrowRightLeft, Pencil, Send, XCircle, RotateCcw } from "lucide-react"
 import { RowActionsMenu } from "../../../components/ui/row-actions"
-import { useCreditNotes, useContacts } from "../../../lib/hooks"
+import { useCreditNotes, useContacts, useInvoices } from "../../../lib/hooks"
 import api from "../../../lib/api"
 import { formatCurrency, formatDate, cn } from "../../../lib/utils"
 import { useTheme } from "../../../lib/theme"
@@ -34,6 +34,7 @@ export default function CreditNotesPage() {
   const [dateTo, setDateTo] = useState("")
   const { data: creditNotes = [], isLoading } = useCreditNotes(tab === "all" ? undefined : tab)
   const { data: contacts = [] } = useContacts()
+  const { data: invoices = [] } = useInvoices()
   const { t } = useTheme()
 
   const statusTabs = [
@@ -49,6 +50,12 @@ export default function CreditNotesPage() {
     contacts.forEach(c => m.set(c.id, c.name))
     return m
   }, [contacts])
+
+  const invoiceMap = useMemo(() => {
+    const m = new Map<string, string>()
+    invoices.forEach((inv: any) => m.set(inv.id, inv.invoice_number))
+    return m
+  }, [invoices])
 
   const rows = useMemo(() => {
     let filtered = creditNotes
@@ -150,7 +157,7 @@ export default function CreditNotesPage() {
                         <TableCell className="font-medium text-foreground">{row.credit_note_number}</TableCell>
                         <TableCell className="text-muted-foreground">{formatDate(row.issue_date)}</TableCell>
                         <TableCell className="text-foreground">{contactMap.get(row.contact_id) ?? "\u2014"}</TableCell>
-                        <TableCell className="text-muted-foreground">{row.invoice_id ?? "\u2014"}</TableCell>
+                        <TableCell className="text-muted-foreground">{row.invoice_id ? (invoiceMap.get(row.invoice_id) ?? row.invoice_id) : "\u2014"}</TableCell>
                         <TableCell className="text-right text-foreground">{formatCurrency(row.total)}</TableCell>
                         <TableCell className="text-right text-foreground">{formatCurrency(row.credit_applied ?? 0)}</TableCell>
                         <TableCell>
@@ -160,7 +167,8 @@ export default function CreditNotesPage() {
                           <RowActionsMenu actions={[
                             { label: "Edit", icon: <Pencil className="h-3.5 w-3.5" />, onClick: () => navigate(`/sales/credit-notes/${row.id}/edit`), disabled: row.status === "void" },
                             { label: "Mark as Issued", icon: <Send className="h-3.5 w-3.5" />, onClick: () => patch(row.id, "issued"), dividerBefore: true, disabled: row.status !== "draft" },
-                            { label: t("creditNotes.applyToInvoice"), icon: <ArrowRightLeft className="h-3.5 w-3.5" />, onClick: () => navigate(`/sales/credit-notes/${row.id}/apply`), disabled: row.status === "void" || row.status === "draft" },
+                            { label: t("creditNotes.applyToInvoice"), icon: <ArrowRightLeft className="h-3.5 w-3.5" />, onClick: () => navigate(`/sales/credit-notes/${row.id}/edit?tab=apply_credit`), disabled: row.status === "void" || row.status === "draft" },
+                            { label: "Issue Refund", icon: <RotateCcw className="h-3.5 w-3.5" />, onClick: () => navigate(`/sales/refunds/new?credit_note_id=${row.id}&amount=${row.total}&contact_id=${row.contact_id}`), disabled: row.status === "void" || row.status === "applied" },
                             { label: "Void", icon: <XCircle className="h-3.5 w-3.5" />, onClick: () => { if (confirm("Void this credit note?")) patch(row.id, "void") }, danger: true, dividerBefore: true, disabled: row.status === "void" || row.status === "applied" },
                           ]} />
                         </TableCell>

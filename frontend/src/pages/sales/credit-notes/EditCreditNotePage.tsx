@@ -1,7 +1,8 @@
-import { useState, useEffect, useRef } from "react"
-import { useNavigate, useParams } from "react-router-dom"
+import { useState, useEffect, useRef, useMemo } from "react"
+import { useNavigate, useParams, useSearchParams } from "react-router-dom"
 import { Plus, Trash2, Loader2 } from "lucide-react"
-import { useCreditNote, useUpdateCreditNote, useContacts, useAccounts, useTaxRates } from "../../../lib/hooks"
+import { useCreditNote, useUpdateCreditNote, useContacts, useAccounts, useTaxRates, useInvoices } from "../../../lib/hooks"
+import { formatCurrency, formatDate } from "../../../lib/utils"
 import { getContactPrefs, saveContactPref } from "../../../lib/contact-prefs"
 import { Card } from "../../../components/ui/card"
 import { Button } from "../../../components/ui/button"
@@ -21,10 +22,17 @@ interface LineItem {
   tax_code_id: string
 }
 
+interface ApplyCreditLine {
+  invoice_id: string
+  selected: boolean
+  apply_amount: number
+}
+
 const TABS = [
+  { key: "items", label: "Items" },
+  { key: "apply_credit", label: "Apply Credit" },
   { key: "billing", label: "Billing & Shipping" },
   { key: "general", label: "General Info" },
-  { key: "items", label: "Items" },
   { key: "additional", label: "Additional Info" },
 ] as const
 
@@ -35,14 +43,18 @@ const cardClass = "rounded-2xl border-border bg-card p-6 shadow-[0_0_0_1px_rgba(
 export default function EditCreditNotePage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
   const { data: creditNote, isLoading } = useCreditNote(id)
   const { data: contacts = [] } = useContacts()
   const { data: accounts = [] } = useAccounts()
   const { data: taxRates = [] } = useTaxRates()
+  const { data: invoices = [] } = useInvoices()
   const updateCreditNote = useUpdateCreditNote()
   const populated = useRef(false)
 
-  const [activeTab, setActiveTab] = useState<TabKey>("items")
+  const initialTab = (searchParams.get("tab") as TabKey) || "items"
+  const [activeTab, setActiveTab] = useState<TabKey>(initialTab)
+  const [applyCreditLines, setApplyCreditLines] = useState<ApplyCreditLine[]>([])
   const [creditNoteNumber, setCreditNoteNumber] = useState("")
   const [contactId, setContactId] = useState("")
   const [creditNoteDate, setCreditNoteDate] = useState("")
@@ -102,8 +114,47 @@ export default function EditCreditNotePage() {
     setShippingState(creditNote.shipping_state ?? "")
     setShippingPostcode(creditNote.shipping_postcode ?? "")
     setShippingCountry(creditNote.shipping_country ?? "")
+    if (creditNote.credit_applications?.length) {
+      setApplyCreditLines(creditNote.credit_applications.map((a: any) => ({
+        invoice_id: String(a.invoice_id),
+        selected: true,
+        apply_amount: a.amount ?? 0,
+      })))
+    }
     populated.current = true
   }, [creditNote])
+
+  const customerInvoices = useMemo(() => {
+    if (!contactId) return []
+    return invoices.filter((inv: any) =>
+      (inv.contact_id === contactId) &&
+      (inv.status === "sent" || inv.status === "outstanding" || inv.status === "overdue" || inv.status === "partial")
+    )
+  }, [invoices, contactId])
+
+  const toggleApplyCredit = (idx: number) => {
+    setApplyCreditLines(prev => {
+      const updated = [...prev]
+      updated[idx] = { ...updated[idx], selected: !updated[idx].selected }
+      if (!updated[idx].selected) updated[idx].apply_amount = 0
+      return updated
+    })
+  }
+
+  const updateApplyAmount = (idx: number, amount: number) => {
+    setApplyCreditLines(prev => {
+      const updated = [...prev]
+      updated[idx] = { ...updated[idx], apply_amount: amount }
+      return updated
+    })
+  }
+
+  const addInvoiceToApply = (invoiceId: string) => {
+    if (applyCreditLines.some(l => l.invoice_id === invoiceId)) return
+    setApplyCreditLines(prev => [...prev, { invoice_id: invoiceId, selected: true, apply_amount: 0 }])
+  }
+
+  const creditApplied = applyCreditLines.reduce((sum, l) => sum + (l.selected ? l.apply_amount : 0), 0)
 
   const handleContactChange = (v: string) => {
     if (v === "__add_new__") { navigate("/contacts/new"); return }
@@ -191,10 +242,27 @@ export default function EditCreditNotePage() {
           line_type: li.line_type,
           discount: li.discount,
         })),
+        credit_applications: applyCreditLines
+          .filter(l => l.selected && l.apply_amount > 0)
+          .map(l => ({ invoice_id: l.invoice_id, amount: l.apply_amount })),
       })
       navigate("/sales/credit-notes")
-    } catch {
-      // error handled by mutation
+    } catch (err: any) {
+      alert(err?.response?.data?.detail ?? "Failed to save credit note")
+    }
+  }
+
+  const handleApplyOnly = async () => {
+    try {
+      await updateCreditNote.mutateAsync({
+        id,
+        credit_applications: applyCreditLines
+          .filter(l => l.selected && l.apply_amount > 0)
+          .map(l => ({ invoice_id: l.invoice_id, amount: l.apply_amount })),
+      })
+      navigate("/sales/credit-notes")
+    } catch (err: any) {
+      alert(err?.response?.data?.detail ?? "Failed to apply credit")
     }
   }
 
@@ -408,6 +476,69 @@ export default function EditCreditNotePage() {
                 </div>
               </div>
             </div>
+          </div>
+        </Card>
+      )}
+
+      {activeTab === "apply_credit" && (
+        <Card className={cardClass}>
+          <div className="mb-3">
+            <h3 className="text-sm font-semibold text-foreground">Apply Credit to Invoices</h3>
+            <p className="text-xs text-muted-foreground">Select outstanding invoices and specify the amount to apply from this credit note.</p>
+          </div>
+
+          {customerInvoices.length > 0 && (
+            <div className="mb-3 flex flex-wrap gap-2">
+              {customerInvoices.filter(inv => !applyCreditLines.some(l => l.invoice_id === inv.id)).map((inv: any) => (
+                <button key={inv.id} type="button" onClick={() => addInvoiceToApply(inv.id)} className="rounded-lg border border-blue-300 bg-blue-50 px-3 py-1 text-xs font-medium text-blue-700 hover:bg-blue-100">
+                  + {inv.invoice_number}
+                </button>
+              ))}
+            </div>
+          )}
+
+          <div className="overflow-x-auto rounded-2xl border border-border">
+            <Table>
+              <TableHeader>
+                <TableRow className="border-border hover:bg-transparent">
+                  <TableHead className="w-10 text-center text-muted-foreground" />
+                  <TableHead className="text-muted-foreground">Invoice</TableHead>
+                  <TableHead className="text-muted-foreground">Date</TableHead>
+                  <TableHead className="text-right text-muted-foreground">Total</TableHead>
+                  <TableHead className="text-right text-muted-foreground">Balance</TableHead>
+                  <TableHead className="w-[140px] text-right text-muted-foreground">Apply Amount</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {applyCreditLines.length === 0 ? (
+                  <TableRow><TableCell colSpan={6} className="py-8 text-center text-sm text-muted-foreground">No invoices selected. Click an invoice above to add it.</TableCell></TableRow>
+                ) : (
+                  applyCreditLines.map((line, idx) => {
+                    const inv = invoices.find((i: any) => i.id === line.invoice_id) as any
+                    return (
+                      <TableRow key={idx} className="border-border">
+                        <TableCell className="text-center">
+                          <input type="checkbox" checked={line.selected} onChange={() => toggleApplyCredit(idx)} className="h-4 w-4 rounded border-border" />
+                        </TableCell>
+                        <TableCell className="text-sm font-medium text-foreground">{inv?.invoice_number ?? line.invoice_id}</TableCell>
+                        <TableCell className="text-sm text-muted-foreground">{inv ? formatDate(inv.issue_date) : "—"}</TableCell>
+                        <TableCell className="text-right text-sm text-foreground">{formatCurrency(inv?.total ?? 0)}</TableCell>
+                        <TableCell className="text-right text-sm text-foreground">{formatCurrency(inv ? inv.total - (inv.amount_paid || 0) : 0)}</TableCell>
+                        <TableCell>
+                          <Input type="number" min={0} step={0.01} value={line.apply_amount} onChange={e => updateApplyAmount(idx, Number(e.target.value))} disabled={!line.selected} className="h-9 rounded-lg text-right text-sm" />
+                        </TableCell>
+                      </TableRow>
+                    )
+                  })
+                )}
+              </TableBody>
+            </Table>
+          </div>
+          <div className="mt-4 flex items-center justify-between border-t border-border pt-4">
+            <div className="text-sm text-muted-foreground">Credit Applied: <span className="font-semibold text-foreground">{formatCurrency(creditApplied)}</span></div>
+            <Button type="button" onClick={handleApplyOnly} disabled={updateCreditNote.isPending || creditApplied <= 0} className="h-9 rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-600 px-6 text-sm font-semibold text-white disabled:opacity-40 disabled:cursor-not-allowed">
+              {updateCreditNote.isPending ? "Saving..." : "Apply Credit"}
+            </Button>
           </div>
         </Card>
       )}

@@ -1,9 +1,9 @@
 import { useMemo, useState } from "react"
 import { useNavigate } from "react-router-dom"
 import { useQueryClient } from "@tanstack/react-query"
-import { Plus, Search, Pencil, Send, XCircle } from "lucide-react"
+import { Plus, Search, Pencil, Send, XCircle, CreditCard } from "lucide-react"
 import { RowActionsMenu } from "../../../components/ui/row-actions"
-import { useDebitNotes, useContacts } from "../../../lib/hooks"
+import { useDebitNotes, useContacts, useInvoices } from "../../../lib/hooks"
 import api from "../../../lib/api"
 import { formatCurrency, formatDate, cn } from "../../../lib/utils"
 import { useTheme } from "../../../lib/theme"
@@ -34,6 +34,7 @@ export default function DebitNotesPage() {
   const [dateTo, setDateTo] = useState("")
   const { data: debitNotes = [], isLoading } = useDebitNotes(tab === "all" ? undefined : tab)
   const { data: contacts = [] } = useContacts()
+  const { data: invoices = [] } = useInvoices()
   const { t } = useTheme()
 
   const statusTabs = [
@@ -49,6 +50,12 @@ export default function DebitNotesPage() {
     contacts.forEach(c => m.set(c.id, c.name))
     return m
   }, [contacts])
+
+  const invoiceMap = useMemo(() => {
+    const m = new Map<string, string>()
+    invoices.forEach((inv: any) => m.set(inv.id, inv.invoice_number))
+    return m
+  }, [invoices])
 
   const rows = useMemo(() => {
     let filtered = debitNotes
@@ -149,7 +156,7 @@ export default function DebitNotesPage() {
                         <TableCell className="font-medium text-foreground">{dn.debit_note_number}</TableCell>
                         <TableCell className="text-muted-foreground">{formatDate(dn.issue_date)}</TableCell>
                         <TableCell className="text-foreground">{contactMap.get(dn.contact_id) ?? "\u2014"}</TableCell>
-                        <TableCell className="text-foreground">{dn.invoice_id ?? "\u2014"}</TableCell>
+                        <TableCell className="text-foreground">{dn.invoice_id ? (invoiceMap.get(dn.invoice_id) ?? dn.invoice_id) : "\u2014"}</TableCell>
                         <TableCell className="text-right text-foreground">{formatCurrency(dn.total)}</TableCell>
                         <TableCell>
                           <Badge variant="outline" className={cn("rounded-lg px-2 py-0.5 text-[11px] font-semibold", statusColors[dn.status] ?? "")}>{dn.status.charAt(0).toUpperCase() + dn.status.slice(1)}</Badge>
@@ -157,8 +164,9 @@ export default function DebitNotesPage() {
                         <TableCell className="text-right">
                           <RowActionsMenu actions={[
                             { label: "Edit", icon: <Pencil className="h-3.5 w-3.5" />, onClick: () => navigate(`/sales/debit-notes/${dn.id}/edit`), disabled: dn.status === "void" },
-                            { label: "Mark as Issued", icon: <Send className="h-3.5 w-3.5" />, onClick: () => patch(dn.id, "issued"), dividerBefore: true, disabled: dn.status !== "draft" },
-                            { label: "Void", icon: <XCircle className="h-3.5 w-3.5" />, onClick: () => { if (confirm("Void this debit note?")) patch(dn.id, "void") }, danger: true, disabled: dn.status === "void" || dn.status === "applied" },
+                            { label: "Add Payment", icon: <CreditCard className="h-3.5 w-3.5" />, onClick: () => navigate(`/sales/payments/new?contact_id=${dn.contact_id}&amount=${dn.total}`), dividerBefore: true, disabled: dn.status === "void" || dn.status === "draft" },
+                            { label: "Mark as Issued", icon: <Send className="h-3.5 w-3.5" />, onClick: () => patch(dn.id, "issued"), disabled: dn.status !== "draft" },
+                            { label: "Void", icon: <XCircle className="h-3.5 w-3.5" />, onClick: () => { if (confirm("Void this debit note?")) patch(dn.id, "void") }, danger: true, dividerBefore: true, disabled: dn.status === "void" || dn.status === "applied" },
                           ]} />
                         </TableCell>
                       </TableRow>

@@ -410,8 +410,10 @@ async def update_credit_note(cn_id: UUID, data: CreditNoteUpdate, current_user: 
     obj = result.scalar_one_or_none()
     if not obj:
         raise HTTPException(status_code=404, detail="Credit note not found")
-    if obj.status not in ("draft",):
-        raise HTTPException(status_code=400, detail="Only draft credit notes can be edited")
+    update_data_check = data.model_dump(exclude_unset=True)
+    editing_fields = {k for k in update_data_check if k not in ("status", "credit_applications")}
+    if obj.status not in ("draft",) and editing_fields:
+        raise HTTPException(status_code=400, detail="Only draft credit notes can have their details edited")
 
     update_data = data.model_dump(exclude_unset=True)
 

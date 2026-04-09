@@ -34,6 +34,8 @@ export default function EditRecurringInvoicePage() {
   const [frequency, setFrequency] = useState("monthly")
   const [startDate, setStartDate] = useState(new Date().toISOString().split("T")[0])
   const [endDate, setEndDate] = useState("")
+  const [periodStart, setPeriodStart] = useState(new Date().toISOString().split("T")[0])
+  const [periodEnd, setPeriodEnd] = useState("")
   const [currency, setCurrency] = useState("MYR")
   const [reference, setReference] = useState("")
   const [autoSend, setAutoSend] = useState(false)
@@ -48,7 +50,16 @@ export default function EditRecurringInvoicePage() {
     setStartDate(recurringInvoice.start_date?.slice(0, 10) ?? new Date().toISOString().split("T")[0])
     setEndDate(recurringInvoice.end_date?.slice(0, 10) ?? "")
     setCurrency(recurringInvoice.currency ?? "MYR")
-    setReference(recurringInvoice.reference ?? "")
+    // Parse period from notes if present (format: "ref | Period: start to end")
+    const notesRaw = recurringInvoice.notes ?? ""
+    const periodMatch = notesRaw.match(/Period:\s*(\S+)\s+to\s+(\S+)/)
+    if (periodMatch) {
+      setPeriodStart(periodMatch[1])
+      setPeriodEnd(periodMatch[2])
+      setReference(notesRaw.replace(/\s*\|\s*Period:[^|]*/, "").replace(/Period:[^|]*/, "").trim())
+    } else {
+      setReference(notesRaw)
+    }
     setAutoSend(recurringInvoice.auto_send ?? false)
     if (recurringInvoice.line_items?.length) {
       setLineItems(recurringInvoice.line_items.map((li: any) => ({
@@ -89,7 +100,7 @@ export default function EditRecurringInvoicePage() {
         start_date: startDate,
         end_date: endDate || undefined,
         currency,
-        notes: reference || undefined,
+        notes: [reference, periodStart && periodEnd ? `Period: ${periodStart} to ${periodEnd}` : ""].filter(Boolean).join(" | ") || undefined,
         auto_send: autoSend,
         line_items: lineItems.map(li => ({
           description: li.description,
@@ -179,6 +190,21 @@ export default function EditRecurringInvoicePage() {
           <div className="space-y-1.5">
             <label className="text-sm font-medium text-foreground">Reference</label>
             <Input value={reference} onChange={e => setReference(e.target.value)} placeholder="Reference note" />
+          </div>
+
+          <div className="space-y-1.5 md:col-span-2">
+            <label className="text-sm font-medium text-foreground">First Billing Period</label>
+            <p className="text-xs text-muted-foreground">The date range this first invoice covers. Subsequent invoices will automatically advance by the frequency interval.</p>
+            <div className="flex items-center gap-3">
+              <div className="flex-1">
+                <label className="mb-1 block text-xs text-muted-foreground">Period Start</label>
+                <Input type="date" value={periodStart} onChange={e => setPeriodStart(e.target.value)} />
+              </div>
+              <div className="flex-1">
+                <label className="mb-1 block text-xs text-muted-foreground">Period End</label>
+                <Input type="date" value={periodEnd} onChange={e => setPeriodEnd(e.target.value)} />
+              </div>
+            </div>
           </div>
 
           <div className="flex items-center gap-2 md:col-span-2">
