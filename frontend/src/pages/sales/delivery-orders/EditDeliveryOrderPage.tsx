@@ -85,6 +85,8 @@ export default function EditDeliveryOrderPage() {
         country: contact.shipping_country ?? "",
       })
     }
+  }
+
   const updateLineItem = (index: number, field: keyof LineItem, value: string | number) => {
     setLineItems(prev => {
       const updated = [...prev]
