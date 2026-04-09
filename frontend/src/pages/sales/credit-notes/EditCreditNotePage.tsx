@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from "react"
-import { useNavigate, useParams, useSearchParams } from "react-router-dom"
+import { useNavigate, useParams } from "react-router-dom"
 import { Plus, Trash2, Loader2 } from "lucide-react"
 import { useCreditNote, useUpdateCreditNote, useContacts, useAccounts, useTaxRates, useInvoices } from "../../../lib/hooks"
 import { formatCurrency, formatDate } from "../../../lib/utils"
@@ -28,22 +28,11 @@ interface ApplyCreditLine {
   apply_amount: number
 }
 
-const TABS = [
-  { key: "items", label: "Items" },
-  { key: "apply_credit", label: "Apply Credit" },
-  { key: "billing", label: "Billing & Shipping" },
-  { key: "general", label: "General Info" },
-  { key: "additional", label: "Additional Info" },
-] as const
-
-type TabKey = (typeof TABS)[number]["key"]
-
 const cardClass = "rounded-2xl border-border bg-card p-6 shadow-[0_0_0_1px_rgba(15,23,42,0.06),0_18px_55px_rgba(2,6,23,0.08)]"
 
 export default function EditCreditNotePage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
-  const [searchParams] = useSearchParams()
   const { data: creditNote, isLoading } = useCreditNote(id)
   const { data: contacts = [] } = useContacts()
   const { data: accounts = [] } = useAccounts()
@@ -52,8 +41,6 @@ export default function EditCreditNotePage() {
   const updateCreditNote = useUpdateCreditNote()
   const populated = useRef(false)
 
-  const initialTab = (searchParams.get("tab") as TabKey) || "items"
-  const [activeTab, setActiveTab] = useState<TabKey>(initialTab)
   const [applyCreditLines, setApplyCreditLines] = useState<ApplyCreditLine[]>([])
   const [creditNoteNumber, setCreditNoteNumber] = useState("")
   const [contactId, setContactId] = useState("")
@@ -286,21 +273,8 @@ export default function EditCreditNotePage() {
         <div className="text-2xl font-semibold tracking-tight text-foreground">Edit Credit Note {creditNote.credit_note_number}</div>
       </div>
 
-      <div className="flex items-center gap-6 border-b border-border">
-        {TABS.map(tab => (
-          <button
-            key={tab.key}
-            onClick={() => setActiveTab(tab.key)}
-            className={`pb-2.5 text-sm font-medium transition-colors ${
-              activeTab === tab.key ? "border-b-2 border-blue-500 text-blue-600" : "text-muted-foreground hover:text-foreground"
-            }`}
-          >
-            {tab.label}
-          </button>
-        ))}
-      </div>
-
-      {activeTab === "items" && (
+      <div className="flex flex-col gap-6">
+        {/* Items Card */}
         <Card className={cardClass}>
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
             <div>
@@ -479,12 +453,11 @@ export default function EditCreditNotePage() {
             </div>
           </div>
         </Card>
-      )}
 
-      {activeTab === "apply_credit" && (
+        {/* Apply Credit Card */}
         <Card className={cardClass}>
+          <h3 className="mb-4 text-sm font-semibold text-foreground">Apply Credit</h3>
           <div className="mb-3">
-            <h3 className="text-sm font-semibold text-foreground">Apply Credit to Invoices</h3>
             <p className="text-xs text-muted-foreground">Select outstanding invoices and specify the amount to apply from this credit note.</p>
           </div>
 
@@ -542,10 +515,10 @@ export default function EditCreditNotePage() {
             </Button>
           </div>
         </Card>
-      )}
 
-      {activeTab === "billing" && (
+        {/* Billing & Shipping Card */}
         <Card className={cardClass}>
+          <h3 className="mb-4 text-sm font-semibold text-foreground">Billing & Shipping</h3>
           <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
             <div>
               <h3 className="mb-4 text-sm font-semibold text-foreground">Billing Address</h3>
@@ -579,10 +552,10 @@ export default function EditCreditNotePage() {
             </div>
           </div>
         </Card>
-      )}
 
-      {activeTab === "general" && (
+        {/* General Info Card */}
         <Card className={cardClass}>
+          <h3 className="mb-4 text-sm font-semibold text-foreground">General Info</h3>
           <div className="max-w-lg space-y-4">
             <div>
               <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Notes</label>
@@ -590,10 +563,10 @@ export default function EditCreditNotePage() {
             </div>
           </div>
         </Card>
-      )}
 
-      {activeTab === "additional" && (
+        {/* Additional Info Card */}
         <Card className={cardClass}>
+          <h3 className="mb-4 text-sm font-semibold text-foreground">Additional Info</h3>
           <div className="max-w-lg space-y-4">
             <div>
               <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Footer Note</label>
@@ -605,7 +578,7 @@ export default function EditCreditNotePage() {
             </div>
           </div>
         </Card>
-      )}
+      </div>
 
       <div className="flex items-center justify-between">
         <label className="flex items-center gap-2 text-sm text-muted-foreground">

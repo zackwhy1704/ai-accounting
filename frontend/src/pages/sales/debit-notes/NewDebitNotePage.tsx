@@ -31,10 +31,6 @@ const emptyLine = (): LineItem => ({
   taxCodeId: "",
 })
 
-const tabs = [
-  { label: "Items", value: "items" },
-]
-
 export default function NewDebitNotePage() {
   const navigate = useNavigate()
   const { data: contacts = [] } = useContacts()
@@ -43,7 +39,6 @@ export default function NewDebitNotePage() {
   const createDebitNote = useCreateDebitNote()
   const { data: taxRates = [] } = useTaxRates()
 
-  const [activeTab, setActiveTab] = useState("items")
   const [debitNoteNumber, setDebitNoteNumber] = useState(() => `DN-${Date.now().toString().slice(-6)}`)
   const [customerId, setCustomerId] = useState("")
   const [linkedInvoiceId, setLinkedInvoiceId] = useState("")
@@ -130,284 +125,261 @@ export default function NewDebitNotePage() {
       </div>
 
       <Card className="rounded-2xl border-border bg-card p-6 shadow-[0_0_0_1px_rgba(15,23,42,0.06),0_18px_55px_rgba(2,6,23,0.08)]">
-        {/* Tabs */}
-        <div className="flex gap-1 rounded-xl bg-muted p-1">
-          {tabs.map(tb => (
-            <button
-              key={tb.value}
-              type="button"
-              onClick={() => setActiveTab(tb.value)}
-              className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
-                activeTab === tb.value
-                  ? "bg-card text-foreground shadow-sm"
-                  : "text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              {tb.label}
-            </button>
-          ))}
-        </div>
-
-        {/* Items Tab Content */}
-        {activeTab === "items" && (
-          <div className="mt-6 flex flex-col gap-6">
-            {/* Header fields */}
-            <div className="grid grid-cols-1 gap-4 lg:grid-cols-4">
-              <div>
-                <label className="text-xs font-medium text-muted-foreground">Debit Note #</label>
-                <Input
-                  value={debitNoteNumber}
-                  onChange={e => setDebitNoteNumber(e.target.value)}
-                  placeholder="DN-000000"
-                  className="mt-1.5 h-10 rounded-xl"
-                />
-              </div>
-              <div>
-                <label className="text-xs font-medium text-muted-foreground">Customer</label>
-                <Select value={customerId} onValueChange={handleCustomerChange}>
-                  <SelectTrigger className="mt-1.5 h-10 rounded-xl">
-                    <SelectValue placeholder="Select customer" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {customers.map(c => (
-                      <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
-                    ))}
-                    <SelectItem value="__add_new__" className="text-primary font-medium">+ Add New Customer</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <label className="text-xs font-medium text-muted-foreground">Linked Invoice</label>
-                <Select value={linkedInvoiceId} onValueChange={setLinkedInvoiceId}>
-                  <SelectTrigger className="mt-1.5 h-10 rounded-xl">
-                    <SelectValue placeholder="Select invoice" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {filteredInvoices.map((inv: any) => (
-                      <SelectItem key={inv.id} value={inv.id}>
-                        {inv.invoice_number}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <label className="text-xs font-medium text-muted-foreground">Date</label>
-                <Input
-                  type="date"
-                  value={date}
-                  onChange={e => setDate(e.target.value)}
-                  className="mt-1.5 h-10 rounded-xl"
-                />
-              </div>
-              <div>
-                <label className="text-xs font-medium text-muted-foreground">Reference</label>
-                <Input
-                  value={reference}
-                  onChange={e => setReference(e.target.value)}
-                  placeholder="Enter reference"
-                  className="mt-1.5 h-10 rounded-xl"
-                />
-              </div>
+        <div className="flex flex-col gap-6">
+          {/* Header fields */}
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-4">
+            <div>
+              <label className="text-xs font-medium text-muted-foreground">Debit Note #</label>
+              <Input
+                value={debitNoteNumber}
+                onChange={e => setDebitNoteNumber(e.target.value)}
+                placeholder="DN-000000"
+                className="mt-1.5 h-10 rounded-xl"
+              />
             </div>
+            <div>
+              <label className="text-xs font-medium text-muted-foreground">Customer</label>
+              <Select value={customerId} onValueChange={handleCustomerChange}>
+                <SelectTrigger className="mt-1.5 h-10 rounded-xl">
+                  <SelectValue placeholder="Select customer" />
+                </SelectTrigger>
+                <SelectContent>
+                  {customers.map(c => (
+                    <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                  ))}
+                  <SelectItem value="__add_new__" className="text-primary font-medium">+ Add New Customer</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <label className="text-xs font-medium text-muted-foreground">Linked Invoice</label>
+              <Select value={linkedInvoiceId} onValueChange={setLinkedInvoiceId}>
+                <SelectTrigger className="mt-1.5 h-10 rounded-xl">
+                  <SelectValue placeholder="Select invoice" />
+                </SelectTrigger>
+                <SelectContent>
+                  {filteredInvoices.map((inv: any) => (
+                    <SelectItem key={inv.id} value={inv.id}>
+                      {inv.invoice_number}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <label className="text-xs font-medium text-muted-foreground">Date</label>
+              <Input
+                type="date"
+                value={date}
+                onChange={e => setDate(e.target.value)}
+                className="mt-1.5 h-10 rounded-xl"
+              />
+            </div>
+            <div>
+              <label className="text-xs font-medium text-muted-foreground">Reference</label>
+              <Input
+                value={reference}
+                onChange={e => setReference(e.target.value)}
+                placeholder="Enter reference"
+                className="mt-1.5 h-10 rounded-xl"
+              />
+            </div>
+          </div>
 
-            {/* Line items table */}
-            <div className="overflow-hidden rounded-2xl border border-border bg-card">
-              <Table>
-                <TableHeader>
-                  <TableRow className="border-border hover:bg-transparent">
-                    <TableHead className="w-[50px] text-muted-foreground">#</TableHead>
-                    <TableHead className="w-[100px] text-muted-foreground">Type</TableHead>
-                    <TableHead className="text-muted-foreground">Description</TableHead>
-                    <TableHead className="w-[180px] text-muted-foreground">Account</TableHead>
-                    <TableHead className="w-[100px] text-muted-foreground">Quantity</TableHead>
-                    <TableHead className="w-[130px] text-muted-foreground">Unit Price</TableHead>
-                    <TableHead className="w-[130px] text-right text-muted-foreground">Amount</TableHead>
-                    <TableHead className="w-[160px] text-muted-foreground">Tax Code</TableHead>
-                    <TableHead className="w-[80px] text-muted-foreground">Tax %</TableHead>
-                    <TableHead className="w-[50px]" />
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {lines.map((line, idx) => (
-                    <TableRow key={line.id} className="border-border hover:bg-muted/50">
-                      <TableCell className="text-muted-foreground">{idx + 1}</TableCell>
-                      <TableCell>
-                        <Select value={line.lineType} onValueChange={v => updateLine(line.id, "lineType", v)}>
-                          <SelectTrigger className="h-9 rounded-lg border-0 bg-transparent shadow-none focus:ring-1">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="goods">Goods</SelectItem>
-                            <SelectItem value="services">Services</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </TableCell>
-                      <TableCell>
-                        <Input
-                          value={line.description}
-                          onChange={e => updateLine(line.id, "description", e.target.value)}
-                          placeholder="Item description"
-                          className="h-9 rounded-lg border-0 bg-transparent px-2 text-sm shadow-none focus-visible:ring-1"
-                        />
-                      </TableCell>
-                      <TableCell>
-                        <Select value={line.accountId} onValueChange={v => updateLine(line.id, "accountId", v)}>
-                          <SelectTrigger className="h-9 rounded-lg border-0 bg-transparent shadow-none focus:ring-1">
-                            <SelectValue placeholder="Account" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {accounts.map((a: any) => (
-                              <SelectItem key={a.id} value={a.id}>{a.code} – {a.name}</SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </TableCell>
-                      <TableCell>
-                        {line.lineType === "services" ? (
-                          <span className="px-2 text-sm text-muted-foreground">&mdash;</span>
-                        ) : (
-                          <Input
-                            type="number"
-                            min={0}
-                            value={line.quantity}
-                            onChange={e => updateLine(line.id, "quantity", Number(e.target.value))}
-                            className="h-9 rounded-lg border-0 bg-transparent px-2 text-sm shadow-none focus-visible:ring-1"
-                          />
-                        )}
-                      </TableCell>
-                      <TableCell>
+          {/* Line items table */}
+          <div className="overflow-hidden rounded-2xl border border-border bg-card">
+            <Table>
+              <TableHeader>
+                <TableRow className="border-border hover:bg-transparent">
+                  <TableHead className="w-[50px] text-muted-foreground">#</TableHead>
+                  <TableHead className="w-[100px] text-muted-foreground">Type</TableHead>
+                  <TableHead className="text-muted-foreground">Description</TableHead>
+                  <TableHead className="w-[180px] text-muted-foreground">Account</TableHead>
+                  <TableHead className="w-[100px] text-muted-foreground">Quantity</TableHead>
+                  <TableHead className="w-[130px] text-muted-foreground">Unit Price</TableHead>
+                  <TableHead className="w-[130px] text-right text-muted-foreground">Amount</TableHead>
+                  <TableHead className="w-[160px] text-muted-foreground">Tax Code</TableHead>
+                  <TableHead className="w-[80px] text-muted-foreground">Tax %</TableHead>
+                  <TableHead className="w-[50px]" />
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {lines.map((line, idx) => (
+                  <TableRow key={line.id} className="border-border hover:bg-muted/50">
+                    <TableCell className="text-muted-foreground">{idx + 1}</TableCell>
+                    <TableCell>
+                      <Select value={line.lineType} onValueChange={v => updateLine(line.id, "lineType", v)}>
+                        <SelectTrigger className="h-9 rounded-lg border-0 bg-transparent shadow-none focus:ring-1">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="goods">Goods</SelectItem>
+                          <SelectItem value="services">Services</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </TableCell>
+                    <TableCell>
+                      <Input
+                        value={line.description}
+                        onChange={e => updateLine(line.id, "description", e.target.value)}
+                        placeholder="Item description"
+                        className="h-9 rounded-lg border-0 bg-transparent px-2 text-sm shadow-none focus-visible:ring-1"
+                      />
+                    </TableCell>
+                    <TableCell>
+                      <Select value={line.accountId} onValueChange={v => updateLine(line.id, "accountId", v)}>
+                        <SelectTrigger className="h-9 rounded-lg border-0 bg-transparent shadow-none focus:ring-1">
+                          <SelectValue placeholder="Account" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {accounts.map((a: any) => (
+                            <SelectItem key={a.id} value={a.id}>{a.code} – {a.name}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </TableCell>
+                    <TableCell>
+                      {line.lineType === "services" ? (
+                        <span className="px-2 text-sm text-muted-foreground">&mdash;</span>
+                      ) : (
                         <Input
                           type="number"
                           min={0}
-                          step={0.01}
-                          value={line.unitPrice}
-                          onChange={e => updateLine(line.id, "unitPrice", Number(e.target.value))}
+                          value={line.quantity}
+                          onChange={e => updateLine(line.id, "quantity", Number(e.target.value))}
                           className="h-9 rounded-lg border-0 bg-transparent px-2 text-sm shadow-none focus-visible:ring-1"
                         />
-                      </TableCell>
-                      <TableCell className="text-right text-sm text-foreground">
-                        {(line.quantity * line.unitPrice).toFixed(2)}
-                      </TableCell>
-                      <TableCell className="w-[160px]">
-                        <Select value={line.taxCodeId} onValueChange={v => updateLine(line.id, "taxCodeId", v === "__none__" ? "" : v)}>
-                          <SelectTrigger className="h-9 rounded-lg border-0 bg-transparent shadow-none focus:ring-1 text-xs">
-                            <SelectValue placeholder="Tax Code" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="__none__">No Tax</SelectItem>
-                            {taxRates.map((tc: any) => (
-                              <SelectItem key={tc.id} value={tc.id}>
-                                {tc.code} ({tc.rate}%)
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </TableCell>
-                      <TableCell className="w-[80px]">
-                        <Input
-                          type="number" min={0} max={100} step={0.01}
-                          value={line.taxRate}
-                          onChange={e => updateLine(line.id, "taxRate", Number(e.target.value))}
-                          className="h-9 rounded-lg border-0 bg-transparent px-1 text-sm shadow-none focus-visible:ring-1"
-                          placeholder="%"
-                        />
-                      </TableCell>
-                      <TableCell>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8 text-muted-foreground hover:text-destructive"
-                          onClick={() => removeLine(line.id)}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      <Input
+                        type="number"
+                        min={0}
+                        step={0.01}
+                        value={line.unitPrice}
+                        onChange={e => updateLine(line.id, "unitPrice", Number(e.target.value))}
+                        className="h-9 rounded-lg border-0 bg-transparent px-2 text-sm shadow-none focus-visible:ring-1"
+                      />
+                    </TableCell>
+                    <TableCell className="text-right text-sm text-foreground">
+                      {(line.quantity * line.unitPrice).toFixed(2)}
+                    </TableCell>
+                    <TableCell className="w-[160px]">
+                      <Select value={line.taxCodeId} onValueChange={v => updateLine(line.id, "taxCodeId", v === "__none__" ? "" : v)}>
+                        <SelectTrigger className="h-9 rounded-lg border-0 bg-transparent shadow-none focus:ring-1 text-xs">
+                          <SelectValue placeholder="Tax Code" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="__none__">No Tax</SelectItem>
+                          {taxRates.map((tc: any) => (
+                            <SelectItem key={tc.id} value={tc.id}>
+                              {tc.code} ({tc.rate}%)
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </TableCell>
+                    <TableCell className="w-[80px]">
+                      <Input
+                        type="number" min={0} max={100} step={0.01}
+                        value={line.taxRate}
+                        onChange={e => updateLine(line.id, "taxRate", Number(e.target.value))}
+                        className="h-9 rounded-lg border-0 bg-transparent px-1 text-sm shadow-none focus-visible:ring-1"
+                        placeholder="%"
+                      />
+                    </TableCell>
+                    <TableCell>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                        onClick={() => removeLine(line.id)}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
 
-            {/* Add item button */}
-            <div>
-              <Button
-                type="button"
-                variant="outline"
-                className="h-9 rounded-xl border-blue-300 px-3 text-xs font-semibold text-blue-600 hover:bg-blue-50"
-                onClick={() => setLines(prev => [...prev, emptyLine()])}
-              >
-                <Plus className="mr-2 h-4 w-4" /> Item
-              </Button>
-            </div>
+          {/* Add item button */}
+          <div>
+            <Button
+              type="button"
+              variant="outline"
+              className="h-9 rounded-xl border-blue-300 px-3 text-xs font-semibold text-blue-600 hover:bg-blue-50"
+              onClick={() => setLines(prev => [...prev, emptyLine()])}
+            >
+              <Plus className="mr-2 h-4 w-4" /> Item
+            </Button>
+          </div>
 
-            {/* Totals */}
-            <div className="flex justify-end">
-              <div className="w-full max-w-sm flex flex-col gap-2">
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-muted-foreground">Sub Total</span>
-                  <span className="text-foreground">{subTotal.toFixed(2)}</span>
-                </div>
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-muted-foreground">Discount Given</span>
-                  <Input
-                    type="number"
-                    min={0}
-                    step={0.01}
-                    value={discountGiven}
-                    onChange={e => setDiscountGiven(Number(e.target.value))}
-                    className="h-8 w-28 rounded-lg text-right text-sm"
-                  />
-                </div>
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-muted-foreground">Tax</span>
-                  <span className="text-foreground">{totalTax.toFixed(2)}</span>
-                </div>
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-muted-foreground">Rounding Adjustment</span>
-                  <Input
-                    type="number"
-                    step={0.01}
-                    value={roundingAdjustment}
-                    onChange={e => setRoundingAdjustment(Number(e.target.value))}
-                    className="h-8 w-28 rounded-lg text-right text-sm"
-                  />
-                </div>
-                <div className="border-t border-border pt-2 flex items-center justify-between text-sm font-semibold">
-                  <span className="text-foreground">TOTAL</span>
-                  <span className="text-foreground">{total.toFixed(2)}</span>
-                </div>
+          {/* Totals */}
+          <div className="flex justify-end">
+            <div className="w-full max-w-sm flex flex-col gap-2">
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-muted-foreground">Sub Total</span>
+                <span className="text-foreground">{subTotal.toFixed(2)}</span>
               </div>
-            </div>
-
-            {/* Footer actions */}
-            <div className="flex items-center justify-between border-t border-border pt-4">
-              <label className="flex items-center gap-2 text-sm text-muted-foreground">
-                <input
-                  type="checkbox"
-                  checked={quickShareEmail}
-                  onChange={e => setQuickShareEmail(e.target.checked)}
-                  className="h-4 w-4 rounded border-border"
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-muted-foreground">Discount Given</span>
+                <Input
+                  type="number"
+                  min={0}
+                  step={0.01}
+                  value={discountGiven}
+                  onChange={e => setDiscountGiven(Number(e.target.value))}
+                  className="h-8 w-28 rounded-lg text-right text-sm"
                 />
-                QuickShare via Email
-              </label>
-              <div className="flex items-center gap-3">
-                <Button type="button" variant="outline" onClick={() => navigate("/sales/debit-notes")}>Cancel</Button>
-                <Button
-                  type="button"
-                  onClick={handleSave}
-                  disabled={createDebitNote.isPending || !isFormValid}
-                  className="h-9 rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-600 px-6 text-xs font-semibold text-white shadow-sm hover:opacity-95 disabled:opacity-40 disabled:cursor-not-allowed"
-                >
-                  Save
-                </Button>
+              </div>
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-muted-foreground">Tax</span>
+                <span className="text-foreground">{totalTax.toFixed(2)}</span>
+              </div>
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-muted-foreground">Rounding Adjustment</span>
+                <Input
+                  type="number"
+                  step={0.01}
+                  value={roundingAdjustment}
+                  onChange={e => setRoundingAdjustment(Number(e.target.value))}
+                  className="h-8 w-28 rounded-lg text-right text-sm"
+                />
+              </div>
+              <div className="border-t border-border pt-2 flex items-center justify-between text-sm font-semibold">
+                <span className="text-foreground">TOTAL</span>
+                <span className="text-foreground">{total.toFixed(2)}</span>
               </div>
             </div>
           </div>
-        )}
-
+        </div>
       </Card>
+
+      <div className="flex items-center justify-between">
+        <label className="flex items-center gap-2 text-sm text-muted-foreground">
+          <input
+            type="checkbox"
+            checked={quickShareEmail}
+            onChange={e => setQuickShareEmail(e.target.checked)}
+            className="h-4 w-4 rounded border-border"
+          />
+          QuickShare via Email
+        </label>
+        <div className="flex items-center gap-3">
+          <Button type="button" variant="outline" onClick={() => navigate("/sales/debit-notes")}>Cancel</Button>
+          <Button
+            type="button"
+            onClick={handleSave}
+            disabled={createDebitNote.isPending || !isFormValid}
+            className="h-9 rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-600 px-6 text-xs font-semibold text-white shadow-sm hover:opacity-95 disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            Save
+          </Button>
+        </div>
+      </div>
     </div>
   )
 }
