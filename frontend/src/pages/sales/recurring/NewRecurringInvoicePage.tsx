@@ -1,13 +1,12 @@
 import { useState } from "react"
 import { useNavigate } from "react-router-dom"
-import { useContacts, useAccounts, useTaxRates } from "../../../lib/hooks"
+import { useContacts, useAccounts, useTaxRates, useCreateRecurringInvoice } from "../../../lib/hooks"
 import { Card } from "../../../components/ui/card"
 import { Button } from "../../../components/ui/button"
 import { Input } from "../../../components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../../components/ui/select"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../../../components/ui/table"
 import { Plus, Trash2 } from "lucide-react"
-import api from "../../../lib/api"
 import { getContactPrefs, saveContactPref } from "../../../lib/contact-prefs"
 
 interface LineItem {
@@ -26,6 +25,7 @@ export default function NewRecurringInvoicePage() {
   const { data: contacts = [] } = useContacts()
   const { data: accounts = [] } = useAccounts()
   const { data: taxRates = [] } = useTaxRates()
+  const createRecurring = useCreateRecurringInvoice()
 
   const [contactId, setContactId] = useState("")
   const [frequency, setFrequency] = useState("monthly")
@@ -34,7 +34,6 @@ export default function NewRecurringInvoicePage() {
   const [currency, setCurrency] = useState("MYR")
   const [reference, setReference] = useState("")
   const [autoSend, setAutoSend] = useState(false)
-  const [saving, setSaving] = useState(false)
   const [lineItems, setLineItems] = useState<LineItem[]>([
     { description: "", account_id: "", quantity: 1, unit_price: 0, tax_code_id: "", tax_rate: 0 },
   ])
@@ -57,32 +56,27 @@ export default function NewRecurringInvoicePage() {
   const total = subtotal + taxTotal
 
   const handleSave = async () => {
-    setSaving(true)
-    try {
-      await api.post("/sales/recurring-invoices", {
-        contact_id: contactId,
-        frequency,
-        start_date: startDate,
-        end_date: endDate || undefined,
-        currency,
-        reference,
-        auto_send: autoSend,
-        line_items: lineItems.map(li => ({
-          description: li.description,
-          account_id: li.account_id || undefined,
-          quantity: li.quantity,
-          unit_price: li.unit_price,
-          tax_rate: li.tax_rate,
-          amount: li.quantity * li.unit_price,
-        })),
-        subtotal,
-        tax_total: taxTotal,
-        total,
-      })
-      navigate("/sales/recurring")
-    } finally {
-      setSaving(false)
-    }
+    await createRecurring.mutateAsync({
+      contact_id: contactId,
+      frequency,
+      start_date: startDate,
+      end_date: endDate || undefined,
+      currency,
+      reference,
+      auto_send: autoSend,
+      line_items: lineItems.map(li => ({
+        description: li.description,
+        account_id: li.account_id || undefined,
+        quantity: li.quantity,
+        unit_price: li.unit_price,
+        tax_rate: li.tax_rate,
+        amount: li.quantity * li.unit_price,
+      })),
+      subtotal,
+      tax_total: taxTotal,
+      total,
+    })
+    navigate("/sales/recurring")
   }
 
   return (
@@ -240,8 +234,8 @@ export default function NewRecurringInvoicePage() {
 
       <div className="flex justify-end gap-3">
         <Button type="button" variant="outline" onClick={() => navigate("/sales/recurring")}>Cancel</Button>
-        <Button onClick={handleSave} disabled={saving} className="bg-gradient-to-r from-emerald-500 to-emerald-600 text-white hover:from-emerald-600 hover:to-emerald-700">
-          {saving ? "Saving..." : "Save Recurring Invoice"}
+        <Button onClick={handleSave} disabled={createRecurring.isPending || !contactId || !startDate || !lineItems.some(li => li.description.trim())} className="bg-gradient-to-r from-emerald-500 to-emerald-600 text-white hover:from-emerald-600 hover:to-emerald-700">
+          {createRecurring.isPending ? "Saving..." : "Save Recurring Invoice"}
         </Button>
       </div>
     </div>

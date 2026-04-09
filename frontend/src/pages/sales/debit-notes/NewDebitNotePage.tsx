@@ -391,7 +391,7 @@ export default function NewDebitNotePage() {
                 <Button
                   type="button"
                   onClick={handleSave}
-                  disabled={createDebitNote.isPending}
+                  disabled={createDebitNote.isPending || !customerId || !lines.some(l => l.description.trim())}
                   className="h-9 rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-600 px-6 text-xs font-semibold text-white shadow-sm hover:opacity-95"
                 >
                   Save

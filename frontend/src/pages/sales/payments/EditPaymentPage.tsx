@@ -45,7 +45,7 @@ export default function EditPaymentPage() {
       const allocs: Record<string, number> = {}
       const selected: Record<string, boolean> = {}
       for (const a of payment.allocations) {
-        allocs[a.invoice_id] = a.amount_applied
+        allocs[a.invoice_id] = a.amount ?? a.amount_applied
         selected[a.invoice_id] = true
       }
       setAllocations(allocs)
@@ -242,7 +242,7 @@ export default function EditPaymentPage() {
 
       <div className="flex justify-end gap-3">
         <Button type="button" variant="outline" onClick={() => navigate("/sales/payments")}>Cancel</Button>
-        <Button onClick={handleSave} disabled={updatePayment.isPending} className="bg-gradient-to-r from-emerald-500 to-emerald-600 text-white hover:from-emerald-600 hover:to-emerald-700">
+        <Button onClick={handleSave} disabled={updatePayment.isPending || !customerId || !paymentMethod || !amount || parseFloat(amount) <= 0} className="bg-gradient-to-r from-emerald-500 to-emerald-600 text-white hover:from-emerald-600 hover:to-emerald-700">
           {updatePayment.isPending ? "Saving..." : "Save Changes"}
         </Button>
       </div>

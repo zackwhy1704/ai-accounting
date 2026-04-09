@@ -325,7 +325,7 @@ export default function EditDebitNotePage() {
               </label>
               <div className="flex items-center gap-3">
                 <Button type="button" variant="outline" onClick={() => navigate("/sales/debit-notes")}>Cancel</Button>
-                <Button type="button" onClick={handleSave} disabled={updateDebitNote.isPending} className="h-9 rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-600 px-6 text-xs font-semibold text-white shadow-sm hover:opacity-95">
+                <Button type="button" onClick={handleSave} disabled={updateDebitNote.isPending || !customerId || !lines.some((l: any) => l.description?.trim())} className="h-9 rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-600 px-6 text-xs font-semibold text-white shadow-sm hover:opacity-95">
                   {updateDebitNote.isPending ? "Saving..." : "Save Changes"}
                 </Button>
               </div>

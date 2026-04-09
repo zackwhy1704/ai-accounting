@@ -270,7 +270,7 @@ export default function NewPaymentPage() {
         <Button type="button" variant="outline" onClick={() => navigate("/sales/payments")}>Cancel</Button>
         <Button
           onClick={handleSave}
-          disabled={createPayment.isPending}
+          disabled={createPayment.isPending || !customerId || !paymentMethod || !amount || parseFloat(amount) <= 0}
           className="bg-gradient-to-r from-emerald-500 to-emerald-600 text-white hover:from-emerald-600 hover:to-emerald-700"
         >
           {createPayment.isPending ? "Saving..." : "Save"}

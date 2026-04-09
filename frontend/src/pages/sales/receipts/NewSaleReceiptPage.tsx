@@ -1,13 +1,12 @@
 import { useState, useMemo } from "react"
 import { useNavigate } from "react-router-dom"
-import { useContacts, useAccounts, useTaxRates } from "../../../lib/hooks"
+import { useContacts, useAccounts, useTaxRates, useCreateSaleReceipt } from "../../../lib/hooks"
 import { Card } from "../../../components/ui/card"
 import { Button } from "../../../components/ui/button"
 import { Input } from "../../../components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../../components/ui/select"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../../../components/ui/table"
 import { Plus, Trash2 } from "lucide-react"
-import api from "../../../lib/api"
 import { getContactPrefs, saveContactPref } from "../../../lib/contact-prefs"
 
 interface LineItem {
@@ -25,6 +24,7 @@ export default function NewSaleReceiptPage() {
   const { data: contacts = [] } = useContacts()
   const { data: accounts = [] } = useAccounts()
   const { data: taxRates = [] } = useTaxRates()
+  const createReceipt = useCreateSaleReceipt()
 
   const [contactId, setContactId] = useState("")
   const [receiptDate, setReceiptDate] = useState(new Date().toISOString().split("T")[0])
@@ -32,7 +32,6 @@ export default function NewSaleReceiptPage() {
   const [bankAccountId, setBankAccountId] = useState("")
   const [reference, setReference] = useState("")
   const [currency, setCurrency] = useState("MYR")
-  const [saving, setSaving] = useState(false)
   const [lineItems, setLineItems] = useState<LineItem[]>([
     { description: "", quantity: 1, unit_price: 0, tax_code_id: "", tax_rate: 0 },
   ])
@@ -61,30 +60,25 @@ export default function NewSaleReceiptPage() {
   const total = subtotal + taxTotal
 
   const handleSave = async () => {
-    setSaving(true)
-    try {
-      await api.post("/sales/receipts", {
-        contact_id: contactId,
-        receipt_date: receiptDate,
-        payment_method: paymentMethod,
-        bank_account_id: bankAccountId || undefined,
-        reference,
-        currency,
-        line_items: lineItems.map(li => ({
-          description: li.description,
-          quantity: li.quantity,
-          unit_price: li.unit_price,
-          tax_rate: li.tax_rate,
-          amount: li.quantity * li.unit_price,
-        })),
-        subtotal,
-        tax_total: taxTotal,
-        total,
-      })
-      navigate("/sales/receipts")
-    } finally {
-      setSaving(false)
-    }
+    await createReceipt.mutateAsync({
+      contact_id: contactId,
+      receipt_date: receiptDate,
+      payment_method: paymentMethod,
+      bank_account_id: bankAccountId || undefined,
+      reference,
+      currency,
+      line_items: lineItems.map(li => ({
+        description: li.description,
+        quantity: li.quantity,
+        unit_price: li.unit_price,
+        tax_rate: li.tax_rate,
+        amount: li.quantity * li.unit_price,
+      })),
+      subtotal,
+      tax_total: taxTotal,
+      total,
+    })
+    navigate("/sales/receipts")
   }
 
   return (
@@ -226,8 +220,8 @@ export default function NewSaleReceiptPage() {
 
       <div className="flex justify-end gap-3">
         <Button type="button" variant="outline" onClick={() => navigate("/sales/receipts")}>Cancel</Button>
-        <Button onClick={handleSave} disabled={saving} className="bg-gradient-to-r from-emerald-500 to-emerald-600 text-white hover:from-emerald-600 hover:to-emerald-700">
-          {saving ? "Saving..." : "Save Receipt"}
+        <Button onClick={handleSave} disabled={createReceipt.isPending || !contactId || !lineItems.some(li => li.description.trim())} className="bg-gradient-to-r from-emerald-500 to-emerald-600 text-white hover:from-emerald-600 hover:to-emerald-700">
+          {createReceipt.isPending ? "Saving..." : "Save Receipt"}
         </Button>
       </div>
     </div>
