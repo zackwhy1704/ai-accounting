@@ -46,7 +46,7 @@ export default function EditInvoicePage() {
   const [contactId, setContactId] = useState("")
   const [lhdnName, setLhdnName] = useState("")
   const [terms, setTerms] = useState("cbd")
-  const [taxInclusive, setTaxInclusive] = useState(true)
+  const [taxInclusive, setTaxInclusive] = useState(false)
   const [invoiceDate, setInvoiceDate] = useState("")
   const [customerPo, setCustomerPo] = useState("")
   const [digitalRef, setDigitalRef] = useState("")

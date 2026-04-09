@@ -48,7 +48,7 @@ export default function NewInvoicePage() {
   const [contactId, setContactId] = useState("")
   const [lhdnName, setLhdnName] = useState("")
   const [terms, setTerms] = useState("cbd")
-  const [taxInclusive, setTaxInclusive] = useState(true)
+  const [taxInclusive, setTaxInclusive] = useState(false)
   const [invoiceDate, setInvoiceDate] = useState(() => new Date().toISOString().slice(0, 10))
   const [customerPo, setCustomerPo] = useState("")
   const [digitalRef, setDigitalRef] = useState("")
