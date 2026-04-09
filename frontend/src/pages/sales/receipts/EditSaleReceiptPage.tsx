@@ -149,7 +149,7 @@ export default function EditSaleReceiptPage() {
           <div className="space-y-1.5">
             <label className="text-sm font-medium text-foreground">Payment Method</label>
             <Select value={paymentMethod} onValueChange={setPaymentMethod}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectTrigger><SelectValue placeholder="Select method" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="cash">Cash</SelectItem>
                 <SelectItem value="bank_transfer">Bank Transfer</SelectItem>
@@ -177,7 +177,7 @@ export default function EditSaleReceiptPage() {
           <div className="space-y-1.5">
             <label className="text-sm font-medium text-foreground">Currency</label>
             <Select value={currency} onValueChange={v => { setCurrency(v); if (contactId) saveContactPref(contactId, "currency", v) }}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectTrigger><SelectValue placeholder="Select currency" /></SelectTrigger>
               <SelectContent>
                 {CURRENCIES.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
               </SelectContent>

@@ -184,7 +184,7 @@ export default function EditPaymentPage() {
           <div className="space-y-1.5">
             <label className="text-sm font-medium text-foreground">Currency</label>
             <Select value={currency} onValueChange={v => { setCurrency(v); if (customerId) saveContactPref(customerId, "currency", v) }}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectTrigger><SelectValue placeholder="Select currency" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="MYR">MYR - Malaysian Ringgit</SelectItem>
                 <SelectItem value="SGD">SGD - Singapore Dollar</SelectItem>

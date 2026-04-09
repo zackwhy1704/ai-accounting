@@ -358,8 +358,7 @@ export default function NewDeliveryOrderPage() {
             <div className="w-36">
               <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Currency</label>
               <Select value={currency} onValueChange={handleCurrencyChange}>
-                <SelectTrigger className="h-10 rounded-xl">
-                  <SelectValue />
+                <SelectTrigger className="h-10 rounded-xl"><SelectValue placeholder="Select currency" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="MYR">MYR - Malaysian Ringgit</SelectItem>

@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
+from sqlalchemy.orm import selectinload
 from uuid import UUID
 from app.core.database import get_db
 from app.core.security import get_current_user
@@ -18,7 +19,7 @@ async def list_bills(
     db: AsyncSession = Depends(get_db),
 ):
     org_id = current_user["org_id"]
-    query = select(Bill).where(Bill.organization_id == org_id).order_by(Bill.created_at.desc())
+    query = select(Bill).options(selectinload(Bill.line_items)).where(Bill.organization_id == org_id).order_by(Bill.created_at.desc())
     if status:
         query = query.where(Bill.status == status)
     result = await db.execute(query)
@@ -73,8 +74,10 @@ async def create_bill(
 
     # No GL entries at draft stage — posted on 'approved' status
     await db.commit()
-    await db.refresh(bill)
-    return bill
+    result = await db.execute(
+        select(Bill).options(selectinload(Bill.line_items)).where(Bill.id == bill.id)
+    )
+    return result.scalar_one()
 
 
 @router.get("/{bill_id}", response_model=BillResponse)
@@ -84,7 +87,7 @@ async def get_bill(
     db: AsyncSession = Depends(get_db),
 ):
     result = await db.execute(
-        select(Bill).where(Bill.id == bill_id, Bill.organization_id == current_user["org_id"])
+        select(Bill).options(selectinload(Bill.line_items)).where(Bill.id == bill_id, Bill.organization_id == current_user["org_id"])
     )
     bill = result.scalar_one_or_none()
     if not bill:
@@ -152,8 +155,10 @@ async def update_bill(
         setattr(bill, field, value)
 
     await db.commit()
-    await db.refresh(bill)
-    return bill
+    result2 = await db.execute(
+        select(Bill).options(selectinload(Bill.line_items)).where(Bill.id == bill.id)
+    )
+    return result2.scalar_one()
 
 
 @router.patch("/{bill_id}/status")

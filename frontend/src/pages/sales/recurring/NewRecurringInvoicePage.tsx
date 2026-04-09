@@ -130,7 +130,7 @@ export default function NewRecurringInvoicePage() {
           <div className="space-y-1.5">
             <label className="text-sm font-medium text-foreground">Currency</label>
             <Select value={currency} onValueChange={v => { setCurrency(v); if (contactId) saveContactPref(contactId, "currency", v) }}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectTrigger><SelectValue placeholder="Select currency" /></SelectTrigger>
               <SelectContent>
                 {CURRENCIES.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
               </SelectContent>

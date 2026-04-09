@@ -116,7 +116,7 @@ export default function NewPurchaseOrderPage() {
           <div>
             <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Currency</label>
             <Select value={currency} onValueChange={v => { setCurrency(v); if (contactId) saveContactPref(contactId, "currency", v) }}>
-              <SelectTrigger className="h-10 rounded-xl"><SelectValue /></SelectTrigger>
+              <SelectTrigger className="h-10 rounded-xl"><SelectValue placeholder="Select currency" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="MYR">MYR - Malaysian Ringgit</SelectItem>
                 <SelectItem value="SGD">SGD - Singapore Dollar</SelectItem>
@@ -225,7 +225,7 @@ export default function NewPurchaseOrderPage() {
 
         <div className="mt-6 flex items-center justify-end gap-2">
           <Button type="button" variant="secondary" className="h-9 rounded-xl px-3 text-xs font-semibold" onClick={() => navigate("/purchases/purchase-orders")}>Cancel</Button>
-          <Button type="button" onClick={handleSave} disabled={createPO.isPending} className="h-9 rounded-xl bg-gradient-to-r from-[#7C9DFF] to-[#4D63FF] px-3 text-xs font-semibold text-white hover:opacity-95">
+          <Button type="button" onClick={handleSave} disabled={createPO.isPending || !contactId || !issueDate || !lineItems.some(li => li.description.trim())} className="h-9 rounded-xl bg-gradient-to-r from-[#7C9DFF] to-[#4D63FF] px-3 text-xs font-semibold text-white hover:opacity-95">
             {createPO.isPending ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Saving...</> : "Save as Draft"}
           </Button>
         </div>

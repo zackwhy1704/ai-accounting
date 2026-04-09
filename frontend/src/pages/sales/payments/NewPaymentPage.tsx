@@ -180,8 +180,7 @@ export default function NewPaymentPage() {
           <div className="space-y-1.5">
             <label className="text-sm font-medium text-foreground">Currency</label>
             <Select value={currency} onValueChange={v => { setCurrency(v); if (customerId) saveContactPref(customerId, "currency", v) }}>
-              <SelectTrigger>
-                <SelectValue />
+              <SelectTrigger><SelectValue placeholder="Select currency" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="MYR">MYR - Malaysian Ringgit</SelectItem>
