@@ -64,6 +64,12 @@ async def create_invoice(
         total=subtotal + tax_amount,
         currency=data.currency,
         notes=data.notes,
+        billing_address_line1=data.billing_address_line1,
+        billing_address_line2=data.billing_address_line2,
+        billing_city=data.billing_city,
+        billing_state=data.billing_state,
+        billing_postcode=data.billing_postcode,
+        billing_country=data.billing_country,
     )
     db.add(invoice)
     await db.flush()

@@ -7,8 +7,8 @@ Create Date: 2026-04-09
 from alembic import op
 import sqlalchemy as sa
 
-revision = "018_billing_shipping_address_on_docs"
-down_revision = "017_contact_address_and_defaults"
+revision = "018"
+down_revision = "017"
 branch_labels = None
 depends_on = None
 

@@ -67,6 +67,9 @@ async def create_quotation(data: QuotationCreate, current_user: dict = Depends(g
         subtotal=subtotal, discount_amount=discount_total, tax_amount=tax_amount,
         total=subtotal - discount_total + tax_amount, currency=data.currency,
         notes=data.notes, terms=data.terms,
+        billing_address_line1=data.billing_address_line1, billing_address_line2=data.billing_address_line2,
+        billing_city=data.billing_city, billing_state=data.billing_state,
+        billing_postcode=data.billing_postcode, billing_country=data.billing_country,
     )
     db.add(obj)
     await db.flush()
@@ -125,6 +128,13 @@ async def update_quotation(qid: UUID, data: QuotationUpdate, current_user: dict 
         obj.notes = data.notes
     if data.terms is not None:
         obj.terms = data.terms
+    for addr_field in [
+        "billing_address_line1", "billing_address_line2", "billing_city",
+        "billing_state", "billing_postcode", "billing_country",
+    ]:
+        val = getattr(data, addr_field, None)
+        if val is not None:
+            setattr(obj, addr_field, val)
 
     if data.line_items is not None:
         await db.execute(delete(QuotationLineItem).where(QuotationLineItem.quotation_id == obj.id))
