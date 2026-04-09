@@ -208,7 +208,7 @@ export default function NewRefundPage() {
           <Button type="button" variant="outline" onClick={() => navigate("/sales/refunds")}>Cancel</Button>
           <Button
             onClick={handleSave}
-            disabled={createRefund.isPending || !contactId || !refundDate || !refundMethod || !amount}
+            disabled={createRefund.isPending || !contactId || !refundDate || !refundMethod || !amount || parseFloat(amount) <= 0}
             className="bg-gradient-to-r from-emerald-500 to-emerald-600 text-white shadow-md hover:from-emerald-600 hover:to-emerald-700"
           >
             {createRefund.isPending ? "Saving..." : "Save"}

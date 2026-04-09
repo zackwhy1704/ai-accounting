@@ -33,12 +33,11 @@ export default function NewPaymentPage() {
   useEffect(() => {
     const invoiceId = searchParams.get("invoice_id")
     if (!invoiceId || !invoices) return
-    const inv = invoices.find((i: any) => i.id === invoiceId)
+    const inv = invoices.find((i) => i.id === invoiceId)
     if (!inv) return
-    const contactId = inv.contact_id
-    if (contactId) setCustomerId(contactId)
+    if (inv.contact_id) setCustomerId(inv.contact_id)
     setSelectedInvoices({ [invoiceId]: true })
-    const balance = inv.balance ?? inv.amount_due ?? (inv.total - (inv.amount_paid || 0))
+    const balance = inv.total - (inv.amount_paid || 0)
     setAllocations({ [invoiceId]: balance })
     setAmount(String(balance))
   }, [searchParams, invoices])
