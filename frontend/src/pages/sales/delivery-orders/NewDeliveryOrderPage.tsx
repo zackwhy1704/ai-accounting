@@ -511,7 +511,7 @@ export default function NewDeliveryOrderPage() {
             <Button
               type="button"
               onClick={handleSave}
-              disabled={createDeliveryOrder.isPending}
+              disabled={createDeliveryOrder.isPending || !contactId || !deliveryDate || !lineItems.some(li => li.description.trim())}
               className="h-10 rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-600 px-6 text-sm font-semibold text-white shadow-sm hover:opacity-95"
             >
               {createDeliveryOrder.isPending ? "Saving..." : t("form.save") || "Save"}

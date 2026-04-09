@@ -60,14 +60,14 @@ export default function EditDebitNotePage() {
     if (!debitNote || populated.current) return
     setDebitNoteNumber(debitNote.debit_note_number ?? "")
     setCustomerId(String(debitNote.contact_id ?? ""))
-    setLinkedInvoiceId(String(debitNote.linked_invoice_id ?? ""))
+    setLinkedInvoiceId(String(debitNote.invoice_id ?? ""))
     setDate(debitNote.issue_date?.slice(0, 10) ?? new Date().toISOString().slice(0, 10))
     setReference(debitNote.reference ?? "")
     setDiscountGiven(debitNote.discount_given ?? 0)
     setRoundingAdjustment(debitNote.rounding_adjustment ?? 0)
     setQuickShareEmail(debitNote.quick_share_email ?? false)
-    if (debitNote.lines?.length) {
-      setLines(debitNote.lines.map((l: any) => ({
+    if (debitNote.line_items?.length) {
+      setLines(debitNote.line_items.map((l: any) => ({
         id: crypto.randomUUID(),
         description: l.description ?? "",
         accountId: l.account_id ? String(l.account_id) : "",

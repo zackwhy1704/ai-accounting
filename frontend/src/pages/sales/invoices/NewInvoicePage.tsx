@@ -593,7 +593,7 @@ export default function NewInvoicePage() {
                 <Button
                   type="button"
                   onClick={handleSave}
-                  disabled={createInvoice.isPending}
+                  disabled={createInvoice.isPending || !contactId || !lineItems.some(li => li.description.trim())}
                   className="h-10 rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-600 px-6 text-sm font-semibold text-white shadow-sm hover:opacity-95"
                 >
                   {createInvoice.isPending ? "Saving..." : t("form.save") || "Save"}

@@ -70,7 +70,7 @@ export default function EditCreditNotePage() {
     if (!creditNote || populated.current) return
     setCreditNoteNumber(creditNote.credit_note_number ?? "")
     setContactId(String(creditNote.contact_id ?? ""))
-    setCreditNoteDate(creditNote.credit_note_date?.slice(0, 10) ?? "")
+    setCreditNoteDate(creditNote.issue_date?.slice(0, 10) ?? "")
     setReference(creditNote.reference ?? "")
     setCurrency(creditNote.currency ?? "MYR")
     setTaxInclusive(creditNote.tax_inclusive ?? false)
@@ -482,7 +482,7 @@ export default function EditCreditNotePage() {
         </label>
         <div className="flex items-center gap-3">
           <Button type="button" variant="outline" onClick={() => navigate("/sales/credit-notes")}>Cancel</Button>
-          <Button type="button" onClick={handleSave} disabled={updateCreditNote.isPending} className="h-10 rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-600 px-6 text-sm font-semibold text-white shadow-sm hover:opacity-95">
+          <Button type="button" onClick={handleSave} disabled={updateCreditNote.isPending || !contactId || !lineItems.some(li => li.description.trim())} className="h-10 rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-600 px-6 text-sm font-semibold text-white shadow-sm hover:opacity-95">
             {updateCreditNote.isPending ? "Saving..." : "Save Changes"}
           </Button>
         </div>

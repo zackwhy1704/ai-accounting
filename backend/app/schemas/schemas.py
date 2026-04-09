@@ -368,6 +368,20 @@ class CreditNoteUpdate(BaseModel):
     line_items: list[CreditNoteLineItemCreate] | None = None
     credit_applications: list[CreditApplicationCreate] | None = None
 
+class CreditNoteLineItemResponse(BaseModel):
+    id: UUID
+    description: str
+    quantity: float
+    unit_price: float
+    tax_rate: float
+    discount: float
+    amount: float
+    line_type: str
+    tax_code_id: UUID | None
+    account_id: UUID | None
+    sort_order: int
+    model_config = {"from_attributes": True}
+
 class CreditNoteResponse(BaseModel):
     id: UUID
     credit_note_number: str
@@ -384,6 +398,7 @@ class CreditNoteResponse(BaseModel):
     currency: str
     notes: str | None
     created_at: datetime
+    line_items: list[CreditNoteLineItemResponse] = []
     model_config = {"from_attributes": True}
 
 
@@ -406,6 +421,20 @@ class DebitNoteUpdate(BaseModel):
     notes: str | None = None
     line_items: list[CreditNoteLineItemCreate] | None = None
 
+class DebitNoteLineItemResponse(BaseModel):
+    id: UUID
+    description: str
+    quantity: float
+    unit_price: float
+    tax_rate: float
+    discount: float
+    amount: float
+    line_type: str
+    tax_code_id: UUID | None
+    account_id: UUID | None
+    sort_order: int
+    model_config = {"from_attributes": True}
+
 class DebitNoteResponse(BaseModel):
     id: UUID
     debit_note_number: str
@@ -421,6 +450,7 @@ class DebitNoteResponse(BaseModel):
     currency: str
     notes: str | None
     created_at: datetime
+    line_items: list[DebitNoteLineItemResponse] = []
     model_config = {"from_attributes": True}
 
 

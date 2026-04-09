@@ -728,7 +728,7 @@ export default function NewCreditNotePage() {
           <Button
             type="button"
             onClick={handleSave}
-            disabled={createCreditNote.isPending}
+            disabled={createCreditNote.isPending || !contactId || !lineItems.some(li => li.description.trim())}
             className="h-10 rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-600 px-6 text-sm font-semibold text-white shadow-sm hover:opacity-95"
           >
             {createCreditNote.isPending ? "Saving..." : "Save"}

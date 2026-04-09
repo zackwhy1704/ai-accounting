@@ -52,15 +52,19 @@ export default function EditDeliveryOrderPage() {
 
   useEffect(() => {
     if (!deliveryOrder || populated.current) return
-    setDoNumber(deliveryOrder.do_number ?? "")
+    setDoNumber(deliveryOrder.delivery_number ?? "")
     setContactId(String(deliveryOrder.contact_id ?? ""))
     setDeliveryDate(deliveryOrder.delivery_date?.slice(0, 10) ?? "")
     setDueDate(deliveryOrder.due_date?.slice(0, 10) ?? "")
-    setPoNumber(deliveryOrder.po_number ?? "")
+    setPoNumber(deliveryOrder.reference ?? "")
     setCurrency(deliveryOrder.currency ?? "MYR")
     setTaxRate(deliveryOrder.tax_rate ?? 0)
-    if (deliveryOrder.deliver_to) setDeliverTo(deliveryOrder.deliver_to)
-    if (deliveryOrder.ship_to) setShipTo(deliveryOrder.ship_to)
+    if (deliveryOrder.deliver_to_address) {
+      setDeliverTo(prev => ({ ...prev, address1: deliveryOrder.deliver_to_address ?? "" }))
+    }
+    if (deliveryOrder.ship_to_address) {
+      setShipTo(prev => ({ ...prev, address1: deliveryOrder.ship_to_address ?? "" }))
+    }
     if (deliveryOrder.line_items?.length) {
       setLineItems(deliveryOrder.line_items.map((l: any) => ({
         description: l.description ?? "",
@@ -173,7 +177,7 @@ export default function EditDeliveryOrderPage() {
     <div className="flex flex-col gap-4">
       <div className="flex flex-col gap-1">
         <div className="text-xs text-muted-foreground">Sales</div>
-        <div className="text-2xl font-semibold tracking-tight text-foreground">Edit Delivery Order {deliveryOrder.do_number}</div>
+        <div className="text-2xl font-semibold tracking-tight text-foreground">Edit Delivery Order {deliveryOrder.delivery_number}</div>
       </div>
 
       <div className="flex items-center gap-6 border-b border-border">
@@ -381,7 +385,7 @@ export default function EditDeliveryOrderPage() {
 
           <div className="mt-6 flex items-center justify-end gap-3 border-t border-border pt-4">
             <Button type="button" variant="outline" onClick={() => navigate("/sales/delivery-orders")}>Cancel</Button>
-            <Button type="button" onClick={handleSave} disabled={updateDeliveryOrder.isPending} className="h-10 rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-600 px-6 text-sm font-semibold text-white shadow-sm hover:opacity-95">
+            <Button type="button" onClick={handleSave} disabled={updateDeliveryOrder.isPending || !contactId || !deliveryDate || !lineItems.some(li => li.description.trim())} className="h-10 rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-600 px-6 text-sm font-semibold text-white shadow-sm hover:opacity-95">
               {updateDeliveryOrder.isPending ? "Saving..." : "Save Changes"}
             </Button>
           </div>

@@ -467,7 +467,7 @@ export default function EditInvoicePage() {
               </label>
               <div className="flex items-center gap-3">
                 <Button type="button" variant="outline" onClick={() => navigate("/sales/invoices")}>Cancel</Button>
-                <Button type="button" onClick={handleSave} disabled={updateInvoice.isPending} className="h-10 rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-600 px-6 text-sm font-semibold text-white shadow-sm hover:opacity-95">
+                <Button type="button" onClick={handleSave} disabled={updateInvoice.isPending || !contactId || !lineItems.some(li => li.description.trim())} className="h-10 rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-600 px-6 text-sm font-semibold text-white shadow-sm hover:opacity-95">
                   {updateInvoice.isPending ? "Saving..." : "Save Changes"}
                 </Button>
               </div>
