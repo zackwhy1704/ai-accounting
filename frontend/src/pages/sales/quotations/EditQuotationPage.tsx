@@ -47,7 +47,7 @@ export default function EditQuotationPage() {
   const [billingCountry, setBillingCountry] = useState("")
   const [productSearch, setProductSearch] = useState("")
   const [lineItems, setLineItems] = useState<LineItem[]>([
-    { description: "", account_id: "", quantity: 1, unit_price: 0, amount: 0, discount: 0, tax_rate: 0, tax_code_id: "" },
+    { line_type: "goods", description: "", account_id: "", quantity: 1, unit_price: 0, amount: 0, discount: 0, tax_rate: 0, tax_code_id: "" },
   ])
   const [populated, setPopulated] = useState(false)
 
@@ -116,7 +116,7 @@ export default function EditQuotationPage() {
   }
 
   const addLineItem = () => {
-    setLineItems(prev => [...prev, { description: "", account_id: "", quantity: 1, unit_price: 0, amount: 0, discount: 0, tax_rate: 0, tax_code_id: "" }])
+    setLineItems(prev => [...prev, { line_type: "goods", description: "", account_id: "", quantity: 1, unit_price: 0, amount: 0, discount: 0, tax_rate: 0, tax_code_id: "" }])
   }
 
   const removeLineItem = (index: number) => {
