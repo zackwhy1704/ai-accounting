@@ -172,6 +172,7 @@ export default function NewInvoicePage() {
     try {
       await createInvoice.mutateAsync({
         contact_id: contactId,
+        invoice_number: invoiceNumber || undefined,
         issue_date: invoiceDate,
         due_date: invoiceDate,
         currency,

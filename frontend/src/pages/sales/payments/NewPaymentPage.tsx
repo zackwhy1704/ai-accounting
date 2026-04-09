@@ -45,7 +45,7 @@ export default function NewPaymentPage() {
   const bankAccounts = useMemo(() => {
     if (!accounts) return []
     return accounts.filter(
-      (a: any) => a.type === "bank" || a.type === "cash" || a.account_type === "bank" || a.account_type === "cash"
+      (a: any) => a.subtype === "bank" || a.subtype === "cash" || a.type === "bank" || a.type === "cash"
     )
   }, [accounts])
 

@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
+from sqlalchemy.orm import selectinload
 from uuid import UUID
 from app.core.database import get_db
 from app.core.security import get_current_user
@@ -18,7 +19,7 @@ async def list_invoices(
     db: AsyncSession = Depends(get_db),
 ):
     org_id = current_user["org_id"]
-    query = select(Invoice).where(Invoice.organization_id == org_id).order_by(Invoice.created_at.desc())
+    query = select(Invoice).options(selectinload(Invoice.line_items)).where(Invoice.organization_id == org_id).order_by(Invoice.created_at.desc())
     if status:
         query = query.where(Invoice.status == status)
     result = await db.execute(query)
@@ -33,12 +34,15 @@ async def create_invoice(
 ):
     org_id = current_user["org_id"]
 
-    # Generate invoice number
-    count_result = await db.execute(
-        select(func.count(Invoice.id)).where(Invoice.organization_id == org_id)
-    )
-    count = count_result.scalar() or 0
-    invoice_number = f"INV-{count + 1:04d}"
+    # Use provided invoice_number or auto-generate
+    if data.invoice_number:
+        invoice_number = data.invoice_number
+    else:
+        count_result = await db.execute(
+            select(func.count(Invoice.id)).where(Invoice.organization_id == org_id)
+        )
+        count = count_result.scalar() or 0
+        invoice_number = f"INV-{count + 1:04d}"
 
     # Calculate totals
     subtotal = 0
@@ -89,7 +93,7 @@ async def get_invoice(
     db: AsyncSession = Depends(get_db),
 ):
     result = await db.execute(
-        select(Invoice).where(Invoice.id == invoice_id, Invoice.organization_id == current_user["org_id"])
+        select(Invoice).options(selectinload(Invoice.line_items)).where(Invoice.id == invoice_id, Invoice.organization_id == current_user["org_id"])
     )
     invoice = result.scalar_one_or_none()
     if not invoice:
@@ -106,7 +110,7 @@ async def update_invoice(
 ):
     org_id = current_user["org_id"]
     result = await db.execute(
-        select(Invoice).where(Invoice.id == invoice_id, Invoice.organization_id == org_id)
+        select(Invoice).options(selectinload(Invoice.line_items)).where(Invoice.id == invoice_id, Invoice.organization_id == org_id)
     )
     invoice = result.scalar_one_or_none()
     if not invoice:

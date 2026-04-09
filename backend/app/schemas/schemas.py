@@ -152,6 +152,7 @@ class LineItemCreate(BaseModel):
 
 class InvoiceCreate(BaseModel):
     contact_id: UUID
+    invoice_number: str | None = None
     issue_date: datetime
     due_date: datetime
     currency: str = "SGD"
