@@ -11,6 +11,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from ".
 import { useToast } from "../../../components/ui/toast"
 
 interface LineItem {
+  line_type: string
   description: string
   account_id: string
   quantity: number
