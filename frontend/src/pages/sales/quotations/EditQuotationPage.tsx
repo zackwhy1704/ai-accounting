@@ -26,7 +26,6 @@ const TABS = [
   { key: "billing", label: "Billing & Shipping" },
   { key: "general", label: "General Info" },
   { key: "payment", label: "Payment Terms" },
-  { key: "additional", label: "Additional Info" },
 ] as const
 
 type TabKey = (typeof TABS)[number]["key"]
