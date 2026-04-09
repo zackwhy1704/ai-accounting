@@ -1,9 +1,9 @@
 import { useMemo, useState } from "react"
 import { useQueryClient } from "@tanstack/react-query"
 import { useNavigate } from "react-router-dom"
-import { Plus, Search, FileText, XCircle, Pencil } from "lucide-react"
+import { Plus, Search, FileText, XCircle, Pencil, Receipt } from "lucide-react"
 import { RowActionsMenu } from "../../../components/ui/row-actions"
-import { useSalesPayments, useContacts } from "../../../lib/hooks"
+import { useSalesPayments, useContacts, useSaleReceipts } from "../../../lib/hooks"
 import api from "../../../lib/api"
 import { formatCurrency, formatDate, cn } from "../../../lib/utils"
 import { useTheme } from "../../../lib/theme"
@@ -21,15 +21,27 @@ const statusColors: Record<string, string> = {
   void: "bg-rose-500/10 text-rose-700 border-rose-400/20",
 }
 
+const receiptPaymentMethodLabel: Record<string, string> = {
+  cash: "Cash", bank_transfer: "Bank Transfer", cheque: "Cheque",
+  online_payment: "Online", fpx: "FPX", card: "Card",
+}
+
+const receiptStatusColors: Record<string, string> = {
+  completed: "bg-emerald-500/10 text-emerald-700 border-emerald-400/20",
+  void: "bg-rose-500/10 text-rose-700 border-rose-400/20",
+}
+
 export default function PaymentsPage() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
+  const [mainTab, setMainTab] = useState("payments")
   const [tab, setTab] = useState("all")
   const [search, setSearch] = useState("")
   const [contactFilter, setContactFilter] = useState("all")
   const [dateFrom, setDateFrom] = useState("")
   const [dateTo, setDateTo] = useState("")
   const { data: payments = [], isLoading } = useSalesPayments(tab === "all" ? undefined : tab)
+  const { data: receipts = [], isLoading: receiptsLoading } = useSaleReceipts()
   const { data: contacts = [] } = useContacts()
   const { t } = useTheme()
 
@@ -70,13 +82,76 @@ export default function PaymentsPage() {
           <div className="mt-1 max-w-2xl text-sm text-muted-foreground">{t("payments.desc")}</div>
         </div>
         <div className="flex items-center gap-2">
-<Button type="button" onClick={() => navigate("/sales/payments/new")} className="h-9 rounded-xl bg-gradient-to-r from-[#7C9DFF] to-[#4D63FF] px-3 text-xs font-semibold text-white shadow-[0_0_0_1px_rgba(124,157,255,0.25),0_16px_40px_rgba(0,0,0,0.35)] hover:opacity-95">
-            <Plus className="mr-2 h-4 w-4" /> {t("payments.new")}
-          </Button>
+          {mainTab === "receipts" ? (
+            <Button type="button" onClick={() => navigate("/sales/receipts/new")} className="h-9 rounded-xl bg-gradient-to-r from-[#7C9DFF] to-[#4D63FF] px-3 text-xs font-semibold text-white shadow-[0_0_0_1px_rgba(124,157,255,0.25),0_16px_40px_rgba(0,0,0,0.35)] hover:opacity-95">
+              <Plus className="mr-2 h-4 w-4" /> New Receipt
+            </Button>
+          ) : (
+            <Button type="button" onClick={() => navigate("/sales/payments/new")} className="h-9 rounded-xl bg-gradient-to-r from-[#7C9DFF] to-[#4D63FF] px-3 text-xs font-semibold text-white shadow-[0_0_0_1px_rgba(124,157,255,0.25),0_16px_40px_rgba(0,0,0,0.35)] hover:opacity-95">
+              <Plus className="mr-2 h-4 w-4" /> {t("payments.new")}
+            </Button>
+          )}
         </div>
       </div>
 
-      <Card className="rounded-2xl border-border bg-card p-4 shadow-[0_0_0_1px_rgba(15,23,42,0.06),0_18px_55px_rgba(2,6,23,0.08)]">
+      {/* Main tab switcher: Payments vs Receipts */}
+      <div className="flex gap-1 rounded-xl bg-muted p-1 w-fit">
+        <button type="button" onClick={() => setMainTab("payments")} className={`rounded-lg px-4 py-1.5 text-xs font-medium transition-colors ${mainTab === "payments" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}>Payments</button>
+        <button type="button" onClick={() => setMainTab("receipts")} className={`rounded-lg px-4 py-1.5 text-xs font-medium transition-colors ${mainTab === "receipts" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}><Receipt className="mr-1 inline h-3.5 w-3.5" />Receipts</button>
+      </div>
+
+      {mainTab === "receipts" && (
+        <Card className="rounded-2xl border-border bg-card p-4 shadow-[0_0_0_1px_rgba(15,23,42,0.06),0_18px_55px_rgba(2,6,23,0.08)]">
+          {receiptsLoading ? (
+            <div className="py-10 text-center text-sm text-muted-foreground">Loading...</div>
+          ) : receipts.length === 0 ? (
+            <div className="rounded-2xl border border-border bg-card px-6 py-10 text-center">
+              <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-muted"><Receipt className="h-6 w-6 text-muted-foreground" /></div>
+              <div className="mt-4 text-base font-semibold text-foreground">No sale receipts</div>
+              <div className="mt-1 text-sm text-muted-foreground">Record cash sales with immediate payment collection</div>
+              <Button type="button" onClick={() => navigate("/sales/receipts/new")} className="mt-6 h-9 rounded-xl bg-gradient-to-r from-[#7C9DFF] to-[#4D63FF] px-3 text-xs font-semibold text-white"><Plus className="mr-2 h-4 w-4" /> New Receipt</Button>
+            </div>
+          ) : (
+            <div className="overflow-hidden rounded-2xl border border-border bg-card">
+              <Table>
+                <TableHeader>
+                  <TableRow className="border-border hover:bg-transparent">
+                    <TableHead className="text-muted-foreground">No.</TableHead>
+                    <TableHead className="text-muted-foreground">Date</TableHead>
+                    <TableHead className="text-muted-foreground">Customer</TableHead>
+                    <TableHead className="text-muted-foreground">Payment</TableHead>
+                    <TableHead className="text-right text-muted-foreground">Total</TableHead>
+                    <TableHead className="text-muted-foreground">Status</TableHead>
+                    <TableHead className="w-[60px]" />
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {receipts.map(r => (
+                    <TableRow key={r.id} className="border-border hover:bg-muted/50">
+                      <TableCell className="font-medium text-foreground">{r.receipt_number}</TableCell>
+                      <TableCell className="text-muted-foreground">{formatDate(r.receipt_date)}</TableCell>
+                      <TableCell className="text-foreground">{r.contact_id ? (contactMap.get(r.contact_id) ?? "—") : "Walk-in"}</TableCell>
+                      <TableCell className="text-muted-foreground">{receiptPaymentMethodLabel[r.payment_method] ?? r.payment_method}</TableCell>
+                      <TableCell className="text-right text-foreground">{formatCurrency(r.total, r.currency)}</TableCell>
+                      <TableCell>
+                        <Badge variant="outline" className={cn("rounded-lg px-2 py-0.5 text-[11px] font-semibold", receiptStatusColors[r.status] ?? "")}>{r.status.charAt(0).toUpperCase() + r.status.slice(1)}</Badge>
+                      </TableCell>
+                      <TableCell>
+                        <RowActionsMenu actions={[
+                          { label: "Edit", icon: <Pencil className="h-3.5 w-3.5" />, onClick: () => navigate(`/sales/receipts/${r.id}/edit`) },
+                          { label: "Void", icon: <XCircle className="h-3.5 w-3.5" />, onClick: () => { if (confirm("Void this receipt?")) api.patch(`/sale-receipts/${r.id}`, { status: "void" }).then(() => queryClient.invalidateQueries({ queryKey: ["sale-receipts"] })) }, danger: true, dividerBefore: true },
+                        ]} />
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+        </Card>
+      )}
+
+      {mainTab === "payments" && <Card className="rounded-2xl border-border bg-card p-4 shadow-[0_0_0_1px_rgba(15,23,42,0.06),0_18px_55px_rgba(2,6,23,0.08)]">
         <Tabs value={tab} onValueChange={setTab}>
           <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
             <TabsList className="h-auto flex-wrap justify-start gap-1 rounded-xl bg-muted p-1">
@@ -165,7 +240,7 @@ export default function PaymentsPage() {
             )}
           </div>
         </Tabs>
-      </Card>
+      </Card>}
     </div>
   )
 }

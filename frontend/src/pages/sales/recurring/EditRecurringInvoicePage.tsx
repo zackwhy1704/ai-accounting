@@ -81,28 +81,29 @@ export default function EditRecurringInvoicePage() {
   const total = subtotal + taxTotal
 
   const handleSave = async () => {
-    await updateRecurringInvoice.mutateAsync({
-      id,
-      contact_id: contactId,
-      frequency,
-      start_date: startDate,
-      end_date: endDate || undefined,
-      currency,
-      reference,
-      auto_send: autoSend,
-      line_items: lineItems.map(li => ({
-        description: li.description,
-        account_id: li.account_id || undefined,
-        quantity: li.quantity,
-        unit_price: li.unit_price,
-        tax_rate: li.tax_rate,
-        amount: li.quantity * li.unit_price,
-      })),
-      subtotal,
-      tax_total: taxTotal,
-      total,
-    })
-    navigate("/sales/recurring")
+    try {
+      await updateRecurringInvoice.mutateAsync({
+        id,
+        contact_id: contactId,
+        frequency,
+        start_date: startDate,
+        end_date: endDate || undefined,
+        currency,
+        notes: reference || undefined,
+        auto_send: autoSend,
+        line_items: lineItems.map(li => ({
+          description: li.description,
+          account_id: li.account_id || undefined,
+          quantity: li.quantity,
+          unit_price: li.unit_price,
+          tax_rate: li.tax_rate,
+          amount: li.quantity * li.unit_price,
+        })),
+      })
+      navigate("/sales/recurring")
+    } catch (err: any) {
+      alert(err?.response?.data?.detail ?? "Failed to save recurring invoice")
+    }
   }
 
   if (isLoading) {

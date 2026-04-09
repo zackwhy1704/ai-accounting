@@ -1,5 +1,5 @@
-import { useState, useMemo } from "react"
-import { useNavigate } from "react-router-dom"
+import { useState, useMemo, useEffect } from "react"
+import { useNavigate, useSearchParams } from "react-router-dom"
 import { useContacts, useAccounts, useInvoices, useCreateSalesPayment } from "../../../lib/hooks"
 import { formatCurrency, formatDate } from "../../../lib/utils"
 import { Card } from "../../../components/ui/card"
@@ -13,6 +13,7 @@ const cardClass = "rounded-2xl border-border bg-card p-6 shadow-[0_0_0_1px_rgba(
 
 export default function NewPaymentPage() {
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
   const { data: contacts } = useContacts()
   const { data: accounts } = useAccounts()
   const { data: invoices } = useInvoices()
@@ -27,6 +28,20 @@ export default function NewPaymentPage() {
   const [currency, setCurrency] = useState("MYR")
   const [allocations, setAllocations] = useState<Record<string, number>>({})
   const [selectedInvoices, setSelectedInvoices] = useState<Record<string, boolean>>({})
+
+  // Pre-fill from invoice link
+  useEffect(() => {
+    const invoiceId = searchParams.get("invoice_id")
+    if (!invoiceId || !invoices) return
+    const inv = invoices.find((i: any) => i.id === invoiceId)
+    if (!inv) return
+    const contactId = inv.contact_id
+    if (contactId) setCustomerId(contactId)
+    setSelectedInvoices({ [invoiceId]: true })
+    const balance = inv.balance ?? inv.amount_due ?? (inv.total - (inv.amount_paid || 0))
+    setAllocations({ [invoiceId]: balance })
+    setAmount(String(balance))
+  }, [searchParams, invoices])
 
   const bankAccounts = useMemo(() => {
     if (!accounts) return []
@@ -78,6 +93,8 @@ export default function NewPaymentPage() {
 
     navigate("/sales/payments")
   }
+
+  const isFormValid = !!customerId && !!paymentMethod && !!amount && parseFloat(amount) > 0
 
   const getBalance = (inv: any) =>
     inv.balance ?? inv.amount_due ?? (inv.total - (inv.amount_paid || 0))
@@ -269,7 +286,7 @@ export default function NewPaymentPage() {
         <Button type="button" variant="outline" onClick={() => navigate("/sales/payments")}>Cancel</Button>
         <Button
           onClick={handleSave}
-          disabled={createPayment.isPending || !customerId || !paymentMethod || !amount || parseFloat(amount) <= 0}
+          disabled={createPayment.isPending || !isFormValid}
           className="bg-gradient-to-r from-emerald-500 to-emerald-600 text-white hover:from-emerald-600 hover:to-emerald-700"
         >
           {createPayment.isPending ? "Saving..." : "Save"}

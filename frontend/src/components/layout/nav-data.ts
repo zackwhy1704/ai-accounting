@@ -26,7 +26,6 @@ export const navItems: NavItem[] = [
       { labelKey: "nav.debitNotes", href: "/sales/debit-notes" },
       { labelKey: "nav.payments", href: "/sales/payments" },
       { labelKey: "nav.refunds", href: "/sales/refunds" },
-      { labelKey: "nav.saleReceipts", href: "/sales/receipts" },
       { labelKey: "nav.recurringInvoices", href: "/sales/recurring" },
     ],
   },

@@ -91,7 +91,10 @@ export default function NewDebitNotePage() {
   const totalTax = lines.reduce((sum, l) => sum + (l.quantity * l.unitPrice * l.taxRate) / 100, 0)
   const total = subTotal - discountGiven + totalTax + roundingAdjustment
 
+  const isFormValid = !!customerId && lines.some(l => l.description.trim() !== "")
+
   const handleSave = () => {
+    if (!isFormValid) return
     createDebitNote.mutate(
       {
         contact_id: customerId,
@@ -109,7 +112,10 @@ export default function NewDebitNotePage() {
           tax_code_id: l.taxCodeId || undefined,
         })),
       } as any,
-      { onSuccess: () => navigate("/sales/debit-notes") }
+      {
+        onSuccess: () => navigate("/sales/debit-notes"),
+        onError: (err: any) => alert(err?.response?.data?.detail ?? "Failed to save debit note"),
+      }
     )
   }
 
@@ -391,7 +397,7 @@ export default function NewDebitNotePage() {
                 <Button
                   type="button"
                   onClick={handleSave}
-                  disabled={createDebitNote.isPending || !customerId || !lines.some(l => l.description.trim())}
+                  disabled={createDebitNote.isPending || !isFormValid}
                   className="h-9 rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-600 px-6 text-xs font-semibold text-white shadow-sm hover:opacity-95"
                 >
                   Save
