@@ -169,6 +169,18 @@ class InvoiceCreate(BaseModel):
     due_date: datetime
     currency: str = "SGD"
     notes: str | None = None
+    billing_address_line1: str | None = None
+    billing_address_line2: str | None = None
+    billing_city: str | None = None
+    billing_state: str | None = None
+    billing_postcode: str | None = None
+    billing_country: str | None = None
+    shipping_address_line1: str | None = None
+    shipping_address_line2: str | None = None
+    shipping_city: str | None = None
+    shipping_state: str | None = None
+    shipping_postcode: str | None = None
+    shipping_country: str | None = None
     line_items: list[LineItemCreate]
 
 class InvoiceUpdate(BaseModel):
@@ -177,6 +189,18 @@ class InvoiceUpdate(BaseModel):
     due_date: datetime | None = None
     currency: str | None = None
     notes: str | None = None
+    billing_address_line1: str | None = None
+    billing_address_line2: str | None = None
+    billing_city: str | None = None
+    billing_state: str | None = None
+    billing_postcode: str | None = None
+    billing_country: str | None = None
+    shipping_address_line1: str | None = None
+    shipping_address_line2: str | None = None
+    shipping_city: str | None = None
+    shipping_state: str | None = None
+    shipping_postcode: str | None = None
+    shipping_country: str | None = None
     line_items: list[LineItemCreate] | None = None
 
 class InvoiceResponse(BaseModel):
@@ -192,6 +216,18 @@ class InvoiceResponse(BaseModel):
     amount_paid: float
     currency: str
     notes: str | None
+    billing_address_line1: str | None = None
+    billing_address_line2: str | None = None
+    billing_city: str | None = None
+    billing_state: str | None = None
+    billing_postcode: str | None = None
+    billing_country: str | None = None
+    shipping_address_line1: str | None = None
+    shipping_address_line2: str | None = None
+    shipping_city: str | None = None
+    shipping_state: str | None = None
+    shipping_postcode: str | None = None
+    shipping_country: str | None = None
     created_at: datetime
     line_items: list[LineItemResponse] = []
     model_config = {"from_attributes": True}
@@ -229,6 +265,18 @@ class QuotationCreate(BaseModel):
     currency: str = "MYR"
     notes: str | None = None
     terms: str | None = None
+    billing_address_line1: str | None = None
+    billing_address_line2: str | None = None
+    billing_city: str | None = None
+    billing_state: str | None = None
+    billing_postcode: str | None = None
+    billing_country: str | None = None
+    shipping_address_line1: str | None = None
+    shipping_address_line2: str | None = None
+    shipping_city: str | None = None
+    shipping_state: str | None = None
+    shipping_postcode: str | None = None
+    shipping_country: str | None = None
     line_items: list[QuotationLineItemCreate]
 
 class QuotationUpdate(BaseModel):
@@ -239,6 +287,18 @@ class QuotationUpdate(BaseModel):
     currency: str | None = None
     notes: str | None = None
     terms: str | None = None
+    billing_address_line1: str | None = None
+    billing_address_line2: str | None = None
+    billing_city: str | None = None
+    billing_state: str | None = None
+    billing_postcode: str | None = None
+    billing_country: str | None = None
+    shipping_address_line1: str | None = None
+    shipping_address_line2: str | None = None
+    shipping_city: str | None = None
+    shipping_state: str | None = None
+    shipping_postcode: str | None = None
+    shipping_country: str | None = None
     line_items: list[QuotationLineItemCreate] | None = None
 
 class QuotationResponse(BaseModel):
@@ -256,6 +316,18 @@ class QuotationResponse(BaseModel):
     currency: str
     notes: str | None
     terms: str | None
+    billing_address_line1: str | None = None
+    billing_address_line2: str | None = None
+    billing_city: str | None = None
+    billing_state: str | None = None
+    billing_postcode: str | None = None
+    billing_country: str | None = None
+    shipping_address_line1: str | None = None
+    shipping_address_line2: str | None = None
+    shipping_city: str | None = None
+    shipping_state: str | None = None
+    shipping_postcode: str | None = None
+    shipping_country: str | None = None
     created_at: datetime
     line_items: list[QuotationLineItemResponse] = []
     model_config = {"from_attributes": True}
@@ -381,6 +453,18 @@ class CreditNoteCreate(BaseModel):
     reference: str | None = None
     currency: str = "MYR"
     notes: str | None = None
+    billing_address_line1: str | None = None
+    billing_address_line2: str | None = None
+    billing_city: str | None = None
+    billing_state: str | None = None
+    billing_postcode: str | None = None
+    billing_country: str | None = None
+    shipping_address_line1: str | None = None
+    shipping_address_line2: str | None = None
+    shipping_city: str | None = None
+    shipping_state: str | None = None
+    shipping_postcode: str | None = None
+    shipping_country: str | None = None
     line_items: list[CreditNoteLineItemCreate]
     credit_applications: list[CreditApplicationCreate] = []
 
@@ -391,6 +475,18 @@ class CreditNoteUpdate(BaseModel):
     reference: str | None = None
     currency: str | None = None
     notes: str | None = None
+    billing_address_line1: str | None = None
+    billing_address_line2: str | None = None
+    billing_city: str | None = None
+    billing_state: str | None = None
+    billing_postcode: str | None = None
+    billing_country: str | None = None
+    shipping_address_line1: str | None = None
+    shipping_address_line2: str | None = None
+    shipping_city: str | None = None
+    shipping_state: str | None = None
+    shipping_postcode: str | None = None
+    shipping_country: str | None = None
     line_items: list[CreditNoteLineItemCreate] | None = None
     credit_applications: list[CreditApplicationCreate] | None = None
 
@@ -423,6 +519,18 @@ class CreditNoteResponse(BaseModel):
     credit_applied: float
     currency: str
     notes: str | None
+    billing_address_line1: str | None = None
+    billing_address_line2: str | None = None
+    billing_city: str | None = None
+    billing_state: str | None = None
+    billing_postcode: str | None = None
+    billing_country: str | None = None
+    shipping_address_line1: str | None = None
+    shipping_address_line2: str | None = None
+    shipping_city: str | None = None
+    shipping_state: str | None = None
+    shipping_postcode: str | None = None
+    shipping_country: str | None = None
     created_at: datetime
     line_items: list[CreditNoteLineItemResponse] = []
     model_config = {"from_attributes": True}

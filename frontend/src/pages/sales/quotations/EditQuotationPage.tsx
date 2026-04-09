@@ -165,6 +165,18 @@ export default function EditQuotationPage() {
         expiry_date: expiryDate,
         reference,
         currency,
+        billing_address_line1: billingLine1 || null,
+        billing_address_line2: billingLine2 || null,
+        billing_city: billingCity || null,
+        billing_state: billingState || null,
+        billing_postcode: billingPostcode || null,
+        billing_country: billingCountry || null,
+        shipping_address_line1: shippingLine1 || null,
+        shipping_address_line2: shippingLine2 || null,
+        shipping_city: shippingCity || null,
+        shipping_state: shippingState || null,
+        shipping_postcode: shippingPostcode || null,
+        shipping_country: shippingCountry || null,
         line_items: lineItems,
       })
       toast("Quotation updated", "success")
