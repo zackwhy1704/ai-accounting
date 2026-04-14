@@ -79,8 +79,11 @@ export default function NewPaymentPage() {
 
   const handleSave = async () => {
     const allocationsList = Object.entries(allocations)
-      .filter(([id]) => selectedInvoices[id])
-      .map(([invoice_id, amt]) => ({ invoice_id, amount: amt }))
+      .filter(([id]) => selectedInvoices[id] && (Number(allocations[id]) || 0) > 0)
+      .map(([invoice_id, amt]) => ({ invoice_id, amount: Number(amt) }))
+
+    // If user didn't type a top-level Amount, fall back to sum of allocations
+    const effectiveAmount = parseFloat(amount) > 0 ? parseFloat(amount) : totalApplied
 
     const payload = {
       contact_id: customerId,
@@ -88,22 +91,26 @@ export default function NewPaymentPage() {
       payment_method: paymentMethod,
       reference,
       bank_account_id: bankAccountId || undefined,
-      amount: parseFloat(amount) || 0,
+      amount: effectiveAmount,
       currency,
       allocations: allocationsList,
     }
 
-    const debitNoteId = searchParams.get("debit_note_id")
-    if (debitNoteId) {
-      await api.post(`/debit-notes/${debitNoteId}/pay`, payload)
-    } else {
-      await createPayment.mutateAsync(payload)
+    try {
+      const debitNoteId = searchParams.get("debit_note_id")
+      if (debitNoteId) {
+        await api.post(`/debit-notes/${debitNoteId}/pay`, payload)
+      } else {
+        await createPayment.mutateAsync(payload)
+      }
+      navigate("/sales/payments")
+    } catch (err: any) {
+      alert(err?.response?.data?.detail || err?.message || "Failed to save payment")
     }
-
-    navigate("/sales/payments")
   }
 
-  const isFormValid = !!customerId && !!paymentMethod && !!amount && parseFloat(amount) > 0
+  const effectiveAmount = parseFloat(amount) > 0 ? parseFloat(amount) : totalApplied
+  const isFormValid = !!customerId && !!paymentMethod && effectiveAmount > 0
 
   const getBalance = (inv: any) =>
     inv.balance ?? inv.amount_due ?? (inv.total - (inv.amount_paid || 0))
@@ -262,7 +269,7 @@ export default function NewPaymentPage() {
                       />
                     </TableCell>
                     <TableCell>{inv.invoice_number || inv.number}</TableCell>
-                    <TableCell>{formatDate(inv.date || inv.invoice_date)}</TableCell>
+                    <TableCell>{formatDate(inv.issue_date || inv.invoice_date || inv.date)}</TableCell>
                     <TableCell className="text-right">{formatCurrency(inv.total, currency)}</TableCell>
                     <TableCell className="text-right">{formatCurrency(getBalance(inv), currency)}</TableCell>
                     <TableCell className="text-right">

@@ -219,7 +219,7 @@ export default function EditPaymentPage() {
                       <input type="checkbox" checked={!!selectedInvoices[inv.id]} onChange={() => toggleInvoice(inv.id)} className="h-4 w-4 rounded border-border" />
                     </TableCell>
                     <TableCell>{inv.invoice_number || inv.number}</TableCell>
-                    <TableCell>{formatDate(inv.date || inv.invoice_date)}</TableCell>
+                    <TableCell>{formatDate(inv.issue_date || inv.invoice_date || inv.date)}</TableCell>
                     <TableCell className="text-right">{formatCurrency(inv.total, currency)}</TableCell>
                     <TableCell className="text-right">{formatCurrency(getBalance(inv), currency)}</TableCell>
                     <TableCell className="text-right">
