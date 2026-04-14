@@ -130,6 +130,7 @@ export default function NewInvoicePage() {
         due_date: invoiceDate,
         currency,
         notes: journalMemo || null,
+        terms: terms || null,
         billing_address_line1: billingLine1 || null,
         billing_address_line2: billingLine2 || null,
         billing_city: billingCity || null,

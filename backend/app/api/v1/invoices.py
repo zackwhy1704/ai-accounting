@@ -48,9 +48,10 @@ async def create_invoice(
     subtotal = 0
     tax_amount = 0
     for item in data.line_items:
-        amount = item.quantity * item.unit_price
-        tax = amount * (item.tax_rate / 100)
-        subtotal += amount
+        line_total = item.quantity * item.unit_price
+        after_disc = line_total - (line_total * (item.discount or 0) / 100)
+        tax = after_disc * (item.tax_rate / 100)
+        subtotal += after_disc
         tax_amount += tax
 
     invoice = Invoice(
@@ -64,6 +65,7 @@ async def create_invoice(
         total=subtotal + tax_amount,
         currency=data.currency,
         notes=data.notes,
+        terms=data.terms,
         billing_address_line1=data.billing_address_line1,
         billing_address_line2=data.billing_address_line2,
         billing_city=data.billing_city,
@@ -76,6 +78,8 @@ async def create_invoice(
 
     # Add line items — no GL entries at draft stage
     for i, item in enumerate(data.line_items):
+        line_total = item.quantity * item.unit_price
+        after_disc = line_total - (line_total * (item.discount or 0) / 100)
         db.add(InvoiceLineItem(
             invoice_id=invoice.id,
             line_type=item.line_type,
@@ -84,7 +88,8 @@ async def create_invoice(
             unit_price=item.unit_price,
             tax_rate=item.tax_rate,
             tax_code_id=item.tax_code_id,
-            amount=item.quantity * item.unit_price,
+            discount=item.discount or 0,
+            amount=after_disc,
             account_id=item.account_id,
             sort_order=i,
         ))
@@ -138,13 +143,14 @@ async def update_invoice(
         for old_item in old_items_result.scalars().all():
             await db.delete(old_item)
 
-        # Calculate totals
+        # Calculate totals (discount applied before tax)
         subtotal = 0
         tax_amount = 0
         for item in data.line_items:
-            amount = item.quantity * item.unit_price
-            tax = amount * (item.tax_rate / 100)
-            subtotal += amount
+            line_total = item.quantity * item.unit_price
+            after_disc = line_total - (line_total * (item.discount or 0) / 100)
+            tax = after_disc * (item.tax_rate / 100)
+            subtotal += after_disc
             tax_amount += tax
 
         invoice.subtotal = subtotal
@@ -153,6 +159,8 @@ async def update_invoice(
 
         # Insert new line items
         for i, item in enumerate(data.line_items):
+            line_total = item.quantity * item.unit_price
+            after_disc = line_total - (line_total * (item.discount or 0) / 100)
             db.add(InvoiceLineItem(
                 invoice_id=invoice.id,
                 line_type=item.line_type,
@@ -161,7 +169,8 @@ async def update_invoice(
                 unit_price=item.unit_price,
                 tax_rate=item.tax_rate,
                 tax_code_id=item.tax_code_id,
-                amount=item.quantity * item.unit_price,
+                discount=item.discount or 0,
+                amount=after_disc,
                 account_id=item.account_id,
                 sort_order=i,
             ))

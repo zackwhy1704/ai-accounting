@@ -28,17 +28,19 @@ router = APIRouter(tags=["Sales"])
 
 # ── Helper: calculate line item totals ──
 def calc_totals(line_items, has_discount=True):
+    """Discount is a percentage (0-100) applied per line before tax."""
     subtotal = 0
     tax_amount = 0
     discount_total = 0
     for item in line_items:
         amount = item.quantity * item.unit_price
-        disc = getattr(item, 'discount', 0) or 0
-        amount_after_disc = amount - disc
+        disc_pct = getattr(item, 'discount', 0) or 0
+        disc_value = amount * (disc_pct / 100)
+        amount_after_disc = amount - disc_value
         tax = amount_after_disc * (item.tax_rate / 100)
         subtotal += amount
         tax_amount += tax
-        discount_total += disc
+        discount_total += disc_value
     return subtotal, discount_total, tax_amount
 
 
@@ -191,6 +193,13 @@ async def convert_quotation(qid: UUID, body: ConvertQuotationRequest, current_us
             issue_date=now, due_date=now + timedelta(days=30),
             subtotal=quote.subtotal, tax_amount=quote.tax_amount, total=quote.total,
             currency=quote.currency, notes=f"Converted from {quote.quotation_number}",
+            terms=getattr(quote, 'terms', None),
+            billing_address_line1=getattr(quote, 'billing_address_line1', None),
+            billing_address_line2=getattr(quote, 'billing_address_line2', None),
+            billing_city=getattr(quote, 'billing_city', None),
+            billing_state=getattr(quote, 'billing_state', None),
+            billing_postcode=getattr(quote, 'billing_postcode', None),
+            billing_country=getattr(quote, 'billing_country', None),
         )
         db.add(inv)
         await db.flush()
@@ -200,6 +209,7 @@ async def convert_quotation(qid: UUID, body: ConvertQuotationRequest, current_us
                 description=li.description, quantity=li.quantity,
                 unit_price=li.unit_price, tax_rate=li.tax_rate,
                 tax_code_id=getattr(li, 'tax_code_id', None),
+                discount=getattr(li, 'discount', 0) or 0,
                 amount=li.amount, account_id=li.account_id, sort_order=i,
             ))
         created["invoice"] = {"id": str(inv.id), "number": inv.invoice_number}

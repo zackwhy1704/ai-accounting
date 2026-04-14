@@ -55,7 +55,7 @@ export default function EditInvoicePage() {
     setContactId(String(invoice.contact_id ?? ""))
     setTerms(invoice.terms ?? "cbd")
     setTaxInclusive(invoice.tax_inclusive ?? false)
-    setInvoiceDate(invoice.invoice_date?.slice(0, 10) ?? "")
+    setInvoiceDate((invoice.issue_date ?? invoice.invoice_date)?.slice(0, 10) ?? "")
     setCustomerPo(invoice.customer_po ?? "")
     setCurrency(invoice.currency ?? "MYR")
     setJournalMemo(invoice.journal_memo ?? "")
@@ -153,6 +153,7 @@ export default function EditInvoicePage() {
         due_date: invoiceDate,
         currency,
         notes: journalMemo || null,
+        terms: terms || null,
         billing_address_line1: billingLine1 || null,
         billing_address_line2: billingLine2 || null,
         billing_city: billingCity || null,

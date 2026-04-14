@@ -148,6 +148,7 @@ class LineItemCreate(BaseModel):
     unit_price: float
     tax_rate: float = 0.0
     tax_code_id: UUID | None = None
+    discount: float = 0.0
     account_id: UUID | None = None
 
 class LineItemResponse(BaseModel):
@@ -157,6 +158,7 @@ class LineItemResponse(BaseModel):
     unit_price: float
     tax_rate: float
     tax_code_id: UUID | None = None
+    discount: float = 0.0
     account_id: UUID | None = None
     amount: float
     sort_order: int = 0
@@ -169,6 +171,7 @@ class InvoiceCreate(BaseModel):
     due_date: datetime
     currency: str = "SGD"
     notes: str | None = None
+    terms: str | None = None
     billing_address_line1: str | None = None
     billing_address_line2: str | None = None
     billing_city: str | None = None
@@ -190,6 +193,7 @@ class InvoiceUpdate(BaseModel):
     due_date: datetime | None = None
     currency: str | None = None
     notes: str | None = None
+    terms: str | None = None
     billing_address_line1: str | None = None
     billing_address_line2: str | None = None
     billing_city: str | None = None
@@ -217,6 +221,7 @@ class InvoiceResponse(BaseModel):
     amount_paid: float
     currency: str
     notes: str | None
+    terms: str | None = None
     billing_address_line1: str | None = None
     billing_address_line2: str | None = None
     billing_city: str | None = None
