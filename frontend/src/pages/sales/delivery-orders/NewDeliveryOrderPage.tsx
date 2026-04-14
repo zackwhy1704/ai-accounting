@@ -1,7 +1,7 @@
-import { useState } from "react"
-import { useNavigate } from "react-router-dom"
+import { useState, useEffect } from "react"
+import { useNavigate, useSearchParams } from "react-router-dom"
 import { Plus, Trash2 } from "lucide-react"
-import { useContacts, useCreateDeliveryOrder, useTaxRates } from "../../../lib/hooks"
+import { useContacts, useCreateDeliveryOrder, useTaxRates, useInvoice } from "../../../lib/hooks"
 import { useTheme } from "../../../lib/theme"
 import { Card } from "../../../components/ui/card"
 import { Button } from "../../../components/ui/button"
@@ -34,6 +34,45 @@ export default function NewDeliveryOrderPage() {
   const [lineItems, setLineItems] = useState<LineItem[]>([
     { description: "", quantity: 1, unit_price: 0, amount: 0, tax_code_id: "", tax_rate: 0 },
   ])
+
+  const [searchParams] = useSearchParams()
+  const invoiceId = searchParams.get("invoice_id") || undefined
+  const { data: sourceInvoice } = useInvoice(invoiceId)
+
+  useEffect(() => {
+    if (!sourceInvoice) return
+    setContactId(String(sourceInvoice.contact_id ?? ""))
+    if (sourceInvoice.reference) setPoNumber(sourceInvoice.reference)
+    const contact = contacts.find(c => c.id === String(sourceInvoice.contact_id))
+    if (contact) {
+      setDeliverTo({
+        address1: contact.billing_address_line1 ?? "",
+        address2: contact.billing_address_line2 ?? "",
+        city: contact.billing_city ?? "",
+        state: contact.billing_state ?? "",
+        postcode: contact.billing_postcode ?? "",
+        country: contact.billing_country ?? "",
+      })
+      setShipTo({
+        address1: contact.shipping_address_line1 ?? "",
+        address2: contact.shipping_address_line2 ?? "",
+        city: contact.shipping_city ?? "",
+        state: contact.shipping_state ?? "",
+        postcode: contact.shipping_postcode ?? "",
+        country: contact.shipping_country ?? "",
+      })
+    }
+    if (Array.isArray(sourceInvoice.line_items) && sourceInvoice.line_items.length > 0) {
+      setLineItems(sourceInvoice.line_items.map((li: any) => ({
+        description: li.description ?? "",
+        quantity: Number(li.quantity ?? 1),
+        unit_price: Number(li.unit_price ?? 0),
+        amount: Number(li.quantity ?? 1) * Number(li.unit_price ?? 0),
+        tax_code_id: li.tax_code_id ?? "",
+        tax_rate: Number(li.tax_rate ?? 0),
+      })))
+    }
+  }, [sourceInvoice, contacts])
 
   const handleCustomerChange = (v: string) => {
     if (v === "__add_new__") { navigate("/contacts/new"); return }
