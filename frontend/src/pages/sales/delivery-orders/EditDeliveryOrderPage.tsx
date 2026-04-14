@@ -193,7 +193,6 @@ export default function EditDeliveryOrderPage() {
                 <TableHead className="w-[130px] text-muted-foreground">Unit Price</TableHead>
                 <TableHead className="w-[160px] text-muted-foreground">Tax Code</TableHead>
                 <TableHead className="w-[80px] text-muted-foreground">Tax %</TableHead>
-                <TableHead className="w-[130px] text-right text-muted-foreground">Amount</TableHead>
                 <TableHead className="w-10" />
               </TableRow>
             </TableHeader>
@@ -231,7 +230,6 @@ export default function EditDeliveryOrderPage() {
                       placeholder="%"
                     />
                   </TableCell>
-                  <TableCell className="text-right text-sm font-medium text-foreground">{item.amount.toFixed(2)}</TableCell>
                   <TableCell>
                     <button type="button" onClick={() => removeLineItem(idx)} className="text-muted-foreground hover:text-rose-500">
                       <Trash2 className="h-4 w-4" />

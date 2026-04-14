@@ -295,7 +295,6 @@ export default function EditCreditNotePage() {
                   <TableHead className="w-[160px] text-muted-foreground">Account</TableHead>
                   <TableHead className="w-[80px] text-muted-foreground">Qty</TableHead>
                   <TableHead className="w-[110px] text-muted-foreground">Unit Price</TableHead>
-                  <TableHead className="w-[110px] text-right text-muted-foreground">Amount</TableHead>
                   <TableHead className="w-[80px] text-muted-foreground">Disc %</TableHead>
                   <TableHead className="w-[160px] text-muted-foreground">Tax Code</TableHead>
                   <TableHead className="w-[80px] text-muted-foreground">Tax %</TableHead>
@@ -305,7 +304,7 @@ export default function EditCreditNotePage() {
               <TableBody>
                 {lineItems.length === 0 ? (
                   <TableRow className="border-border">
-                    <TableCell colSpan={10} className="py-8 text-center text-sm text-muted-foreground">No items</TableCell>
+                    <TableCell colSpan={9} className="py-8 text-center text-sm text-muted-foreground">No items</TableCell>
                   </TableRow>
                 ) : (
                   lineItems.map((item, idx) => (
@@ -341,7 +340,6 @@ export default function EditCreditNotePage() {
                       <TableCell>
                         <Input type="number" min={0} step={0.01} value={item.unit_price} onChange={e => updateLineItem(idx, "unit_price", Number(e.target.value))} className="h-9 rounded-lg border-0 bg-transparent px-1 text-sm shadow-none focus-visible:ring-1" />
                       </TableCell>
-                      <TableCell className="text-right text-sm font-medium text-foreground">{item.amount.toFixed(2)}</TableCell>
                       <TableCell>
                         <Input type="number" min={0} max={100} value={item.discount} onChange={e => updateLineItem(idx, "discount", Number(e.target.value))} className="h-9 rounded-lg border-0 bg-transparent px-1 text-sm shadow-none focus-visible:ring-1" />
                       </TableCell>

@@ -193,7 +193,6 @@ export default function EditSaleReceiptPage() {
               <TableHead className="w-32">Unit Price</TableHead>
               <TableHead className="w-[160px]">Tax Code</TableHead>
               <TableHead className="w-24">Tax %</TableHead>
-              <TableHead className="w-32 text-right">Amount</TableHead>
               <TableHead className="w-10" />
             </TableRow>
           </TableHeader>
@@ -225,7 +224,6 @@ export default function EditSaleReceiptPage() {
                 <TableCell className="w-[80px]">
                   <Input type="number" min={0} max={100} step={0.01} value={li.tax_rate} onChange={e => updateLine(i, "tax_rate", Number(e.target.value))} className="h-9 rounded-lg border-0 bg-transparent px-1 text-sm shadow-none focus-visible:ring-1" placeholder="%" />
                 </TableCell>
-                <TableCell className="text-right font-medium">{(li.quantity * li.unit_price).toFixed(2)}</TableCell>
                 <TableCell>
                   {lineItems.length > 1 && (
                     <Button type="button" variant="ghost" size="icon" className="h-8 w-8" onClick={() => removeLine(i)}>

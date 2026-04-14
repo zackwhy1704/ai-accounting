@@ -182,7 +182,6 @@ export default function EditBillPage() {
                 <TableHead className="w-[110px] text-muted-foreground">Unit Price</TableHead>
                 <TableHead className="w-[160px] text-muted-foreground">Tax Code</TableHead>
                 <TableHead className="w-[80px] text-muted-foreground">Tax %</TableHead>
-                <TableHead className="w-[110px] text-right text-muted-foreground">Amount</TableHead>
                 <TableHead className="w-10" />
               </TableRow>
             </TableHeader>
@@ -214,7 +213,6 @@ export default function EditBillPage() {
                   <TableCell className="w-[80px]">
                     <Input type="number" min={0} max={100} step={0.01} value={item.tax_rate} onChange={e => updateLine(idx, "tax_rate", Number(e.target.value))} className="h-9 rounded-lg border-0 bg-transparent px-1 text-sm shadow-none focus-visible:ring-1" placeholder="%" />
                   </TableCell>
-                  <TableCell className="text-right text-sm font-medium text-foreground">{item.amount.toFixed(2)}</TableCell>
                   <TableCell>
                     <button type="button" onClick={() => setLineItems(p => p.length <= 1 ? p : p.filter((_, i) => i !== idx))} className="text-muted-foreground hover:text-rose-500">
                       <Trash2 className="h-4 w-4" />

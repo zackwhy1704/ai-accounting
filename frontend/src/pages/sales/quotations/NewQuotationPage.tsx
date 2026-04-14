@@ -283,7 +283,6 @@ export default function NewQuotationPage() {
                 <TableHead className="w-[160px] text-muted-foreground">Account</TableHead>
                 <TableHead className="w-[80px] text-muted-foreground">Qty</TableHead>
                 <TableHead className="w-[110px] text-muted-foreground">Unit Price</TableHead>
-                <TableHead className="w-[110px] text-right text-muted-foreground">{t("common.amount")}</TableHead>
                 <TableHead className="w-[80px] text-muted-foreground">Disc %</TableHead>
                 <TableHead className="w-[160px] text-muted-foreground">Tax Code</TableHead>
                 <TableHead className="w-[80px] text-muted-foreground">Tax %</TableHead>
@@ -349,9 +348,6 @@ export default function NewQuotationPage() {
                       onChange={e => updateLineItem(idx, "unit_price", Number(e.target.value))}
                       className="h-9 rounded-lg border-0 bg-transparent px-1 text-sm shadow-none focus-visible:ring-1"
                     />
-                  </TableCell>
-                  <TableCell className="text-right text-sm font-medium text-foreground">
-                    {item.amount.toFixed(2)}
                   </TableCell>
                   <TableCell>
                     <Input
@@ -464,6 +460,10 @@ export default function NewQuotationPage() {
             <div className="flex items-center justify-between">
               <span className="text-muted-foreground">Tax</span>
               <span className="font-medium text-foreground">{currency} {totalTax.toFixed(2)}</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-muted-foreground">Discount</span>
+              <span className="font-medium text-foreground">{currency} {totalDiscount.toFixed(2)}</span>
             </div>
             <div className="border-t border-border pt-2">
               <div className="flex items-center justify-between text-base font-semibold">

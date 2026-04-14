@@ -225,7 +225,6 @@ export default function EditRecurringInvoicePage() {
               <TableHead className="w-28">Unit Price</TableHead>
               <TableHead className="w-[160px]">Tax Code</TableHead>
               <TableHead className="w-20">Tax %</TableHead>
-              <TableHead className="w-28 text-right">Amount</TableHead>
               <TableHead className="w-10" />
             </TableRow>
           </TableHeader>
@@ -273,7 +272,6 @@ export default function EditRecurringInvoicePage() {
                     placeholder="%"
                   />
                 </TableCell>
-                <TableCell className="text-right font-medium">{(li.quantity * li.unit_price).toFixed(2)}</TableCell>
                 <TableCell>
                   {lineItems.length > 1 && (
                     <Button type="button" variant="ghost" size="icon" className="h-8 w-8" onClick={() => removeLine(i)}>

@@ -282,7 +282,6 @@ export default function NewCreditNotePage() {
                 <TableHead className="w-[160px] text-muted-foreground">Account</TableHead>
                 <TableHead className="w-[80px] text-muted-foreground">Qty</TableHead>
                 <TableHead className="w-[110px] text-muted-foreground">Unit Price</TableHead>
-                <TableHead className="w-[110px] text-right text-muted-foreground">Amount</TableHead>
                 <TableHead className="w-[80px] text-muted-foreground">Disc %</TableHead>
                 <TableHead className="w-[160px] text-muted-foreground">Tax Code</TableHead>
                 <TableHead className="w-[80px] text-muted-foreground">Tax %</TableHead>
@@ -358,9 +357,6 @@ export default function NewCreditNotePage() {
                         onChange={e => updateLineItem(idx, "unit_price", Number(e.target.value))}
                         className="h-9 rounded-lg border-0 bg-transparent px-1 text-sm shadow-none focus-visible:ring-1"
                       />
-                    </TableCell>
-                    <TableCell className="text-right text-sm font-medium text-foreground">
-                      {item.amount.toFixed(2)}
                     </TableCell>
                     <TableCell>
                       <Input

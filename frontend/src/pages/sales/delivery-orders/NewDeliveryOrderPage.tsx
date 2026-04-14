@@ -182,7 +182,6 @@ export default function NewDeliveryOrderPage() {
                 <TableHead className="w-[130px] text-muted-foreground">Unit Price</TableHead>
                 <TableHead className="w-[160px] text-muted-foreground">Tax Code</TableHead>
                 <TableHead className="w-[80px] text-muted-foreground">Tax %</TableHead>
-                <TableHead className="w-[130px] text-right text-muted-foreground">{t("common.amount") || "Amount"}</TableHead>
                 <TableHead className="w-10" />
               </TableRow>
             </TableHeader>
@@ -237,9 +236,6 @@ export default function NewDeliveryOrderPage() {
                       className="h-9 rounded-lg border-0 bg-transparent px-1 text-sm shadow-none focus-visible:ring-1"
                       placeholder="%"
                     />
-                  </TableCell>
-                  <TableCell className="text-right text-sm font-medium text-foreground">
-                    {item.amount.toFixed(2)}
                   </TableCell>
                   <TableCell>
                     <button
