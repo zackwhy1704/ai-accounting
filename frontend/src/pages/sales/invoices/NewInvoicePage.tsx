@@ -405,6 +405,10 @@ export default function NewInvoicePage() {
               <span className="text-muted-foreground">Tax</span>
               <span className="font-medium text-foreground">RM {totalTax.toFixed(2)}</span>
             </div>
+            <div className="flex items-center justify-between">
+              <span className="text-muted-foreground">Discount</span>
+              <span className="font-medium text-foreground">RM {totalLineDiscount.toFixed(2)}</span>
+            </div>
             <div className="border-t border-border pt-2">
               <div className="flex items-center justify-between text-base font-bold">
                 <span className="text-foreground">TOTAL</span>
