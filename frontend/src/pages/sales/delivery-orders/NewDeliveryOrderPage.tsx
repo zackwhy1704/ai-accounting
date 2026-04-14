@@ -29,7 +29,6 @@ export default function NewDeliveryOrderPage() {
   const [contactId, setContactId] = useState("")
   const [deliveryDate, setDeliveryDate] = useState(() => new Date().toISOString().slice(0, 10))
   const [poNumber, setPoNumber] = useState("")
-  const [taxRate, setTaxRate] = useState(0)
   const [deliverTo, setDeliverTo] = useState({ address1: "", address2: "", city: "", state: "", postcode: "", country: "" })
   const [shipTo, setShipTo] = useState({ address1: "", address2: "", city: "", state: "", postcode: "", country: "" })
   const [lineItems, setLineItems] = useState<LineItem[]>([
@@ -86,9 +85,8 @@ export default function NewDeliveryOrderPage() {
   }
 
   const subTotal = lineItems.reduce((sum, item) => sum + item.quantity * item.unit_price, 0)
-  const perLineTax = lineItems.reduce((s, l) => s + l.quantity * l.unit_price * (l.tax_rate / 100), 0)
-  const sstAmount = perLineTax + (subTotal * taxRate) / 100
-  const total = subTotal + sstAmount
+  const totalTax = lineItems.reduce((s, l) => s + l.quantity * l.unit_price * (l.tax_rate / 100), 0)
+  const total = subTotal + totalTax
 
   const handleSave = async () => {
     try {
@@ -275,19 +273,8 @@ export default function NewDeliveryOrderPage() {
               <span className="font-medium text-foreground">{subTotal.toFixed(2)}</span>
             </div>
             <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <span className="text-muted-foreground">SST</span>
-                <Input
-                  type="number"
-                  min={0}
-                  max={100}
-                  value={taxRate}
-                  onChange={e => setTaxRate(Number(e.target.value))}
-                  className="h-8 w-16 rounded-lg text-right text-sm"
-                />
-                <span className="text-muted-foreground">%</span>
-              </div>
-              <span className="font-medium text-foreground">{sstAmount.toFixed(2)}</span>
+              <span className="text-muted-foreground">Tax</span>
+              <span className="font-medium text-foreground">{totalTax.toFixed(2)}</span>
             </div>
             <div className="border-t border-border pt-2">
               <div className="flex items-center justify-between text-base font-semibold">
