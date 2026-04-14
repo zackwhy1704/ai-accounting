@@ -55,7 +55,12 @@ export default function EditRefundPage() {
   )
 
   const filteredCreditNotes = useMemo(
-    () => (contactId ? creditNotes.filter((cn: any) => cn.contact_id === contactId) : []),
+    () => (contactId
+      ? creditNotes.filter((cn: any) =>
+          String(cn.contact_id) === String(contactId) &&
+          cn.status !== "void"
+        )
+      : []),
     [creditNotes, contactId]
   )
 

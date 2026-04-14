@@ -110,12 +110,25 @@ function SelectValue({ placeholder }: { placeholder?: string; className?: string
 function SelectContent({ className, children, ...props }: React.ComponentProps<"div">) {
   const ctx = React.useContext(SelectContext)
   const ref = React.useRef<HTMLDivElement>(null)
-  const [pos, setPos] = React.useState({ top: 0, left: 0, width: 0 })
+  const [pos, setPos] = React.useState({ top: 0, left: 0, width: 0, maxHeight: 240 })
 
   const recalcPos = React.useCallback(() => {
     if (!ctx.triggerRef.current) return
     const rect = ctx.triggerRef.current.getBoundingClientRect()
-    setPos({ top: rect.bottom + 4, left: rect.left, width: rect.width })
+    const viewportH = window.innerHeight
+    const spaceBelow = viewportH - rect.bottom - 8
+    const spaceAbove = rect.top - 8
+    const desired = 240 // max-h-60
+    let top: number
+    let maxHeight: number
+    if (spaceBelow >= desired || spaceBelow >= spaceAbove) {
+      top = rect.bottom + 4
+      maxHeight = Math.max(120, Math.min(desired, spaceBelow))
+    } else {
+      maxHeight = Math.max(120, Math.min(desired, spaceAbove))
+      top = rect.top - 4 - maxHeight
+    }
+    setPos({ top, left: rect.left, width: rect.width, maxHeight })
   }, [ctx.triggerRef])
 
   // Calculate dropdown position from trigger (fixed = viewport-relative, no scrollY offset)
@@ -154,9 +167,9 @@ function SelectContent({ className, children, ...props }: React.ComponentProps<"
   return ReactDOM.createPortal(
     <div
       ref={ref}
-      style={{ top: pos.top, left: pos.left, minWidth: pos.width }}
+      style={{ top: pos.top, left: pos.left, minWidth: pos.width, maxHeight: pos.maxHeight }}
       className={cn(
-        "fixed z-[9999] max-h-60 overflow-y-auto rounded-lg bg-popover text-popover-foreground shadow-md ring-1 ring-foreground/10 py-1",
+        "fixed z-[9999] overflow-y-auto rounded-lg bg-popover text-popover-foreground shadow-md ring-1 ring-foreground/10 py-1",
         className
       )}
       {...props}
