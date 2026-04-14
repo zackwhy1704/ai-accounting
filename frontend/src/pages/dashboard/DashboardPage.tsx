@@ -1,4 +1,4 @@
-import { useDashboard } from "../../lib/hooks"
+import { useDashboard, useDashboardSeries } from "../../lib/hooks"
 import { formatCurrency } from "../../lib/utils"
 import { useTheme } from "../../lib/theme"
 import { useNavigate } from "react-router-dom"
@@ -54,22 +54,16 @@ export default function DashboardPage() {
   const [rangeCash, setRangeCash] = useState<RangeKey>("7")
   useEffect(() => { setMounted(true) }, [])
 
-  const makeChartData = (days: number) => {
-    const labels = days <= 7
-      ? ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
-      : Array.from({ length: Math.min(days, 12) }, (_, i) => {
-          const d = new Date()
-          d.setDate(d.getDate() - (days - 1) + Math.floor(i * (days / 12)))
-          return d.toLocaleDateString(undefined, { month: "short", day: "numeric" })
-        })
-    return labels.map((label) => ({ label, value: 0 }))
-  }
+  const { data: seriesIncome } = useDashboardSeries(Number(rangeIncome))
+  const { data: seriesPL } = useDashboardSeries(Number(rangePL))
+  const { data: seriesExpenses } = useDashboardSeries(Number(rangeExpenses))
+  const { data: seriesCash } = useDashboardSeries(Number(rangeCash))
 
   const chartCards = [
-    { title: t("dashboard.income"), netLabel: `NET ${formatCurrency(data?.total_revenue ?? 0)}`, data: makeChartData(Number(rangeIncome)), lineColor: "#7C9DFF", range: rangeIncome, setRange: setRangeIncome },
-    { title: t("dashboard.profitLoss"), netLabel: `NET ${formatCurrency(data?.net_income ?? 0)}`, data: makeChartData(Number(rangePL)), lineColor: "#7C9DFF", range: rangePL, setRange: setRangePL },
-    { title: t("dashboard.expenses"), netLabel: `NET ${formatCurrency(data?.total_expenses ?? 0)}`, data: makeChartData(Number(rangeExpenses)), lineColor: "#FF6B8A", range: rangeExpenses, setRange: setRangeExpenses },
-    { title: t("dashboard.cashBalance"), netLabel: `${formatCurrency(data?.cash_balance ?? 0)}`, data: makeChartData(Number(rangeCash)), lineColor: "#5CE6C6", range: rangeCash, setRange: setRangeCash },
+    { title: t("dashboard.income"), netLabel: `NET ${formatCurrency(data?.total_revenue ?? 0)}`, data: seriesIncome?.income ?? [], lineColor: "#7C9DFF", range: rangeIncome, setRange: setRangeIncome },
+    { title: t("dashboard.profitLoss"), netLabel: `NET ${formatCurrency(data?.net_income ?? 0)}`, data: seriesPL?.profit_loss ?? [], lineColor: "#7C9DFF", range: rangePL, setRange: setRangePL },
+    { title: t("dashboard.expenses"), netLabel: `NET ${formatCurrency(data?.total_expenses ?? 0)}`, data: seriesExpenses?.expenses ?? [], lineColor: "#FF6B8A", range: rangeExpenses, setRange: setRangeExpenses },
+    { title: t("dashboard.cashBalance"), netLabel: `${formatCurrency(data?.cash_balance ?? 0)}`, data: seriesCash?.cash ?? [], lineColor: "#5CE6C6", range: rangeCash, setRange: setRangeCash },
   ]
 
   if (isLoading) {
