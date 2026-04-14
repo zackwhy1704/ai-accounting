@@ -680,11 +680,12 @@ class SalesRefundResponse(BaseModel):
 # ── Bill ──
 class BillCreate(BaseModel):
     contact_id: UUID
-    bill_number: str
+    bill_number: str | None = None
     issue_date: datetime
     due_date: datetime
     currency: str = "SGD"
     notes: str | None = None
+    terms: str | None = None
     line_items: list[LineItemCreate]
 
 class BillUpdate(BaseModel):

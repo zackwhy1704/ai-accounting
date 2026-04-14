@@ -34,19 +34,30 @@ async def create_bill(
 ):
     org_id = current_user["org_id"]
 
-    # Calculate totals
+    # Auto-generate bill number if not provided
+    if data.bill_number:
+        bill_number = data.bill_number
+    else:
+        count_result = await db.execute(
+            select(func.count(Bill.id)).where(Bill.organization_id == org_id)
+        )
+        count = count_result.scalar() or 0
+        bill_number = f"BILL-{count + 1:04d}"
+
+    # Calculate totals (discount applied before tax)
     subtotal = 0
     tax_amount = 0
     for item in data.line_items:
-        amount = item.quantity * item.unit_price
-        tax = amount * (item.tax_rate / 100)
-        subtotal += amount
+        line_total = item.quantity * item.unit_price
+        after_disc = line_total - (line_total * (getattr(item, 'discount', 0) or 0) / 100)
+        tax = after_disc * (item.tax_rate / 100)
+        subtotal += after_disc
         tax_amount += tax
 
     bill = Bill(
         organization_id=org_id,
         contact_id=data.contact_id,
-        bill_number=data.bill_number,
+        bill_number=bill_number,
         issue_date=data.issue_date,
         due_date=data.due_date,
         subtotal=subtotal,
@@ -54,19 +65,23 @@ async def create_bill(
         total=subtotal + tax_amount,
         currency=data.currency,
         notes=data.notes,
+        terms=data.terms,
     )
     db.add(bill)
     await db.flush()
 
     for i, item in enumerate(data.line_items):
-        amount = item.quantity * item.unit_price
+        line_total = item.quantity * item.unit_price
+        disc_pct = getattr(item, 'discount', 0) or 0
+        after_disc = line_total - (line_total * disc_pct / 100)
         line = BillLineItem(
             bill_id=bill.id,
             description=item.description,
             quantity=item.quantity,
             unit_price=item.unit_price,
             tax_rate=item.tax_rate,
-            amount=amount,
+            discount=disc_pct,
+            amount=after_disc,
             account_id=item.account_id,
             sort_order=i,
         )

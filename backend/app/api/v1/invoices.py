@@ -191,8 +191,9 @@ async def update_invoice_status(
     current_user: dict = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
+    org_id = current_user["org_id"]
     result = await db.execute(
-        select(Invoice).where(Invoice.id == invoice_id, Invoice.organization_id == current_user["org_id"])
+        select(Invoice).where(Invoice.id == invoice_id, Invoice.organization_id == org_id)
     )
     invoice = result.scalar_one_or_none()
     if not invoice:

@@ -18,9 +18,12 @@ def upgrade():
     op.add_column("invoices", sa.Column("terms", sa.String(100), nullable=True))
     op.add_column("bill_line_items", sa.Column("discount", sa.Numeric(5, 2), nullable=False, server_default="0"))
     op.add_column("bills", sa.Column("terms", sa.String(100), nullable=True))
+    # Debit notes should support standalone creation (no linked invoice)
+    op.alter_column("debit_notes", "invoice_id", existing_type=sa.dialects.postgresql.UUID(), nullable=True)
 
 
 def downgrade():
+    op.alter_column("debit_notes", "invoice_id", existing_type=sa.dialects.postgresql.UUID(), nullable=False)
     op.drop_column("bills", "terms")
     op.drop_column("bill_line_items", "discount")
     op.drop_column("invoices", "terms")

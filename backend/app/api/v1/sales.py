@@ -232,7 +232,7 @@ async def convert_quotation(qid: UUID, body: ConvertQuotationRequest, current_us
                 description=li.description, quantity=li.quantity,
                 unit_price=li.unit_price, tax_rate=li.tax_rate,
                 tax_code_id=getattr(li, 'tax_code_id', None),
-                amount=li.amount, account_id=getattr(li, 'account_id', None), sort_order=i,
+                amount=li.amount, sort_order=i,
             ))
         created["delivery_order"] = {"id": str(do.id), "number": do.delivery_number}
 

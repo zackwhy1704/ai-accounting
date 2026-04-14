@@ -67,8 +67,10 @@ async def update_contact(
     if not contact:
         raise HTTPException(status_code=404, detail="Contact not found")
 
-    for key, value in data.model_dump().items():
+    for key, value in data.model_dump(exclude_unset=True).items():
         setattr(contact, key, value)
+    await db.commit()
+    await db.refresh(contact)
     return contact
 
 
