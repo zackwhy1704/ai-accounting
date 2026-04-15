@@ -802,6 +802,33 @@ export interface InvoiceActivityEvent {
   lines?: Array<{ account_code: string; account_name: string; debit: number; credit: number }>
 }
 
+export interface AdjustmentLine {
+  account_id: string
+  debit: number
+  credit: number
+}
+
+export function useCreateAdjustment(entity: 'invoices' | 'bills') {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ parent_id, ...body }: { parent_id: string; date: string; description: string; reference?: string; lines: AdjustmentLine[] }) =>
+      api.post(`/${entity}/${parent_id}/adjustments`, body).then(r => r.data),
+    onSuccess: (_d, v) => {
+      qc.invalidateQueries({ queryKey: [entity === 'invoices' ? 'invoice-activity' : 'bill-activity', v.parent_id] })
+    },
+  })
+}
+
+export function useDeleteAdjustment(entity: 'invoices' | 'bills') {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (txn_id: string) => api.delete(`/adjustments/${txn_id}`).then(r => r.data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: [entity === 'invoices' ? 'invoice-activity' : 'bill-activity'] })
+    },
+  })
+}
+
 export function useInvoiceActivity(id: string | undefined) {
   return useQuery<{
     invoice_id: string

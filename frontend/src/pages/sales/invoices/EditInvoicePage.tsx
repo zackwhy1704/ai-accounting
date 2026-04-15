@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react"
 import { useNavigate, useParams } from "react-router-dom"
 import { Plus, Trash2, Loader2 } from "lucide-react"
-import { useInvoice, useUpdateInvoice, useContacts, useAccounts, useTaxRates, useInvoiceActivity, type InvoiceActivityEvent } from "../../../lib/hooks"
+import { useInvoice, useUpdateInvoice, useContacts, useAccounts, useTaxRates, useInvoiceActivity, useCreateAdjustment, useDeleteAdjustment, type InvoiceActivityEvent, type AdjustmentLine } from "../../../lib/hooks"
 import { Card } from "../../../components/ui/card"
 import { Button } from "../../../components/ui/button"
 import { Input } from "../../../components/ui/input"
@@ -450,7 +450,10 @@ export default function EditInvoicePage() {
       {activity && (
         <Card className="rounded-2xl border-border bg-card p-6 shadow-[0_0_0_1px_rgba(15,23,42,0.06),0_18px_55px_rgba(2,6,23,0.08)]">
           <div className="mb-4 flex items-baseline justify-between">
-            <h3 className="text-sm font-semibold text-foreground">Activity</h3>
+            <div className="flex items-center gap-3">
+              <h3 className="text-sm font-semibold text-foreground">Activity</h3>
+              {id && <AddAdjustmentButton invoiceId={id} accounts={accounts as any} />}
+            </div>
             <div className="text-xs text-muted-foreground">
               Total {activity.total.toFixed(2)} · Outstanding <span className={activity.outstanding > 0 ? "text-amber-600 font-semibold" : "text-emerald-600 font-semibold"}>{activity.outstanding.toFixed(2)}</span>
             </div>
@@ -464,6 +467,9 @@ export default function EditInvoicePage() {
               ))}
             </div>
           )}
+          <div className="mt-3 text-[11px] text-muted-foreground">
+            Adjustments post directly to the GL and appear here. Use them for write-offs, rounding, or bank-charge corrections that should not change the original invoice.
+          </div>
         </Card>
       )}
 
@@ -497,13 +503,15 @@ const TYPE_COLORS: Record<string, string> = {
 }
 
 function ActivityRow({ event }: { event: InvoiceActivityEvent }) {
+  const deleteAdjustment = useDeleteAdjustment('invoices')
   const date = event.ts ? new Date(event.ts).toLocaleDateString() : "—"
   const sign = event.delta > 0 ? "+" : event.delta < 0 ? "−" : ""
   const amount = Math.abs(event.delta).toFixed(2)
+  const isAdjustment = event.type === "journal" && event.subtype === "invoice_adjustment"
   return (
     <div className="flex items-start gap-3 rounded-xl border border-border bg-background/50 p-3">
-      <div className={`shrink-0 rounded-md px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${TYPE_COLORS[event.type] ?? "bg-slate-100 text-slate-700"}`}>
-        {TYPE_LABELS[event.type] ?? event.type}
+      <div className={`shrink-0 rounded-md px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${isAdjustment ? "bg-violet-100 text-violet-700" : (TYPE_COLORS[event.type] ?? "bg-slate-100 text-slate-700")}`}>
+        {isAdjustment ? "Adjustment" : (TYPE_LABELS[event.type] ?? event.type)}
       </div>
       <div className="flex-1 min-w-0">
         <div className="flex items-baseline justify-between gap-2">
@@ -536,6 +544,128 @@ function ActivityRow({ event }: { event: InvoiceActivityEvent }) {
           </div>
         )}
         <div className="text-[11px] text-muted-foreground">Bal {event.balance.toFixed(2)}</div>
+        {isAdjustment && (
+          <button
+            type="button"
+            onClick={() => {
+              if (confirm("Reverse this adjustment? This will post a counter-entry to the ledger.")) {
+                deleteAdjustment.mutate(event.ref_id)
+              }
+            }}
+            disabled={deleteAdjustment.isPending}
+            className="mt-1 text-[10px] text-rose-600 hover:text-rose-700 disabled:opacity-50"
+          >
+            Reverse
+          </button>
+        )}
+      </div>
+    </div>
+  )
+}
+
+function AddAdjustmentButton({ invoiceId, accounts }: { invoiceId: string; accounts: Array<{ id: string; code: string; name: string }> }) {
+  const [open, setOpen] = useState(false)
+  const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10))
+  const [description, setDescription] = useState("")
+  const [reference, setReference] = useState("")
+  const [lines, setLines] = useState<AdjustmentLine[]>([
+    { account_id: "", debit: 0, credit: 0 },
+    { account_id: "", debit: 0, credit: 0 },
+  ])
+  const [error, setError] = useState<string | null>(null)
+  const createAdjustment = useCreateAdjustment('invoices')
+
+  const totalDr = lines.reduce((s, l) => s + (Number(l.debit) || 0), 0)
+  const totalCr = lines.reduce((s, l) => s + (Number(l.credit) || 0), 0)
+  const balanced = totalDr === totalCr && totalDr > 0
+
+  const reset = () => {
+    setDate(new Date().toISOString().slice(0, 10))
+    setDescription("")
+    setReference("")
+    setLines([{ account_id: "", debit: 0, credit: 0 }, { account_id: "", debit: 0, credit: 0 }])
+    setError(null)
+  }
+
+  const handleSubmit = () => {
+    setError(null)
+    if (!description.trim()) { setError("Description required"); return }
+    if (!balanced) { setError("Debits must equal credits and be non-zero"); return }
+    if (lines.some(l => !l.account_id)) { setError("All lines need an account"); return }
+    createAdjustment.mutate(
+      { parent_id: invoiceId, date, description, reference: reference || undefined, lines: lines.map(l => ({ account_id: l.account_id, debit: Number(l.debit) || 0, credit: Number(l.credit) || 0 })) },
+      {
+        onSuccess: () => { setOpen(false); reset() },
+        onError: (e: any) => setError(e?.response?.data?.detail ?? "Failed to post adjustment"),
+      },
+    )
+  }
+
+  if (!open) {
+    return (
+      <Button type="button" variant="outline" size="sm" onClick={() => setOpen(true)} className="h-7 rounded-lg text-xs">
+        <Plus className="mr-1 h-3 w-3" /> Adjustment
+      </Button>
+    )
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={() => setOpen(false)}>
+      <div className="w-full max-w-2xl rounded-2xl bg-card p-6 shadow-xl" onClick={e => e.stopPropagation()}>
+        <h3 className="mb-4 text-sm font-semibold text-foreground">New Adjustment</h3>
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="mb-1 block text-xs font-medium text-muted-foreground">Date</label>
+            <Input type="date" value={date} onChange={e => setDate(e.target.value)} />
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-medium text-muted-foreground">Reference (optional)</label>
+            <Input value={reference} onChange={e => setReference(e.target.value)} placeholder="ADJ-..." />
+          </div>
+        </div>
+        <div className="mt-3">
+          <label className="mb-1 block text-xs font-medium text-muted-foreground">Description</label>
+          <Input value={description} onChange={e => setDescription(e.target.value)} placeholder="Reason for adjustment" />
+        </div>
+        <div className="mt-4">
+          <div className="mb-2 flex items-center justify-between">
+            <label className="text-xs font-medium text-muted-foreground">Lines</label>
+            <Button type="button" variant="outline" size="sm" onClick={() => setLines([...lines, { account_id: "", debit: 0, credit: 0 }])} className="h-7 rounded-lg text-xs">
+              <Plus className="mr-1 h-3 w-3" /> Line
+            </Button>
+          </div>
+          <div className="space-y-2">
+            {lines.map((ln, i) => (
+              <div key={i} className="grid grid-cols-[1fr_110px_110px_32px] gap-2">
+                <Select value={ln.account_id} onValueChange={v => setLines(lines.map((x, idx) => idx === i ? { ...x, account_id: v } : x))}>
+                  <SelectTrigger><SelectValue placeholder="Account" /></SelectTrigger>
+                  <SelectContent>
+                    {accounts.map(a => (
+                      <SelectItem key={a.id} value={String(a.id)}>{a.code} — {a.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Input type="number" step="0.01" placeholder="Debit" value={ln.debit || ""} onChange={e => setLines(lines.map((x, idx) => idx === i ? { ...x, debit: Number(e.target.value), credit: 0 } : x))} />
+                <Input type="number" step="0.01" placeholder="Credit" value={ln.credit || ""} onChange={e => setLines(lines.map((x, idx) => idx === i ? { ...x, credit: Number(e.target.value), debit: 0 } : x))} />
+                <button type="button" onClick={() => setLines(lines.filter((_, idx) => idx !== i))} disabled={lines.length <= 2} className="flex items-center justify-center rounded-md text-muted-foreground hover:text-rose-600 disabled:opacity-30">
+                  <Trash2 className="h-4 w-4" />
+                </button>
+              </div>
+            ))}
+          </div>
+          <div className={`mt-2 flex justify-end gap-4 text-xs font-mono ${balanced ? "text-emerald-600" : "text-amber-600"}`}>
+            <span>Dr {totalDr.toFixed(2)}</span>
+            <span>Cr {totalCr.toFixed(2)}</span>
+            <span>{balanced ? "Balanced" : "Unbalanced"}</span>
+          </div>
+        </div>
+        {error && <div className="mt-3 text-xs text-rose-600">{error}</div>}
+        <div className="mt-5 flex justify-end gap-2">
+          <Button type="button" variant="outline" onClick={() => { setOpen(false); reset() }}>Cancel</Button>
+          <Button type="button" onClick={handleSubmit} disabled={createAdjustment.isPending || !balanced}>
+            {createAdjustment.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Post Adjustment"}
+          </Button>
+        </div>
       </div>
     </div>
   )

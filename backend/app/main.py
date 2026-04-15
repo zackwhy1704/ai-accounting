@@ -6,6 +6,7 @@ from app.api.v1 import (
     products, tax_rates, exchange_rates, manual_journals, vendor_credits, sale_receipts, recurring_invoices, einvoice, payment_links, reports, custom_fields, invoice_templates, ai_assist,
     bank_accounts, bank_transactions, bank_transfers_router, stock, fixed_assets, purchase_payments, purchase_refunds, contact_groups, settings_data, bank_reconciliation,
 )
+from app.api.v1.adjustments import router as adjustments_router
 from app.api.v1.purchase_orders import router as purchase_orders_router
 from app.api.v1.goods_received_notes import router as goods_received_notes_router
 from app.api.v1.sharing import router as sharing_router
@@ -104,5 +105,6 @@ app.include_router(settings_data.router, prefix=settings.API_V1_PREFIX)
 app.include_router(sharing_router, prefix=settings.API_V1_PREFIX)
 app.include_router(invitations_router, prefix=settings.API_V1_PREFIX)
 app.include_router(purchase_orders_router, prefix=settings.API_V1_PREFIX)
+app.include_router(adjustments_router, prefix=settings.API_V1_PREFIX)
 app.include_router(goods_received_notes_router, prefix=settings.API_V1_PREFIX)
 app.include_router(bank_reconciliation.router, prefix=settings.API_V1_PREFIX)
