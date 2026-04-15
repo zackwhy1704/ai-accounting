@@ -1052,34 +1052,6 @@ class ManualJournalLine(Base):
 
 
 # ──────────────────────────────────────────────
-# Bank Rules Engine
-# ──────────────────────────────────────────────
-class BankRule(Base):
-    __tablename__ = "bank_rules"
-
-    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=new_uuid)
-    organization_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("organizations.id", ondelete="CASCADE"), index=True)
-    name: Mapped[str] = mapped_column(String(255))
-    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
-    priority: Mapped[int] = mapped_column(Integer, default=0)
-    # Conditions stored as JSON array:
-    # [{"field": "description", "operator": "contains", "value": "SHOPEE"}, ...]
-    conditions: Mapped[dict] = mapped_column(JSONB, default=list)
-    condition_logic: Mapped[str] = mapped_column(String(5), default="AND")  # AND | OR
-    # Actions: assign account, contact, category
-    action_account_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("accounts.id"))
-    action_contact_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("contacts.id"))
-    action_description: Mapped[str | None] = mapped_column(String(255))
-    # Stats
-    times_applied: Mapped[int] = mapped_column(Integer, default=0)
-    last_applied_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
-
-    action_account: Mapped["Account | None"] = relationship("Account", foreign_keys=[action_account_id])
-    action_contact: Mapped["Contact | None"] = relationship("Contact", foreign_keys=[action_contact_id])
-
-
-# ──────────────────────────────────────────────
 # Sales Receipts (cash sales, immediate payment)
 # ──────────────────────────────────────────────
 class SaleReceipt(Base):

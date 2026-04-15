@@ -628,28 +628,6 @@ export function useCreateManualJournal() {
   })
 }
 
-// ── Bank Rules ──
-export function useBankRules() {
-  return useQuery<Array<{
-    id: string; organization_id: string; name: string; is_active: boolean; priority: number;
-    conditions: Array<Record<string, string>>; condition_logic: string;
-    action_account_id: string | null; action_contact_id: string | null;
-    action_description: string | null; times_applied: number;
-    last_applied_at: string | null; created_at: string;
-  }>>({
-    queryKey: ['bank-rules'],
-    queryFn: () => api.get('/bank-rules').then(r => r.data),
-  })
-}
-
-export function useCreateBankRule() {
-  const qc = useQueryClient()
-  return useMutation({
-    mutationFn: (data: Record<string, unknown>) => api.post('/bank-rules', data).then(r => r.data),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['bank-rules'] }),
-  })
-}
-
 // ── Vendor Credits ──
 export function useVendorCredits(status?: string) {
   return useQuery<Array<{

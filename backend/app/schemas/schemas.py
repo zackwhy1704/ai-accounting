@@ -994,33 +994,6 @@ class ManualJournalResponse(BaseModel):
     model_config = {"from_attributes": True}
 
 
-# ── Bank Rules ──
-class BankRuleCreate(BaseModel):
-    name: str
-    conditions: list[dict]                 # [{"field": "description", "operator": "contains", "value": "..."}]
-    condition_logic: str = "AND"
-    action_account_id: UUID | None = None
-    action_contact_id: UUID | None = None
-    action_description: str | None = None
-    priority: int = 0
-
-class BankRuleResponse(BaseModel):
-    id: UUID
-    organization_id: UUID
-    name: str
-    is_active: bool
-    priority: int
-    conditions: list[dict]
-    condition_logic: str
-    action_account_id: UUID | None
-    action_contact_id: UUID | None
-    action_description: str | None
-    times_applied: int
-    last_applied_at: datetime | None
-    created_at: datetime
-    model_config = {"from_attributes": True}
-
-
 # ── Vendor Credits ──
 class VendorCreditLineItem(BaseModel):
     description: str

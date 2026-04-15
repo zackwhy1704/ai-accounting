@@ -59,7 +59,6 @@ export const navItems: NavItem[] = [
       { labelKey: "nav.moneyIn", href: "/bank/money-in" },
       { labelKey: "nav.moneyOut", href: "/bank/money-out" },
       { labelKey: "nav.transfers", href: "/bank/transfers" },
-      { labelKey: "nav.bankRules", href: "/bank/rules" },
     ],
   },
   {

@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import get_settings
 from app.api.v1 import (
     auth, invoices, bills, documents, contacts, accounts, dashboard, billing, firm, sales,
-    products, tax_rates, exchange_rates, manual_journals, bank_rules, vendor_credits, sale_receipts, recurring_invoices, einvoice, payment_links, reports, custom_fields, invoice_templates, ai_assist,
+    products, tax_rates, exchange_rates, manual_journals, vendor_credits, sale_receipts, recurring_invoices, einvoice, payment_links, reports, custom_fields, invoice_templates, ai_assist,
     bank_accounts, bank_transactions, bank_transfers_router, stock, fixed_assets, purchase_payments, purchase_refunds, contact_groups, settings_data, bank_reconciliation,
 )
 from app.api.v1.purchase_orders import router as purchase_orders_router
@@ -45,7 +45,6 @@ app.include_router(products.router, prefix=settings.API_V1_PREFIX)
 app.include_router(tax_rates.router, prefix=settings.API_V1_PREFIX)
 app.include_router(exchange_rates.router, prefix=settings.API_V1_PREFIX)
 app.include_router(manual_journals.router, prefix=settings.API_V1_PREFIX)
-app.include_router(bank_rules.router, prefix=settings.API_V1_PREFIX)
 app.include_router(vendor_credits.router, prefix=settings.API_V1_PREFIX)
 app.include_router(sale_receipts.router, prefix=settings.API_V1_PREFIX)
 

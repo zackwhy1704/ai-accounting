@@ -45,7 +45,6 @@ import NewPurchaseRefundPage from './pages/purchases/NewPurchaseRefundPage'
 import SaleReceiptsPage from './pages/sales/receipts/SaleReceiptsPage'
 import NewSaleReceiptPage from './pages/sales/receipts/NewSaleReceiptPage'
 import NewRecurringInvoicePage from './pages/sales/recurring/NewRecurringInvoicePage'
-import BankRulesPage from './pages/bank/BankRulesPage'
 import ManualJournalsPage from './pages/accounting/ManualJournalsPage'
 import NewManualJournalPage from './pages/accounting/NewManualJournalPage'
 import NewProductPage from './pages/products/NewProductPage'
@@ -222,7 +221,6 @@ function App() {
         <Route path="/bank/transfers" element={<BankTransfersPage />} />
         <Route path="/bank/transfers/new" element={<NewBankTransferPage />} />
         <Route path="/bank/transfers/:id/edit" element={<EditBankTransferPage />} />
-        <Route path="/bank/rules" element={<BankRulesPage />} />
 
         {/* Contacts */}
         <Route path="/contacts" element={<ContactsPage />} />
