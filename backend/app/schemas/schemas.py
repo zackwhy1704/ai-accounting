@@ -265,6 +265,7 @@ class QuotationLineItemResponse(BaseModel):
 
 class QuotationCreate(BaseModel):
     contact_id: UUID
+    quotation_number: str | None = None
     issue_date: datetime
     expiry_date: datetime
     reference: str | None = None
@@ -287,6 +288,7 @@ class QuotationCreate(BaseModel):
 
 class QuotationUpdate(BaseModel):
     contact_id: UUID | None = None
+    quotation_number: str | None = None
     issue_date: datetime | None = None
     expiry_date: datetime | None = None
     reference: str | None = None

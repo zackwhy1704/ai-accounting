@@ -59,12 +59,19 @@ async def list_quotations(status: str | None = None, current_user: dict = Depend
 @router.post("/quotations", response_model=QuotationResponse, status_code=201)
 async def create_quotation(data: QuotationCreate, current_user: dict = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
     org_id = current_user["org_id"]
-    count = (await db.execute(select(func.count(Quotation.id)).where(Quotation.organization_id == org_id))).scalar() or 0
+    if data.quotation_number:
+        existing = (await db.execute(select(Quotation.id).where(Quotation.organization_id == org_id, Quotation.quotation_number == data.quotation_number))).first()
+        if existing:
+            raise HTTPException(status_code=400, detail="Quotation number already in use")
+        quotation_number = data.quotation_number
+    else:
+        count = (await db.execute(select(func.count(Quotation.id)).where(Quotation.organization_id == org_id))).scalar() or 0
+        quotation_number = f"QT-{count + 1:04d}"
     subtotal, discount_total, tax_amount = calc_totals(data.line_items)
 
     obj = Quotation(
         organization_id=org_id, contact_id=data.contact_id,
-        quotation_number=f"QT-{count + 1:04d}", issue_date=data.issue_date,
+        quotation_number=quotation_number, issue_date=data.issue_date,
         expiry_date=data.expiry_date, reference=data.reference,
         subtotal=subtotal, discount_amount=discount_total, tax_amount=tax_amount,
         total=subtotal - discount_total + tax_amount, currency=data.currency,
@@ -118,6 +125,11 @@ async def update_quotation(qid: UUID, data: QuotationUpdate, current_user: dict 
 
     if data.contact_id is not None:
         obj.contact_id = data.contact_id
+    if data.quotation_number is not None and data.quotation_number != obj.quotation_number:
+        existing = (await db.execute(select(Quotation.id).where(Quotation.organization_id == obj.organization_id, Quotation.quotation_number == data.quotation_number, Quotation.id != obj.id))).first()
+        if existing:
+            raise HTTPException(status_code=400, detail="Quotation number already in use")
+        obj.quotation_number = data.quotation_number
     if data.issue_date is not None:
         obj.issue_date = data.issue_date
     if data.expiry_date is not None:

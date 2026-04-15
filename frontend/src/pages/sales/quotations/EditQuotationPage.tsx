@@ -33,11 +33,11 @@ export default function EditQuotationPage() {
   const updateQuotation = useUpdateQuotation()
 
   const [contactId, setContactId] = useState("")
+  const [quotationNumber, setQuotationNumber] = useState("")
   const [issueDate, setIssueDate] = useState("")
   const [expiryDate, setExpiryDate] = useState("")
   const [reference, setReference] = useState("")
   const [currency, setCurrency] = useState("MYR")
-  const [taxInclusive, setTaxInclusive] = useState(false)
   const [paymentTerms, setPaymentTerms] = useState("net30")
   const [billingLine1, setBillingLine1] = useState("")
   const [billingLine2, setBillingLine2] = useState("")
@@ -54,6 +54,7 @@ export default function EditQuotationPage() {
   useEffect(() => {
     if (!quotation || populated) return
     setContactId(String(quotation.contact_id))
+    setQuotationNumber(quotation.quotation_number ?? "")
     setIssueDate(quotation.issue_date?.slice(0, 10) ?? "")
     setExpiryDate(quotation.expiry_date?.slice(0, 10) ?? "")
     setReference(quotation.reference ?? "")
@@ -77,7 +78,6 @@ export default function EditQuotationPage() {
     setBillingPostcode(quotation.billing_postcode ?? "")
     setBillingCountry(quotation.billing_country ?? "")
     if (quotation.payment_terms) setPaymentTerms(quotation.payment_terms)
-    if (quotation.tax_inclusive !== undefined) setTaxInclusive(quotation.tax_inclusive)
     setPopulated(true)
   }, [quotation, populated])
 
@@ -95,7 +95,6 @@ export default function EditQuotationPage() {
     if (contact.default_payment_terms) setPaymentTerms(contact.default_payment_terms)
     const prefs = getContactPrefs(v)
     if (prefs.currency) setCurrency(prefs.currency)
-    if (prefs.tax_inclusive !== undefined) setTaxInclusive(prefs.tax_inclusive)
   }
 
   const updateLineItem = (index: number, field: keyof LineItem, value: string | number) => {
@@ -109,7 +108,7 @@ export default function EditQuotationPage() {
       const item = updated[index]
       const lineTotal = item.quantity * item.unit_price
       const afterDiscount = lineTotal - (lineTotal * item.discount) / 100
-      const tax = taxInclusive ? 0 : (afterDiscount * item.tax_rate) / 100
+      const tax = (afterDiscount * item.tax_rate) / 100
       updated[index].amount = afterDiscount + tax
       return updated
     })
@@ -128,7 +127,7 @@ export default function EditQuotationPage() {
     const lineTotal = item.quantity * item.unit_price
     return sum + (lineTotal * item.discount) / 100
   }, 0)
-  const totalTax = taxInclusive ? 0 : lineItems.reduce((sum, item) => {
+  const totalTax = lineItems.reduce((sum, item) => {
     const lineTotal = item.quantity * item.unit_price
     const afterLineDiscount = lineTotal - (lineTotal * item.discount) / 100
     return sum + (afterLineDiscount * item.tax_rate) / 100
@@ -140,6 +139,7 @@ export default function EditQuotationPage() {
       await updateQuotation.mutateAsync({
         id,
         contact_id: contactId,
+        quotation_number: quotationNumber || undefined,
         issue_date: issueDate,
         expiry_date: expiryDate,
         reference,
@@ -220,7 +220,16 @@ export default function EditQuotationPage() {
           </div>
         </div>
 
-        <div className="mt-4 flex flex-wrap items-center gap-4">
+        <div className="mt-4 flex flex-wrap items-end gap-4">
+          <div className="w-48">
+            <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Quotation Number</label>
+            <Input
+              value={quotationNumber}
+              onChange={e => setQuotationNumber(e.target.value)}
+              placeholder="Auto-generated"
+              className="h-10 rounded-xl"
+            />
+          </div>
           <div className="w-36">
             <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Currency</label>
             <Select value={currency} onValueChange={v => { setCurrency(v); if (contactId) saveContactPref(contactId, "currency", v) }}>
@@ -233,16 +242,6 @@ export default function EditQuotationPage() {
                 <SelectItem value="GBP">GBP - British Pound</SelectItem>
               </SelectContent>
             </Select>
-          </div>
-          <div className="flex items-center gap-2 pt-5">
-            <button
-              type="button"
-              onClick={() => setTaxInclusive(!taxInclusive)}
-              className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${taxInclusive ? "bg-blue-500" : "bg-gray-300"}`}
-            >
-              <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform ${taxInclusive ? "translate-x-4" : "translate-x-0.5"}`} />
-            </button>
-            <span className="text-xs font-medium text-muted-foreground">{taxInclusive ? "Tax Inclusive" : "Tax Exclusive"}</span>
           </div>
         </div>
 
@@ -333,12 +332,12 @@ export default function EditQuotationPage() {
               <span className="font-medium text-foreground">{currency} {subTotal.toFixed(2)}</span>
             </div>
             <div className="flex items-center justify-between">
-              <span className="text-muted-foreground">Tax</span>
-              <span className="font-medium text-foreground">{currency} {totalTax.toFixed(2)}</span>
+              <span className="text-muted-foreground">Discount</span>
+              <span className="font-medium text-foreground">- {currency} {totalDiscount.toFixed(2)}</span>
             </div>
             <div className="flex items-center justify-between">
-              <span className="text-muted-foreground">Discount</span>
-              <span className="font-medium text-foreground">{currency} {totalDiscount.toFixed(2)}</span>
+              <span className="text-muted-foreground">Tax</span>
+              <span className="font-medium text-foreground">{currency} {totalTax.toFixed(2)}</span>
             </div>
             <div className="border-t border-border pt-2">
               <div className="flex items-center justify-between text-base font-semibold">

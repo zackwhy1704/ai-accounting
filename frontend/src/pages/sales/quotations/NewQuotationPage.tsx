@@ -37,6 +37,7 @@ export default function NewQuotationPage() {
   const createQuotation = useCreateQuotation()
 
   const [contactId, setContactId] = useState("")
+  const [quotationNumber, setQuotationNumber] = useState("")
   const [issueDate, setIssueDate] = useState(() => new Date().toISOString().slice(0, 10))
   const [expiryDate, setExpiryDate] = useState(() => {
     const d = new Date()
@@ -45,7 +46,6 @@ export default function NewQuotationPage() {
   })
   const [reference, setReference] = useState("")
   const [currency, setCurrency] = useState("MYR")
-  const [taxInclusive, setTaxInclusive] = useState(false)
   const [paymentTerms, setPaymentTerms] = useState("net30")
   const [productSearch, setProductSearch] = useState("")
   const [productDropdownOpen, setProductDropdownOpen] = useState(false)
@@ -76,7 +76,6 @@ export default function NewQuotationPage() {
     }
     const prefs = getContactPrefs(id)
     if (prefs.currency) setCurrency(prefs.currency)
-    if (prefs.tax_inclusive !== undefined) setTaxInclusive(prefs.tax_inclusive)
   }
 
   useEffect(() => {
@@ -119,7 +118,7 @@ export default function NewQuotationPage() {
       const item = updated[index]
       const lineTotal = item.line_type === "services" ? item.unit_price : item.quantity * item.unit_price
       const afterDiscount = lineTotal - (lineTotal * item.discount) / 100
-      const tax = taxInclusive ? 0 : (afterDiscount * item.tax_rate) / 100
+      const tax = (afterDiscount * item.tax_rate) / 100
       updated[index].amount = afterDiscount + tax
       return updated
     })
@@ -138,7 +137,7 @@ export default function NewQuotationPage() {
     const lineTotal = item.line_type === "services" ? item.unit_price : item.quantity * item.unit_price
     return sum + (lineTotal * item.discount) / 100
   }, 0)
-  const totalTax = taxInclusive ? 0 : lineItems.reduce((sum, item) => {
+  const totalTax = lineItems.reduce((sum, item) => {
     const lineTotal = item.line_type === "services" ? item.unit_price : item.quantity * item.unit_price
     const afterLineDiscount = lineTotal - (lineTotal * item.discount) / 100
     return sum + (afterLineDiscount * item.tax_rate) / 100
@@ -150,6 +149,7 @@ export default function NewQuotationPage() {
     try {
       await createQuotation.mutateAsync({
         contact_id: contactId,
+        quotation_number: quotationNumber || undefined,
         issue_date: issueDate,
         expiry_date: expiryDate,
         reference: reference || undefined,
@@ -240,7 +240,16 @@ export default function NewQuotationPage() {
           </div>
         </div>
 
-        <div className="mt-4 flex flex-wrap items-center gap-4">
+        <div className="mt-4 flex flex-wrap items-end gap-4">
+          <div className="w-48">
+            <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Quotation Number</label>
+            <Input
+              value={quotationNumber}
+              onChange={e => setQuotationNumber(e.target.value)}
+              placeholder="Auto-generated"
+              className="h-10 rounded-xl"
+            />
+          </div>
           <div className="w-36">
             <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Currency</label>
             <Select value={currency} onValueChange={setCurrency}>
@@ -253,23 +262,6 @@ export default function NewQuotationPage() {
                 <SelectItem value="GBP">GBP</SelectItem>
               </SelectContent>
             </Select>
-          </div>
-
-          <div className="flex items-center gap-2 pt-5">
-            <button
-              type="button"
-              onClick={() => setTaxInclusive(!taxInclusive)}
-              className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${
-                taxInclusive ? "bg-blue-500" : "bg-gray-300"
-              }`}
-            >
-              <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform ${
-                taxInclusive ? "translate-x-4" : "translate-x-0.5"
-              }`} />
-            </button>
-            <span className="text-xs font-medium text-muted-foreground">
-              {taxInclusive ? "Tax Inclusive" : "Tax Exclusive"}
-            </span>
           </div>
         </div>
 
@@ -458,12 +450,12 @@ export default function NewQuotationPage() {
               <span className="font-medium text-foreground">{currency} {subTotal.toFixed(2)}</span>
             </div>
             <div className="flex items-center justify-between">
-              <span className="text-muted-foreground">Tax</span>
-              <span className="font-medium text-foreground">{currency} {totalTax.toFixed(2)}</span>
+              <span className="text-muted-foreground">Discount</span>
+              <span className="font-medium text-foreground">- {currency} {totalDiscount.toFixed(2)}</span>
             </div>
             <div className="flex items-center justify-between">
-              <span className="text-muted-foreground">Discount</span>
-              <span className="font-medium text-foreground">{currency} {totalDiscount.toFixed(2)}</span>
+              <span className="text-muted-foreground">Tax</span>
+              <span className="font-medium text-foreground">{currency} {totalTax.toFixed(2)}</span>
             </div>
             <div className="border-t border-border pt-2">
               <div className="flex items-center justify-between text-base font-semibold">
