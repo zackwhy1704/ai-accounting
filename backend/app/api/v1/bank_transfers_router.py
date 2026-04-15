@@ -9,6 +9,7 @@ from pydantic import BaseModel
 from app.core.database import get_db
 from app.core.security import get_current_user
 from app.models.models import BankTransfer
+from .gl_helpers import post_gl_by_id, revert_gl
 
 router = APIRouter(prefix="/bank-transfers", tags=["bank-transfers"])
 
@@ -66,11 +67,32 @@ async def create_bank_transfer(
     db: AsyncSession = Depends(get_db),
     current_user: dict = Depends(get_current_user),
 ):
+    if payload.from_account_id == payload.to_account_id:
+        raise HTTPException(status_code=400, detail="From and To accounts must differ")
+    if payload.amount <= 0:
+        raise HTTPException(status_code=400, detail="Amount must be positive")
     transfer = BankTransfer(
         organization_id=current_user["org_id"],
         **payload.model_dump(),
     )
     db.add(transfer)
+    await db.flush()
+
+    ref = payload.reference_no or f"XFER-{transfer.id.hex[:8].upper()}"
+    await post_gl_by_id(
+        db,
+        current_user["org_id"],
+        payload.transfer_date,
+        payload.notes or f"Bank transfer {ref}",
+        ref,
+        "bank_transfer",
+        transfer.id,
+        [
+            (payload.to_account_id, float(payload.amount), 0.0),
+            (payload.from_account_id, 0.0, float(payload.amount)),
+        ],
+    )
+
     await db.commit()
     await db.refresh(transfer)
     return transfer
@@ -132,5 +154,14 @@ async def delete_bank_transfer(
     transfer = result.scalar_one_or_none()
     if not transfer:
         raise HTTPException(status_code=404, detail="Bank transfer not found")
+    await revert_gl(
+        db,
+        current_user["org_id"],
+        transfer.id,
+        "bank_transfer",
+        transfer.transfer_date,
+        f"Reversal of bank transfer {transfer.reference_no or transfer.id}",
+        transfer.reference_no or "",
+    )
     await db.delete(transfer)
     await db.commit()

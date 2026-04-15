@@ -1263,8 +1263,12 @@ class FixedAsset(Base):
     useful_life_years: Mapped[int] = mapped_column(Integer, default=5)
     depreciation_method: Mapped[str] = mapped_column(String(30), default="straight_line")
     current_value: Mapped[float] = mapped_column(Numeric(18,4), default=0)
+    accumulated_depreciation: Mapped[float] = mapped_column(Numeric(18,4), default=0)
     status: Mapped[str] = mapped_column(String(20), default="registered")  # registered | disposed
     notes: Mapped[str | None] = mapped_column(Text)
+    asset_account_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("accounts.id"))
+    accumulated_depreciation_account_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("accounts.id"))
+    depreciation_expense_account_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("accounts.id"))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
 

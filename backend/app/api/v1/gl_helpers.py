@@ -51,6 +51,48 @@ async def post_gl(
 
     if not resolved:
         return None
+    return await _write_txn(db, org_id, date, description, reference, source, source_id, resolved)
+
+
+async def post_gl_by_id(
+    db: AsyncSession,
+    org_id: str,
+    date: datetime,
+    description: str,
+    reference: str,
+    source: str,
+    source_id: UUID,
+    entries: list[tuple[UUID, float, float]],  # (account_id, debit, credit)
+) -> Transaction | None:
+    """Same as post_gl, but takes account UUIDs directly. For modules that
+    already store account_id (bank transfers, fixed-asset accounts wired by
+    the user via Settings) and don't need to resolve by COA code."""
+    resolved: list[tuple[Account, float, float]] = []
+    for acct_id, debit, credit in entries:
+        if debit == 0 and credit == 0:
+            continue
+        result = await db.execute(
+            select(Account).where(Account.id == acct_id, Account.organization_id == org_id)
+        )
+        acct = result.scalar_one_or_none()
+        if acct is None:
+            return None
+        resolved.append((acct, debit, credit))
+    if not resolved:
+        return None
+    return await _write_txn(db, org_id, date, description, reference, source, source_id, resolved)
+
+
+async def _write_txn(
+    db: AsyncSession,
+    org_id: str,
+    date: datetime,
+    description: str,
+    reference: str,
+    source: str,
+    source_id: UUID,
+    resolved: list[tuple[Account, float, float]],
+) -> Transaction:
 
     txn = Transaction(
         organization_id=org_id,
