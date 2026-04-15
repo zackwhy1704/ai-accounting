@@ -105,6 +105,7 @@ export default function EditDebitNotePage() {
       {
         id,
         contact_id: customerId,
+        debit_note_number: debitNoteNumber || undefined,
         invoice_id: linkedInvoiceId || undefined,
         issue_date: date,
         reference,

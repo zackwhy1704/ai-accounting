@@ -170,6 +170,7 @@ export default function EditCreditNotePage() {
       await updateCreditNote.mutateAsync({
         id,
         contact_id: contactId,
+        credit_note_number: creditNoteNumber || undefined,
         issue_date: creditNoteDate,
         reference,
         currency,

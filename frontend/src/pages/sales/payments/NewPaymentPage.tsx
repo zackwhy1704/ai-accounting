@@ -20,6 +20,7 @@ export default function NewPaymentPage() {
   const { data: invoices } = useInvoices()
   const createPayment = useCreateSalesPayment()
 
+  const [paymentNumber, setPaymentNumber] = useState(() => `PMT-${Date.now().toString().slice(-6)}`)
   const [customerId, setCustomerId] = useState("")
   const [paymentDate, setPaymentDate] = useState(new Date().toISOString().split("T")[0])
   const [paymentMethod, setPaymentMethod] = useState("")
@@ -85,8 +86,9 @@ export default function NewPaymentPage() {
     // If user didn't type a top-level Amount, fall back to sum of allocations
     const effectiveAmount = parseFloat(amount) > 0 ? parseFloat(amount) : totalApplied
 
-    const payload = {
+    const payload: any = {
       contact_id: customerId,
+      payment_number: paymentNumber || undefined,
       payment_date: paymentDate,
       payment_method: paymentMethod,
       reference,
@@ -121,6 +123,16 @@ export default function NewPaymentPage() {
 
       <Card className={cardClass}>
         <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+          {/* Payment Number */}
+          <div className="space-y-1.5">
+            <label className="text-sm font-medium text-foreground">Payment #</label>
+            <Input
+              value={paymentNumber}
+              onChange={(e) => setPaymentNumber(e.target.value)}
+              placeholder="PMT-000000"
+            />
+          </div>
+
           {/* Customer */}
           <div className="space-y-1.5">
             <label className="text-sm font-medium text-foreground">Customer</label>

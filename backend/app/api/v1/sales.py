@@ -269,14 +269,21 @@ async def list_delivery_orders(status: str | None = None, current_user: dict = D
 @router.post("/delivery-orders", response_model=DeliveryOrderResponse, status_code=201)
 async def create_delivery_order(data: DeliveryOrderCreate, current_user: dict = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
     org_id = current_user["org_id"]
-    count = (await db.execute(select(func.count(DeliveryOrder.id)).where(DeliveryOrder.organization_id == org_id))).scalar() or 0
+    if data.delivery_number:
+        existing = (await db.execute(select(DeliveryOrder.id).where(DeliveryOrder.organization_id == org_id, DeliveryOrder.delivery_number == data.delivery_number))).first()
+        if existing:
+            raise HTTPException(status_code=400, detail="Delivery number already in use")
+        delivery_number = data.delivery_number
+    else:
+        count = (await db.execute(select(func.count(DeliveryOrder.id)).where(DeliveryOrder.organization_id == org_id))).scalar() or 0
+        delivery_number = f"DO-{count + 1:04d}"
     subtotal = sum(item.quantity * item.unit_price for item in data.line_items)
     tax_amount = sum(item.quantity * item.unit_price * (item.tax_rate / 100) for item in data.line_items)
 
     obj = DeliveryOrder(
         organization_id=org_id, contact_id=data.contact_id,
         invoice_id=data.invoice_id, quotation_id=data.quotation_id, sales_order_id=data.sales_order_id,
-        delivery_number=f"DO-{count + 1:04d}", delivery_date=data.delivery_date,
+        delivery_number=delivery_number, delivery_date=data.delivery_date,
         ship_to_address=data.ship_to_address, deliver_to_address=data.deliver_to_address,
         reference=data.reference, subtotal=subtotal, tax_amount=tax_amount,
         total=subtotal + tax_amount, currency=data.currency, notes=data.notes,
@@ -338,6 +345,12 @@ async def update_delivery_order(do_id: UUID, data: DeliveryOrderUpdate, current_
         obj.tax_amount = tax_amount
         obj.total = subtotal + tax_amount
 
+    new_num = update_data.get("delivery_number")
+    if new_num and new_num != obj.delivery_number:
+        existing = (await db.execute(select(DeliveryOrder.id).where(DeliveryOrder.organization_id == obj.organization_id, DeliveryOrder.delivery_number == new_num, DeliveryOrder.id != obj.id))).first()
+        if existing:
+            raise HTTPException(status_code=400, detail="Delivery number already in use")
+
     for key, value in update_data.items():
         setattr(obj, key, value)
 
@@ -375,13 +388,20 @@ async def get_credit_note(cn_id: UUID, current_user: dict = Depends(get_current_
 @router.post("/credit-notes", response_model=CreditNoteResponse, status_code=201)
 async def create_credit_note(data: CreditNoteCreate, current_user: dict = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
     org_id = current_user["org_id"]
-    count = (await db.execute(select(func.count(CreditNote.id)).where(CreditNote.organization_id == org_id))).scalar() or 0
+    if data.credit_note_number:
+        existing = (await db.execute(select(CreditNote.id).where(CreditNote.organization_id == org_id, CreditNote.credit_note_number == data.credit_note_number))).first()
+        if existing:
+            raise HTTPException(status_code=400, detail="Credit note number already in use")
+        cn_number = data.credit_note_number
+    else:
+        count = (await db.execute(select(func.count(CreditNote.id)).where(CreditNote.organization_id == org_id))).scalar() or 0
+        cn_number = f"CN-{count + 1:04d}"
     subtotal, discount_total, tax_amount = calc_totals(data.line_items)
     total = subtotal - discount_total + tax_amount
 
     obj = CreditNote(
         organization_id=org_id, contact_id=data.contact_id, invoice_id=data.invoice_id,
-        credit_note_number=f"CN-{count + 1:04d}", issue_date=data.issue_date,
+        credit_note_number=cn_number, issue_date=data.issue_date,
         reference=data.reference, subtotal=subtotal, discount_amount=discount_total,
         tax_amount=tax_amount, total=total, currency=data.currency, notes=data.notes,
     )
@@ -487,6 +507,12 @@ async def update_credit_note(cn_id: UUID, data: CreditNoteUpdate, current_user: 
                 inv.amount_paid = float(inv.amount_paid or 0) + app["amount"]
         obj.credit_applied = credit_applied
 
+    new_num = update_data.get("credit_note_number")
+    if new_num and new_num != obj.credit_note_number:
+        existing = (await db.execute(select(CreditNote.id).where(CreditNote.organization_id == obj.organization_id, CreditNote.credit_note_number == new_num, CreditNote.id != obj.id))).first()
+        if existing:
+            raise HTTPException(status_code=400, detail="Credit note number already in use")
+
     for key, value in update_data.items():
         setattr(obj, key, value)
 
@@ -523,12 +549,19 @@ async def get_debit_note(dn_id: UUID, current_user: dict = Depends(get_current_u
 @router.post("/debit-notes", response_model=DebitNoteResponse, status_code=201)
 async def create_debit_note(data: DebitNoteCreate, current_user: dict = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
     org_id = current_user["org_id"]
-    count = (await db.execute(select(func.count(DebitNote.id)).where(DebitNote.organization_id == org_id))).scalar() or 0
+    if data.debit_note_number:
+        existing = (await db.execute(select(DebitNote.id).where(DebitNote.organization_id == org_id, DebitNote.debit_note_number == data.debit_note_number))).first()
+        if existing:
+            raise HTTPException(status_code=400, detail="Debit note number already in use")
+        dn_number = data.debit_note_number
+    else:
+        count = (await db.execute(select(func.count(DebitNote.id)).where(DebitNote.organization_id == org_id))).scalar() or 0
+        dn_number = f"DN-{count + 1:04d}"
     subtotal, discount_total, tax_amount = calc_totals(data.line_items)
 
     obj = DebitNote(
         organization_id=org_id, contact_id=data.contact_id, invoice_id=data.invoice_id,
-        debit_note_number=f"DN-{count + 1:04d}", issue_date=data.issue_date,
+        debit_note_number=dn_number, issue_date=data.issue_date,
         reference=data.reference, subtotal=subtotal, discount_amount=discount_total,
         tax_amount=tax_amount, total=subtotal - discount_total + tax_amount,
         currency=data.currency, notes=data.notes,
@@ -599,6 +632,12 @@ async def update_debit_note(dn_id: UUID, data: DebitNoteUpdate, current_user: di
         obj.tax_amount = tax_amount
         obj.total = subtotal - discount_total + tax_amount
 
+    new_num = update_data.get("debit_note_number")
+    if new_num and new_num != obj.debit_note_number:
+        existing = (await db.execute(select(DebitNote.id).where(DebitNote.organization_id == obj.organization_id, DebitNote.debit_note_number == new_num, DebitNote.id != obj.id))).first()
+        if existing:
+            raise HTTPException(status_code=400, detail="Debit note number already in use")
+
     for key, value in update_data.items():
         setattr(obj, key, value)
 
@@ -635,11 +674,18 @@ async def get_sales_payment(sp_id: UUID, current_user: dict = Depends(get_curren
 @router.post("/sales-payments", response_model=SalesPaymentResponse, status_code=201)
 async def create_sales_payment(data: SalesPaymentCreate, current_user: dict = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
     org_id = current_user["org_id"]
-    count = (await db.execute(select(func.count(SalesPayment.id)).where(SalesPayment.organization_id == org_id))).scalar() or 0
+    if data.payment_number:
+        existing = (await db.execute(select(SalesPayment.id).where(SalesPayment.organization_id == org_id, SalesPayment.payment_number == data.payment_number))).first()
+        if existing:
+            raise HTTPException(status_code=400, detail="Payment number already in use")
+        pmt_number = data.payment_number
+    else:
+        count = (await db.execute(select(func.count(SalesPayment.id)).where(SalesPayment.organization_id == org_id))).scalar() or 0
+        pmt_number = f"PMT-{count + 1:04d}"
 
     obj = SalesPayment(
         organization_id=org_id, contact_id=data.contact_id,
-        payment_number=f"PMT-{count + 1:04d}", payment_date=data.payment_date,
+        payment_number=pmt_number, payment_date=data.payment_date,
         payment_method=data.payment_method, reference=data.reference,
         amount=data.amount, bank_account_id=data.bank_account_id,
         currency=data.currency, notes=data.notes, status="completed",
@@ -705,6 +751,12 @@ async def update_sales_payment(sp_id: UUID, data: SalesPaymentUpdate, current_us
                 if inv.amount_paid >= float(inv.total):
                     inv.status = "paid"
 
+    new_num = update_data.get("payment_number")
+    if new_num and new_num != obj.payment_number:
+        existing = (await db.execute(select(SalesPayment.id).where(SalesPayment.organization_id == obj.organization_id, SalesPayment.payment_number == new_num, SalesPayment.id != obj.id))).first()
+        if existing:
+            raise HTTPException(status_code=400, detail="Payment number already in use")
+
     for key, value in update_data.items():
         setattr(obj, key, value)
 
@@ -741,11 +793,18 @@ async def get_sales_refund(sr_id: UUID, current_user: dict = Depends(get_current
 @router.post("/sales-refunds", response_model=SalesRefundResponse, status_code=201)
 async def create_sales_refund(data: SalesRefundCreate, current_user: dict = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
     org_id = current_user["org_id"]
-    count = (await db.execute(select(func.count(SalesRefund.id)).where(SalesRefund.organization_id == org_id))).scalar() or 0
+    if data.refund_number:
+        existing = (await db.execute(select(SalesRefund.id).where(SalesRefund.organization_id == org_id, SalesRefund.refund_number == data.refund_number))).first()
+        if existing:
+            raise HTTPException(status_code=400, detail="Refund number already in use")
+        ref_number = data.refund_number
+    else:
+        count = (await db.execute(select(func.count(SalesRefund.id)).where(SalesRefund.organization_id == org_id))).scalar() or 0
+        ref_number = f"REF-{count + 1:04d}"
 
     obj = SalesRefund(
         organization_id=org_id, contact_id=data.contact_id, credit_note_id=data.credit_note_id,
-        refund_number=f"REF-{count + 1:04d}", refund_date=data.refund_date,
+        refund_number=ref_number, refund_date=data.refund_date,
         refund_method=data.refund_method, reference=data.reference,
         amount=data.amount, bank_account_id=data.bank_account_id,
         currency=data.currency, notes=data.notes, status="completed",
@@ -779,6 +838,12 @@ async def update_sales_refund(sr_id: UUID, data: SalesRefundUpdate, current_user
         raise HTTPException(status_code=400, detail="Only draft refunds can be edited")
 
     update_data = data.model_dump(exclude_unset=True)
+
+    new_num = update_data.get("refund_number")
+    if new_num and new_num != obj.refund_number:
+        existing = (await db.execute(select(SalesRefund.id).where(SalesRefund.organization_id == obj.organization_id, SalesRefund.refund_number == new_num, SalesRefund.id != obj.id))).first()
+        if existing:
+            raise HTTPException(status_code=400, detail="Refund number already in use")
 
     for key, value in update_data.items():
         setattr(obj, key, value)

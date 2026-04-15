@@ -25,6 +25,7 @@ export default function EditRefundPage() {
   const updateRefund = useUpdateSalesRefund()
   const populated = useRef(false)
 
+  const [refundNumber, setRefundNumber] = useState("")
   const [contactId, setContactId] = useState("")
   const [refundDate, setRefundDate] = useState(new Date().toISOString().slice(0, 10))
   const [refundMethod, setRefundMethod] = useState("")
@@ -37,6 +38,7 @@ export default function EditRefundPage() {
 
   useEffect(() => {
     if (!refund || populated.current) return
+    setRefundNumber(refund.refund_number ?? "")
     setContactId(String(refund.contact_id ?? ""))
     setRefundDate(refund.refund_date?.slice(0, 10) ?? new Date().toISOString().slice(0, 10))
     setRefundMethod(refund.refund_method ?? "")
@@ -71,6 +73,7 @@ export default function EditRefundPage() {
       {
         id,
         contact_id: contactId,
+        refund_number: refundNumber || undefined,
         refund_date: refundDate,
         refund_method: refundMethod,
         reference: reference || null,
@@ -105,6 +108,11 @@ export default function EditRefundPage() {
 
       <Card className="rounded-2xl border-border bg-card p-6 shadow-[0_0_0_1px_rgba(15,23,42,0.06),0_18px_55px_rgba(2,6,23,0.08)]">
         <div className="grid gap-5">
+          <div className="space-y-1.5">
+            <label className="text-sm font-medium text-foreground">Refund #</label>
+            <Input value={refundNumber} onChange={e => setRefundNumber(e.target.value)} placeholder="REF-000000" />
+          </div>
+
           <div className="space-y-1.5">
             <label className="text-sm font-medium text-foreground">Customer</label>
             <Select value={contactId} onValueChange={v => v === "__add_new__" ? navigate("/contacts/new") : setContactId(v)}>

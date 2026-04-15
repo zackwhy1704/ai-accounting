@@ -382,6 +382,7 @@ class DeliveryOrderLineItemCreate(BaseModel):
 
 class DeliveryOrderCreate(BaseModel):
     contact_id: UUID
+    delivery_number: str | None = None
     invoice_id: UUID | None = None
     quotation_id: UUID | None = None
     sales_order_id: UUID | None = None
@@ -395,6 +396,7 @@ class DeliveryOrderCreate(BaseModel):
 
 class DeliveryOrderUpdate(BaseModel):
     contact_id: UUID | None = None
+    delivery_number: str | None = None
     invoice_id: UUID | None = None
     quotation_id: UUID | None = None
     sales_order_id: UUID | None = None
@@ -456,6 +458,7 @@ class CreditApplicationCreate(BaseModel):
 
 class CreditNoteCreate(BaseModel):
     contact_id: UUID
+    credit_note_number: str | None = None
     invoice_id: UUID | None = None
     issue_date: datetime
     reference: str | None = None
@@ -478,6 +481,7 @@ class CreditNoteCreate(BaseModel):
 
 class CreditNoteUpdate(BaseModel):
     contact_id: UUID | None = None
+    credit_note_number: str | None = None
     invoice_id: UUID | None = None
     issue_date: datetime | None = None
     reference: str | None = None
@@ -547,6 +551,7 @@ class CreditNoteResponse(BaseModel):
 # ── Debit Note ──
 class DebitNoteCreate(BaseModel):
     contact_id: UUID
+    debit_note_number: str | None = None
     invoice_id: UUID | None = None
     issue_date: datetime
     reference: str | None = None
@@ -556,6 +561,7 @@ class DebitNoteCreate(BaseModel):
 
 class DebitNoteUpdate(BaseModel):
     contact_id: UUID | None = None
+    debit_note_number: str | None = None
     invoice_id: UUID | None = None
     issue_date: datetime | None = None
     reference: str | None = None
@@ -603,6 +609,7 @@ class PaymentAllocationCreate(BaseModel):
 
 class SalesPaymentCreate(BaseModel):
     contact_id: UUID
+    payment_number: str | None = None
     payment_date: datetime
     payment_method: str = "bank"
     reference: str | None = None
@@ -614,6 +621,7 @@ class SalesPaymentCreate(BaseModel):
 
 class SalesPaymentUpdate(BaseModel):
     contact_id: UUID | None = None
+    payment_number: str | None = None
     payment_date: datetime | None = None
     payment_method: str | None = None
     reference: str | None = None
@@ -642,6 +650,7 @@ class SalesPaymentResponse(BaseModel):
 # ── Sales Refund ──
 class SalesRefundCreate(BaseModel):
     contact_id: UUID
+    refund_number: str | None = None
     credit_note_id: UUID | None = None
     refund_date: datetime
     refund_method: str = "bank"
@@ -653,6 +662,7 @@ class SalesRefundCreate(BaseModel):
 
 class SalesRefundUpdate(BaseModel):
     contact_id: UUID | None = None
+    refund_number: str | None = None
     credit_note_id: UUID | None = None
     refund_date: datetime | None = None
     refund_method: str | None = None

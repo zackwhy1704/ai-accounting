@@ -131,6 +131,7 @@ export default function NewDeliveryOrderPage() {
     try {
       await createDeliveryOrder.mutateAsync({
         contact_id: contactId,
+        delivery_number: doNumber || undefined,
         delivery_date: deliveryDate,
         reference: poNumber || null,
         deliver_to_address: [deliverTo.address1, deliverTo.address2, deliverTo.city, deliverTo.state, deliverTo.postcode, deliverTo.country].filter(Boolean).join(", ") || null,

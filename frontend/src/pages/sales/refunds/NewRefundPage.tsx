@@ -21,6 +21,7 @@ export default function NewRefundPage() {
   const { data: creditNotes = [] } = useCreditNotes()
   const createRefund = useCreateSalesRefund()
 
+  const [refundNumber, setRefundNumber] = useState(() => `REF-${Date.now().toString().slice(-6)}`)
   const [contactId, setContactId] = useState("")
   const [refundDate, setRefundDate] = useState(new Date().toISOString().slice(0, 10))
   const [refundMethod, setRefundMethod] = useState("")
@@ -56,6 +57,7 @@ export default function NewRefundPage() {
     createRefund.mutate(
       {
         contact_id: contactId,
+        refund_number: refundNumber || undefined,
         refund_date: refundDate,
         refund_method: refundMethod,
         reference: reference || null,
@@ -81,6 +83,16 @@ export default function NewRefundPage() {
 
       <Card className="rounded-2xl border-border bg-card p-6 shadow-[0_0_0_1px_rgba(15,23,42,0.06),0_18px_55px_rgba(2,6,23,0.08)]">
         <div className="grid gap-5">
+          {/* Refund Number */}
+          <div className="space-y-1.5">
+            <label className="text-sm font-medium text-foreground">Refund #</label>
+            <Input
+              value={refundNumber}
+              onChange={(e) => setRefundNumber(e.target.value)}
+              placeholder="REF-000000"
+            />
+          </div>
+
           {/* Customer */}
           <div className="space-y-1.5">
             <label className="text-sm font-medium text-foreground">Customer</label>

@@ -133,6 +133,7 @@ export default function NewCreditNotePage() {
     try {
       await createCreditNote.mutateAsync({
         contact_id: contactId,
+        credit_note_number: creditNoteNumber || undefined,
         issue_date: creditNoteDate,
         reference,
         currency,

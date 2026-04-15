@@ -22,6 +22,7 @@ export default function EditPaymentPage() {
   const updatePayment = useUpdateSalesPayment()
   const populated = useRef(false)
 
+  const [paymentNumber, setPaymentNumber] = useState("")
   const [customerId, setCustomerId] = useState("")
   const [paymentDate, setPaymentDate] = useState(new Date().toISOString().split("T")[0])
   const [paymentMethod, setPaymentMethod] = useState("")
@@ -34,6 +35,7 @@ export default function EditPaymentPage() {
 
   useEffect(() => {
     if (!payment || populated.current) return
+    setPaymentNumber(payment.payment_number ?? "")
     setCustomerId(String(payment.customer_id ?? payment.contact_id ?? ""))
     setPaymentDate(payment.payment_date?.slice(0, 10) ?? new Date().toISOString().split("T")[0])
     setPaymentMethod(payment.payment_method ?? "")
@@ -89,6 +91,7 @@ export default function EditPaymentPage() {
     await updatePayment.mutateAsync({
       id,
       contact_id: customerId,
+      payment_number: paymentNumber || undefined,
       payment_date: paymentDate,
       payment_method: paymentMethod,
       reference,
@@ -119,6 +122,11 @@ export default function EditPaymentPage() {
 
       <Card className={cardClass}>
         <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+          <div className="space-y-1.5">
+            <label className="text-sm font-medium text-foreground">Payment #</label>
+            <Input value={paymentNumber} onChange={e => setPaymentNumber(e.target.value)} placeholder="PMT-000000" />
+          </div>
+
           <div className="space-y-1.5">
             <label className="text-sm font-medium text-foreground">Customer</label>
             <Select value={customerId} onValueChange={v => {
