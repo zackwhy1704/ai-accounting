@@ -121,7 +121,7 @@ ADDONS = {
         "price_monthly_sgd": 500,   # SGD cents (approx parity)
         "stripe_product_id": "prod_ULAn6NtBciJP2b",
         "stripe_price_id_myr": "price_1TMUSKGKa28ddRDdCNkrF7i9",
-        "stripe_price_id_sgd": "",
+        "stripe_price_id_sgd": "price_1TMVghGKa28ddRDdxNf3yjoA",
     },
     "scans_200": {
         "name": "+200 AI Scans",
@@ -130,7 +130,7 @@ ADDONS = {
         "price_monthly_sgd": 1500,
         "stripe_product_id": "prod_ULAnAvjrLTWKgA",
         "stripe_price_id_myr": "price_1TMUSLGKa28ddRDdVHfH6pcE",
-        "stripe_price_id_sgd": "",
+        "stripe_price_id_sgd": "price_1TMVgiGKa28ddRDdQAqdX0rX",
     },
     "scans_500": {
         "name": "+500 AI Scans",
@@ -139,7 +139,7 @@ ADDONS = {
         "price_monthly_sgd": 3000,
         "stripe_product_id": "prod_ULAn2fH9H6jgkj",
         "stripe_price_id_myr": "price_1TMUSLGKa28ddRDd4YxFgb4L",
-        "stripe_price_id_sgd": "",
+        "stripe_price_id_sgd": "price_1TMVgjGKa28ddRDdnozdAwyM",
     },
     "scans_unlimited": {
         "name": "Unlimited AI Scans",
@@ -148,7 +148,7 @@ ADDONS = {
         "price_monthly_sgd": 6000,
         "stripe_product_id": "prod_ULAnMbriJRRcZS",
         "stripe_price_id_myr": "price_1TMUSMGKa28ddRDdHqHfFEvv",
-        "stripe_price_id_sgd": "",
+        "stripe_price_id_sgd": "price_1TMVglGKa28ddRDdE3HqgLby",
     },
 }
 
