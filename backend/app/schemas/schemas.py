@@ -377,6 +377,7 @@ class DeliveryOrderLineItemCreate(BaseModel):
     description: str
     quantity: float = 1.0
     unit_price: float
+    discount: float = 0.0
     tax_rate: float = 0.0
     tax_code_id: UUID | None = None
 
@@ -413,6 +414,7 @@ class DeliveryOrderLineItemResponse(BaseModel):
     description: str
     quantity: float
     unit_price: float
+    discount: float = 0.0
     tax_rate: float
     tax_code_id: UUID | None = None
     amount: float
@@ -432,6 +434,7 @@ class DeliveryOrderResponse(BaseModel):
     deliver_to_address: str | None
     reference: str | None
     subtotal: float
+    discount_amount: float = 0.0
     tax_amount: float
     total: float
     currency: str

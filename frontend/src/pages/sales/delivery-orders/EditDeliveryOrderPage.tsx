@@ -12,6 +12,7 @@ interface LineItem {
   description: string
   quantity: number
   unit_price: number
+  discount: number
   amount: number
   tax_code_id: string
   tax_rate: number
@@ -33,7 +34,7 @@ export default function EditDeliveryOrderPage() {
   const [deliverTo, setDeliverTo] = useState({ address1: "", address2: "", city: "", state: "", postcode: "", country: "" })
   const [shipTo, setShipTo] = useState({ address1: "", address2: "", city: "", state: "", postcode: "", country: "" })
   const [lineItems, setLineItems] = useState<LineItem[]>([
-    { description: "", quantity: 1, unit_price: 0, amount: 0, tax_code_id: "", tax_rate: 0 },
+    { description: "", quantity: 1, unit_price: 0, discount: 0, amount: 0, tax_code_id: "", tax_rate: 0 },
   ])
 
   useEffect(() => {
@@ -53,6 +54,7 @@ export default function EditDeliveryOrderPage() {
         description: l.description ?? "",
         quantity: l.quantity ?? 1,
         unit_price: l.unit_price ?? 0,
+        discount: l.discount ?? 0,
         amount: l.amount ?? 0,
         tax_code_id: l.tax_code_id ? String(l.tax_code_id) : "",
         tax_rate: l.tax_rate ?? 0,
@@ -100,7 +102,7 @@ export default function EditDeliveryOrderPage() {
   }
 
   const addLineItem = () => {
-    setLineItems(prev => [...prev, { description: "", quantity: 1, unit_price: 0, amount: 0, tax_code_id: "", tax_rate: 0 }])
+    setLineItems(prev => [...prev, { description: "", quantity: 1, unit_price: 0, discount: 0, amount: 0, tax_code_id: "", tax_rate: 0 }])
   }
 
   const removeLineItem = (index: number) => {
@@ -108,8 +110,9 @@ export default function EditDeliveryOrderPage() {
   }
 
   const subTotal = lineItems.reduce((sum, item) => sum + item.quantity * item.unit_price, 0)
-  const totalTax = lineItems.reduce((s, l) => s + l.quantity * l.unit_price * (l.tax_rate / 100), 0)
-  const total = subTotal + totalTax
+  const totalDiscount = lineItems.reduce((sum, item) => sum + (item.quantity * item.unit_price) * (item.discount / 100), 0)
+  const totalTax = lineItems.reduce((s, l) => s + (l.quantity * l.unit_price - l.quantity * l.unit_price * (l.discount / 100)) * (l.tax_rate / 100), 0)
+  const total = subTotal - totalDiscount + totalTax
 
   const handleSave = async () => {
     try {
@@ -126,6 +129,7 @@ export default function EditDeliveryOrderPage() {
           description: li.description,
           quantity: li.quantity,
           unit_price: li.unit_price,
+          discount: li.discount,
           tax_rate: li.tax_rate,
           tax_code_id: li.tax_code_id || undefined,
         })),
@@ -191,6 +195,7 @@ export default function EditDeliveryOrderPage() {
                 <TableHead className="w-[80px] text-muted-foreground">QTY</TableHead>
                 <TableHead className="min-w-[280px] text-muted-foreground">Description</TableHead>
                 <TableHead className="w-[130px] text-muted-foreground">Unit Price</TableHead>
+                <TableHead className="w-[80px] text-muted-foreground">Disc %</TableHead>
                 <TableHead className="w-[160px] text-muted-foreground">Tax Code</TableHead>
                 <TableHead className="w-[80px] text-muted-foreground">Tax %</TableHead>
                 <TableHead className="w-10" />
@@ -207,6 +212,15 @@ export default function EditDeliveryOrderPage() {
                   </TableCell>
                   <TableCell>
                     <Input type="number" min={0} step={0.01} value={item.unit_price} onChange={e => updateLineItem(idx, "unit_price", Number(e.target.value))} className="h-9 rounded-lg border-0 bg-transparent px-1 text-sm shadow-none focus-visible:ring-1" />
+                  </TableCell>
+                  <TableCell className="w-[80px]">
+                    <Input
+                      type="number" min={0} max={100} step={0.01}
+                      value={item.discount}
+                      onChange={e => updateLineItem(idx, "discount", Number(e.target.value))}
+                      className="h-9 rounded-lg border-0 bg-transparent px-1 text-sm shadow-none focus-visible:ring-1"
+                      placeholder="%"
+                    />
                   </TableCell>
                   <TableCell className="w-[160px]">
                     <Select value={item.tax_code_id} onValueChange={v => updateLineItem(idx, "tax_code_id", v === "__none__" ? "" : v)}>
@@ -252,6 +266,10 @@ export default function EditDeliveryOrderPage() {
             <div className="flex items-center justify-between">
               <span className="text-muted-foreground">Subtotal</span>
               <span className="font-medium text-foreground">{subTotal.toFixed(2)}</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-muted-foreground">Discount</span>
+              <span className="font-medium text-foreground">- {totalDiscount.toFixed(2)}</span>
             </div>
             <div className="flex items-center justify-between">
               <span className="text-muted-foreground">Tax</span>

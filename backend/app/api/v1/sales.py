@@ -233,7 +233,8 @@ async def convert_quotation(qid: UUID, body: ConvertQuotationRequest, current_us
             quotation_id=quote.id,
             delivery_number=f"DO-{do_count + 1:04d}",
             delivery_date=now, currency=quote.currency,
-            subtotal=quote.subtotal, tax_amount=quote.tax_amount, total=quote.total,
+            subtotal=quote.subtotal, discount_amount=getattr(quote, 'discount_amount', 0) or 0,
+            tax_amount=quote.tax_amount, total=quote.total,
             notes=f"Converted from {quote.quotation_number}",
         )
         db.add(do)
@@ -242,7 +243,8 @@ async def convert_quotation(qid: UUID, body: ConvertQuotationRequest, current_us
             db.add(DeliveryOrderLineItem(
                 delivery_order_id=do.id, line_type=getattr(li, 'line_type', 'goods'),
                 description=li.description, quantity=li.quantity,
-                unit_price=li.unit_price, tax_rate=li.tax_rate,
+                unit_price=li.unit_price, discount=getattr(li, 'discount', 0) or 0,
+                tax_rate=li.tax_rate,
                 tax_code_id=getattr(li, 'tax_code_id', None),
                 amount=li.amount, sort_order=i,
             ))
@@ -277,24 +279,28 @@ async def create_delivery_order(data: DeliveryOrderCreate, current_user: dict = 
     else:
         count = (await db.execute(select(func.count(DeliveryOrder.id)).where(DeliveryOrder.organization_id == org_id))).scalar() or 0
         delivery_number = f"DO-{count + 1:04d}"
-    subtotal = sum(item.quantity * item.unit_price for item in data.line_items)
-    tax_amount = sum(item.quantity * item.unit_price * (item.tax_rate / 100) for item in data.line_items)
+    subtotal, discount_total, tax_amount = calc_totals(data.line_items)
 
     obj = DeliveryOrder(
         organization_id=org_id, contact_id=data.contact_id,
         invoice_id=data.invoice_id, quotation_id=data.quotation_id, sales_order_id=data.sales_order_id,
         delivery_number=delivery_number, delivery_date=data.delivery_date,
         ship_to_address=data.ship_to_address, deliver_to_address=data.deliver_to_address,
-        reference=data.reference, subtotal=subtotal, tax_amount=tax_amount,
-        total=subtotal + tax_amount, currency=data.currency, notes=data.notes,
+        reference=data.reference, subtotal=subtotal, discount_amount=discount_total,
+        tax_amount=tax_amount, total=subtotal - discount_total + tax_amount,
+        currency=data.currency, notes=data.notes,
     )
     db.add(obj)
     await db.flush()
     for i, item in enumerate(data.line_items):
+        line_total = item.quantity * item.unit_price
+        line_disc = line_total * (item.discount / 100)
         db.add(DeliveryOrderLineItem(
             delivery_order_id=obj.id, description=item.description, quantity=item.quantity,
-            unit_price=item.unit_price, tax_rate=item.tax_rate,
-            amount=item.quantity * item.unit_price, sort_order=i,
+            unit_price=item.unit_price, discount=item.discount, tax_rate=item.tax_rate,
+            tax_code_id=item.tax_code_id,
+            amount=line_total - line_disc + (line_total - line_disc) * (item.tax_rate / 100),
+            sort_order=i,
         ))
     await db.commit()
     result = await db.execute(
@@ -334,16 +340,22 @@ async def update_delivery_order(do_id: UUID, data: DeliveryOrderUpdate, current_
         line_items_data = update_data.pop("line_items")
         await db.execute(delete(DeliveryOrderLineItem).where(DeliveryOrderLineItem.delivery_order_id == obj.id))
         subtotal = sum(li["quantity"] * li["unit_price"] for li in line_items_data)
-        tax_amount = sum(li["quantity"] * li["unit_price"] * (li["tax_rate"] / 100) for li in line_items_data)
+        discount_total = sum((li["quantity"] * li["unit_price"]) * ((li.get("discount", 0) or 0) / 100) for li in line_items_data)
+        tax_amount = sum(((li["quantity"] * li["unit_price"]) - (li["quantity"] * li["unit_price"]) * ((li.get("discount", 0) or 0) / 100)) * (li["tax_rate"] / 100) for li in line_items_data)
         for i, item in enumerate(line_items_data):
+            line_total = item["quantity"] * item["unit_price"]
+            line_disc = line_total * ((item.get("discount", 0) or 0) / 100)
             db.add(DeliveryOrderLineItem(
                 delivery_order_id=obj.id, description=item["description"], quantity=item["quantity"],
-                unit_price=item["unit_price"], tax_rate=item["tax_rate"],
-                amount=item["quantity"] * item["unit_price"], sort_order=i,
+                unit_price=item["unit_price"], discount=item.get("discount", 0) or 0,
+                tax_rate=item["tax_rate"], tax_code_id=item.get("tax_code_id"),
+                amount=line_total - line_disc + (line_total - line_disc) * (item["tax_rate"] / 100),
+                sort_order=i,
             ))
         obj.subtotal = subtotal
+        obj.discount_amount = discount_total
         obj.tax_amount = tax_amount
-        obj.total = subtotal + tax_amount
+        obj.total = subtotal - discount_total + tax_amount
 
     new_num = update_data.get("delivery_number")
     if new_num and new_num != obj.delivery_number:
