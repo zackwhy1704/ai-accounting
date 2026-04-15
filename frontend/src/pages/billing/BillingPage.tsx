@@ -1,10 +1,10 @@
 import { useState, useMemo } from "react"
-import { useBillingPlans, useBillingUsage } from "../../lib/hooks"
+import { useBillingPlans, useBillingUsage, useBillingAddons, useCreateCheckout, useAddAddon } from "../../lib/hooks"
 import { useAuth } from "../../lib/auth"
 import { useTheme } from "../../lib/theme"
 import { Card } from "../../components/ui/card"
 import { Button } from "../../components/ui/button"
-import { Check } from "lucide-react"
+import { Check, Zap } from "lucide-react"
 import { cn } from "../../lib/utils"
 
 function detectDefaultCurrency(orgCountry?: string): "MYR" | "SGD" {
@@ -31,12 +31,40 @@ export default function BillingPage() {
   const defaultCurrency = useMemo(() => detectDefaultCurrency((user as any)?.country), [user])
   const [currency, setCurrency] = useState<"MYR" | "SGD">(defaultCurrency)
   const { data: plans = [] } = useBillingPlans(currency)
+  const { data: addons = [] } = useBillingAddons(currency)
   const { data: usage } = useBillingUsage()
   const { t } = useTheme()
+  const createCheckout = useCreateCheckout()
+  const addAddon = useAddAddon()
 
   const currencySymbol = currency === "SGD" ? "S$" : "RM"
   const businessPlans = plans.filter(p => p.audience !== "firm")
   const firmPlans = plans.filter(p => p.audience === "firm")
+
+  const handleUpgrade = async (planId: string) => {
+    try {
+      const res = await createCheckout.mutateAsync({ plan: planId, currency })
+      if (res?.url) window.location.href = res.url
+    } catch (err: any) {
+      alert(err?.response?.data?.detail || "Unable to start checkout")
+    }
+  }
+
+  const handleAddAddon = async (addonId: string) => {
+    try {
+      if (usage?.plan && usage.plan !== "starter") {
+        // Already subscribed — attach as an extra item
+        const res = await addAddon.mutateAsync({ addon: addonId, currency })
+        alert(`Add-on activated. New scan limit: ${res?.new_scan_limit ?? "updated"}.`)
+      } else {
+        // No active sub — send them through checkout so Stripe collects payment
+        const res = await createCheckout.mutateAsync({ addon: addonId, currency })
+        if (res?.url) window.location.href = res.url
+      }
+    } catch (err: any) {
+      alert(err?.response?.data?.detail || "Unable to add add-on")
+    }
+  }
 
   return (
     <div className="flex flex-col gap-6">
@@ -129,7 +157,8 @@ export default function BillingPage() {
                 </ul>
                 <Button
                   type="button"
-                  disabled={isCurrent}
+                  disabled={isCurrent || createCheckout.isPending}
+                  onClick={() => plan.price > 0 && handleUpgrade(plan.id)}
                   className={cn(
                     "mt-6 h-10 w-full rounded-xl text-sm font-semibold",
                     isCurrent
@@ -139,7 +168,7 @@ export default function BillingPage() {
                         : "bg-white text-slate-900 ring-1 ring-slate-300 hover:bg-slate-50"
                   )}
                 >
-                  {isCurrent ? "Current plan" : plan.price === 0 ? "Start free" : "Upgrade"}
+                  {isCurrent ? "Current plan" : plan.price === 0 ? "Start free" : createCheckout.isPending ? "Redirecting…" : "Upgrade"}
                 </Button>
               </Card>
             )
@@ -173,17 +202,51 @@ export default function BillingPage() {
                   </ul>
                   <Button
                     type="button"
-                    disabled={isCurrent}
+                    disabled={isCurrent || createCheckout.isPending}
+                    onClick={() => handleUpgrade(plan.id)}
                     className={cn(
                       "mt-6 h-10 w-full rounded-xl text-sm font-semibold",
                       isCurrent ? "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200" : "bg-slate-900 text-white hover:bg-slate-800"
                     )}
                   >
-                    {isCurrent ? "Current plan" : "Upgrade"}
+                    {isCurrent ? "Current plan" : createCheckout.isPending ? "Redirecting…" : "Upgrade"}
                   </Button>
                 </Card>
               )
             })}
+          </div>
+        </div>
+      )}
+
+      {addons.length > 0 && (
+        <div>
+          <div className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+            <Zap className="h-3.5 w-3.5" /> AI scan add-ons
+          </div>
+          <div className="mb-3 text-sm text-muted-foreground">
+            Stack on top of any paid plan. Billed monthly, cancel anytime.
+          </div>
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
+            {addons.map((a) => (
+              <Card key={a.id} className="flex flex-col rounded-2xl border border-border bg-card p-5">
+                <div className="text-sm font-medium text-muted-foreground">{a.name}</div>
+                <div className="mt-1 flex items-baseline gap-1">
+                  <span className="text-2xl font-bold text-foreground">{currencySymbol} {a.price}</span>
+                  <span className="text-xs text-muted-foreground">/mo</span>
+                </div>
+                <div className="mt-1 text-xs text-muted-foreground">
+                  {typeof a.extra_scans === "number" ? `${a.extra_scans} extra scans` : a.extra_scans + " scans"}
+                </div>
+                <Button
+                  type="button"
+                  disabled={addAddon.isPending || createCheckout.isPending}
+                  onClick={() => handleAddAddon(a.id)}
+                  className="mt-5 h-9 w-full rounded-xl bg-slate-900 text-xs font-semibold text-white hover:bg-slate-800"
+                >
+                  {addAddon.isPending || createCheckout.isPending ? "Working…" : "Add"}
+                </Button>
+              </Card>
+            ))}
           </div>
         </div>
       )}
