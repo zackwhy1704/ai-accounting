@@ -788,6 +788,33 @@ export function useCreatePurchaseRefund() {
 export function useInvoice(id: string | undefined) {
   return useQuery({ queryKey: ['invoice', id], queryFn: () => api.get(`/invoices/${id}`).then(r => r.data), enabled: !!id })
 }
+
+export interface InvoiceActivityEvent {
+  ts: string | null
+  type: 'issued' | 'credit_note' | 'debit_note' | 'payment' | 'refund' | 'journal'
+  subtype?: string
+  ref: string
+  ref_id: string
+  delta: number
+  balance: number
+  note: string
+  status?: string
+  lines?: Array<{ account_code: string; account_name: string; debit: number; credit: number }>
+}
+
+export function useInvoiceActivity(id: string | undefined) {
+  return useQuery<{
+    invoice_id: string
+    invoice_number: string
+    total: number
+    outstanding: number
+    events: InvoiceActivityEvent[]
+  }>({
+    queryKey: ['invoice-activity', id],
+    queryFn: () => api.get(`/invoices/${id}/activity`).then(r => r.data),
+    enabled: !!id,
+  })
+}
 export function useUpdateInvoice() {
   const qc = useQueryClient()
   return useMutation({

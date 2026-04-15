@@ -5,7 +5,11 @@ from sqlalchemy.orm import selectinload
 from uuid import UUID
 from app.core.database import get_db
 from app.core.security import get_current_user
-from app.models.models import Invoice, InvoiceLineItem
+from app.models.models import (
+    Invoice, InvoiceLineItem, CreditNote, DebitNote,
+    SalesPayment, PaymentAllocation, SalesRefund,
+    Transaction, JournalEntry, Account,
+)
 from app.schemas.schemas import InvoiceCreate, InvoiceUpdate, InvoiceResponse
 from .gl_helpers import post_gl, revert_gl
 
@@ -234,6 +238,148 @@ async def update_invoice_status(
 
     await db.commit()
     return {"status": invoice.status}
+
+
+@router.get("/{invoice_id}/activity")
+async def invoice_activity(
+    invoice_id: UUID,
+    current_user: dict = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Return a chronological activity timeline for an invoice with running balance.
+
+    Each event represents something that changed the invoice's outstanding balance
+    or attached a note: issuance, credit notes, debit notes, payments (via
+    PaymentAllocation), refunds (via the credit note that was refunded), and any
+    raw GL transactions posted against the invoice (status changes, adjustments).
+    """
+    org_id = current_user["org_id"]
+    result = await db.execute(
+        select(Invoice).where(Invoice.id == invoice_id, Invoice.organization_id == org_id)
+    )
+    invoice = result.scalar_one_or_none()
+    if not invoice:
+        raise HTTPException(status_code=404, detail="Invoice not found")
+
+    events: list[dict] = []
+
+    events.append({
+        "ts": invoice.issue_date.isoformat() if invoice.issue_date else None,
+        "type": "issued",
+        "ref": invoice.invoice_number,
+        "ref_id": str(invoice.id),
+        "delta": float(invoice.total or 0),
+        "note": invoice.notes or "",
+        "status": invoice.status,
+    })
+
+    cn_result = await db.execute(
+        select(CreditNote).where(CreditNote.invoice_id == invoice_id)
+    )
+    credit_notes = cn_result.scalars().all()
+    for cn in credit_notes:
+        events.append({
+            "ts": cn.issue_date.isoformat() if cn.issue_date else None,
+            "type": "credit_note",
+            "ref": cn.credit_note_number,
+            "ref_id": str(cn.id),
+            "delta": -float(cn.total or 0),
+            "note": cn.notes or "",
+            "status": cn.status,
+        })
+
+    dn_result = await db.execute(
+        select(DebitNote).where(DebitNote.invoice_id == invoice_id)
+    )
+    for dn in dn_result.scalars().all():
+        events.append({
+            "ts": dn.issue_date.isoformat() if dn.issue_date else None,
+            "type": "debit_note",
+            "ref": dn.debit_note_number,
+            "ref_id": str(dn.id),
+            "delta": float(dn.total or 0),
+            "note": dn.notes or "",
+            "status": dn.status,
+        })
+
+    pay_result = await db.execute(
+        select(SalesPayment, PaymentAllocation)
+        .join(PaymentAllocation, PaymentAllocation.payment_id == SalesPayment.id)
+        .where(PaymentAllocation.invoice_id == invoice_id)
+    )
+    for payment, alloc in pay_result.all():
+        events.append({
+            "ts": payment.payment_date.isoformat() if payment.payment_date else None,
+            "type": "payment",
+            "ref": payment.payment_number,
+            "ref_id": str(payment.id),
+            "delta": -float(alloc.amount or 0),
+            "note": payment.notes or "",
+            "status": payment.status,
+        })
+
+    if credit_notes:
+        cn_ids = [cn.id for cn in credit_notes]
+        ref_result = await db.execute(
+            select(SalesRefund).where(SalesRefund.credit_note_id.in_(cn_ids))
+        )
+        for refund in ref_result.scalars().all():
+            events.append({
+                "ts": refund.refund_date.isoformat() if refund.refund_date else None,
+                "type": "refund",
+                "ref": refund.refund_number,
+                "ref_id": str(refund.id),
+                "delta": float(refund.amount or 0),
+                "note": refund.notes or "",
+                "status": refund.status,
+            })
+
+    txn_result = await db.execute(
+        select(Transaction)
+        .where(Transaction.organization_id == org_id, Transaction.source_id == invoice_id)
+        .order_by(Transaction.date)
+    )
+    for txn in txn_result.scalars().all():
+        je_result = await db.execute(
+            select(JournalEntry, Account)
+            .join(Account, Account.id == JournalEntry.account_id)
+            .where(JournalEntry.transaction_id == txn.id)
+        )
+        lines = [
+            {
+                "account_code": acct.code,
+                "account_name": acct.name,
+                "debit": float(je.debit or 0),
+                "credit": float(je.credit or 0),
+            }
+            for je, acct in je_result.all()
+        ]
+        events.append({
+            "ts": txn.date.isoformat() if txn.date else None,
+            "type": "journal",
+            "subtype": txn.source,
+            "ref": txn.reference,
+            "ref_id": str(txn.id),
+            "delta": 0.0,
+            "note": txn.description or "",
+            "lines": lines,
+        })
+
+    events.sort(key=lambda e: (e.get("ts") or "", 0 if e["type"] == "issued" else 1))
+
+    running = 0.0
+    for ev in events:
+        if ev["type"] != "journal":
+            running += ev["delta"]
+        ev["balance"] = round(running, 2)
+
+    return {
+        "invoice_id": str(invoice_id),
+        "invoice_number": invoice.invoice_number,
+        "total": float(invoice.total or 0),
+        "outstanding": round(running, 2),
+        "events": events,
+    }
 
 
 @router.delete("/{invoice_id}", status_code=204)
