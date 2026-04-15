@@ -15,6 +15,7 @@ interface LineItem {
   accountId: string
   quantity: number
   unitPrice: number
+  discount: number
   taxRate: number
   taxCodeId: string
 }
@@ -25,6 +26,7 @@ const emptyLine = (): LineItem => ({
   accountId: "",
   quantity: 1,
   unitPrice: 0,
+  discount: 0,
   taxRate: 0,
   taxCodeId: "",
 })
@@ -62,6 +64,7 @@ export default function EditDebitNotePage() {
         accountId: l.account_id ? String(l.account_id) : "",
         quantity: l.quantity ?? 1,
         unitPrice: l.unit_price ?? 0,
+        discount: l.discount ?? 0,
         taxRate: l.tax_rate ?? 0,
         taxCodeId: l.tax_code_id ? String(l.tax_code_id) : "",
       })))
@@ -97,8 +100,9 @@ export default function EditDebitNotePage() {
   }
 
   const subTotal = lines.reduce((sum, l) => sum + l.quantity * l.unitPrice, 0)
-  const totalTax = lines.reduce((sum, l) => sum + (l.quantity * l.unitPrice * l.taxRate) / 100, 0)
-  const total = subTotal + totalTax
+  const totalDiscount = lines.reduce((sum, l) => sum + (l.quantity * l.unitPrice) * (l.discount / 100), 0)
+  const totalTax = lines.reduce((sum, l) => sum + ((l.quantity * l.unitPrice) - (l.quantity * l.unitPrice) * (l.discount / 100)) * (l.taxRate / 100), 0)
+  const total = subTotal - totalDiscount + totalTax
 
   const handleSave = () => {
     updateDebitNote.mutate(
@@ -115,6 +119,7 @@ export default function EditDebitNotePage() {
           account_id: l.accountId || undefined,
           quantity: l.quantity,
           unit_price: l.unitPrice,
+          discount: l.discount,
           tax_rate: l.taxRate,
           tax_code_id: l.taxCodeId || undefined,
         })),
@@ -187,6 +192,7 @@ export default function EditDebitNotePage() {
                   <TableHead className="w-[180px] text-muted-foreground">Account</TableHead>
                   <TableHead className="w-[100px] text-muted-foreground">Quantity</TableHead>
                   <TableHead className="w-[130px] text-muted-foreground">Unit Price</TableHead>
+                  <TableHead className="w-[80px] text-muted-foreground">Disc %</TableHead>
                   <TableHead className="w-[160px] text-muted-foreground">Tax Code</TableHead>
                   <TableHead className="w-[80px] text-muted-foreground">Tax %</TableHead>
                   <TableHead className="w-[50px]" />
@@ -212,6 +218,15 @@ export default function EditDebitNotePage() {
                     </TableCell>
                     <TableCell>
                       <Input type="number" min={0} step={0.01} value={line.unitPrice} onChange={e => updateLine(line.id, "unitPrice", Number(e.target.value))} className="h-9 rounded-lg border-0 bg-transparent px-2 text-sm shadow-none focus-visible:ring-1" />
+                    </TableCell>
+                    <TableCell className="w-[80px]">
+                      <Input
+                        type="number" min={0} max={100} step={0.01}
+                        value={line.discount}
+                        onChange={e => updateLine(line.id, "discount", Number(e.target.value))}
+                        className="h-9 rounded-lg border-0 bg-transparent px-1 text-sm shadow-none focus-visible:ring-1"
+                        placeholder="%"
+                      />
                     </TableCell>
                     <TableCell className="w-[160px]">
                       <Select value={line.taxCodeId} onValueChange={v => updateLine(line.id, "taxCodeId", v === "__none__" ? "" : v)}>
@@ -253,6 +268,10 @@ export default function EditDebitNotePage() {
               <div className="flex items-center justify-between text-sm">
                 <span className="text-muted-foreground">Sub Total</span>
                 <span className="text-foreground">{subTotal.toFixed(2)}</span>
+              </div>
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-muted-foreground">Discount</span>
+                <span className="text-foreground">- {totalDiscount.toFixed(2)}</span>
               </div>
               <div className="flex items-center justify-between text-sm">
                 <span className="text-muted-foreground">Tax</span>

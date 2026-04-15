@@ -2,7 +2,6 @@ import { useState, useEffect, useRef } from "react"
 import { useNavigate, useParams } from "react-router-dom"
 import { Plus, Trash2, Loader2 } from "lucide-react"
 import { useInvoice, useUpdateInvoice, useContacts, useAccounts, useTaxRates } from "../../../lib/hooks"
-import { getContactPrefs } from "../../../lib/contact-prefs"
 import { Card } from "../../../components/ui/card"
 import { Button } from "../../../components/ui/button"
 import { Input } from "../../../components/ui/input"
@@ -34,7 +33,6 @@ export default function EditInvoicePage() {
   const [invoiceNumber, setInvoiceNumber] = useState("")
   const [contactId, setContactId] = useState("")
   const [terms, setTerms] = useState("cbd")
-  const [taxInclusive, setTaxInclusive] = useState(false)
   const [invoiceDate, setInvoiceDate] = useState("")
   const [customerPo, setCustomerPo] = useState("")
   const [currency, setCurrency] = useState("MYR")
@@ -54,7 +52,6 @@ export default function EditInvoicePage() {
     setInvoiceNumber(invoice.invoice_number ?? "")
     setContactId(String(invoice.contact_id ?? ""))
     setTerms(invoice.terms ?? "cbd")
-    setTaxInclusive(invoice.tax_inclusive ?? false)
     setInvoiceDate((invoice.issue_date ?? invoice.invoice_date)?.slice(0, 10) ?? "")
     setCustomerPo(invoice.customer_po ?? "")
     setCurrency(invoice.currency ?? "MYR")
@@ -93,8 +90,6 @@ export default function EditInvoicePage() {
     setBillingPostcode(contact.billing_postcode ?? "")
     setBillingCountry(contact.billing_country ?? "")
     if (contact.default_payment_terms) setTerms(contact.default_payment_terms)
-    const prefs = getContactPrefs(v)
-    if (prefs.tax_inclusive !== undefined) setTaxInclusive(prefs.tax_inclusive)
   }
 
   const updateLineItem = (index: number, field: keyof LineItem, value: string | number) => {
@@ -111,7 +106,7 @@ export default function EditInvoicePage() {
       const item = updated[index]
       const lineTotal = item.quantity * item.unit_price
       const afterDiscount = lineTotal - (lineTotal * item.discount) / 100
-      const tax = taxInclusive ? 0 : (afterDiscount * item.tax_rate) / 100
+      const tax = (afterDiscount * item.tax_rate) / 100
       updated[index].amount = afterDiscount + tax
       return updated
     })
@@ -134,7 +129,7 @@ export default function EditInvoicePage() {
     return sum + (lineTotal * item.discount) / 100
   }, 0)
   const afterDiscount = subTotal - totalLineDiscount
-  const totalTax = taxInclusive ? 0 : lineItems.reduce((sum, item) => {
+  const totalTax = lineItems.reduce((sum, item) => {
     const lineTotal = item.quantity * item.unit_price
     const afterLineDiscount = lineTotal - (lineTotal * item.discount) / 100
     return sum + (afterLineDiscount * item.tax_rate) / 100
@@ -250,17 +245,6 @@ export default function EditInvoicePage() {
             <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Customer PO</label>
             <Input value={customerPo} onChange={e => setCustomerPo(e.target.value)} placeholder="Optional" className="h-10 rounded-xl" />
           </div>
-        </div>
-
-        <div className="mt-4 flex items-center gap-2">
-          <button
-            type="button"
-            onClick={() => setTaxInclusive(!taxInclusive)}
-            className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${taxInclusive ? "bg-blue-500" : "bg-gray-300"}`}
-          >
-            <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform ${taxInclusive ? "translate-x-4" : "translate-x-0.5"}`} />
-          </button>
-          <span className="text-xs font-medium text-muted-foreground">{taxInclusive ? "Tax Inclusive" : "Tax Exclusive"}</span>
         </div>
 
         <div className="mt-6 overflow-x-auto rounded-2xl border border-border">

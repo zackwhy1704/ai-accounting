@@ -15,6 +15,7 @@ interface LineItem {
   accountId: string
   quantity: number
   unitPrice: number
+  discount: number
   taxRate: number
   taxCodeId: string
 }
@@ -25,6 +26,7 @@ const emptyLine = (): LineItem => ({
   accountId: "",
   quantity: 1,
   unitPrice: 0,
+  discount: 0,
   taxRate: 0,
   taxCodeId: "",
 })
@@ -75,8 +77,9 @@ export default function NewDebitNotePage() {
   }
 
   const subTotal = lines.reduce((sum, l) => sum + l.quantity * l.unitPrice, 0)
-  const totalTax = lines.reduce((sum, l) => sum + (l.quantity * l.unitPrice * l.taxRate) / 100, 0)
-  const total = subTotal + totalTax
+  const totalDiscount = lines.reduce((sum, l) => sum + (l.quantity * l.unitPrice) * (l.discount / 100), 0)
+  const totalTax = lines.reduce((sum, l) => sum + ((l.quantity * l.unitPrice) - (l.quantity * l.unitPrice) * (l.discount / 100)) * (l.taxRate / 100), 0)
+  const total = subTotal - totalDiscount + totalTax
 
   const isFormValid = !!customerId && lines.some(l => l.description.trim() !== "")
 
@@ -95,6 +98,7 @@ export default function NewDebitNotePage() {
           account_id: l.accountId || undefined,
           quantity: l.quantity,
           unit_price: l.unitPrice,
+          discount: l.discount,
           tax_rate: l.taxRate,
           tax_code_id: l.taxCodeId || undefined,
         })),
@@ -188,6 +192,7 @@ export default function NewDebitNotePage() {
                   <TableHead className="w-[180px] text-muted-foreground">Account</TableHead>
                   <TableHead className="w-[100px] text-muted-foreground">Quantity</TableHead>
                   <TableHead className="w-[130px] text-muted-foreground">Unit Price</TableHead>
+                  <TableHead className="w-[80px] text-muted-foreground">Disc %</TableHead>
                   <TableHead className="w-[160px] text-muted-foreground">Tax Code</TableHead>
                   <TableHead className="w-[80px] text-muted-foreground">Tax %</TableHead>
                   <TableHead className="w-[50px]" />
@@ -234,6 +239,15 @@ export default function NewDebitNotePage() {
                         value={line.unitPrice}
                         onChange={e => updateLine(line.id, "unitPrice", Number(e.target.value))}
                         className="h-9 rounded-lg border-0 bg-transparent px-2 text-sm shadow-none focus-visible:ring-1"
+                      />
+                    </TableCell>
+                    <TableCell className="w-[80px]">
+                      <Input
+                        type="number" min={0} max={100} step={0.01}
+                        value={line.discount}
+                        onChange={e => updateLine(line.id, "discount", Number(e.target.value))}
+                        className="h-9 rounded-lg border-0 bg-transparent px-1 text-sm shadow-none focus-visible:ring-1"
+                        placeholder="%"
                       />
                     </TableCell>
                     <TableCell className="w-[160px]">
@@ -295,6 +309,10 @@ export default function NewDebitNotePage() {
               <div className="flex items-center justify-between text-sm">
                 <span className="text-muted-foreground">Sub Total</span>
                 <span className="text-foreground">{subTotal.toFixed(2)}</span>
+              </div>
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-muted-foreground">Discount</span>
+                <span className="text-foreground">- {totalDiscount.toFixed(2)}</span>
               </div>
               <div className="flex items-center justify-between text-sm">
                 <span className="text-muted-foreground">Tax</span>

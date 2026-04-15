@@ -40,7 +40,6 @@ export default function NewCreditNotePage() {
   const [creditNoteDate, setCreditNoteDate] = useState(() => new Date().toISOString().slice(0, 10))
   const [reference, setReference] = useState("")
   const [currency, setCurrency] = useState("MYR")
-  const [taxInclusive, setTaxInclusive] = useState(false)
   const [lineItems, setLineItems] = useState<LineItem[]>([])
   const [applyCreditLines, setApplyCreditLines] = useState<ApplyCreditLine[]>([])
 
@@ -56,7 +55,6 @@ export default function NewCreditNotePage() {
     setContactId(id)
     const prefs = getContactPrefs(id)
     if (prefs.currency) setCurrency(prefs.currency)
-    if (prefs.tax_inclusive !== undefined) setTaxInclusive(prefs.tax_inclusive)
     const custInvoices = invoices.filter((inv: any) => inv.contact_id === id)
     setApplyCreditLines(
       custInvoices.map((inv: any) => ({
@@ -81,7 +79,7 @@ export default function NewCreditNotePage() {
       const item = updated[index]
       const lineTotal = item.quantity * item.unit_price
       const afterDiscount = lineTotal - (lineTotal * item.discount) / 100
-      const tax = taxInclusive ? 0 : (afterDiscount * item.tax_rate) / 100
+      const tax = (afterDiscount * item.tax_rate) / 100
       updated[index].amount = afterDiscount + tax
       return updated
     })
@@ -120,7 +118,7 @@ export default function NewCreditNotePage() {
     const lineTotal = item.quantity * item.unit_price
     return sum + (lineTotal * item.discount) / 100
   }, 0)
-  const totalTax = taxInclusive ? 0 : lineItems.reduce((sum, item) => {
+  const totalTax = lineItems.reduce((sum, item) => {
     const lineTotal = item.quantity * item.unit_price
     const afterLineDiscount = lineTotal - (lineTotal * item.discount) / 100
     return sum + (afterLineDiscount * item.tax_rate) / 100
@@ -243,24 +241,6 @@ export default function NewCreditNotePage() {
             </Select>
           </div>
 
-          <div className="flex items-center gap-2 pt-5">
-            <button
-              type="button"
-              onClick={() => setTaxInclusive(!taxInclusive)}
-              className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${
-                taxInclusive ? "bg-blue-500" : "bg-gray-300"
-              }`}
-            >
-              <span
-                className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform ${
-                  taxInclusive ? "translate-x-4" : "translate-x-0.5"
-                }`}
-              />
-            </button>
-            <span className="text-xs font-medium text-muted-foreground">
-              {taxInclusive ? "Tax Inclusive" : "Tax Exclusive"}
-            </span>
-          </div>
         </div>
 
         <div className="mt-4">
