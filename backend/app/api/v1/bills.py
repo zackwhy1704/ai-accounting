@@ -36,6 +36,9 @@ async def create_bill(
 
     # Auto-generate bill number if not provided
     if data.bill_number:
+        existing = (await db.execute(select(Bill.id).where(Bill.organization_id == org_id, Bill.bill_number == data.bill_number))).first()
+        if existing:
+            raise HTTPException(status_code=400, detail="Bill number already in use")
         bill_number = data.bill_number
     else:
         count_result = await db.execute(
@@ -126,6 +129,11 @@ async def update_bill(
         raise HTTPException(status_code=404, detail="Bill not found")
 
     update_data = data.model_dump(exclude_unset=True)
+
+    if "bill_number" in update_data and update_data["bill_number"]:
+        existing = (await db.execute(select(Bill.id).where(Bill.organization_id == org_id, Bill.bill_number == update_data["bill_number"], Bill.id != bill.id))).first()
+        if existing:
+            raise HTTPException(status_code=400, detail="Bill number already in use")
 
     if "line_items" in update_data:
         line_items_data = update_data.pop("line_items")

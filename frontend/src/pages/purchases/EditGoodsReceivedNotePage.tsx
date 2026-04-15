@@ -30,6 +30,7 @@ export default function EditGoodsReceivedNotePage() {
   const { data } = useGoodsReceivedNote(id!)
   const updateGRN = useUpdateGoodsReceivedNote()
 
+  const [grnNumber, setGrnNumber] = useState("")
   const [contactId, setContactId] = useState("")
   const [purchaseOrderId, setPurchaseOrderId] = useState("")
   const [receivedDate, setReceivedDate] = useState("")
@@ -41,6 +42,7 @@ export default function EditGoodsReceivedNotePage() {
   useEffect(() => {
     if (data && !populated.current) {
       populated.current = true
+      setGrnNumber(data.grn_number || "")
       setContactId(data.contact_id || "")
       setPurchaseOrderId(data.purchase_order_id || "")
       setReceivedDate(data.received_date ? data.received_date.slice(0, 10) : "")
@@ -72,6 +74,7 @@ export default function EditGoodsReceivedNotePage() {
       await updateGRN.mutateAsync({
         id: id!,
         contact_id: contactId,
+        grn_number: grnNumber || undefined,
         purchase_order_id: purchaseOrderId || null,
         received_date: new Date(receivedDate).toISOString(),
         currency,
@@ -99,6 +102,10 @@ export default function EditGoodsReceivedNotePage() {
 
       <Card className="rounded-2xl border-border bg-card p-6 shadow-sm">
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+          <div>
+            <label className="mb-1.5 block text-xs font-medium text-muted-foreground">GRN #</label>
+            <Input value={grnNumber} onChange={e => setGrnNumber(e.target.value)} placeholder="GRN-000000" className="h-10 rounded-xl" />
+          </div>
           <div>
             <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Supplier *</label>
             <Select value={contactId} onValueChange={v => { if (v === "__add_new__") { navigate("/contacts/new"); return } setContactId(v); const prefs = getContactPrefs(v); if (prefs.currency) setCurrency(prefs.currency) }}>

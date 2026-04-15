@@ -33,6 +33,7 @@ export default function EditVendorCreditPage() {
   const { data } = useVendorCredit(id!)
   const updateVendorCredit = useUpdateVendorCredit()
 
+  const [vendorCreditNumber, setVendorCreditNumber] = useState("")
   const [contactId, setContactId] = useState("")
   const [billId, setBillId] = useState("")
   const [issueDate, setIssueDate] = useState("")
@@ -44,6 +45,7 @@ export default function EditVendorCreditPage() {
   useEffect(() => {
     if (data && !populated.current) {
       populated.current = true
+      setVendorCreditNumber(data.vendor_credit_number || "")
       setContactId(data.contact_id || "")
       setBillId(data.bill_id || "")
       setIssueDate(data.issue_date ? data.issue_date.slice(0, 10) : "")
@@ -86,6 +88,7 @@ export default function EditVendorCreditPage() {
       await updateVendorCredit.mutateAsync({
         id: id!,
         contact_id: contactId,
+        vendor_credit_number: vendorCreditNumber || undefined,
         bill_id: billId || null,
         issue_date: new Date(issueDate).toISOString(),
         currency,
@@ -115,6 +118,10 @@ export default function EditVendorCreditPage() {
 
       <Card className="rounded-2xl border-border bg-card p-6 shadow-sm">
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+          <div>
+            <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Credit #</label>
+            <Input value={vendorCreditNumber} onChange={e => setVendorCreditNumber(e.target.value)} placeholder="VC-000000" className="h-10 rounded-xl" />
+          </div>
           <div>
             <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Supplier *</label>
             <Select value={contactId} onValueChange={v => { if (v === "__add_new__") { navigate("/contacts/new"); return } setContactId(v); const prefs = getContactPrefs(v); if (prefs.currency) setCurrency(prefs.currency) }}>

@@ -16,6 +16,7 @@ router = APIRouter(prefix="/purchase-refunds", tags=["purchase-refunds"])
 
 
 class PurchaseRefundCreate(BaseModel):
+    refund_no: Optional[str] = None
     refund_date: datetime
     amount: float
     currency: str = "MYR"
@@ -26,6 +27,7 @@ class PurchaseRefundCreate(BaseModel):
 
 
 class PurchaseRefundUpdate(BaseModel):
+    refund_no: Optional[str] = None
     refund_date: Optional[datetime] = None
     amount: Optional[float] = None
     currency: Optional[str] = None
@@ -87,10 +89,19 @@ async def create_purchase_refund(
     current_user: dict = Depends(get_current_user),
 ):
     org_id = current_user["org_id"]
+    data = payload.model_dump()
+    custom_no = data.pop("refund_no", None)
+    if custom_no:
+        existing = (await db.execute(select(PurchaseRefund.id).where(PurchaseRefund.organization_id == org_id, PurchaseRefund.refund_no == custom_no))).first()
+        if existing:
+            raise HTTPException(status_code=400, detail="Refund number already in use")
+        refund_no = custom_no
+    else:
+        refund_no = _gen_refund_no()
     refund = PurchaseRefund(
         organization_id=org_id,
-        refund_no=_gen_refund_no(),
-        **payload.model_dump(),
+        refund_no=refund_no,
+        **data,
     )
     db.add(refund)
     await db.flush()
@@ -142,7 +153,12 @@ async def update_purchase_refund(
     refund = result.scalar_one_or_none()
     if not refund:
         raise HTTPException(status_code=404, detail="Purchase refund not found")
-    for key, val in payload.model_dump(exclude_unset=True).items():
+    update_data = payload.model_dump(exclude_unset=True)
+    if "refund_no" in update_data and update_data["refund_no"]:
+        existing = (await db.execute(select(PurchaseRefund.id).where(PurchaseRefund.organization_id == current_user["org_id"], PurchaseRefund.refund_no == update_data["refund_no"], PurchaseRefund.id != refund.id))).first()
+        if existing:
+            raise HTTPException(status_code=400, detail="Refund number already in use")
+    for key, val in update_data.items():
         setattr(refund, key, val)
     await db.commit()
     await db.refresh(refund)

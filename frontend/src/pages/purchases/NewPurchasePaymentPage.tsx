@@ -15,6 +15,7 @@ export default function NewPurchasePaymentPage() {
   const { data: contacts = [] } = useContacts()
   const createPayment = useCreatePurchasePayment()
 
+  const [paymentNo, setPaymentNo] = useState(() => `PPY-${Date.now().toString().slice(-6)}`)
   const [contactId, setContactId] = useState("")
   const [paymentDate, setPaymentDate] = useState(() => new Date().toISOString().slice(0, 10))
   const [amount, setAmount] = useState("")
@@ -29,6 +30,7 @@ export default function NewPurchasePaymentPage() {
     try {
       await createPayment.mutateAsync({
         contact_id: contactId || null,
+        payment_no: paymentNo || undefined,
         payment_date: new Date(paymentDate).toISOString(),
         amount: Number(amount),
         currency,
@@ -52,6 +54,10 @@ export default function NewPurchasePaymentPage() {
 
       <Card className="rounded-2xl border-border bg-card p-6 shadow-sm">
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3 max-w-3xl">
+          <div>
+            <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Payment #</label>
+            <Input value={paymentNo} onChange={e => setPaymentNo(e.target.value)} placeholder="PPY-000000" className="h-10 rounded-xl" />
+          </div>
           <div>
             <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Supplier</label>
             <Select value={contactId} onValueChange={v => { if (v === "__add_new__") { navigate("/contacts/new"); return } setContactId(v); if (v) { const prefs = getContactPrefs(v); if (prefs.currency) setCurrency(prefs.currency) } }}>

@@ -1028,6 +1028,7 @@ class VendorCreditLineItem(BaseModel):
 
 class VendorCreditCreate(BaseModel):
     contact_id: UUID
+    vendor_credit_number: str | None = None
     bill_id: UUID | None = None
     issue_date: datetime
     currency: str = "MYR"

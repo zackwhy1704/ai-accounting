@@ -30,6 +30,7 @@ export default function NewPurchaseOrderPage() {
   const { data: taxRates = [] } = useTaxRates()
   const createPO = useCreatePurchaseOrder()
 
+  const [poNumber, setPoNumber] = useState(() => `PO-${Date.now().toString().slice(-6)}`)
   const [contactId, setContactId] = useState("")
   const [issueDate, setIssueDate] = useState(() => new Date().toISOString().slice(0, 10))
   const [expectedDate, setExpectedDate] = useState("")
@@ -62,6 +63,7 @@ export default function NewPurchaseOrderPage() {
     try {
       await createPO.mutateAsync({
         contact_id: contactId,
+        po_number: poNumber || undefined,
         issue_date: new Date(issueDate).toISOString(),
         expected_date: expectedDate ? new Date(expectedDate).toISOString() : null,
         currency,
@@ -91,6 +93,10 @@ export default function NewPurchaseOrderPage() {
 
       <Card className="rounded-2xl border-border bg-card p-6 shadow-sm">
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+          <div>
+            <label className="mb-1.5 block text-xs font-medium text-muted-foreground">PO #</label>
+            <Input value={poNumber} onChange={e => setPoNumber(e.target.value)} placeholder="PO-000000" className="h-10 rounded-xl" />
+          </div>
           <div>
             <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Supplier *</label>
             <Select value={contactId} onValueChange={v => { if (v === "__add_new__") { navigate("/contacts/new"); return } setContactId(v); const prefs = getContactPrefs(v); if (prefs.currency) setCurrency(prefs.currency) }}>

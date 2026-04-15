@@ -15,6 +15,7 @@ export default function NewPurchaseRefundPage() {
   const { data: contacts = [] } = useContacts()
   const createRefund = useCreatePurchaseRefund()
 
+  const [refundNo, setRefundNo] = useState(() => `PRF-${Date.now().toString().slice(-6)}`)
   const [contactId, setContactId] = useState("")
   const [paymentDate, setPaymentDate] = useState(() => new Date().toISOString().slice(0, 10))
   const [amount, setAmount] = useState("")
@@ -29,6 +30,7 @@ export default function NewPurchaseRefundPage() {
     try {
       await createRefund.mutateAsync({
         contact_id: contactId || null,
+        refund_no: refundNo || undefined,
         refund_date: new Date(paymentDate).toISOString(),
         amount: Number(amount),
         currency,
@@ -52,6 +54,10 @@ export default function NewPurchaseRefundPage() {
 
       <Card className="rounded-2xl border-border bg-card p-6 shadow-sm">
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3 max-w-3xl">
+          <div>
+            <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Refund #</label>
+            <Input value={refundNo} onChange={e => setRefundNo(e.target.value)} placeholder="PRF-000000" className="h-10 rounded-xl" />
+          </div>
           <div>
             <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Supplier</label>
             <Select value={contactId} onValueChange={v => { if (v === "__add_new__") { navigate("/contacts/new"); return } setContactId(v); if (v) { const prefs = getContactPrefs(v); if (prefs.currency) setCurrency(prefs.currency) } }}>

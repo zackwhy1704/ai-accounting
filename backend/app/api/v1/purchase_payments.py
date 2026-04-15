@@ -16,6 +16,7 @@ router = APIRouter(prefix="/purchase-payments", tags=["purchase-payments"])
 
 
 class PurchasePaymentCreate(BaseModel):
+    payment_no: Optional[str] = None
     payment_date: datetime
     amount: float
     currency: str = "MYR"
@@ -26,6 +27,7 @@ class PurchasePaymentCreate(BaseModel):
 
 
 class PurchasePaymentUpdate(BaseModel):
+    payment_no: Optional[str] = None
     payment_date: Optional[datetime] = None
     amount: Optional[float] = None
     currency: Optional[str] = None
@@ -87,10 +89,19 @@ async def create_purchase_payment(
     current_user: dict = Depends(get_current_user),
 ):
     org_id = current_user["org_id"]
+    data = payload.model_dump()
+    custom_no = data.pop("payment_no", None)
+    if custom_no:
+        existing = (await db.execute(select(PurchasePayment.id).where(PurchasePayment.organization_id == org_id, PurchasePayment.payment_no == custom_no))).first()
+        if existing:
+            raise HTTPException(status_code=400, detail="Payment number already in use")
+        payment_no = custom_no
+    else:
+        payment_no = _gen_payment_no()
     payment = PurchasePayment(
         organization_id=org_id,
-        payment_no=_gen_payment_no(),
-        **payload.model_dump(),
+        payment_no=payment_no,
+        **data,
     )
     db.add(payment)
     await db.flush()
@@ -142,7 +153,12 @@ async def update_purchase_payment(
     payment = result.scalar_one_or_none()
     if not payment:
         raise HTTPException(status_code=404, detail="Purchase payment not found")
-    for key, val in payload.model_dump(exclude_unset=True).items():
+    update_data = payload.model_dump(exclude_unset=True)
+    if "payment_no" in update_data and update_data["payment_no"]:
+        existing = (await db.execute(select(PurchasePayment.id).where(PurchasePayment.organization_id == current_user["org_id"], PurchasePayment.payment_no == update_data["payment_no"], PurchasePayment.id != payment.id))).first()
+        if existing:
+            raise HTTPException(status_code=400, detail="Payment number already in use")
+    for key, val in update_data.items():
         setattr(payment, key, val)
     await db.commit()
     await db.refresh(payment)

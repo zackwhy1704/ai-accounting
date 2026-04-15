@@ -38,6 +38,7 @@ export default function NewVendorCreditPage() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ['vendor-credits'] }),
   })
 
+  const [vendorCreditNumber, setVendorCreditNumber] = useState(() => `VC-${Date.now().toString().slice(-6)}`)
   const [contactId, setContactId] = useState("")
   const [billId, setBillId] = useState("")
   const [issueDate, setIssueDate] = useState(() => new Date().toISOString().slice(0, 10))
@@ -68,6 +69,7 @@ export default function NewVendorCreditPage() {
     try {
       await createVendorCredit.mutateAsync({
         contact_id: contactId,
+        vendor_credit_number: vendorCreditNumber || undefined,
         bill_id: billId || null,
         issue_date: new Date(issueDate).toISOString(),
         currency,
@@ -97,6 +99,10 @@ export default function NewVendorCreditPage() {
 
       <Card className="rounded-2xl border-border bg-card p-6 shadow-sm">
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+          <div>
+            <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Credit #</label>
+            <Input value={vendorCreditNumber} onChange={e => setVendorCreditNumber(e.target.value)} placeholder="VC-000000" className="h-10 rounded-xl" />
+          </div>
           <div>
             <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Supplier *</label>
             <Select value={contactId} onValueChange={v => { if (v === "__add_new__") { navigate("/contacts/new"); return } setContactId(v); const prefs = getContactPrefs(v); if (prefs.currency) setCurrency(prefs.currency) }}>

@@ -24,6 +24,7 @@ class GRNLineItemCreate(BaseModel):
 
 class GRNCreate(BaseModel):
     contact_id: UUID
+    grn_number: Optional[str] = None
     purchase_order_id: Optional[UUID] = None
     received_date: datetime
     currency: str = "SGD"
@@ -33,6 +34,7 @@ class GRNCreate(BaseModel):
 
 class GRNUpdate(BaseModel):
     contact_id: Optional[UUID] = None
+    grn_number: Optional[str] = None
     purchase_order_id: Optional[UUID] = None
     received_date: Optional[datetime] = None
     currency: Optional[str] = None
@@ -93,10 +95,18 @@ async def create_grn(
 ):
     org_id = current_user["org_id"]
 
+    if payload.grn_number:
+        existing = (await db.execute(select(GoodsReceivedNote.id).where(GoodsReceivedNote.organization_id == org_id, GoodsReceivedNote.grn_number == payload.grn_number))).first()
+        if existing:
+            raise HTTPException(status_code=400, detail="GRN number already in use")
+        grn_number = payload.grn_number
+    else:
+        grn_number = _gen_grn_number()
+
     grn = GoodsReceivedNote(
         organization_id=org_id,
         contact_id=payload.contact_id,
-        grn_number=_gen_grn_number(),
+        grn_number=grn_number,
         purchase_order_id=payload.purchase_order_id,
         received_date=payload.received_date,
         currency=payload.currency,
@@ -159,6 +169,11 @@ async def update_grn(
         raise HTTPException(status_code=404, detail="GRN not found")
 
     update_data = data.model_dump(exclude_unset=True)
+
+    if "grn_number" in update_data and update_data["grn_number"]:
+        existing = (await db.execute(select(GoodsReceivedNote.id).where(GoodsReceivedNote.organization_id == current_user["org_id"], GoodsReceivedNote.grn_number == update_data["grn_number"], GoodsReceivedNote.id != grn.id))).first()
+        if existing:
+            raise HTTPException(status_code=400, detail="GRN number already in use")
 
     if "line_items" in update_data:
         line_items_data = update_data.pop("line_items")

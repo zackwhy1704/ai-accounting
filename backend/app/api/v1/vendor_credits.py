@@ -18,6 +18,7 @@ router = APIRouter(prefix="/vendor-credits", tags=["vendor-credits"])
 
 class VendorCreditUpdate(BaseModel):
     contact_id: Optional[UUID] = None
+    vendor_credit_number: Optional[str] = None
     bill_id: Optional[UUID] = None
     issue_date: Optional[datetime] = None
     currency: Optional[str] = None
@@ -60,7 +61,13 @@ async def create_vendor_credit(
     current_user: dict = Depends(get_current_user),
 ):
     subtotal, tax_amount, total = _calc_totals(payload.line_items)
-    vc_number = await _next_vc_number(current_user["org_id"], db)
+    if payload.vendor_credit_number:
+        existing = (await db.execute(select(VendorCredit.id).where(VendorCredit.organization_id == current_user["org_id"], VendorCredit.vendor_credit_number == payload.vendor_credit_number))).first()
+        if existing:
+            raise HTTPException(status_code=400, detail="Vendor credit number already in use")
+        vc_number = payload.vendor_credit_number
+    else:
+        vc_number = await _next_vc_number(current_user["org_id"], db)
     vc = VendorCredit(
         organization_id=current_user["org_id"],
         vendor_credit_number=vc_number,
@@ -126,6 +133,11 @@ async def update_vendor_credit(
         raise HTTPException(status_code=404, detail="Vendor credit not found")
 
     update_data = data.model_dump(exclude_unset=True)
+
+    if "vendor_credit_number" in update_data and update_data["vendor_credit_number"]:
+        existing = (await db.execute(select(VendorCredit.id).where(VendorCredit.organization_id == current_user["org_id"], VendorCredit.vendor_credit_number == update_data["vendor_credit_number"], VendorCredit.id != vc.id))).first()
+        if existing:
+            raise HTTPException(status_code=400, detail="Vendor credit number already in use")
 
     if "line_items" in update_data:
         line_items_raw = update_data.pop("line_items")

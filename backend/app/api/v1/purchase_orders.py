@@ -25,6 +25,7 @@ class POLineItemCreate(BaseModel):
 
 class PurchaseOrderCreate(BaseModel):
     contact_id: UUID
+    po_number: Optional[str] = None
     issue_date: datetime
     expected_date: Optional[datetime] = None
     currency: str = "SGD"
@@ -35,6 +36,7 @@ class PurchaseOrderCreate(BaseModel):
 
 class PurchaseOrderUpdate(BaseModel):
     contact_id: Optional[UUID] = None
+    po_number: Optional[str] = None
     issue_date: Optional[datetime] = None
     expected_date: Optional[datetime] = None
     currency: Optional[str] = None
@@ -110,10 +112,18 @@ async def create_purchase_order(
         subtotal += amount
         tax_amount += tax
 
+    if payload.po_number:
+        existing = (await db.execute(select(PurchaseOrder.id).where(PurchaseOrder.organization_id == org_id, PurchaseOrder.po_number == payload.po_number))).first()
+        if existing:
+            raise HTTPException(status_code=400, detail="PO number already in use")
+        po_number = payload.po_number
+    else:
+        po_number = _gen_po_number()
+
     po = PurchaseOrder(
         organization_id=org_id,
         contact_id=payload.contact_id,
-        po_number=_gen_po_number(),
+        po_number=po_number,
         issue_date=payload.issue_date,
         expected_date=payload.expected_date,
         subtotal=subtotal,
@@ -183,6 +193,11 @@ async def update_purchase_order(
         raise HTTPException(status_code=404, detail="Purchase order not found")
 
     update_data = data.model_dump(exclude_unset=True)
+
+    if "po_number" in update_data and update_data["po_number"]:
+        existing = (await db.execute(select(PurchaseOrder.id).where(PurchaseOrder.organization_id == current_user["org_id"], PurchaseOrder.po_number == update_data["po_number"], PurchaseOrder.id != po.id))).first()
+        if existing:
+            raise HTTPException(status_code=400, detail="PO number already in use")
 
     if "line_items" in update_data:
         line_items_data = update_data.pop("line_items")

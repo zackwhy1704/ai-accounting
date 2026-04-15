@@ -32,6 +32,7 @@ export default function EditPurchaseOrderPage() {
   const { data } = usePurchaseOrder(id!)
   const updatePO = useUpdatePurchaseOrder()
 
+  const [poNumber, setPoNumber] = useState("")
   const [contactId, setContactId] = useState("")
   const [issueDate, setIssueDate] = useState("")
   const [expectedDate, setExpectedDate] = useState("")
@@ -44,6 +45,7 @@ export default function EditPurchaseOrderPage() {
   useEffect(() => {
     if (data && !populated.current) {
       populated.current = true
+      setPoNumber(data.po_number || "")
       setContactId(data.contact_id || "")
       setIssueDate(data.issue_date ? data.issue_date.slice(0, 10) : "")
       setExpectedDate(data.expected_date ? data.expected_date.slice(0, 10) : "")
@@ -88,6 +90,7 @@ export default function EditPurchaseOrderPage() {
       await updatePO.mutateAsync({
         id: id!,
         contact_id: contactId,
+        po_number: poNumber || undefined,
         issue_date: new Date(issueDate).toISOString(),
         expected_date: expectedDate ? new Date(expectedDate).toISOString() : null,
         currency,
@@ -117,6 +120,10 @@ export default function EditPurchaseOrderPage() {
 
       <Card className="rounded-2xl border-border bg-card p-6 shadow-sm">
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+          <div>
+            <label className="mb-1.5 block text-xs font-medium text-muted-foreground">PO #</label>
+            <Input value={poNumber} onChange={e => setPoNumber(e.target.value)} placeholder="PO-000000" className="h-10 rounded-xl" />
+          </div>
           <div>
             <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Supplier *</label>
             <Select value={contactId} onValueChange={v => { if (v === "__add_new__") { navigate("/contacts/new"); return } setContactId(v); const prefs = getContactPrefs(v); if (prefs.currency) setCurrency(prefs.currency) }}>
