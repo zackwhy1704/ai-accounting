@@ -9,19 +9,49 @@ from app.services.stripe_service import stripe_service, PLANS
 router = APIRouter(prefix="/billing", tags=["Billing"])
 
 
+def _country_from_request(request: Request) -> str:
+    """Best-effort country detection: Cloudflare header → Accept-Language → default MY."""
+    cf = request.headers.get("cf-ipcountry") or request.headers.get("x-vercel-ip-country")
+    if cf and len(cf) == 2:
+        return cf.upper()
+    al = request.headers.get("accept-language", "")
+    lower = al.lower()
+    if "sg" in lower or "en-sg" in lower:
+        return "SG"
+    if "my" in lower or "ms-my" in lower:
+        return "MY"
+    return "MY"
+
+
 @router.get("/plans")
-async def get_plans():
-    return [
-        {
+async def get_plans(request: Request, currency: str | None = None):
+    """Return plan list, localized to caller's currency (SGD for SG, MYR otherwise).
+    Override with ?currency=SGD or ?currency=MYR."""
+    if currency and currency.upper() in ("SGD", "MYR"):
+        cur = currency.upper()
+    else:
+        country = _country_from_request(request)
+        cur = "SGD" if country == "SG" else "MYR"
+
+    result = []
+    for plan_id, config in PLANS.items():
+        if cur == "SGD":
+            price_cents = config.get("price_monthly_sgd", config["price_monthly"])
+        else:
+            price_cents = config.get("price_monthly_myr", config["price_monthly"])
+        result.append({
             "id": plan_id,
             "name": config["name"],
-            "price": config["price_monthly"] / 100,  # cents → dollars
+            "tagline": config.get("tagline", ""),
+            "price": price_cents / 100,
+            "currency": cur,
             "ai_scans": "Unlimited" if config["ai_scans_limit"] == -1 else config["ai_scans_limit"],
-            "max_users": config["users_limit"],
-            "features": [],
-        }
-        for plan_id, config in PLANS.items()
-    ]
+            "max_users": config["users_limit"] if config["users_limit"] != -1 else "Unlimited",
+            "features": config.get("features", []),
+            "popular": config.get("popular", False),
+            "audience": config.get("audience", "business"),
+        })
+    return result
 
 
 @router.get("/usage")

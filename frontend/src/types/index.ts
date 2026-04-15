@@ -290,10 +290,14 @@ export interface DashboardData {
 export interface BillingPlan {
   id: string
   name: string
+  tagline?: string
   price: number
+  currency?: string
   ai_scans: number | string
-  max_users: number
+  max_users: number | string
   features: string[]
+  popular?: boolean
+  audience?: string
 }
 
 export interface BillingUsage {

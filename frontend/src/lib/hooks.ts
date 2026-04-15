@@ -359,10 +359,10 @@ export function useUpdateCurrency() {
 }
 
 // Billing
-export function useBillingPlans() {
+export function useBillingPlans(currency?: string) {
   return useQuery<BillingPlan[]>({
-    queryKey: ['billing-plans'],
-    queryFn: () => api.get('/billing/plans').then(r => r.data),
+    queryKey: ['billing-plans', currency],
+    queryFn: () => api.get('/billing/plans', { params: currency ? { currency } : {} }).then(r => r.data),
   })
 }
 
