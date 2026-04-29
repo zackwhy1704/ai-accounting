@@ -1,9 +1,9 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, delete
+from sqlalchemy import select, delete, update as sql_update
 from sqlalchemy.orm import selectinload
 from uuid import UUID
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
 from pydantic import BaseModel
 from app.core.database import get_db
@@ -22,9 +22,27 @@ async def list_bills(
     db: AsyncSession = Depends(get_db),
 ):
     org_id = current_user["org_id"]
+    now = datetime.now(timezone.utc)
+
+    # Auto-mark overdue: any outstanding/approved bill whose due_date is in the past
+    await db.execute(
+        sql_update(Bill)
+        .where(
+            Bill.organization_id == org_id,
+            Bill.status.in_(["outstanding", "approved"]),
+            Bill.due_date < now,
+        )
+        .values(status="overdue")
+    )
+    await db.commit()
+
     query = select(Bill).options(selectinload(Bill.line_items)).where(Bill.organization_id == org_id).order_by(Bill.created_at.desc())
     if status:
-        query = query.where(Bill.status == status)
+        # treat "outstanding" tab to also include "approved" and vice-versa
+        if status == "outstanding":
+            query = query.where(Bill.status.in_(["outstanding", "approved"]))
+        else:
+            query = query.where(Bill.status == status)
     result = await db.execute(query)
     return result.scalars().all()
 
@@ -137,18 +155,15 @@ async def update_bill(
             raise HTTPException(status_code=400, detail="Bill number already in use")
 
     if "line_items" in update_data:
-        line_items_data = update_data.pop("line_items")
+        update_data.pop("line_items")
 
-        # Delete old line items
-        old_items_result = await db.execute(
-            select(BillLineItem).where(BillLineItem.bill_id == bill.id)
-        )
-        for old_item in old_items_result.scalars().all():
-            await db.delete(old_item)
+        # Delete old line items atomically then flush before inserting new ones
+        await db.execute(delete(BillLineItem).where(BillLineItem.bill_id == bill.id))
+        await db.flush()
 
         # Calculate totals (with discount)
-        subtotal = 0
-        tax_amount = 0
+        subtotal = 0.0
+        tax_amount = 0.0
         for item in data.line_items:
             line_total = item.quantity * item.unit_price
             disc_pct = getattr(item, 'discount', 0) or 0
