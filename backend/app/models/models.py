@@ -1414,6 +1414,7 @@ class GoodsReceivedNote(Base):
     contact_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("contacts.id"))
     grn_number: Mapped[str] = mapped_column(String(50))
     purchase_order_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("purchase_orders.id"))
+    bill_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("bills.id", ondelete="SET NULL"), nullable=True)
     status: Mapped[str] = mapped_column(String(20), default="draft")  # draft, received, billed
     received_date: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     currency: Mapped[str] = mapped_column(String(3), default="SGD")

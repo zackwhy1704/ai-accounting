@@ -3,7 +3,7 @@ import { useQueryClient } from "@tanstack/react-query"
 import { useNavigate } from "react-router-dom"
 import { ViewDetailSheet } from "../../components/ui/view-detail-sheet"
 import { Plus, ClipboardList, FileText, Pencil, Trash2, PackageCheck, Receipt } from "lucide-react"
-import { useGoodsReceivedNotes, useContacts } from "../../lib/hooks"
+import { useGoodsReceivedNotes, useContacts, useBills } from "../../lib/hooks"
 import api from "../../lib/api"
 import { formatDate, cn } from "../../lib/utils"
 import { Card } from "../../components/ui/card"
@@ -23,6 +23,7 @@ export default function GoodsReceivedNotesPage() {
   const queryClient = useQueryClient()
   const { data: grns = [], isLoading } = useGoodsReceivedNotes()
   const { data: contacts = [] } = useContacts()
+  const { data: bills = [] } = useBills()
   const [viewItem, setViewItem] = useState<typeof grns[0] | null>(null)
 
   const contactMap = useMemo(() => {
@@ -30,6 +31,12 @@ export default function GoodsReceivedNotesPage() {
     contacts.forEach(c => m.set(c.id, c.name))
     return m
   }, [contacts])
+
+  const billMap = useMemo(() => {
+    const m = new Map<string, string>()
+    bills.forEach((b: any) => m.set(b.id, b.bill_number))
+    return m
+  }, [bills])
 
   return (
     <div className="flex flex-col gap-4">
@@ -134,7 +141,7 @@ export default function GoodsReceivedNotesPage() {
           { label: "Status", value: <Badge variant="outline" className={cn("rounded-lg px-2 py-0.5 text-[11px] font-semibold", statusColors[viewItem.status] ?? "")}>{viewItem.status.charAt(0).toUpperCase() + viewItem.status.slice(1)}</Badge> },
           { label: "Vendor", value: contactMap.get(viewItem.contact_id) ?? "—" },
           { label: "Date", value: formatDate(viewItem.received_date) },
-          { label: "PO Reference", value: viewItem.purchase_order_id ?? "—" },
+          { label: "Bill Reference", value: viewItem.bill_id ? (billMap.get(viewItem.bill_id) ?? viewItem.bill_id) : "—" },
         ] : []}
       />
     </div>

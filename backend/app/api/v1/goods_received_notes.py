@@ -1,10 +1,9 @@
-import random
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, delete
 from sqlalchemy.orm import selectinload
 from uuid import UUID
-from datetime import datetime, timezone
+from datetime import datetime
 from typing import Optional
 from pydantic import BaseModel
 
@@ -25,9 +24,9 @@ class GRNLineItemCreate(BaseModel):
 class GRNCreate(BaseModel):
     contact_id: UUID
     grn_number: Optional[str] = None
-    purchase_order_id: Optional[UUID] = None
+    bill_id: Optional[UUID] = None
     received_date: datetime
-    currency: str = "SGD"
+    currency: str = "MYR"
     notes: Optional[str] = None
     line_items: list[GRNLineItemCreate]
 
@@ -35,7 +34,7 @@ class GRNCreate(BaseModel):
 class GRNUpdate(BaseModel):
     contact_id: Optional[UUID] = None
     grn_number: Optional[str] = None
-    purchase_order_id: Optional[UUID] = None
+    bill_id: Optional[UUID] = None
     received_date: Optional[datetime] = None
     currency: Optional[str] = None
     notes: Optional[str] = None
@@ -57,7 +56,7 @@ class GRNResponse(BaseModel):
     organization_id: UUID
     contact_id: UUID
     grn_number: str
-    purchase_order_id: Optional[UUID]
+    bill_id: Optional[UUID]
     status: str
     received_date: datetime
     currency: str
@@ -65,11 +64,6 @@ class GRNResponse(BaseModel):
     created_at: datetime
     line_items: list[GRNLineItemResponse]
     model_config = {"from_attributes": True}
-
-
-def _gen_grn_number() -> str:
-    now = datetime.now(timezone.utc)
-    return f"GRN-{now.strftime('%Y%m')}-{random.randint(1000, 9999)}"
 
 
 @router.get("", response_model=list[GRNResponse])
@@ -101,13 +95,14 @@ async def create_grn(
             raise HTTPException(status_code=400, detail="GRN number already in use")
         grn_number = payload.grn_number
     else:
-        grn_number = _gen_grn_number()
+        from .sales import next_sequence_number
+        grn_number = await next_sequence_number(db, GoodsReceivedNote, GoodsReceivedNote.grn_number, org_id, "GRN")
 
     grn = GoodsReceivedNote(
         organization_id=org_id,
         contact_id=payload.contact_id,
         grn_number=grn_number,
-        purchase_order_id=payload.purchase_order_id,
+        bill_id=payload.bill_id,
         received_date=payload.received_date,
         currency=payload.currency,
         notes=payload.notes,
@@ -176,7 +171,7 @@ async def update_grn(
             raise HTTPException(status_code=400, detail="GRN number already in use")
 
     if "line_items" in update_data:
-        line_items_data = update_data.pop("line_items")
+        update_data.pop("line_items")
         await db.execute(
             delete(GRNLineItem).where(GRNLineItem.grn_id == grn_id)
         )

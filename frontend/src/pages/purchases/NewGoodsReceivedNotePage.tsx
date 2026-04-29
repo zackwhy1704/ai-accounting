@@ -1,13 +1,14 @@
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useNavigate } from "react-router-dom"
 import { Plus, Trash2, Loader2 } from "lucide-react"
-import { useContacts, usePurchaseOrders, useCreateGoodsReceivedNote } from "../../lib/hooks"
+import { useContacts, useBills, useCreateGoodsReceivedNote } from "../../lib/hooks"
 import { getContactPrefs, saveContactPref } from "../../lib/contact-prefs"
 import { useToast } from "../../components/ui/toast"
 import { Card } from "../../components/ui/card"
 import { Button } from "../../components/ui/button"
 import { Input } from "../../components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../components/ui/select"
+import { SearchableSelect } from "../../components/ui/searchable-select"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../../components/ui/table"
 
 interface LineItem {
@@ -25,16 +26,45 @@ export default function NewGoodsReceivedNotePage() {
   const navigate = useNavigate()
   const { toast } = useToast()
   const { data: contacts = [] } = useContacts()
-  const { data: purchaseOrders = [] } = usePurchaseOrders()
+  const { data: bills = [] } = useBills()
   const createGRN = useCreateGoodsReceivedNote()
 
-  const [grnNumber, setGrnNumber] = useState(() => `GRN-${Date.now().toString().slice(-6)}`)
+  const [grnNumber, setGrnNumber] = useState("")
   const [contactId, setContactId] = useState("")
-  const [purchaseOrderId, setPurchaseOrderId] = useState("")
+  const [billId, setBillId] = useState("")
   const [receivedDate, setReceivedDate] = useState(() => new Date().toISOString().slice(0, 10))
-  const [currency, setCurrency] = useState("SGD")
+  const [currency, setCurrency] = useState("MYR")
   const [notes, setNotes] = useState("")
   const [lineItems, setLineItems] = useState<LineItem[]>([newLine()])
+
+  const suppliers = contacts.filter((c: any) => c.type === "vendor" || c.type === "supplier" || c.type === "both")
+
+  // Bills that belong to the selected supplier and are outstanding/overdue
+  const supplierBills = bills.filter((b: any) =>
+    (!contactId || b.contact_id === contactId) &&
+    (b.status === "outstanding" || b.status === "overdue" || b.status === "received")
+  )
+
+  // When a bill is selected, auto-populate supplier, currency, and line items
+  useEffect(() => {
+    if (!billId) return
+    const bill = bills.find((b: any) => b.id === billId)
+    if (!bill) return
+    if (bill.contact_id && !contactId) {
+      setContactId(bill.contact_id)
+      const prefs = getContactPrefs(bill.contact_id)
+      if (prefs.currency) setCurrency(prefs.currency)
+    }
+    if (bill.currency) setCurrency(bill.currency)
+    if (bill.line_items && bill.line_items.length > 0) {
+      setLineItems(bill.line_items.map((li: any) => ({
+        description: li.description || "",
+        quantity_ordered: li.quantity || 1,
+        quantity_received: li.quantity || 1,
+        unit_price: li.unit_price || 0,
+      })))
+    }
+  }, [billId])
 
   const updateLine = (idx: number, field: keyof LineItem, value: string | number) => {
     setLineItems(prev => {
@@ -51,7 +81,7 @@ export default function NewGoodsReceivedNotePage() {
       await createGRN.mutateAsync({
         contact_id: contactId,
         grn_number: grnNumber || undefined,
-        purchase_order_id: purchaseOrderId || null,
+        bill_id: billId || null,
         received_date: new Date(receivedDate).toISOString(),
         currency,
         notes: notes || null,
@@ -80,35 +110,31 @@ export default function NewGoodsReceivedNotePage() {
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
           <div>
             <label className="mb-1.5 block text-xs font-medium text-muted-foreground">GRN #</label>
-            <Input value={grnNumber} onChange={e => setGrnNumber(e.target.value)} placeholder="GRN-000000" className="h-10 rounded-xl" />
+            <Input value={grnNumber} onChange={e => setGrnNumber(e.target.value)} placeholder="Auto-generated (GRN-0001)" className="h-10 rounded-xl" />
           </div>
           <div>
             <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Supplier *</label>
-            <Select value={contactId} onValueChange={v => { if (v === "__add_new__") { navigate("/contacts/new"); return } setContactId(v); const prefs = getContactPrefs(v); if (prefs.currency) setCurrency(prefs.currency) }}>
-              <SelectTrigger className="h-10 rounded-xl">
-                <SelectValue placeholder="Select supplier" />
-              </SelectTrigger>
-              <SelectContent>
-                {contacts.map(c => (
-                  <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
-                ))}
-                <SelectItem value="__add_new__" className="text-primary font-medium">+ Add New Supplier</SelectItem>
-              </SelectContent>
-            </Select>
+            <SearchableSelect
+              value={contactId}
+              onChange={v => {
+                setContactId(v)
+                const prefs = getContactPrefs(v)
+                if (prefs.currency) setCurrency(prefs.currency)
+                setBillId("")
+              }}
+              placeholder="Search or select supplier"
+              options={suppliers.map((c: any) => ({ value: c.id, label: c.name, hint: c.email ?? "" }))}
+              footerAction={{ label: "+ Add New Supplier", onClick: () => navigate("/contacts/new") }}
+            />
           </div>
           <div>
-            <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Related Purchase Order</label>
-            <Select value={purchaseOrderId} onValueChange={setPurchaseOrderId}>
-              <SelectTrigger className="h-10 rounded-xl">
-                <SelectValue placeholder="Select PO (optional)" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="">None</SelectItem>
-                {purchaseOrders.map(po => (
-                  <SelectItem key={po.id} value={po.id}>{po.po_number}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Related Bill / Invoice</label>
+            <SearchableSelect
+              value={billId}
+              onChange={setBillId}
+              placeholder="Select bill (optional)"
+              options={supplierBills.map((b: any) => ({ value: b.id, label: b.bill_number, hint: b.status }))}
+            />
           </div>
           <div>
             <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Received Date *</label>

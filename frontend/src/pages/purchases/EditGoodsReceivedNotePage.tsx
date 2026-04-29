@@ -1,13 +1,14 @@
 import { useState, useEffect, useRef } from "react"
 import { useNavigate, useParams } from "react-router-dom"
 import { Plus, Trash2, Loader2 } from "lucide-react"
-import { useContacts, usePurchaseOrders, useGoodsReceivedNote, useUpdateGoodsReceivedNote } from "../../lib/hooks"
+import { useContacts, useBills, useGoodsReceivedNote, useUpdateGoodsReceivedNote } from "../../lib/hooks"
 import { getContactPrefs, saveContactPref } from "../../lib/contact-prefs"
 import { useToast } from "../../components/ui/toast"
 import { Card } from "../../components/ui/card"
 import { Button } from "../../components/ui/button"
 import { Input } from "../../components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../components/ui/select"
+import { SearchableSelect } from "../../components/ui/searchable-select"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../../components/ui/table"
 
 interface LineItem {
@@ -26,17 +27,24 @@ export default function EditGoodsReceivedNotePage() {
   const navigate = useNavigate()
   const { toast } = useToast()
   const { data: contacts = [] } = useContacts()
-  const { data: purchaseOrders = [] } = usePurchaseOrders()
+  const { data: bills = [] } = useBills()
   const { data } = useGoodsReceivedNote(id!)
   const updateGRN = useUpdateGoodsReceivedNote()
 
   const [grnNumber, setGrnNumber] = useState("")
   const [contactId, setContactId] = useState("")
-  const [purchaseOrderId, setPurchaseOrderId] = useState("")
+  const [billId, setBillId] = useState("")
   const [receivedDate, setReceivedDate] = useState("")
-  const [currency, setCurrency] = useState("SGD")
+  const [currency, setCurrency] = useState("MYR")
   const [notes, setNotes] = useState("")
   const [lineItems, setLineItems] = useState<LineItem[]>([newLine()])
+
+  const suppliers = contacts.filter((c: any) => c.type === "vendor" || c.type === "supplier" || c.type === "both")
+
+  const supplierBills = bills.filter((b: any) =>
+    (!contactId || b.contact_id === contactId) &&
+    (b.status === "outstanding" || b.status === "overdue" || b.status === "received")
+  )
 
   const populated = useRef(false)
   useEffect(() => {
@@ -44,9 +52,9 @@ export default function EditGoodsReceivedNotePage() {
       populated.current = true
       setGrnNumber(data.grn_number || "")
       setContactId(data.contact_id || "")
-      setPurchaseOrderId(data.purchase_order_id || "")
+      setBillId(data.bill_id || "")
       setReceivedDate(data.received_date ? data.received_date.slice(0, 10) : "")
-      setCurrency(data.currency || "SGD")
+      setCurrency(data.currency || "MYR")
       setNotes(data.notes || "")
       if (data.line_items && data.line_items.length > 0) {
         setLineItems(data.line_items.map((li: any) => ({
@@ -75,7 +83,7 @@ export default function EditGoodsReceivedNotePage() {
         id: id!,
         contact_id: contactId,
         grn_number: grnNumber || undefined,
-        purchase_order_id: purchaseOrderId || null,
+        bill_id: billId || null,
         received_date: new Date(receivedDate).toISOString(),
         currency,
         notes: notes || null,
@@ -104,35 +112,31 @@ export default function EditGoodsReceivedNotePage() {
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
           <div>
             <label className="mb-1.5 block text-xs font-medium text-muted-foreground">GRN #</label>
-            <Input value={grnNumber} onChange={e => setGrnNumber(e.target.value)} placeholder="GRN-000000" className="h-10 rounded-xl" />
+            <Input value={grnNumber} onChange={e => setGrnNumber(e.target.value)} placeholder="GRN-0001" className="h-10 rounded-xl" />
           </div>
           <div>
             <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Supplier *</label>
-            <Select value={contactId} onValueChange={v => { if (v === "__add_new__") { navigate("/contacts/new"); return } setContactId(v); const prefs = getContactPrefs(v); if (prefs.currency) setCurrency(prefs.currency) }}>
-              <SelectTrigger className="h-10 rounded-xl">
-                <SelectValue placeholder="Select supplier" />
-              </SelectTrigger>
-              <SelectContent>
-                {contacts.map(c => (
-                  <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
-                ))}
-                <SelectItem value="__add_new__" className="text-primary font-medium">+ Add New Supplier</SelectItem>
-              </SelectContent>
-            </Select>
+            <SearchableSelect
+              value={contactId}
+              onChange={v => {
+                setContactId(v)
+                const prefs = getContactPrefs(v)
+                if (prefs.currency) setCurrency(prefs.currency)
+                setBillId("")
+              }}
+              placeholder="Search or select supplier"
+              options={suppliers.map((c: any) => ({ value: c.id, label: c.name, hint: c.email ?? "" }))}
+              footerAction={{ label: "+ Add New Supplier", onClick: () => navigate("/contacts/new") }}
+            />
           </div>
           <div>
-            <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Related Purchase Order</label>
-            <Select value={purchaseOrderId} onValueChange={setPurchaseOrderId}>
-              <SelectTrigger className="h-10 rounded-xl">
-                <SelectValue placeholder="Select PO (optional)" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="">None</SelectItem>
-                {purchaseOrders.map(po => (
-                  <SelectItem key={po.id} value={po.id}>{po.po_number}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Related Bill / Invoice</label>
+            <SearchableSelect
+              value={billId}
+              onChange={setBillId}
+              placeholder="Select bill (optional)"
+              options={supplierBills.map((b: any) => ({ value: b.id, label: b.bill_number, hint: b.status }))}
+            />
           </div>
           <div>
             <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Received Date *</label>

@@ -461,7 +461,7 @@ export interface GoodsReceivedNote {
   organization_id: string
   contact_id: string
   grn_number: string
-  purchase_order_id: string | null
+  bill_id: string | null
   status: string
   received_date: string
   currency: string
