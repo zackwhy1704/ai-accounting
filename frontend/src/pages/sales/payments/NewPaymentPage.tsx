@@ -7,6 +7,7 @@ import { Card } from "../../../components/ui/card"
 import { Button } from "../../../components/ui/button"
 import { Input } from "../../../components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../../components/ui/select"
+import { SearchableSelect } from "../../../components/ui/searchable-select"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../../../components/ui/table"
 import { getContactPrefs, saveContactPref } from "../../../lib/contact-prefs"
 
@@ -20,7 +21,7 @@ export default function NewPaymentPage() {
   const { data: invoices } = useInvoices()
   const createPayment = useCreateSalesPayment()
 
-  const [paymentNumber, setPaymentNumber] = useState(() => `PMT-${Date.now().toString().slice(-6)}`)
+  const [paymentNumber, setPaymentNumber] = useState("")
   const [customerId, setCustomerId] = useState("")
   const [paymentDate, setPaymentDate] = useState(new Date().toISOString().split("T")[0])
   const [paymentMethod, setPaymentMethod] = useState("")
@@ -129,31 +130,26 @@ export default function NewPaymentPage() {
             <Input
               value={paymentNumber}
               onChange={(e) => setPaymentNumber(e.target.value)}
-              placeholder="PMT-000000"
+              placeholder="Auto-generated (PMT-0001)"
             />
           </div>
 
           {/* Customer */}
           <div className="space-y-1.5">
             <label className="text-sm font-medium text-foreground">Customer</label>
-            <Select value={customerId} onValueChange={v => {
-              if (v === "__add_new__") { navigate("/contacts/new"); return }
-              setCustomerId(v)
-              const prefs = getContactPrefs(v)
-              if (prefs.currency) setCurrency(prefs.currency)
-            }}>
-              <SelectTrigger>
-                <SelectValue placeholder="Select customer" />
-              </SelectTrigger>
-              <SelectContent>
-                {contacts?.map((c: any) => (
-                  <SelectItem key={c.id} value={c.id}>
-                    {c.name}
-                  </SelectItem>
-                ))}
-                <SelectItem value="__add_new__" className="text-primary font-medium">+ Add New Customer</SelectItem>
-              </SelectContent>
-            </Select>
+            <SearchableSelect
+              value={customerId}
+              onChange={v => {
+                setCustomerId(v)
+                const prefs = getContactPrefs(v)
+                if (prefs.currency) setCurrency(prefs.currency)
+              }}
+              placeholder="Search or select customer"
+              options={(contacts ?? [])
+                .filter((c: any) => c.type === "customer" || c.type === "both")
+                .map((c: any) => ({ value: c.id, label: c.name, hint: c.email ?? "" }))}
+              footerAction={{ label: "+ Add New Customer", onClick: () => navigate("/contacts/new") }}
+            />
           </div>
 
           {/* Payment Date */}
@@ -195,18 +191,16 @@ export default function NewPaymentPage() {
           {/* Bank Account */}
           <div className="space-y-1.5">
             <label className="text-sm font-medium text-foreground">Bank Account</label>
-            <Select value={bankAccountId} onValueChange={setBankAccountId}>
-              <SelectTrigger>
-                <SelectValue placeholder="Select account" />
-              </SelectTrigger>
-              <SelectContent>
-                {bankAccounts.map((a: any) => (
-                  <SelectItem key={a.id} value={a.id}>
-                    {a.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <SearchableSelect
+              value={bankAccountId}
+              onChange={setBankAccountId}
+              placeholder="Search or select account"
+              options={bankAccounts.map((a: any) => ({
+                value: a.id,
+                label: a.account_number ? `${a.name} (${a.account_number})` : a.name,
+                hint: a.account_number ?? "",
+              }))}
+            />
           </div>
 
           {/* Amount */}
