@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func, delete
+from sqlalchemy import select, delete
 from sqlalchemy.orm import selectinload
 from uuid import UUID
 from app.core.database import get_db
@@ -24,6 +24,26 @@ from app.schemas.schemas import (
 )
 
 router = APIRouter(tags=["Sales"])
+
+
+async def next_sequence_number(db: AsyncSession, model, number_column, org_id: str, prefix: str, width: int = 4) -> str:
+    """Return next monotonic identifier (e.g. INV-0042) for a given org+prefix.
+
+    Parses the trailing integer of existing rows so deleted rows don't cause
+    reuse. Falls back to count+1 if no parseable rows exist yet.
+    """
+    rows = await db.execute(
+        select(number_column).where(model.organization_id == org_id, number_column.like(f"{prefix}-%"))
+    )
+    max_num = 0
+    for (num,) in rows.all():
+        try:
+            n = int(str(num).split("-")[-1])
+            if n > max_num:
+                max_num = n
+        except (ValueError, IndexError):
+            continue
+    return f"{prefix}-{max_num + 1:0{width}d}"
 
 
 # ── Helper: calculate line item totals ──
@@ -65,8 +85,7 @@ async def create_quotation(data: QuotationCreate, current_user: dict = Depends(g
             raise HTTPException(status_code=400, detail="Quotation number already in use")
         quotation_number = data.quotation_number
     else:
-        count = (await db.execute(select(func.count(Quotation.id)).where(Quotation.organization_id == org_id))).scalar() or 0
-        quotation_number = f"QT-{count + 1:04d}"
+        quotation_number = await next_sequence_number(db, Quotation, Quotation.quotation_number, org_id, "QT")
     subtotal, discount_total, tax_amount = calc_totals(data.line_items)
 
     obj = Quotation(
@@ -198,23 +217,10 @@ async def convert_quotation(qid: UUID, body: ConvertQuotationRequest, current_us
     created = {}
 
     if "invoice" in targets:
-        existing_nums = (await db.execute(
-            select(Invoice.invoice_number).where(
-                Invoice.organization_id == org_id,
-                Invoice.invoice_number.like("INV-%"),
-            )
-        )).all()
-        max_num = 0
-        for (num,) in existing_nums:
-            try:
-                n = int(str(num).split("-")[-1])
-                if n > max_num:
-                    max_num = n
-            except (ValueError, IndexError):
-                continue
+        inv_number = await next_sequence_number(db, Invoice, Invoice.invoice_number, org_id, "INV")
         inv = Invoice(
             organization_id=org_id, contact_id=quote.contact_id,
-            invoice_number=f"INV-{max_num + 1:04d}",
+            invoice_number=inv_number,
             issue_date=now, due_date=now + timedelta(days=30),
             subtotal=quote.subtotal, tax_amount=quote.tax_amount, total=quote.total,
             currency=quote.currency, notes=f"Converted from {quote.quotation_number}",
@@ -240,11 +246,11 @@ async def convert_quotation(qid: UUID, body: ConvertQuotationRequest, current_us
         created["invoice"] = {"id": str(inv.id), "number": inv.invoice_number}
 
     if "delivery_order" in targets:
-        do_count = (await db.execute(select(func.count(DeliveryOrder.id)).where(DeliveryOrder.organization_id == org_id))).scalar() or 0
+        do_number = await next_sequence_number(db, DeliveryOrder, DeliveryOrder.delivery_number, org_id, "DO")
         do = DeliveryOrder(
             organization_id=org_id, contact_id=quote.contact_id,
             quotation_id=quote.id,
-            delivery_number=f"DO-{do_count + 1:04d}",
+            delivery_number=do_number,
             delivery_date=now, currency=quote.currency,
             subtotal=quote.subtotal, discount_amount=getattr(quote, 'discount_amount', 0) or 0,
             tax_amount=quote.tax_amount, total=quote.total,
@@ -290,8 +296,7 @@ async def create_delivery_order(data: DeliveryOrderCreate, current_user: dict = 
             raise HTTPException(status_code=400, detail="Delivery number already in use")
         delivery_number = data.delivery_number
     else:
-        count = (await db.execute(select(func.count(DeliveryOrder.id)).where(DeliveryOrder.organization_id == org_id))).scalar() or 0
-        delivery_number = f"DO-{count + 1:04d}"
+        delivery_number = await next_sequence_number(db, DeliveryOrder, DeliveryOrder.delivery_number, org_id, "DO")
     subtotal, discount_total, tax_amount = calc_totals(data.line_items)
 
     obj = DeliveryOrder(
@@ -419,8 +424,7 @@ async def create_credit_note(data: CreditNoteCreate, current_user: dict = Depend
             raise HTTPException(status_code=400, detail="Credit note number already in use")
         cn_number = data.credit_note_number
     else:
-        count = (await db.execute(select(func.count(CreditNote.id)).where(CreditNote.organization_id == org_id))).scalar() or 0
-        cn_number = f"CN-{count + 1:04d}"
+        cn_number = await next_sequence_number(db, CreditNote, CreditNote.credit_note_number, org_id, "CN")
     subtotal, discount_total, tax_amount = calc_totals(data.line_items)
     total = subtotal - discount_total + tax_amount
 
@@ -580,8 +584,7 @@ async def create_debit_note(data: DebitNoteCreate, current_user: dict = Depends(
             raise HTTPException(status_code=400, detail="Debit note number already in use")
         dn_number = data.debit_note_number
     else:
-        count = (await db.execute(select(func.count(DebitNote.id)).where(DebitNote.organization_id == org_id))).scalar() or 0
-        dn_number = f"DN-{count + 1:04d}"
+        dn_number = await next_sequence_number(db, DebitNote, DebitNote.debit_note_number, org_id, "DN")
     subtotal, discount_total, tax_amount = calc_totals(data.line_items)
 
     obj = DebitNote(
@@ -705,8 +708,7 @@ async def create_sales_payment(data: SalesPaymentCreate, current_user: dict = De
             raise HTTPException(status_code=400, detail="Payment number already in use")
         pmt_number = data.payment_number
     else:
-        count = (await db.execute(select(func.count(SalesPayment.id)).where(SalesPayment.organization_id == org_id))).scalar() or 0
-        pmt_number = f"PMT-{count + 1:04d}"
+        pmt_number = await next_sequence_number(db, SalesPayment, SalesPayment.payment_number, org_id, "PMT")
 
     obj = SalesPayment(
         organization_id=org_id, contact_id=data.contact_id,
@@ -824,8 +826,7 @@ async def create_sales_refund(data: SalesRefundCreate, current_user: dict = Depe
             raise HTTPException(status_code=400, detail="Refund number already in use")
         ref_number = data.refund_number
     else:
-        count = (await db.execute(select(func.count(SalesRefund.id)).where(SalesRefund.organization_id == org_id))).scalar() or 0
-        ref_number = f"REF-{count + 1:04d}"
+        ref_number = await next_sequence_number(db, SalesRefund, SalesRefund.refund_number, org_id, "REF")
 
     obj = SalesRefund(
         organization_id=org_id, contact_id=data.contact_id, credit_note_id=data.credit_note_id,
@@ -1056,11 +1057,7 @@ async def pay_debit_note(
     if dn.status == "void":
         raise HTTPException(status_code=400, detail="Cannot pay a voided debit note")
 
-    # Auto-generate payment number
-    count = (await db.execute(
-        select(func.count(SalesPayment.id)).where(SalesPayment.organization_id == org_id)
-    )).scalar() or 0
-    payment_number = f"PAY-{count + 1:04d}"
+    payment_number = await next_sequence_number(db, SalesPayment, SalesPayment.payment_number, org_id, "PAY")
 
     payment = SalesPayment(
         organization_id=org_id,

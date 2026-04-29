@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func, delete
+from sqlalchemy import select, delete
 from sqlalchemy.orm import selectinload
 from uuid import UUID
 from app.core.database import get_db
@@ -38,27 +38,11 @@ async def create_invoice(
 ):
     org_id = current_user["org_id"]
 
-    # Use provided invoice_number or auto-generate the next sequential one.
-    # Parsing the trailing integer of existing INV-NNNN rows keeps numbers
-    # contiguous even after deletes (count-based numbering re-uses values).
     if data.invoice_number:
         invoice_number = data.invoice_number
     else:
-        existing = await db.execute(
-            select(Invoice.invoice_number).where(
-                Invoice.organization_id == org_id,
-                Invoice.invoice_number.like("INV-%"),
-            )
-        )
-        max_num = 0
-        for (num,) in existing.all():
-            try:
-                n = int(str(num).split("-")[-1])
-                if n > max_num:
-                    max_num = n
-            except (ValueError, IndexError):
-                continue
-        invoice_number = f"INV-{max_num + 1:04d}"
+        from .sales import next_sequence_number
+        invoice_number = await next_sequence_number(db, Invoice, Invoice.invoice_number, org_id, "INV")
 
     # Calculate totals
     subtotal = 0
