@@ -8,6 +8,7 @@ import { Card } from "../../../components/ui/card"
 import { Button } from "../../../components/ui/button"
 import { Input } from "../../../components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../../components/ui/select"
+import { SearchableSelect } from "../../../components/ui/searchable-select"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../../../components/ui/table"
 
 interface LineItem {
@@ -169,21 +170,15 @@ export default function NewInvoicePage() {
           </div>
           <div>
             <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Customer</label>
-            <Select value={contactId} onValueChange={handleContactChange}>
-              <SelectTrigger className="h-10 rounded-xl">
-                <SelectValue placeholder="Select customer" />
-              </SelectTrigger>
-              <SelectContent>
-                {contacts
-                  .filter((c: any) => c.type === "customer" || c.type === "both")
-                  .map((c: any) => (
-                    <SelectItem key={c.id} value={c.id}>
-                      {c.name}
-                    </SelectItem>
-                  ))}
-                <SelectItem value="__add_new__" className="text-primary font-medium">+ Add New Customer</SelectItem>
-              </SelectContent>
-            </Select>
+            <SearchableSelect
+              value={contactId}
+              onChange={handleContactChange}
+              placeholder="Search or select customer"
+              options={contacts
+                .filter((c: any) => c.type === "customer" || c.type === "both")
+                .map((c: any) => ({ value: c.id, label: c.name, hint: c.email ?? "" }))}
+              footerAction={{ label: "+ Add New Customer", onClick: () => navigate("/contacts/new") }}
+            />
           </div>
 
           <div>
@@ -229,7 +224,7 @@ export default function NewInvoicePage() {
 
         </div>
 
-        <div className="mt-6 overflow-x-auto rounded-2xl border border-border">
+        <div className="mt-6 rounded-2xl border border-border">
           <Table>
             <TableHeader>
               <TableRow className="border-border hover:bg-transparent">
@@ -269,21 +264,13 @@ export default function NewInvoicePage() {
                     />
                   </TableCell>
                   <TableCell>
-                    <Select
+                    <SearchableSelect
                       value={item.account_id}
-                      onValueChange={v => updateLineItem(idx, "account_id", v)}
-                    >
-                      <SelectTrigger className="h-9 rounded-lg border-0 bg-transparent shadow-none">
-                        <SelectValue placeholder="Account" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {accounts.map((a: any) => (
-                          <SelectItem key={a.id} value={a.id}>
-                            {a.code} – {a.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                      onChange={v => updateLineItem(idx, "account_id", v)}
+                      placeholder="Account"
+                      triggerClassName="h-9 rounded-lg border-0 bg-transparent shadow-none text-xs"
+                      options={accounts.map((a: any) => ({ value: a.id, label: `${a.code} – ${a.name}`, hint: a.code }))}
+                    />
                   </TableCell>
                   <TableCell>
                     {item.line_type === "services" ? (

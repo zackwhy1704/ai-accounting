@@ -38,15 +38,27 @@ async def create_invoice(
 ):
     org_id = current_user["org_id"]
 
-    # Use provided invoice_number or auto-generate
+    # Use provided invoice_number or auto-generate the next sequential one.
+    # Parsing the trailing integer of existing INV-NNNN rows keeps numbers
+    # contiguous even after deletes (count-based numbering re-uses values).
     if data.invoice_number:
         invoice_number = data.invoice_number
     else:
-        count_result = await db.execute(
-            select(func.count(Invoice.id)).where(Invoice.organization_id == org_id)
+        existing = await db.execute(
+            select(Invoice.invoice_number).where(
+                Invoice.organization_id == org_id,
+                Invoice.invoice_number.like("INV-%"),
+            )
         )
-        count = count_result.scalar() or 0
-        invoice_number = f"INV-{count + 1:04d}"
+        max_num = 0
+        for (num,) in existing.all():
+            try:
+                n = int(str(num).split("-")[-1])
+                if n > max_num:
+                    max_num = n
+            except (ValueError, IndexError):
+                continue
+        invoice_number = f"INV-{max_num + 1:04d}"
 
     # Calculate totals
     subtotal = 0

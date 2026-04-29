@@ -198,10 +198,23 @@ async def convert_quotation(qid: UUID, body: ConvertQuotationRequest, current_us
     created = {}
 
     if "invoice" in targets:
-        inv_count = (await db.execute(select(func.count(Invoice.id)).where(Invoice.organization_id == org_id))).scalar() or 0
+        existing_nums = (await db.execute(
+            select(Invoice.invoice_number).where(
+                Invoice.organization_id == org_id,
+                Invoice.invoice_number.like("INV-%"),
+            )
+        )).all()
+        max_num = 0
+        for (num,) in existing_nums:
+            try:
+                n = int(str(num).split("-")[-1])
+                if n > max_num:
+                    max_num = n
+            except (ValueError, IndexError):
+                continue
         inv = Invoice(
             organization_id=org_id, contact_id=quote.contact_id,
-            invoice_number=f"INV-{inv_count + 1:04d}",
+            invoice_number=f"INV-{max_num + 1:04d}",
             issue_date=now, due_date=now + timedelta(days=30),
             subtotal=quote.subtotal, tax_amount=quote.tax_amount, total=quote.total,
             currency=quote.currency, notes=f"Converted from {quote.quotation_number}",
