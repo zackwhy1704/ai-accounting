@@ -220,6 +220,11 @@ export default function NewPurchasePaymentPage() {
             <label className="text-sm font-medium text-foreground">Reference No</label>
             <Input value={referenceNo} onChange={e => setReferenceNo(e.target.value)} placeholder="Optional" />
           </div>
+
+          <div className="col-span-full space-y-1.5">
+            <label className="text-sm font-medium text-foreground">Notes</label>
+            <Input value={notes} onChange={e => setNotes(e.target.value)} placeholder="Optional" />
+          </div>
         </div>
       </Card>
 
