@@ -7,6 +7,7 @@ import { Card } from "../../../components/ui/card"
 import { Button } from "../../../components/ui/button"
 import { Input } from "../../../components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../../components/ui/select"
+import { SearchableSelect } from "../../../components/ui/searchable-select"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../../../components/ui/table"
 
 interface LineItem {
@@ -35,10 +36,11 @@ export default function NewCreditNotePage() {
   const createCreditNote = useCreateCreditNote()
   const { data: taxRates = [] } = useTaxRates()
 
-  const [creditNoteNumber, setCreditNoteNumber] = useState(() => `CN-${Date.now().toString().slice(-6)}`)
+  const [creditNoteNumber, setCreditNoteNumber] = useState("")
   const [contactId, setContactId] = useState("")
   const [creditNoteDate, setCreditNoteDate] = useState(() => new Date().toISOString().slice(0, 10))
   const [reference, setReference] = useState("")
+  const [forInvoiceId, setForInvoiceId] = useState("")
   const [currency, setCurrency] = useState("MYR")
   const [lineItems, setLineItems] = useState<LineItem[]>([])
   const [applyCreditLines, setApplyCreditLines] = useState<ApplyCreditLine[]>([])
@@ -132,6 +134,7 @@ export default function NewCreditNotePage() {
       await createCreditNote.mutateAsync({
         contact_id: contactId,
         credit_note_number: creditNoteNumber || undefined,
+        invoice_id: forInvoiceId || null,
         issue_date: creditNoteDate,
         reference,
         currency,
@@ -174,27 +177,21 @@ export default function NewCreditNotePage() {
             <Input
               value={creditNoteNumber}
               onChange={e => setCreditNoteNumber(e.target.value)}
-              placeholder="CN-000000"
+              placeholder="Auto-generated (CN-0001)"
               className="h-10 rounded-xl"
             />
           </div>
           <div>
             <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Customer</label>
-            <Select value={contactId} onValueChange={handleContactChange}>
-              <SelectTrigger className="h-10 rounded-xl">
-                <SelectValue placeholder="Select customer" />
-              </SelectTrigger>
-              <SelectContent>
-                {contacts
-                  .filter((c: any) => c.type === "customer" || c.type === "both")
-                  .map((c: any) => (
-                    <SelectItem key={c.id} value={c.id}>
-                      {c.name}
-                    </SelectItem>
-                  ))}
-                <SelectItem value="__add_new__" className="text-primary font-medium">+ Add New Customer</SelectItem>
-              </SelectContent>
-            </Select>
+            <SearchableSelect
+              value={contactId}
+              onChange={handleContactChange}
+              placeholder="Search or select customer"
+              options={contacts
+                .filter((c: any) => c.type === "customer" || c.type === "both")
+                .map((c: any) => ({ value: c.id, label: c.name, hint: c.email ?? "" }))}
+              footerAction={{ label: "+ Add New Customer", onClick: () => navigate("/contacts/new") }}
+            />
           </div>
 
           <div>
@@ -214,6 +211,20 @@ export default function NewCreditNotePage() {
               onChange={e => setReference(e.target.value)}
               placeholder="Reference #"
               className="h-10 rounded-xl"
+            />
+          </div>
+          <div>
+            <label className="mb-1.5 block text-xs font-medium text-muted-foreground">For Invoice (optional)</label>
+            <SearchableSelect
+              value={forInvoiceId}
+              onChange={setForInvoiceId}
+              placeholder={contactId ? "Search invoice this CN adjusts" : "Select customer first"}
+              allowClear
+              options={customerInvoices.map((inv: any) => ({
+                value: inv.id,
+                label: inv.invoice_number,
+                hint: inv.reference ?? "",
+              }))}
             />
           </div>
         </div>
@@ -253,7 +264,7 @@ export default function NewCreditNotePage() {
           </Button>
         </div>
 
-        <div className="mt-4 overflow-x-auto rounded-2xl border border-border">
+        <div className="mt-4 rounded-2xl border border-border">
           <Table>
             <TableHeader>
               <TableRow className="border-border hover:bg-transparent">
@@ -300,21 +311,13 @@ export default function NewCreditNotePage() {
                       />
                     </TableCell>
                     <TableCell>
-                      <Select
+                      <SearchableSelect
                         value={item.account_id}
-                        onValueChange={v => updateLineItem(idx, "account_id", v)}
-                      >
-                        <SelectTrigger className="h-9 rounded-lg border-0 bg-transparent shadow-none">
-                          <SelectValue placeholder="Account" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {accounts.map((a: any) => (
-                            <SelectItem key={a.id} value={a.id}>
-                              {a.code} – {a.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                        onChange={v => updateLineItem(idx, "account_id", v)}
+                        placeholder="Account"
+                        triggerClassName="h-9 rounded-lg border-0 bg-transparent shadow-none text-xs"
+                        options={accounts.map((a: any) => ({ value: a.id, label: `${a.code} – ${a.name}`, hint: a.code }))}
+                      />
                     </TableCell>
                     <TableCell>
                       {item.line_type === "services" ? (

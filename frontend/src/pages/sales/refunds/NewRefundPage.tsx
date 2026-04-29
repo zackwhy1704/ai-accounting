@@ -6,6 +6,7 @@ import { Card } from "../../../components/ui/card"
 import { Button } from "../../../components/ui/button"
 import { Input } from "../../../components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../../components/ui/select"
+import { SearchableSelect } from "../../../components/ui/searchable-select"
 
 const refundMethods = [
   { value: "cash", label: "Cash" },
@@ -21,7 +22,7 @@ export default function NewRefundPage() {
   const { data: creditNotes = [] } = useCreditNotes()
   const createRefund = useCreateSalesRefund()
 
-  const [refundNumber, setRefundNumber] = useState(() => `REF-${Date.now().toString().slice(-6)}`)
+  const [refundNumber, setRefundNumber] = useState("")
   const [contactId, setContactId] = useState("")
   const [refundDate, setRefundDate] = useState(new Date().toISOString().slice(0, 10))
   const [refundMethod, setRefundMethod] = useState("")
@@ -89,26 +90,22 @@ export default function NewRefundPage() {
             <Input
               value={refundNumber}
               onChange={(e) => setRefundNumber(e.target.value)}
-              placeholder="REF-000000"
+              placeholder="Auto-generated (REF-0001)"
             />
           </div>
 
           {/* Customer */}
           <div className="space-y-1.5">
             <label className="text-sm font-medium text-foreground">Customer</label>
-            <Select value={contactId} onValueChange={v => v === "__add_new__" ? navigate("/contacts/new") : setContactId(v)}>
-              <SelectTrigger>
-                <SelectValue placeholder="Select customer" />
-              </SelectTrigger>
-              <SelectContent>
-                {contacts.map((c) => (
-                  <SelectItem key={c.id} value={c.id}>
-                    {c.name}
-                  </SelectItem>
-                ))}
-                <SelectItem value="__add_new__" className="text-primary font-medium">+ Add New Customer</SelectItem>
-              </SelectContent>
-            </Select>
+            <SearchableSelect
+              value={contactId}
+              onChange={setContactId}
+              placeholder="Search or select customer"
+              options={contacts
+                .filter((c: any) => c.type === "customer" || c.type === "both")
+                .map((c: any) => ({ value: c.id, label: c.name, hint: c.email ?? "" }))}
+              footerAction={{ label: "+ Add New Customer", onClick: () => navigate("/contacts/new") }}
+            />
           </div>
 
           {/* Refund Date */}
@@ -153,23 +150,17 @@ export default function NewRefundPage() {
             <label className="text-sm font-medium text-foreground">
               Linked Credit Note
             </label>
-            <Select
+            <SearchableSelect
               value={creditNoteId}
-              onValueChange={setCreditNoteId}
-            >
-              <SelectTrigger>
-                <SelectValue
-                  placeholder={contactId ? "Select credit note" : "Select a customer first"}
-                />
-              </SelectTrigger>
-              <SelectContent>
-                {filteredCreditNotes.map((cn) => (
-                  <SelectItem key={cn.id} value={cn.id}>
-                    {cn.credit_note_number} ({formatCurrency(cn.total, cn.currency)})
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+              onChange={setCreditNoteId}
+              placeholder={contactId ? "Search credit note" : "Select a customer first"}
+              allowClear
+              options={filteredCreditNotes.map((cn: any) => ({
+                value: cn.id,
+                label: `${cn.credit_note_number} (${formatCurrency(cn.total, cn.currency)})`,
+                hint: cn.reference ?? "",
+              }))}
+            />
           </div>
 
           {/* Amount */}

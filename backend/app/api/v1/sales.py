@@ -440,7 +440,8 @@ async def create_credit_note(data: CreditNoteCreate, current_user: dict = Depend
     for i, item in enumerate(data.line_items):
         db.add(CreditNoteLineItem(
             credit_note_id=obj.id, description=item.description, quantity=item.quantity,
-            unit_price=item.unit_price, tax_rate=item.tax_rate, discount=item.discount,
+            unit_price=item.unit_price, tax_rate=item.tax_rate, tax_code_id=item.tax_code_id,
+            discount=item.discount,
             amount=item.quantity * item.unit_price, account_id=item.account_id, sort_order=i,
         ))
 
@@ -508,6 +509,7 @@ async def update_credit_note(cn_id: UUID, data: CreditNoteUpdate, current_user: 
             db.add(CreditNoteLineItem(
                 credit_note_id=obj.id, description=item["description"], quantity=item["quantity"],
                 unit_price=item["unit_price"], tax_rate=item["tax_rate"],
+                tax_code_id=item.get("tax_code_id"),
                 discount=item.get("discount", 0),
                 amount=item["quantity"] * item["unit_price"],
                 account_id=item.get("account_id"), sort_order=i,

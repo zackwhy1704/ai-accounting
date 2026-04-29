@@ -7,6 +7,7 @@ import { Card } from "../../../components/ui/card"
 import { Button } from "../../../components/ui/button"
 import { Input } from "../../../components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../../components/ui/select"
+import { SearchableSelect } from "../../../components/ui/searchable-select"
 
 const refundMethods = [
   { value: "cash", label: "Cash" },
@@ -110,20 +111,20 @@ export default function EditRefundPage() {
         <div className="grid gap-5">
           <div className="space-y-1.5">
             <label className="text-sm font-medium text-foreground">Refund #</label>
-            <Input value={refundNumber} onChange={e => setRefundNumber(e.target.value)} placeholder="REF-000000" />
+            <Input value={refundNumber} onChange={e => setRefundNumber(e.target.value)} placeholder="Auto-generated (REF-0001)" />
           </div>
 
           <div className="space-y-1.5">
             <label className="text-sm font-medium text-foreground">Customer</label>
-            <Select value={contactId} onValueChange={v => v === "__add_new__" ? navigate("/contacts/new") : setContactId(v)}>
-              <SelectTrigger><SelectValue placeholder="Select customer" /></SelectTrigger>
-              <SelectContent>
-                {contacts.filter((c: any) => c.type === "customer" || c.type === "both").map((c: any) => (
-                  <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
-                ))}
-                <SelectItem value="__add_new__" className="text-primary font-medium">+ Add New Customer</SelectItem>
-              </SelectContent>
-            </Select>
+            <SearchableSelect
+              value={contactId}
+              onChange={setContactId}
+              placeholder="Search or select customer"
+              options={contacts
+                .filter((c: any) => c.type === "customer" || c.type === "both")
+                .map((c: any) => ({ value: c.id, label: c.name, hint: c.email ?? "" }))}
+              footerAction={{ label: "+ Add New Customer", onClick: () => navigate("/contacts/new") }}
+            />
           </div>
 
           <div className="space-y-1.5">
@@ -148,24 +149,31 @@ export default function EditRefundPage() {
 
           <div className="space-y-1.5">
             <label className="text-sm font-medium text-foreground">Bank Account</label>
-            <Select value={bankAccountId} onValueChange={setBankAccountId}>
-              <SelectTrigger><SelectValue placeholder="Select bank account" /></SelectTrigger>
-              <SelectContent>
-                {bankAccounts.map((a: any) => <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>)}
-              </SelectContent>
-            </Select>
+            <SearchableSelect
+              value={bankAccountId}
+              onChange={setBankAccountId}
+              placeholder="Search or select bank account"
+              options={bankAccounts.map((a: any) => ({
+                value: a.id,
+                label: a.account_number ? `${a.name} (${a.account_number})` : a.name,
+                hint: a.account_number ?? "",
+              }))}
+            />
           </div>
 
           <div className="space-y-1.5">
             <label className="text-sm font-medium text-foreground">Linked Credit Note</label>
-            <Select value={creditNoteId} onValueChange={setCreditNoteId}>
-              <SelectTrigger><SelectValue placeholder={contactId ? "Select credit note" : "Select a customer first"} /></SelectTrigger>
-              <SelectContent>
-                {filteredCreditNotes.map((cn: any) => (
-                  <SelectItem key={cn.id} value={cn.id}>{cn.credit_note_number} ({formatCurrency(cn.total, cn.currency)})</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <SearchableSelect
+              value={creditNoteId}
+              onChange={setCreditNoteId}
+              placeholder={contactId ? "Search credit note" : "Select a customer first"}
+              allowClear
+              options={filteredCreditNotes.map((cn: any) => ({
+                value: cn.id,
+                label: `${cn.credit_note_number} (${formatCurrency(cn.total, cn.currency)})`,
+                hint: cn.reference ?? "",
+              }))}
+            />
           </div>
 
           <div className="space-y-1.5">

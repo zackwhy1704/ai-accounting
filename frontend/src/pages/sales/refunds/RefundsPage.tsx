@@ -2,7 +2,7 @@ import { useMemo, useState } from "react"
 import { useNavigate } from "react-router-dom"
 import { Plus, Search, XCircle, Pencil, CheckCircle, Trash2 } from "lucide-react"
 import { RowActionsMenu } from "../../../components/ui/row-actions"
-import { useSalesRefunds, useContacts, useUpdateSalesRefundStatus, useDeleteSalesRefund } from "../../../lib/hooks"
+import { useSalesRefunds, useContacts, useCreditNotes, useUpdateSalesRefundStatus, useDeleteSalesRefund } from "../../../lib/hooks"
 import { formatCurrency, formatDate, cn } from "../../../lib/utils"
 import { useTheme } from "../../../lib/theme"
 import { Card } from "../../../components/ui/card"
@@ -30,6 +30,7 @@ export default function RefundsPage() {
   const [dateTo, setDateTo] = useState("")
   const { data: refunds = [], isLoading } = useSalesRefunds(tab === "all" ? undefined : tab)
   const { data: contacts = [] } = useContacts()
+  const { data: creditNotes = [] } = useCreditNotes()
   const { t } = useTheme()
 
   const statusTabs = [
@@ -44,6 +45,12 @@ export default function RefundsPage() {
     contacts.forEach(c => m.set(c.id, c.name))
     return m
   }, [contacts])
+
+  const creditNoteMap = useMemo(() => {
+    const m = new Map<string, string>()
+    creditNotes.forEach((cn: any) => m.set(String(cn.id), cn.credit_note_number))
+    return m
+  }, [creditNotes])
 
   const rows = useMemo(() => {
     let filtered = refunds
@@ -145,7 +152,7 @@ export default function RefundsPage() {
                         <TableCell className="font-medium text-foreground">{r.refund_number}</TableCell>
                         <TableCell className="text-muted-foreground">{formatDate(r.refund_date)}</TableCell>
                         <TableCell className="text-foreground">{contactMap.get(r.contact_id) ?? "\u2014"}</TableCell>
-                        <TableCell className="text-muted-foreground">{r.credit_note_id ?? "\u2014"}</TableCell>
+                        <TableCell className="text-muted-foreground">{r.credit_note_id ? (creditNoteMap.get(String(r.credit_note_id)) ?? "\u2014") : "\u2014"}</TableCell>
                         <TableCell className="text-muted-foreground">{r.refund_method ?? "\u2014"}</TableCell>
                         <TableCell className="text-right text-foreground">{formatCurrency(r.amount)}</TableCell>
                         <TableCell>
