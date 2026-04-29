@@ -255,7 +255,7 @@ export default function EditQuotationPage() {
           </div>
         </div>
 
-        <div className="mt-6 overflow-x-auto rounded-2xl border border-border">
+        <div className="mt-6 rounded-2xl border border-border">
           <Table>
             <TableHeader>
               <TableRow className="border-border hover:bg-transparent">
