@@ -14,7 +14,6 @@ Transaction.source + Transaction.source_id always point to the real module
 record — never to the document itself.
 """
 
-import random
 from datetime import datetime, timezone, timedelta
 from uuid import UUID
 
@@ -129,6 +128,22 @@ def _build_gl_entries_from_lines(journal_lines: list[dict]) -> list[tuple[str, f
 
 # ── Module handlers ────────────────────────────────────────────────────────────
 
+async def _resolve_expense_account_id(
+    db: AsyncSession, org_id: UUID, journal_lines: list[dict]
+) -> UUID | None:
+    """Return the account_id of the first debit line (expense/income account) from the journal."""
+    for ln in journal_lines:
+        if float(ln.get("debit", 0)) > 0:
+            code = ln.get("account_code", "")
+            result = await db.execute(
+                select(Account).where(Account.organization_id == org_id, Account.code == code)
+            )
+            acct = result.scalar_one_or_none()
+            if acct:
+                return acct.id
+    return None
+
+
 async def create_invoice_record(
     db: AsyncSession, org_id: UUID, data: dict,
     journal_lines: list[dict], date: datetime, ref: str,
@@ -137,12 +152,14 @@ async def create_invoice_record(
     subtotal, tax, total = _extract_amounts(data)
     currency = str(data.get("currency", "MYR") or "MYR")
     number = data.get("invoice_number") or await _next_number(db, Invoice, "invoice_number", org_id, "INV")
-    due = _parse_date(data.get("due_date"), date + timedelta(days=30))
+    issue = _parse_date(data.get("invoice_date"), date)
+    due = _parse_date(data.get("due_date"), issue + timedelta(days=30))
+    account_id = await _resolve_expense_account_id(db, org_id, journal_lines)
 
     record = Invoice(
         organization_id=org_id, contact_id=contact.id,
         invoice_number=number, status="draft",
-        issue_date=date, due_date=due,
+        issue_date=issue, due_date=due,
         subtotal=subtotal, tax_amount=tax, total=total, currency=currency,
     )
     db.add(record)
@@ -152,10 +169,11 @@ async def create_invoice_record(
         db.add(InvoiceLineItem(
             invoice_id=record.id, description=item["description"],
             quantity=item["quantity"], unit_price=item["unit_price"],
-            amount=item["amount"], sort_order=i,
+            amount=item["amount"], tax_rate=0, discount=0,
+            account_id=account_id, sort_order=i,
         ))
 
-    await post_gl(db, org_id, date, f"Invoice {number}", number, "invoice", record.id, _gl_entries(journal_lines))
+    await post_gl(db, org_id, issue, f"Invoice {number}", number, "invoice", record.id, _gl_entries(journal_lines))
     return record.id, number, "invoice", f"/sales/invoices/{record.id}"
 
 
@@ -171,12 +189,14 @@ async def create_bill_record(
         or data.get("po_number")
         or await _next_number(db, Bill, "bill_number", org_id, "BILL")
     )
-    due = _parse_date(data.get("due_date"), date + timedelta(days=30))
+    issue = _parse_date(data.get("invoice_date"), date)
+    due = _parse_date(data.get("due_date"), issue + timedelta(days=30))
+    account_id = await _resolve_expense_account_id(db, org_id, journal_lines)
 
     record = Bill(
         organization_id=org_id, contact_id=contact.id,
         bill_number=number, status="draft",
-        issue_date=date, due_date=due,
+        issue_date=issue, due_date=due,
         subtotal=subtotal, tax_amount=tax, total=total, currency=currency,
     )
     db.add(record)
@@ -186,10 +206,11 @@ async def create_bill_record(
         db.add(BillLineItem(
             bill_id=record.id, description=item["description"],
             quantity=item["quantity"], unit_price=item["unit_price"],
-            amount=item["amount"], sort_order=i,
+            amount=item["amount"], tax_rate=0, discount=0,
+            account_id=account_id, sort_order=i,
         ))
 
-    await post_gl(db, org_id, date, f"Bill {number}", number, "bill", record.id, _gl_entries(journal_lines))
+    await post_gl(db, org_id, issue, f"Bill {number}", number, "bill", record.id, _gl_entries(journal_lines))
     return record.id, number, "bill", f"/purchases/bills/{record.id}"
 
 
@@ -200,7 +221,7 @@ async def create_grn_record(
     contact = await _get_or_create_contact(db, org_id, data, "vendor")
     subtotal, tax, total = _extract_amounts(data)
     currency = str(data.get("currency", "MYR") or "MYR")
-    grn_number = f"GRN-{date.strftime('%Y%m')}-{random.randint(1000, 9999)}"
+    grn_number = await _next_number(db, GoodsReceivedNote, "grn_number", org_id, "GRN")
 
     record = GoodsReceivedNote(
         organization_id=org_id, contact_id=contact.id,
