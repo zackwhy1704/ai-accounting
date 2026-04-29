@@ -3,9 +3,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, delete
 from sqlalchemy.orm import selectinload
 from uuid import UUID
+from datetime import datetime
+from typing import Optional
+from pydantic import BaseModel
 from app.core.database import get_db
 from app.core.security import get_current_user
-from app.models.models import Bill, BillLineItem
+from app.models.models import Bill, BillLineItem, PurchasePayment
 from app.schemas.schemas import BillCreate, BillUpdate, BillResponse
 from .gl_helpers import post_gl, revert_gl
 
@@ -80,6 +83,7 @@ async def create_bill(
             quantity=item.quantity,
             unit_price=item.unit_price,
             tax_rate=item.tax_rate,
+            tax_code_id=item.tax_code_id,
             discount=disc_pct,
             amount=after_disc,
             account_id=item.account_id,
@@ -142,14 +146,15 @@ async def update_bill(
         for old_item in old_items_result.scalars().all():
             await db.delete(old_item)
 
-        # Calculate totals
+        # Calculate totals (with discount)
         subtotal = 0
         tax_amount = 0
         for item in data.line_items:
-            amount = item.quantity * item.unit_price
-            tax = amount * (item.tax_rate / 100)
-            subtotal += amount
-            tax_amount += tax
+            line_total = item.quantity * item.unit_price
+            disc_pct = getattr(item, 'discount', 0) or 0
+            after_disc = line_total - (line_total * disc_pct / 100)
+            subtotal += after_disc
+            tax_amount += after_disc * (item.tax_rate / 100)
 
         bill.subtotal = subtotal
         bill.tax_amount = tax_amount
@@ -157,14 +162,18 @@ async def update_bill(
 
         # Insert new line items
         for i, item in enumerate(data.line_items):
-            amount = item.quantity * item.unit_price
+            line_total = item.quantity * item.unit_price
+            disc_pct = getattr(item, 'discount', 0) or 0
+            after_disc = line_total - (line_total * disc_pct / 100)
             line = BillLineItem(
                 bill_id=bill.id,
                 description=item.description,
                 quantity=item.quantity,
                 unit_price=item.unit_price,
                 tax_rate=item.tax_rate,
-                amount=amount,
+                tax_code_id=item.tax_code_id,
+                discount=disc_pct,
+                amount=after_disc,
                 account_id=item.account_id,
                 sort_order=i,
             )
@@ -253,3 +262,72 @@ async def delete_bill(
     )
     await db.delete(bill)
     await db.commit()
+
+
+class BillPaymentCreate(BaseModel):
+    payment_date: datetime
+    amount: float
+    currency: str = "MYR"
+    payment_method: str = "bank_transfer"
+    reference_no: Optional[str] = None
+    payment_no: Optional[str] = None
+    notes: Optional[str] = None
+
+
+@router.post("/{bill_id}/pay", response_model=BillResponse, status_code=201)
+async def pay_bill(
+    bill_id: UUID,
+    payload: BillPaymentCreate,
+    current_user: dict = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    org_id = current_user["org_id"]
+    result = await db.execute(
+        select(Bill).options(selectinload(Bill.line_items)).where(Bill.id == bill_id, Bill.organization_id == org_id)
+    )
+    bill = result.scalar_one_or_none()
+    if not bill:
+        raise HTTPException(status_code=404, detail="Bill not found")
+    if bill.status in ("draft", "void", "paid"):
+        raise HTTPException(status_code=400, detail=f"Cannot pay a bill with status '{bill.status}'")
+
+    apply_amount = min(payload.amount, float(bill.total) - float(bill.amount_paid))
+    if apply_amount <= 0:
+        raise HTTPException(status_code=400, detail="Bill is already fully paid")
+
+    # Sequential payment number
+    from .sales import next_sequence_number
+    payment_no = payload.payment_no or await next_sequence_number(db, PurchasePayment, PurchasePayment.payment_no, org_id, "PPY")
+
+    payment = PurchasePayment(
+        organization_id=org_id,
+        payment_no=payment_no,
+        contact_id=bill.contact_id,
+        payment_date=payload.payment_date,
+        amount=apply_amount,
+        currency=payload.currency,
+        payment_method=payload.payment_method,
+        reference_no=payload.reference_no,
+        notes=payload.notes,
+        status="completed",
+    )
+    db.add(payment)
+    await db.flush()
+
+    # GL: Dr AP / Cr Cash
+    await post_gl(
+        db, org_id, payload.payment_date,
+        f"Payment for Bill {bill.bill_number}",
+        payment.payment_no, "purchase_payment", payment.id,
+        [("2000", apply_amount, 0), ("1000", 0, apply_amount)],
+    )
+
+    bill.amount_paid = float(bill.amount_paid) + apply_amount
+    if bill.amount_paid >= float(bill.total):
+        bill.status = "paid"
+
+    await db.commit()
+    result2 = await db.execute(
+        select(Bill).options(selectinload(Bill.line_items)).where(Bill.id == bill_id)
+    )
+    return result2.scalar_one()
