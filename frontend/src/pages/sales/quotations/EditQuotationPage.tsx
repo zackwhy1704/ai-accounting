@@ -7,6 +7,7 @@ import { Card } from "../../../components/ui/card"
 import { Button } from "../../../components/ui/button"
 import { Input } from "../../../components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../../components/ui/select"
+import { SearchableSelect } from "../../../components/ui/searchable-select"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../../../components/ui/table"
 import { useToast } from "../../../components/ui/toast"
 
@@ -18,8 +19,14 @@ interface LineItem {
   unit_price: number
   amount: number
   discount: number
+  discount_mode: "percent" | "amount"
   tax_rate: number
   tax_code_id: string
+}
+
+function lineDiscountAmount(item: LineItem): number {
+  const lineTotal = item.quantity * item.unit_price
+  return item.discount_mode === "amount" ? Math.min(item.discount, lineTotal) : (lineTotal * item.discount) / 100
 }
 
 export default function EditQuotationPage() {
@@ -47,7 +54,7 @@ export default function EditQuotationPage() {
   const [billingCountry, setBillingCountry] = useState("")
   const [productSearch, setProductSearch] = useState("")
   const [lineItems, setLineItems] = useState<LineItem[]>([
-    { line_type: "goods", description: "", account_id: "", quantity: 1, unit_price: 0, amount: 0, discount: 0, tax_rate: 0, tax_code_id: "" },
+    { line_type: "goods", description: "", account_id: "", quantity: 1, unit_price: 0, amount: 0, discount: 0, discount_mode: "percent", tax_rate: 0, tax_code_id: "" },
   ])
   const [populated, setPopulated] = useState(false)
 
@@ -61,12 +68,14 @@ export default function EditQuotationPage() {
     setCurrency(quotation.currency ?? "MYR")
     if (quotation.line_items?.length) {
       setLineItems(quotation.line_items.map((l: any) => ({
+        line_type: l.line_type ?? "goods",
         description: l.description ?? "",
         account_id: l.account_id ? String(l.account_id) : "",
         quantity: l.quantity ?? 1,
         unit_price: l.unit_price ?? 0,
         amount: l.amount ?? 0,
         discount: l.discount ?? 0,
+        discount_mode: "percent",
         tax_rate: l.tax_rate ?? 0,
         tax_code_id: l.tax_code_id ? String(l.tax_code_id) : "",
       })))
@@ -107,7 +116,7 @@ export default function EditQuotationPage() {
       }
       const item = updated[index]
       const lineTotal = item.quantity * item.unit_price
-      const afterDiscount = lineTotal - (lineTotal * item.discount) / 100
+      const afterDiscount = lineTotal - lineDiscountAmount(item)
       const tax = (afterDiscount * item.tax_rate) / 100
       updated[index].amount = afterDiscount + tax
       return updated
@@ -115,7 +124,7 @@ export default function EditQuotationPage() {
   }
 
   const addLineItem = () => {
-    setLineItems(prev => [...prev, { line_type: "goods", description: "", account_id: "", quantity: 1, unit_price: 0, amount: 0, discount: 0, tax_rate: 0, tax_code_id: "" }])
+    setLineItems(prev => [...prev, { line_type: "goods", description: "", account_id: "", quantity: 1, unit_price: 0, amount: 0, discount: 0, discount_mode: "percent", tax_rate: 0, tax_code_id: "" }])
   }
 
   const removeLineItem = (index: number) => {
@@ -123,13 +132,10 @@ export default function EditQuotationPage() {
   }
 
   const subTotal = lineItems.reduce((sum, item) => sum + item.quantity * item.unit_price, 0)
-  const totalDiscount = lineItems.reduce((sum, item) => {
-    const lineTotal = item.quantity * item.unit_price
-    return sum + (lineTotal * item.discount) / 100
-  }, 0)
+  const totalDiscount = lineItems.reduce((sum, item) => sum + lineDiscountAmount(item), 0)
   const totalTax = lineItems.reduce((sum, item) => {
     const lineTotal = item.quantity * item.unit_price
-    const afterLineDiscount = lineTotal - (lineTotal * item.discount) / 100
+    const afterLineDiscount = lineTotal - lineDiscountAmount(item)
     return sum + (afterLineDiscount * item.tax_rate) / 100
   }, 0)
   const total = subTotal - totalDiscount + totalTax
@@ -150,16 +156,22 @@ export default function EditQuotationPage() {
         billing_state: billingState || null,
         billing_postcode: billingPostcode || null,
         billing_country: billingCountry || null,
-        line_items: lineItems.map(li => ({
-          line_type: li.line_type ?? "goods",
-          description: li.description,
-          quantity: li.quantity,
-          unit_price: li.unit_price,
-          tax_rate: li.tax_rate,
-          tax_code_id: li.tax_code_id || undefined,
-          discount: li.discount,
-          account_id: li.account_id || undefined,
-        })),
+        line_items: lineItems.map(li => {
+          const lineTotal = li.quantity * li.unit_price
+          const discountPct = li.discount_mode === "amount"
+            ? (lineTotal > 0 ? Math.min(li.discount, lineTotal) / lineTotal * 100 : 0)
+            : li.discount
+          return {
+            line_type: li.line_type ?? "goods",
+            description: li.description,
+            quantity: li.quantity,
+            unit_price: li.unit_price,
+            tax_rate: li.tax_rate,
+            tax_code_id: li.tax_code_id || undefined,
+            discount: discountPct,
+            account_id: li.account_id || undefined,
+          }
+        }),
       })
       toast("Quotation updated", "success")
       navigate("/sales/quotations")
@@ -194,17 +206,15 @@ export default function EditQuotationPage() {
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
           <div>
             <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Customer</label>
-            <Select value={contactId} onValueChange={handleContactChange}>
-              <SelectTrigger className="h-10 rounded-xl">
-                <SelectValue placeholder="Select customer" />
-              </SelectTrigger>
-              <SelectContent>
-                {contacts.filter(c => c.type === "customer" || c.type === "both").map(c => (
-                  <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
-                ))}
-                <SelectItem value="__add_new__" className="text-primary font-medium">+ Add New Customer</SelectItem>
-              </SelectContent>
-            </Select>
+            <SearchableSelect
+              value={contactId}
+              onChange={handleContactChange}
+              placeholder="Search or select customer"
+              options={contacts
+                .filter(c => c.type === "customer" || c.type === "both")
+                .map(c => ({ value: c.id, label: c.name, hint: c.email ?? "" }))}
+              footerAction={{ label: "+ Add New Customer", onClick: () => navigate("/contacts/new") }}
+            />
           </div>
           <div>
             <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Date</label>
@@ -254,7 +264,7 @@ export default function EditQuotationPage() {
                 <TableHead className="w-[160px] text-muted-foreground">Account</TableHead>
                 <TableHead className="w-[80px] text-muted-foreground">Qty</TableHead>
                 <TableHead className="w-[110px] text-muted-foreground">Std Price</TableHead>
-                <TableHead className="w-[80px] text-muted-foreground">Disc %</TableHead>
+                <TableHead className="w-[140px] text-muted-foreground">Discount</TableHead>
                 <TableHead className="w-[160px] text-muted-foreground">Tax Code</TableHead>
                 <TableHead className="w-[80px] text-muted-foreground">Tax %</TableHead>
                 <TableHead className="w-10" />
@@ -268,16 +278,13 @@ export default function EditQuotationPage() {
                     <Input value={item.description} onChange={e => updateLineItem(idx, "description", e.target.value)} placeholder="Description" className="h-9 rounded-lg border-0 bg-transparent px-1 text-sm shadow-none focus-visible:ring-1" />
                   </TableCell>
                   <TableCell>
-                    <Select value={item.account_id} onValueChange={v => updateLineItem(idx, "account_id", v)}>
-                      <SelectTrigger className="h-9 rounded-lg border-0 bg-transparent shadow-none">
-                        <SelectValue placeholder="Account" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {accounts.map(a => (
-                          <SelectItem key={a.id} value={a.id}>{a.code} – {a.name}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <SearchableSelect
+                      value={item.account_id}
+                      onChange={v => updateLineItem(idx, "account_id", v)}
+                      placeholder="Account"
+                      triggerClassName="h-9 rounded-lg border-0 bg-transparent shadow-none text-xs"
+                      options={accounts.map(a => ({ value: a.id, label: `${a.code} – ${a.name}`, hint: a.code }))}
+                    />
                   </TableCell>
                   <TableCell>
                     <Input type="number" min={0} value={item.quantity} onChange={e => updateLineItem(idx, "quantity", Number(e.target.value))} className="h-9 rounded-lg border-0 bg-transparent px-1 text-sm shadow-none focus-visible:ring-1" />
@@ -286,7 +293,22 @@ export default function EditQuotationPage() {
                     <Input type="number" min={0} step={0.01} value={item.unit_price} onChange={e => updateLineItem(idx, "unit_price", Number(e.target.value))} className="h-9 rounded-lg border-0 bg-transparent px-1 text-sm shadow-none focus-visible:ring-1" />
                   </TableCell>
                   <TableCell>
-                    <Input type="number" min={0} max={100} value={item.discount} onChange={e => updateLineItem(idx, "discount", Number(e.target.value))} className="h-9 rounded-lg border-0 bg-transparent px-1 text-sm shadow-none focus-visible:ring-1" />
+                    <div className="flex items-center gap-1">
+                      <Input
+                        type="number" min={0} step={0.01}
+                        value={item.discount}
+                        onChange={e => updateLineItem(idx, "discount", Number(e.target.value))}
+                        className="h-9 w-20 rounded-lg border-0 bg-transparent px-1 text-sm shadow-none focus-visible:ring-1"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => updateLineItem(idx, "discount_mode", item.discount_mode === "percent" ? "amount" : "percent")}
+                        className="h-7 w-9 rounded-md border border-border bg-muted/40 text-[11px] font-semibold text-foreground hover:bg-muted"
+                        title={item.discount_mode === "percent" ? "Switch to flat amount" : "Switch to percentage"}
+                      >
+                        {item.discount_mode === "percent" ? "%" : currency}
+                      </button>
+                    </div>
                   </TableCell>
                   <TableCell className="w-[160px]">
                     <Select value={item.tax_code_id} onValueChange={v => updateLineItem(idx, "tax_code_id", v === "__none__" ? "" : v)}>
