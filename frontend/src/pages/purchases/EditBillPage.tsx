@@ -147,8 +147,9 @@ export default function EditBillPage() {
       } as any)
       toast("Bill updated", "success")
       navigate("/purchases/bills")
-    } catch {
-      toast("Failed to update bill", "warning")
+    } catch (err: any) {
+      const detail = err?.response?.data?.detail
+      toast(typeof detail === "string" ? detail : "Failed to update bill", "warning")
     }
   }
 

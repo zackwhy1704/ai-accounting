@@ -166,8 +166,9 @@ export default function NewBillPage() {
       } as any)
       toast("Bill created", "success")
       navigate("/purchases/bills")
-    } catch {
-      toast("Failed to create bill", "warning")
+    } catch (err: any) {
+      const detail = err?.response?.data?.detail
+      toast(typeof detail === "string" ? detail : "Failed to create bill", "warning")
     }
   }
 
