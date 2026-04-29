@@ -17,8 +17,14 @@ interface LineItem {
   quantity: number
   unitPrice: number
   discount: number
+  discount_mode: "percent" | "amount"
   taxRate: number
   taxCodeId: string
+}
+
+function lineDiscountAmount(item: LineItem): number {
+  const lineTotal = item.quantity * item.unitPrice
+  return item.discount_mode === "amount" ? Math.min(item.discount, lineTotal) : (lineTotal * item.discount) / 100
 }
 
 const emptyLine = (): LineItem => ({
@@ -28,6 +34,7 @@ const emptyLine = (): LineItem => ({
   quantity: 1,
   unitPrice: 0,
   discount: 0,
+  discount_mode: "percent",
   taxRate: 0,
   taxCodeId: "",
 })
@@ -78,8 +85,8 @@ export default function NewDebitNotePage() {
   }
 
   const subTotal = lines.reduce((sum, l) => sum + l.quantity * l.unitPrice, 0)
-  const totalDiscount = lines.reduce((sum, l) => sum + (l.quantity * l.unitPrice) * (l.discount / 100), 0)
-  const totalTax = lines.reduce((sum, l) => sum + ((l.quantity * l.unitPrice) - (l.quantity * l.unitPrice) * (l.discount / 100)) * (l.taxRate / 100), 0)
+  const totalDiscount = lines.reduce((sum, l) => sum + lineDiscountAmount(l), 0)
+  const totalTax = lines.reduce((sum, l) => sum + (l.quantity * l.unitPrice - lineDiscountAmount(l)) * (l.taxRate / 100), 0)
   const total = subTotal - totalDiscount + totalTax
 
   const isFormValid = !!customerId && lines.some(l => l.description.trim() !== "")
@@ -99,7 +106,7 @@ export default function NewDebitNotePage() {
           account_id: l.accountId || undefined,
           quantity: l.quantity,
           unit_price: l.unitPrice,
-          discount: l.discount,
+          discount: lineDiscountAmount(l),
           tax_rate: l.taxRate,
           tax_code_id: l.taxCodeId || undefined,
         })),
@@ -189,7 +196,7 @@ export default function NewDebitNotePage() {
                   <TableHead className="w-[180px] text-muted-foreground">Account</TableHead>
                   <TableHead className="w-[100px] text-muted-foreground">Quantity</TableHead>
                   <TableHead className="w-[130px] text-muted-foreground">Unit Price</TableHead>
-                  <TableHead className="w-[80px] text-muted-foreground">Disc %</TableHead>
+                  <TableHead className="w-[80px] text-muted-foreground">Discount</TableHead>
                   <TableHead className="w-[160px] text-muted-foreground">Tax Code</TableHead>
                   <TableHead className="w-[80px] text-muted-foreground">Tax %</TableHead>
                   <TableHead className="w-[50px]" />
@@ -235,13 +242,22 @@ export default function NewDebitNotePage() {
                       />
                     </TableCell>
                     <TableCell className="w-[80px]">
-                      <Input
-                        type="number" min={0} max={100} step={0.01}
-                        value={line.discount}
-                        onChange={e => updateLine(line.id, "discount", Number(e.target.value))}
-                        className="h-9 rounded-lg border-0 bg-transparent px-1 text-sm shadow-none focus-visible:ring-1"
-                        placeholder="%"
-                      />
+                      <div className="flex items-center gap-1">
+                        <Input
+                          type="number" min={0} step={0.01}
+                          value={line.discount}
+                          onChange={e => updateLine(line.id, "discount", Number(e.target.value))}
+                          className="h-9 w-20 rounded-lg border-0 bg-transparent px-1 text-sm shadow-none focus-visible:ring-1"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => updateLine(line.id, "discount_mode", line.discount_mode === "percent" ? "amount" : "percent")}
+                          className="h-7 w-9 rounded-md border border-border bg-muted/40 text-[11px] font-semibold text-foreground hover:bg-muted"
+                          title={line.discount_mode === "percent" ? "Switch to flat amount" : "Switch to percentage"}
+                        >
+                          {line.discount_mode === "percent" ? "%" : "#"}
+                        </button>
+                      </div>
                     </TableCell>
                     <TableCell className="w-[160px]">
                       <Select value={line.taxCodeId} onValueChange={v => updateLine(line.id, "taxCodeId", v === "__none__" ? "" : v)}>

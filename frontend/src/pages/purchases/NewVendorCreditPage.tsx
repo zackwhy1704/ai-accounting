@@ -16,13 +16,20 @@ interface LineItem {
   description: string
   quantity: number
   unit_price: number
+  discount: number
+  discount_mode: "percent" | "amount"
   tax_code_id: string
   tax_rate: number
   amount: number
 }
 
+function lineDiscountAmount(item: LineItem): number {
+  const lineTotal = item.quantity * item.unit_price
+  return item.discount_mode === "amount" ? Math.min(item.discount, lineTotal) : (lineTotal * item.discount) / 100
+}
+
 function newLine(): LineItem {
-  return { description: "", quantity: 1, unit_price: 0, tax_code_id: "", tax_rate: 0, amount: 0 }
+  return { description: "", quantity: 1, unit_price: 0, discount: 0, discount_mode: "percent", tax_code_id: "", tax_rate: 0, amount: 0 }
 }
 
 export default function NewVendorCreditPage() {
@@ -55,14 +62,17 @@ export default function NewVendorCreditPage() {
         if (tc) updated[idx].tax_rate = tc.rate
       }
       const item = updated[idx]
-      updated[idx].amount = item.quantity * item.unit_price * (1 + item.tax_rate / 100)
+      const discAmt = lineDiscountAmount(item)
+      const afterDiscount = item.quantity * item.unit_price - discAmt
+      updated[idx].amount = afterDiscount * (1 + item.tax_rate / 100)
       return updated
     })
   }
 
   const subtotal = lineItems.reduce((s, i) => s + i.quantity * i.unit_price, 0)
-  const taxAmount = lineItems.reduce((s, i) => s + i.quantity * i.unit_price * (i.tax_rate / 100), 0)
-  const total = subtotal + taxAmount
+  const totalDiscount = lineItems.reduce((s, i) => s + lineDiscountAmount(i), 0)
+  const taxAmount = lineItems.reduce((s, i) => s + (i.quantity * i.unit_price - lineDiscountAmount(i)) * (i.tax_rate / 100), 0)
+  const total = subtotal - totalDiscount + taxAmount
 
   const handleSave = async () => {
     if (!contactId) { toast("Please select a supplier", "warning"); return }
@@ -78,6 +88,7 @@ export default function NewVendorCreditPage() {
           description: item.description,
           quantity: item.quantity,
           unit_price: item.unit_price,
+          discount: lineDiscountAmount(item),
           tax_rate: item.tax_rate,
           amount: item.amount,
           sort_order: i,
@@ -164,6 +175,7 @@ export default function NewVendorCreditPage() {
                 <TableHead className="text-muted-foreground">Description</TableHead>
                 <TableHead className="w-[80px] text-muted-foreground">Qty</TableHead>
                 <TableHead className="w-[110px] text-muted-foreground">Unit Price</TableHead>
+                <TableHead className="w-[100px] text-muted-foreground">Discount</TableHead>
                 <TableHead className="w-[160px] text-muted-foreground">Tax Code</TableHead>
                 <TableHead className="w-[80px] text-muted-foreground">Tax %</TableHead>
                 <TableHead className="w-10" />
@@ -180,6 +192,24 @@ export default function NewVendorCreditPage() {
                   </TableCell>
                   <TableCell>
                     <Input type="number" min={0} step={0.01} value={item.unit_price} onChange={e => updateLine(idx, "unit_price", Number(e.target.value))} className="h-9 rounded-lg border-0 bg-transparent px-1 shadow-none focus-visible:ring-1" />
+                  </TableCell>
+                  <TableCell className="w-[100px]">
+                    <div className="flex items-center gap-1">
+                      <Input
+                        type="number" min={0} step={0.01}
+                        value={item.discount}
+                        onChange={e => updateLine(idx, "discount", Number(e.target.value))}
+                        className="h-9 w-20 rounded-lg border-0 bg-transparent px-1 shadow-none focus-visible:ring-1"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => updateLine(idx, "discount_mode", item.discount_mode === "percent" ? "amount" : "percent")}
+                        className="h-7 w-9 rounded-md border border-border bg-muted/40 text-[11px] font-semibold text-foreground hover:bg-muted"
+                        title={item.discount_mode === "percent" ? "Switch to flat amount" : "Switch to percentage"}
+                      >
+                        {item.discount_mode === "percent" ? "%" : currency}
+                      </button>
+                    </div>
                   </TableCell>
                   <TableCell className="w-[160px]">
                     <Select value={item.tax_code_id} onValueChange={v => updateLine(idx, "tax_code_id", v === "__none__" ? "" : v)}>
@@ -220,6 +250,12 @@ export default function NewVendorCreditPage() {
               <span className="text-muted-foreground">Subtotal</span>
               <span className="font-medium text-foreground">{subtotal.toFixed(2)}</span>
             </div>
+            {totalDiscount > 0 && (
+              <div className="flex items-center justify-between text-rose-600">
+                <span>Discount</span>
+                <span>- {totalDiscount.toFixed(2)}</span>
+              </div>
+            )}
             <div className="flex items-center justify-between">
               <span className="text-muted-foreground">Tax</span>
               <span className="font-medium text-foreground">{taxAmount.toFixed(2)}</span>

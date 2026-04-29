@@ -18,9 +18,15 @@ interface LineItem {
   unit_price: number
   amount: number
   discount: number
+  discount_mode: "percent" | "amount"
   tax_rate: number
   line_type: "goods" | "services"
   tax_code_id: string
+}
+
+function lineDiscountAmount(item: LineItem): number {
+  const lineTotal = item.quantity * item.unit_price
+  return item.discount_mode === "amount" ? Math.min(item.discount, lineTotal) : (lineTotal * item.discount) / 100
 }
 
 interface ApplyCreditLine {
@@ -49,7 +55,7 @@ export default function EditCreditNotePage() {
   const [reference, setReference] = useState("")
   const [forInvoiceId, setForInvoiceId] = useState("")
   const [currency, setCurrency] = useState("MYR")
-  const [lineItems, setLineItems] = useState<LineItem[]>([])
+  const [lineItems, setLineItems] = useState<LineItem[]>([] as LineItem[])
 
   useEffect(() => {
     if (!creditNote || populated.current) return
@@ -67,6 +73,7 @@ export default function EditCreditNotePage() {
         unit_price: l.unit_price ?? 0,
         amount: l.amount ?? 0,
         discount: l.discount ?? 0,
+        discount_mode: l.discount_mode ?? "percent",
         tax_rate: l.tax_rate ?? 0,
         line_type: l.line_type ?? "goods",
         tax_code_id: l.tax_code_id ? String(l.tax_code_id) : "",
@@ -134,8 +141,8 @@ export default function EditCreditNotePage() {
         updated[index].quantity = 1
       }
       const item = updated[index]
-      const lineTotal = item.quantity * item.unit_price
-      const afterDiscount = lineTotal - (lineTotal * item.discount) / 100
+      const discAmt = lineDiscountAmount(item)
+      const afterDiscount = item.quantity * item.unit_price - discAmt
       const tax = (afterDiscount * item.tax_rate) / 100
       updated[index].amount = afterDiscount + tax
       return updated
@@ -145,7 +152,7 @@ export default function EditCreditNotePage() {
   const addLineItem = () => {
     setLineItems(prev => [
       ...prev,
-      { description: "", account_id: "", quantity: 1, unit_price: 0, amount: 0, discount: 0, tax_rate: 0, line_type: "goods", tax_code_id: "" },
+      { description: "", account_id: "", quantity: 1, unit_price: 0, amount: 0, discount: 0, discount_mode: "percent", tax_rate: 0, line_type: "goods", tax_code_id: "" },
     ])
   }
 
@@ -154,13 +161,9 @@ export default function EditCreditNotePage() {
   }
 
   const subTotal = lineItems.reduce((sum, item) => sum + item.quantity * item.unit_price, 0)
-  const totalDiscount = lineItems.reduce((sum, item) => {
-    const lineTotal = item.quantity * item.unit_price
-    return sum + (lineTotal * item.discount) / 100
-  }, 0)
+  const totalDiscount = lineItems.reduce((sum, item) => sum + lineDiscountAmount(item), 0)
   const totalTax = lineItems.reduce((sum, item) => {
-    const lineTotal = item.quantity * item.unit_price
-    const afterLineDiscount = lineTotal - (lineTotal * item.discount) / 100
+    const afterLineDiscount = item.quantity * item.unit_price - lineDiscountAmount(item)
     return sum + (afterLineDiscount * item.tax_rate) / 100
   }, 0)
   const total = subTotal - totalDiscount + totalTax
@@ -176,16 +179,20 @@ export default function EditCreditNotePage() {
         reference,
         currency,
         notes: null,
-        line_items: lineItems.map(li => ({
-          description: li.description,
-          account_id: li.account_id || undefined,
-          quantity: li.quantity,
-          unit_price: li.unit_price,
-          tax_rate: li.tax_rate,
-          tax_code_id: li.tax_code_id || undefined,
-          line_type: li.line_type,
-          discount: li.discount,
-        })),
+        line_items: lineItems.map(li => {
+          const lineTotal = li.quantity * li.unit_price
+          const discAmt = lineDiscountAmount(li)
+          return {
+            description: li.description,
+            account_id: li.account_id || undefined,
+            quantity: li.quantity,
+            unit_price: li.unit_price,
+            tax_rate: li.tax_rate,
+            tax_code_id: li.tax_code_id || undefined,
+            line_type: li.line_type,
+            discount: li.discount_mode === "amount" ? (lineTotal > 0 ? (discAmt / lineTotal) * 100 : 0) : li.discount,
+          }
+        }),
         credit_applications: applyCreditLines
           .filter(l => l.selected && l.apply_amount > 0)
           .map(l => ({ invoice_id: l.invoice_id, amount: l.apply_amount })),
@@ -305,7 +312,7 @@ export default function EditCreditNotePage() {
                   <TableHead className="w-[160px] text-muted-foreground">Account</TableHead>
                   <TableHead className="w-[80px] text-muted-foreground">Qty</TableHead>
                   <TableHead className="w-[110px] text-muted-foreground">Unit Price</TableHead>
-                  <TableHead className="w-[80px] text-muted-foreground">Disc %</TableHead>
+                  <TableHead className="w-[80px] text-muted-foreground">Discount</TableHead>
                   <TableHead className="w-[160px] text-muted-foreground">Tax Code</TableHead>
                   <TableHead className="w-[80px] text-muted-foreground">Tax %</TableHead>
                   <TableHead className="w-10" />
@@ -352,7 +359,22 @@ export default function EditCreditNotePage() {
                         <Input type="number" min={0} step={0.01} value={item.unit_price} onChange={e => updateLineItem(idx, "unit_price", Number(e.target.value))} className="h-9 rounded-lg border-0 bg-transparent px-1 text-sm shadow-none focus-visible:ring-1" />
                       </TableCell>
                       <TableCell>
-                        <Input type="number" min={0} max={100} value={item.discount} onChange={e => updateLineItem(idx, "discount", Number(e.target.value))} className="h-9 rounded-lg border-0 bg-transparent px-1 text-sm shadow-none focus-visible:ring-1" />
+                        <div className="flex items-center gap-1">
+                          <Input
+                            type="number" min={0} step={0.01}
+                            value={item.discount}
+                            onChange={e => updateLineItem(idx, "discount", Number(e.target.value))}
+                            className="h-9 w-20 rounded-lg border-0 bg-transparent px-1 text-sm shadow-none focus-visible:ring-1"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => updateLineItem(idx, "discount_mode", item.discount_mode === "percent" ? "amount" : "percent")}
+                            className="h-7 w-9 rounded-md border border-border bg-muted/40 text-[11px] font-semibold text-foreground hover:bg-muted"
+                            title={item.discount_mode === "percent" ? "Switch to flat amount" : "Switch to percentage"}
+                          >
+                            {item.discount_mode === "percent" ? "%" : currency}
+                          </button>
+                        </div>
                       </TableCell>
                       <TableCell className="w-[160px]">
                         <Select value={item.tax_code_id} onValueChange={v => updateLineItem(idx, "tax_code_id", v === "__none__" ? "" : v)}>

@@ -14,6 +14,7 @@ interface LineItem {
   quantity: number
   unit_price: number
   discount: number
+  discount_mode: "percent" | "amount"
   tax_code_id: string
   tax_rate: number
 }
@@ -37,7 +38,7 @@ export default function EditSaleReceiptPage() {
   const [reference, setReference] = useState("")
   const [currency, setCurrency] = useState("MYR")
   const [lineItems, setLineItems] = useState<LineItem[]>([
-    { description: "", quantity: 1, unit_price: 0, discount: 0, tax_code_id: "", tax_rate: 0 },
+    { description: "", quantity: 1, unit_price: 0, discount: 0, discount_mode: "percent", tax_code_id: "", tax_rate: 0 },
   ])
 
   useEffect(() => {
@@ -54,6 +55,7 @@ export default function EditSaleReceiptPage() {
         quantity: li.quantity ?? 1,
         unit_price: li.unit_price ?? 0,
         discount: li.discount ?? 0,
+        discount_mode: li.discount_mode ?? "percent",
         tax_code_id: li.tax_code_id ?? "",
         tax_rate: li.tax_rate ?? 0,
       })))
@@ -66,7 +68,7 @@ export default function EditSaleReceiptPage() {
     [accounts]
   )
 
-  const addLine = () => setLineItems(prev => [...prev, { description: "", quantity: 1, unit_price: 0, discount: 0, tax_code_id: "", tax_rate: 0 }])
+  const addLine = () => setLineItems(prev => [...prev, { description: "", quantity: 1, unit_price: 0, discount: 0, discount_mode: "percent", tax_code_id: "", tax_rate: 0 }])
   const removeLine = (i: number) => setLineItems(prev => prev.filter((_, idx) => idx !== i))
   const updateLine = (i: number, field: keyof LineItem, value: string | number) => {
     setLineItems(prev => prev.map((li, idx) => {
@@ -82,7 +84,7 @@ export default function EditSaleReceiptPage() {
   }
 
   const lineTotal = (li: LineItem) => li.quantity * li.unit_price
-  const lineDiscount = (li: LineItem) => lineTotal(li) * (li.discount / 100)
+  const lineDiscount = (li: LineItem) => li.discount_mode === "amount" ? Math.min(li.discount, lineTotal(li)) : lineTotal(li) * (li.discount / 100)
   const lineAfterDiscount = (li: LineItem) => lineTotal(li) - lineDiscount(li)
 
   const subtotal = lineItems.reduce((s, li) => s + lineTotal(li), 0)
@@ -103,7 +105,7 @@ export default function EditSaleReceiptPage() {
         description: li.description,
         quantity: li.quantity,
         unit_price: li.unit_price,
-        discount: li.discount,
+        discount: lineDiscount(li),
         tax_rate: li.tax_rate,
         amount: lineAfterDiscount(li),
       })),
@@ -201,7 +203,7 @@ export default function EditSaleReceiptPage() {
                 <TableHead className="text-muted-foreground">Description</TableHead>
                 <TableHead className="w-20 text-muted-foreground">Qty</TableHead>
                 <TableHead className="w-28 text-muted-foreground">Unit Price</TableHead>
-                <TableHead className="w-20 text-muted-foreground">Disc %</TableHead>
+                <TableHead className="w-20 text-muted-foreground">Discount</TableHead>
                 <TableHead className="w-[150px] text-muted-foreground">Tax Code</TableHead>
                 <TableHead className="w-20 text-muted-foreground">Tax %</TableHead>
                 <TableHead className="w-10" />
@@ -220,7 +222,22 @@ export default function EditSaleReceiptPage() {
                     <Input type="number" step="0.01" value={li.unit_price} onChange={e => updateLine(i, "unit_price", Number(e.target.value))} className="h-9 rounded-lg border-0 bg-transparent px-1 shadow-none focus-visible:ring-1" />
                   </TableCell>
                   <TableCell>
-                    <Input type="number" min={0} max={100} step={0.01} value={li.discount} onChange={e => updateLine(i, "discount", Number(e.target.value))} className="h-9 rounded-lg border-0 bg-transparent px-1 shadow-none focus-visible:ring-1" placeholder="0" />
+                    <div className="flex items-center gap-1">
+                      <Input
+                        type="number" min={0} step={0.01}
+                        value={li.discount}
+                        onChange={e => updateLine(i, "discount", Number(e.target.value))}
+                        className="h-9 w-20 rounded-lg border-0 bg-transparent px-1 shadow-none focus-visible:ring-1"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => updateLine(i, "discount_mode", li.discount_mode === "percent" ? "amount" : "percent")}
+                        className="h-7 w-9 rounded-md border border-border bg-muted/40 text-[11px] font-semibold text-foreground hover:bg-muted"
+                        title={li.discount_mode === "percent" ? "Switch to flat amount" : "Switch to percentage"}
+                      >
+                        {li.discount_mode === "percent" ? "%" : currency}
+                      </button>
+                    </div>
                   </TableCell>
                   <TableCell>
                     <Select value={li.tax_code_id} onValueChange={v => updateLine(i, "tax_code_id", v === "__none__" ? "" : v)}>

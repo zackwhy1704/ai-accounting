@@ -18,9 +18,15 @@ interface LineItem {
   unit_price: number
   amount: number
   discount: number
+  discount_mode: "percent" | "amount"
   tax_rate: number
   line_type: "goods" | "services"
   tax_code_id: string
+}
+
+function lineDiscountAmount(item: LineItem): number {
+  const lineTotal = item.quantity * item.unit_price
+  return item.discount_mode === "amount" ? Math.min(item.discount, lineTotal) : (lineTotal * item.discount) / 100
 }
 
 export default function NewInvoicePage() {
@@ -62,7 +68,7 @@ export default function NewInvoicePage() {
   }
 
   const [lineItems, setLineItems] = useState<LineItem[]>([
-    { description: "", account_id: "", quantity: 1, unit_price: 0, amount: 0, discount: 0, tax_rate: 0, line_type: "goods", tax_code_id: "" },
+    { description: "", account_id: "", quantity: 1, unit_price: 0, amount: 0, discount: 0, discount_mode: "percent", tax_rate: 0, line_type: "goods", tax_code_id: "" },
   ])
 
 
@@ -81,8 +87,8 @@ export default function NewInvoicePage() {
         updated[index].quantity = 1
       }
       const item = updated[index]
-      const lineTotal = item.quantity * item.unit_price
-      const afterDiscount = lineTotal - (lineTotal * item.discount) / 100
+      const discAmt = lineDiscountAmount(item)
+      const afterDiscount = item.quantity * item.unit_price - discAmt
       const tax = (afterDiscount * item.tax_rate) / 100
       updated[index].amount = afterDiscount + tax
       return updated
@@ -92,7 +98,7 @@ export default function NewInvoicePage() {
   const addLineItem = () => {
     setLineItems(prev => [
       ...prev,
-      { description: "", account_id: "", quantity: 1, unit_price: 0, amount: 0, discount: 0, tax_rate: 0, line_type: "goods", tax_code_id: "" },
+      { description: "", account_id: "", quantity: 1, unit_price: 0, amount: 0, discount: 0, discount_mode: "percent", tax_rate: 0, line_type: "goods", tax_code_id: "" },
     ])
   }
 
@@ -101,14 +107,10 @@ export default function NewInvoicePage() {
   }
 
   const subTotal = lineItems.reduce((sum, item) => sum + item.quantity * item.unit_price, 0)
-  const totalLineDiscount = lineItems.reduce((sum, item) => {
-    const lineTotal = item.quantity * item.unit_price
-    return sum + (lineTotal * item.discount) / 100
-  }, 0)
+  const totalLineDiscount = lineItems.reduce((sum, item) => sum + lineDiscountAmount(item), 0)
   const afterDiscount = subTotal - totalLineDiscount
   const totalTax = lineItems.reduce((sum, item) => {
-    const lineTotal = item.quantity * item.unit_price
-    const afterLineDiscount = lineTotal - (lineTotal * item.discount) / 100
+    const afterLineDiscount = item.quantity * item.unit_price - lineDiscountAmount(item)
     return sum + (afterLineDiscount * item.tax_rate) / 100
   }, 0)
   const total = afterDiscount + totalTax
@@ -131,16 +133,20 @@ export default function NewInvoicePage() {
         billing_state: billingState || null,
         billing_postcode: billingPostcode || null,
         billing_country: billingCountry || null,
-        line_items: lineItems.map(li => ({
-          description: li.description,
-          account_id: li.account_id || undefined,
-          quantity: li.quantity,
-          unit_price: li.unit_price,
-          tax_rate: li.tax_rate,
-          tax_code_id: li.tax_code_id || undefined,
-          line_type: li.line_type,
-          discount: li.discount,
-        })),
+        line_items: lineItems.map(li => {
+          const lineTotal = li.quantity * li.unit_price
+          const discAmt = lineDiscountAmount(li)
+          return {
+            description: li.description,
+            account_id: li.account_id || undefined,
+            quantity: li.quantity,
+            unit_price: li.unit_price,
+            tax_rate: li.tax_rate,
+            tax_code_id: li.tax_code_id || undefined,
+            line_type: li.line_type,
+            discount: li.discount_mode === "amount" ? (lineTotal > 0 ? (discAmt / lineTotal) * 100 : 0) : li.discount,
+          }
+        }),
       })
       navigate("/sales/invoices")
     } catch {
@@ -296,15 +302,22 @@ export default function NewInvoicePage() {
                     />
                   </TableCell>
                   <TableCell>
-                    <Input
-                      type="number"
-                      min={0}
-                      max={100}
-                      value={item.discount}
-                      onChange={e => updateLineItem(idx, "discount", Number(e.target.value))}
-                      className="h-9 rounded-lg border-0 bg-transparent px-1 text-sm shadow-none focus-visible:ring-1"
-                      placeholder="%"
-                    />
+                    <div className="flex items-center gap-1">
+                      <Input
+                        type="number" min={0} step={0.01}
+                        value={item.discount}
+                        onChange={e => updateLineItem(idx, "discount", Number(e.target.value))}
+                        className="h-9 w-20 rounded-lg border-0 bg-transparent px-1 text-sm shadow-none focus-visible:ring-1"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => updateLineItem(idx, "discount_mode", item.discount_mode === "percent" ? "amount" : "percent")}
+                        className="h-7 w-9 rounded-md border border-border bg-muted/40 text-[11px] font-semibold text-foreground hover:bg-muted"
+                        title={item.discount_mode === "percent" ? "Switch to flat amount" : "Switch to percentage"}
+                      >
+                        {item.discount_mode === "percent" ? "%" : currency}
+                      </button>
+                    </div>
                   </TableCell>
                   <TableCell className="w-[160px]">
                     <Select value={item.tax_code_id} onValueChange={v => updateLineItem(idx, "tax_code_id", v === "__none__" ? "" : v)}>
