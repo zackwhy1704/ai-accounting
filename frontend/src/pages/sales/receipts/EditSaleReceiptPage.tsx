@@ -13,6 +13,7 @@ interface LineItem {
   description: string
   quantity: number
   unit_price: number
+  discount: number
   tax_code_id: string
   tax_rate: number
 }
@@ -36,7 +37,7 @@ export default function EditSaleReceiptPage() {
   const [reference, setReference] = useState("")
   const [currency, setCurrency] = useState("MYR")
   const [lineItems, setLineItems] = useState<LineItem[]>([
-    { description: "", quantity: 1, unit_price: 0, tax_code_id: "", tax_rate: 0 },
+    { description: "", quantity: 1, unit_price: 0, discount: 0, tax_code_id: "", tax_rate: 0 },
   ])
 
   useEffect(() => {
@@ -52,6 +53,7 @@ export default function EditSaleReceiptPage() {
         description: li.description ?? "",
         quantity: li.quantity ?? 1,
         unit_price: li.unit_price ?? 0,
+        discount: li.discount ?? 0,
         tax_code_id: li.tax_code_id ?? "",
         tax_rate: li.tax_rate ?? 0,
       })))
@@ -64,7 +66,7 @@ export default function EditSaleReceiptPage() {
     [accounts]
   )
 
-  const addLine = () => setLineItems(prev => [...prev, { description: "", quantity: 1, unit_price: 0, tax_code_id: "", tax_rate: 0 }])
+  const addLine = () => setLineItems(prev => [...prev, { description: "", quantity: 1, unit_price: 0, discount: 0, tax_code_id: "", tax_rate: 0 }])
   const removeLine = (i: number) => setLineItems(prev => prev.filter((_, idx) => idx !== i))
   const updateLine = (i: number, field: keyof LineItem, value: string | number) => {
     setLineItems(prev => prev.map((li, idx) => {
@@ -73,14 +75,20 @@ export default function EditSaleReceiptPage() {
       if (field === "tax_code_id") {
         const tc = taxRates.find((t: any) => t.id === value)
         if (tc) updated.tax_rate = tc.rate
+        else if (value === "") updated.tax_rate = 0
       }
       return updated
     }))
   }
 
-  const subtotal = lineItems.reduce((s, li) => s + li.quantity * li.unit_price, 0)
-  const taxTotal = lineItems.reduce((s, li) => s + li.quantity * li.unit_price * (li.tax_rate / 100), 0)
-  const total = subtotal + taxTotal
+  const lineTotal = (li: LineItem) => li.quantity * li.unit_price
+  const lineDiscount = (li: LineItem) => lineTotal(li) * (li.discount / 100)
+  const lineAfterDiscount = (li: LineItem) => lineTotal(li) - lineDiscount(li)
+
+  const subtotal = lineItems.reduce((s, li) => s + lineTotal(li), 0)
+  const totalDiscount = lineItems.reduce((s, li) => s + lineDiscount(li), 0)
+  const taxTotal = lineItems.reduce((s, li) => s + lineAfterDiscount(li) * (li.tax_rate / 100), 0)
+  const total = subtotal - totalDiscount + taxTotal
 
   const handleSave = async () => {
     await updateSaleReceipt.mutateAsync({
@@ -95,8 +103,9 @@ export default function EditSaleReceiptPage() {
         description: li.description,
         quantity: li.quantity,
         unit_price: li.unit_price,
+        discount: li.discount,
         tax_rate: li.tax_rate,
-        amount: li.quantity * li.unit_price,
+        amount: lineAfterDiscount(li),
       })),
     })
     navigate("/sales/payments")
@@ -115,7 +124,7 @@ export default function EditSaleReceiptPage() {
   }
 
   return (
-    <div className="mx-auto max-w-4xl space-y-6 p-6">
+    <div className="mx-auto max-w-5xl space-y-6 p-6">
       <h1 className="text-2xl font-bold text-foreground">Edit Sales Receipt</h1>
 
       <Card className="rounded-2xl border-border bg-card p-6 shadow-[0_0_0_1px_rgba(15,23,42,0.06),0_18px_55px_rgba(2,6,23,0.08)]">
@@ -185,64 +194,71 @@ export default function EditSaleReceiptPage() {
 
       <Card className="rounded-2xl border-border bg-card p-6 shadow-[0_0_0_1px_rgba(15,23,42,0.06),0_18px_55px_rgba(2,6,23,0.08)]">
         <h2 className="mb-4 text-lg font-semibold text-foreground">Line Items</h2>
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Description</TableHead>
-              <TableHead className="w-24">Qty</TableHead>
-              <TableHead className="w-32">Unit Price</TableHead>
-              <TableHead className="w-[160px]">Tax Code</TableHead>
-              <TableHead className="w-24">Tax %</TableHead>
-              <TableHead className="w-10" />
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {lineItems.map((li, i) => (
-              <TableRow key={i}>
-                <TableCell>
-                  <Input value={li.description} onChange={e => updateLine(i, "description", e.target.value)} placeholder="Item description" />
-                </TableCell>
-                <TableCell>
-                  <Input type="number" min={1} value={li.quantity} onChange={e => updateLine(i, "quantity", Number(e.target.value))} />
-                </TableCell>
-                <TableCell>
-                  <Input type="number" step="0.01" value={li.unit_price} onChange={e => updateLine(i, "unit_price", Number(e.target.value))} />
-                </TableCell>
-                <TableCell className="w-[160px]">
-                  <Select value={li.tax_code_id} onValueChange={v => updateLine(i, "tax_code_id", v === "__none__" ? "" : v)}>
-                    <SelectTrigger className="h-9 rounded-lg border-0 bg-transparent shadow-none focus:ring-1 text-xs">
-                      <SelectValue placeholder="Tax Code" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="__none__">No Tax</SelectItem>
-                      {taxRates.map((tc: any) => (
-                        <SelectItem key={tc.id} value={tc.id}>{tc.code} ({tc.rate}%)</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </TableCell>
-                <TableCell className="w-[80px]">
-                  <Input type="number" min={0} max={100} step={0.01} value={li.tax_rate} onChange={e => updateLine(i, "tax_rate", Number(e.target.value))} className="h-9 rounded-lg border-0 bg-transparent px-1 text-sm shadow-none focus-visible:ring-1" placeholder="%" />
-                </TableCell>
-                <TableCell>
-                  {lineItems.length > 1 && (
-                    <Button type="button" variant="ghost" size="icon" className="h-8 w-8" onClick={() => removeLine(i)}>
-                      <Trash2 className="h-3.5 w-3.5 text-rose-500" />
-                    </Button>
-                  )}
-                </TableCell>
+        <div className="overflow-x-auto rounded-xl border border-border">
+          <Table>
+            <TableHeader>
+              <TableRow className="border-border hover:bg-transparent">
+                <TableHead className="text-muted-foreground">Description</TableHead>
+                <TableHead className="w-20 text-muted-foreground">Qty</TableHead>
+                <TableHead className="w-28 text-muted-foreground">Unit Price</TableHead>
+                <TableHead className="w-20 text-muted-foreground">Disc %</TableHead>
+                <TableHead className="w-[150px] text-muted-foreground">Tax Code</TableHead>
+                <TableHead className="w-20 text-muted-foreground">Tax %</TableHead>
+                <TableHead className="w-10" />
               </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+            </TableHeader>
+            <TableBody>
+              {lineItems.map((li, i) => (
+                <TableRow key={i} className="border-border">
+                  <TableCell>
+                    <Input value={li.description} onChange={e => updateLine(i, "description", e.target.value)} placeholder="Item description" className="h-9 rounded-lg border-0 bg-transparent px-1 shadow-none focus-visible:ring-1" />
+                  </TableCell>
+                  <TableCell>
+                    <Input type="number" min={1} value={li.quantity} onChange={e => updateLine(i, "quantity", Number(e.target.value))} className="h-9 rounded-lg border-0 bg-transparent px-1 shadow-none focus-visible:ring-1" />
+                  </TableCell>
+                  <TableCell>
+                    <Input type="number" step="0.01" value={li.unit_price} onChange={e => updateLine(i, "unit_price", Number(e.target.value))} className="h-9 rounded-lg border-0 bg-transparent px-1 shadow-none focus-visible:ring-1" />
+                  </TableCell>
+                  <TableCell>
+                    <Input type="number" min={0} max={100} step={0.01} value={li.discount} onChange={e => updateLine(i, "discount", Number(e.target.value))} className="h-9 rounded-lg border-0 bg-transparent px-1 shadow-none focus-visible:ring-1" placeholder="0" />
+                  </TableCell>
+                  <TableCell>
+                    <Select value={li.tax_code_id} onValueChange={v => updateLine(i, "tax_code_id", v === "__none__" ? "" : v)}>
+                      <SelectTrigger className="h-9 rounded-lg border-0 bg-transparent shadow-none focus:ring-1 text-xs">
+                        <SelectValue placeholder="Tax Code" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="__none__">No Tax</SelectItem>
+                        {taxRates.map((tc: any) => (
+                          <SelectItem key={tc.id} value={tc.id}>{tc.code} ({tc.rate}%)</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </TableCell>
+                  <TableCell>
+                    <Input type="number" min={0} max={100} step={0.01} value={li.tax_rate} onChange={e => updateLine(i, "tax_rate", Number(e.target.value))} className="h-9 rounded-lg border-0 bg-transparent px-1 text-sm shadow-none focus-visible:ring-1" placeholder="%" />
+                  </TableCell>
+                  <TableCell>
+                    {lineItems.length > 1 && (
+                      <button type="button" onClick={() => removeLine(i)} className="text-muted-foreground hover:text-rose-500">
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    )}
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
         <Button type="button" variant="outline" className="mt-3 text-xs" onClick={addLine}>
           <Plus className="mr-1 h-3.5 w-3.5" /> Add Line
         </Button>
 
         <div className="mt-4 flex flex-col items-end gap-1 border-t border-border pt-4 text-sm">
-          <div className="flex gap-8"><span className="text-muted-foreground">Subtotal</span><span className="font-medium">{subtotal.toFixed(2)}</span></div>
-          <div className="flex gap-8"><span className="text-muted-foreground">Tax</span><span className="font-medium">{taxTotal.toFixed(2)}</span></div>
-          <div className="flex gap-8 text-base"><span className="font-semibold">Total</span><span className="font-bold">{total.toFixed(2)}</span></div>
+          <div className="flex w-56 justify-between"><span className="text-muted-foreground">Subtotal</span><span className="font-medium">{subtotal.toFixed(2)}</span></div>
+          {totalDiscount > 0 && <div className="flex w-56 justify-between text-rose-600"><span>Discount</span><span>- {totalDiscount.toFixed(2)}</span></div>}
+          <div className="flex w-56 justify-between"><span className="text-muted-foreground">Tax</span><span className="font-medium">{taxTotal.toFixed(2)}</span></div>
+          <div className="flex w-56 justify-between text-base"><span className="font-semibold">Total</span><span className="font-bold">{total.toFixed(2)}</span></div>
         </div>
       </Card>
 
