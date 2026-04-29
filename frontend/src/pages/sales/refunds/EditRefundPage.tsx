@@ -170,10 +170,20 @@ export default function EditRefundPage() {
               allowClear
               options={filteredCreditNotes.map((cn: any) => ({
                 value: cn.id,
-                label: `${cn.credit_note_number} (${formatCurrency(cn.total, cn.currency)})`,
+                label: `${cn.credit_note_number} — available ${formatCurrency(Number(cn.total) - Number(cn.credit_applied ?? 0), cn.currency)}`,
                 hint: cn.reference ?? "",
               }))}
             />
+            {creditNoteId && (() => {
+              const cn = filteredCreditNotes.find((c: any) => c.id === creditNoteId) as any
+              if (!cn) return null
+              const avail = Number(cn.total) - Number(cn.credit_applied ?? 0)
+              return (
+                <div className="text-xs text-muted-foreground">
+                  Available balance: <span className="font-medium text-foreground">{formatCurrency(avail, cn.currency)}</span>
+                </div>
+              )
+            })()}
           </div>
 
           <div className="space-y-1.5">
