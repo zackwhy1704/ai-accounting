@@ -155,8 +155,8 @@ export default function EditRefundPage() {
               placeholder="Search or select bank account"
               options={bankAccounts.map((a: any) => ({
                 value: a.id,
-                label: a.account_number ? `${a.name} (${a.account_number})` : a.name,
-                hint: a.account_number ?? "",
+                label: `${a.code} – ${a.name}`,
+                hint: a.code,
               }))}
             />
           </div>
