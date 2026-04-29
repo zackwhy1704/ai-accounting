@@ -2,7 +2,7 @@ import { useMemo, useState } from "react"
 import { useQueryClient } from "@tanstack/react-query"
 import { useNavigate } from "react-router-dom"
 import { ViewDetailSheet } from "../../components/ui/view-detail-sheet"
-import { Plus, ShoppingCart, FileText, Pencil, ArrowRightLeft, Copy, XCircle, Send, PackageCheck, Trash2 } from "lucide-react"
+import { Plus, ShoppingCart, FileText, Pencil, ArrowRightLeft, Copy, XCircle, Send, PackageCheck, Trash2, ThumbsDown } from "lucide-react"
 import { usePurchaseOrders, useContacts } from "../../lib/hooks"
 import api from "../../lib/api"
 import { formatCurrency, formatDate, cn } from "../../lib/utils"
@@ -18,7 +18,8 @@ const statusColors: Record<string, string> = {
   sent: "bg-blue-500/10 text-blue-700 border-blue-400/20",
   received: "bg-emerald-500/10 text-emerald-700 border-emerald-400/20",
   billed: "bg-violet-500/10 text-violet-700 border-violet-400/20",
-  cancelled: "bg-rose-500/10 text-rose-700 border-rose-400/20",
+  declined: "bg-rose-500/10 text-rose-700 border-rose-400/20",
+  cancelled: "bg-slate-500/10 text-slate-500 border-slate-300/20",
 }
 
 const STATUS_TABS = [
@@ -27,6 +28,7 @@ const STATUS_TABS = [
   { label: "Sent", value: "sent" },
   { label: "Received", value: "received" },
   { label: "Billed", value: "billed" },
+  { label: "Declined", value: "declined" },
   { label: "Cancelled", value: "cancelled" },
 ]
 
@@ -43,6 +45,10 @@ export default function PurchaseOrdersPage() {
     contacts.forEach(c => m.set(c.id, c.name))
     return m
   }, [contacts])
+
+  const updateStatus = (poId: string, status: string) =>
+    api.patch(`/purchase-orders/${poId}/status`, null, { params: { status } })
+      .then(() => queryClient.invalidateQueries({ queryKey: ["purchase-orders"] }))
 
   return (
     <div className="flex flex-col gap-4">
@@ -138,12 +144,13 @@ export default function PurchaseOrdersPage() {
                     <TableCell className="text-right">
                       <RowActionsMenu actions={[
                         { label: "View", icon: <FileText className="h-3.5 w-3.5" />, onClick: () => setViewItem(po) },
-                        { label: "Edit", icon: <Pencil className="h-3.5 w-3.5" />, onClick: () => navigate(`/purchases/purchase-orders/${po.id}/edit`), disabled: po.status === "cancelled" || po.status === "void" },
-                        { label: "Mark as Sent", icon: <Send className="h-3.5 w-3.5" />, onClick: () => api.patch(`/purchase-orders/${po.id}/status`, null, { params: { status: "sent" } }).then(() => queryClient.invalidateQueries({ queryKey: ["purchase-orders"] })), dividerBefore: true, disabled: po.status !== "draft" },
-                        { label: "Mark as Received", icon: <PackageCheck className="h-3.5 w-3.5" />, onClick: () => api.patch(`/purchase-orders/${po.id}/status`, null, { params: { status: "received" } }).then(() => queryClient.invalidateQueries({ queryKey: ["purchase-orders"] })), disabled: po.status !== "sent" },
-                        { label: "Convert to Bill", icon: <ArrowRightLeft className="h-3.5 w-3.5" />, onClick: () => navigate(`/purchases/bills/new?from_po=${po.id}`), dividerBefore: true, disabled: po.status === "cancelled" || po.status === "void" || po.status === "draft" },
+                        { label: "Edit", icon: <Pencil className="h-3.5 w-3.5" />, onClick: () => navigate(`/purchases/purchase-orders/${po.id}/edit`), disabled: po.status === "cancelled" || po.status === "declined" || po.status === "billed" },
+                        { label: "Mark as Sent", icon: <Send className="h-3.5 w-3.5" />, onClick: () => updateStatus(po.id, "sent"), dividerBefore: true, disabled: po.status !== "draft" },
+                        { label: "Mark as Received", icon: <PackageCheck className="h-3.5 w-3.5" />, onClick: () => updateStatus(po.id, "received"), disabled: po.status !== "sent" },
+                        { label: "Mark as Declined", icon: <ThumbsDown className="h-3.5 w-3.5" />, onClick: () => { if (confirm("Mark this PO as declined?")) updateStatus(po.id, "declined") }, danger: true, disabled: po.status !== "sent" },
+                        { label: "Convert to Bill", icon: <ArrowRightLeft className="h-3.5 w-3.5" />, onClick: () => navigate(`/purchases/bills/new?from_po=${po.id}`), dividerBefore: true, disabled: po.status === "draft" || po.status === "cancelled" || po.status === "declined" || po.status === "billed" },
                         { label: "Duplicate", icon: <Copy className="h-3.5 w-3.5" />, onClick: () => navigate(`/purchases/purchase-orders/new?copy=${po.id}`) },
-                        { label: "Cancel", icon: <XCircle className="h-3.5 w-3.5" />, onClick: () => { if (confirm("Cancel this purchase order?")) api.patch(`/purchase-orders/${po.id}/status`, null, { params: { status: "cancelled" } }).then(() => queryClient.invalidateQueries({ queryKey: ["purchase-orders"] })) }, danger: true, dividerBefore: true, disabled: po.status === "cancelled" || po.status === "billed" },
+                        { label: "Cancel", icon: <XCircle className="h-3.5 w-3.5" />, onClick: () => { if (confirm("Cancel this purchase order?")) updateStatus(po.id, "cancelled") }, danger: true, dividerBefore: true, disabled: po.status === "cancelled" || po.status === "billed" },
                         { label: "Delete", icon: <Trash2 className="h-3.5 w-3.5" />, onClick: () => { if (confirm("Delete this purchase order?")) api.delete(`/purchase-orders/${po.id}`).then(() => queryClient.invalidateQueries({ queryKey: ["purchase-orders"] })) }, danger: true, disabled: po.status === "billed" },
                       ]} />
                     </TableCell>
@@ -164,6 +171,7 @@ export default function PurchaseOrdersPage() {
           { label: "Status", value: <Badge variant="outline" className={cn("rounded-lg px-2 py-0.5 text-[11px] font-semibold", statusColors[viewItem.status] ?? "")}>{viewItem.status.charAt(0).toUpperCase() + viewItem.status.slice(1)}</Badge> },
           { label: "Vendor", value: contactMap.get(viewItem.contact_id) ?? "—" },
           { label: "Date", value: formatDate(viewItem.issue_date) },
+          { label: "Expected Date", value: viewItem.expected_date ? formatDate(viewItem.expected_date) : "—" },
           { label: "Total", value: formatCurrency(viewItem.total, viewItem.currency) },
           { label: "Currency", value: viewItem.currency ?? "MYR" },
         ] : []}

@@ -1,5 +1,5 @@
-import { useState, useEffect } from "react"
-import { useNavigate } from "react-router-dom"
+import { useState, useEffect, useRef } from "react"
+import { useNavigate, useSearchParams } from "react-router-dom"
 import { Plus, Trash2, Loader2 } from "lucide-react"
 import { useContacts, useBills, useCreateGoodsReceivedNote } from "../../lib/hooks"
 import { getContactPrefs, saveContactPref } from "../../lib/contact-prefs"
@@ -24,14 +24,18 @@ function newLine(): LineItem {
 
 export default function NewGoodsReceivedNotePage() {
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
   const { toast } = useToast()
   const { data: contacts = [] } = useContacts()
   const { data: bills = [] } = useBills()
   const createGRN = useCreateGoodsReceivedNote()
 
+  const fromBillId = searchParams.get("from_bill") ?? ""
+  const fromBillPopulated = useRef(false)
+
   const [grnNumber, setGrnNumber] = useState("")
   const [contactId, setContactId] = useState("")
-  const [billId, setBillId] = useState("")
+  const [billId, setBillId] = useState(fromBillId)
   const [receivedDate, setReceivedDate] = useState(() => new Date().toISOString().slice(0, 10))
   const [currency, setCurrency] = useState("MYR")
   const [notes, setNotes] = useState("")
@@ -45,12 +49,14 @@ export default function NewGoodsReceivedNotePage() {
     (b.status === "outstanding" || b.status === "overdue" || b.status === "received")
   )
 
-  // When a bill is selected, auto-populate supplier, currency, and line items
+  // When a bill is selected (or from_bill URL param), auto-populate supplier, currency, and line items
   useEffect(() => {
-    if (!billId) return
+    if (!billId || !bills.length) return
+    if (fromBillId && fromBillPopulated.current) return
     const bill = bills.find((b: any) => b.id === billId)
     if (!bill) return
-    if (bill.contact_id && !contactId) {
+    if (fromBillId) fromBillPopulated.current = true
+    if (bill.contact_id) {
       setContactId(bill.contact_id)
       const prefs = getContactPrefs(bill.contact_id)
       if (prefs.currency) setCurrency(prefs.currency)
@@ -64,7 +70,7 @@ export default function NewGoodsReceivedNotePage() {
         unit_price: li.unit_price || 0,
       })))
     }
-  }, [billId])
+  }, [billId, bills])
 
   const updateLine = (idx: number, field: keyof LineItem, value: string | number) => {
     setLineItems(prev => {

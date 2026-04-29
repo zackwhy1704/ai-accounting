@@ -238,7 +238,7 @@ async def update_po_status(
     db: AsyncSession = Depends(get_db),
     current_user: dict = Depends(get_current_user),
 ):
-    valid = {"draft", "sent", "received", "billed", "cancelled"}
+    valid = {"draft", "sent", "received", "billed", "declined", "cancelled"}
     if status not in valid:
         raise HTTPException(status_code=400, detail=f"Invalid status. Must be one of: {valid}")
 

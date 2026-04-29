@@ -1,10 +1,13 @@
 import { useMemo, useState, useRef } from "react"
 import { useNavigate } from "react-router-dom"
 import { ViewDetailSheet } from "../../components/ui/view-detail-sheet"
-import { Plus, Search, CalendarDays, FileText, Copy, Printer, XCircle, CreditCard, Pencil, PackageCheck, Trash2 } from "lucide-react"
-import { useBills, useContacts, useUpdateBillStatus, useDeleteBill } from "../../lib/hooks"
+import { Plus, Search, CalendarDays, FileText, Copy, Printer, XCircle, CreditCard, Pencil, PackageCheck, Trash2, ArrowRightLeft, X } from "lucide-react"
+import { useBills, useContacts, useUpdateBillStatus, useDeleteBill, useVendorCredits } from "../../lib/hooks"
+import api from "../../lib/api"
 import { formatCurrency, formatDate, cn } from "../../lib/utils"
 import { useTheme } from "../../lib/theme"
+import { useQueryClient } from "@tanstack/react-query"
+import { useToast } from "../../components/ui/toast"
 import { Card } from "../../components/ui/card"
 import { Button } from "../../components/ui/button"
 import { Input } from "../../components/ui/input"
@@ -17,14 +20,23 @@ import { RowActionsMenu } from "../../components/ui/row-actions"
 const statusColors: Record<string, string> = {
   draft: "bg-slate-500/10 text-slate-600 border-slate-300/20",
   received: "bg-sky-500/10 text-sky-700 border-sky-400/20",
-  outstanding: "bg-white/10 text-slate-700 border-slate-300/20",
+  outstanding: "bg-amber-500/10 text-amber-700 border-amber-400/20",
+  approved: "bg-amber-500/10 text-amber-700 border-amber-400/20",
   overdue: "bg-rose-500/10 text-rose-700 border-rose-400/20",
   paid: "bg-emerald-500/10 text-emerald-700 border-emerald-400/20",
   void: "bg-slate-500/10 text-slate-500 border-slate-300/20",
+  cancelled: "bg-slate-500/10 text-slate-500 border-slate-300/20",
+}
+
+function statusLabel(status: string) {
+  const map: Record<string, string> = { outstanding: "Outstanding", approved: "Outstanding" }
+  return map[status] ?? (status.charAt(0).toUpperCase() + status.slice(1))
 }
 
 export default function BillsPage() {
   const navigate = useNavigate()
+  const queryClient = useQueryClient()
+  const { toast } = useToast()
   const updateBillStatus = useUpdateBillStatus()
   const deleteBill = useDeleteBill()
   const [tab, setTab] = useState("all")
@@ -36,12 +48,19 @@ export default function BillsPage() {
   const dateToRef = useRef<HTMLInputElement>(null)
   const { data: bills = [], isLoading } = useBills(tab === "all" ? undefined : tab)
   const { data: contacts = [] } = useContacts()
+  const { data: vendorCredits = [] } = useVendorCredits()
   const { t } = useTheme()
   const [viewItem, setViewItem] = useState<typeof bills[0] | null>(null)
+
+  // Attach vendor credit dialog
+  const [creditDialog, setCreditDialog] = useState<{ open: boolean; bill: typeof bills[0] | null }>({ open: false, bill: null })
+  const [selectedCreditId, setSelectedCreditId] = useState("")
+  const [applyingCredit, setApplyingCredit] = useState(false)
 
   const statusTabs = [
     { label: t("common.all"), value: "all" },
     { label: "Draft", value: "draft" },
+    { label: "Received", value: "received" },
     { label: "Outstanding", value: "outstanding" },
     { label: "Overdue", value: "overdue" },
     { label: "Paid", value: "paid" },
@@ -56,6 +75,8 @@ export default function BillsPage() {
 
   const rows = useMemo(() => {
     let filtered = bills
+    // treat "approved" same as "outstanding" in tab filter
+    if (tab === "outstanding") filtered = filtered.filter(b => b.status === "outstanding" || b.status === "approved")
     if (search.trim()) {
       const q = search.toLowerCase()
       filtered = filtered.filter(b => b.bill_number.toLowerCase().includes(q) || (contactMap.get(b.contact_id) ?? "").toLowerCase().includes(q))
@@ -64,7 +85,34 @@ export default function BillsPage() {
     if (dateFrom) filtered = filtered.filter(b => b.due_date && b.due_date >= dateFrom)
     if (dateTo) filtered = filtered.filter(b => b.due_date && b.due_date <= dateTo)
     return filtered
-  }, [bills, search, contactMap, contactFilter])
+  }, [bills, tab, search, contactMap, contactFilter, dateFrom, dateTo])
+
+  // Unlinked vendor credits for the selected bill's supplier
+  const eligibleCredits = useMemo(() => {
+    if (!creditDialog.bill) return []
+    return vendorCredits.filter((vc: any) =>
+      vc.contact_id === creditDialog.bill!.contact_id &&
+      !vc.bill_id &&
+      vc.status !== "void"
+    )
+  }, [vendorCredits, creditDialog.bill])
+
+  const handleAttachCredit = async () => {
+    if (!selectedCreditId || !creditDialog.bill) return
+    setApplyingCredit(true)
+    try {
+      await api.patch(`/vendor-credits/${selectedCreditId}`, { bill_id: creditDialog.bill.id })
+      queryClient.invalidateQueries({ queryKey: ["vendor-credits"] })
+      queryClient.invalidateQueries({ queryKey: ["bills"] })
+      toast("Vendor credit attached to bill", "success")
+      setCreditDialog({ open: false, bill: null })
+      setSelectedCreditId("")
+    } catch {
+      toast("Failed to attach vendor credit", "warning")
+    } finally {
+      setApplyingCredit(false)
+    }
+  }
 
   return (
     <div className="flex flex-col gap-4">
@@ -153,29 +201,39 @@ export default function BillsPage() {
                         <TableHead className="w-[90px] text-right text-muted-foreground">{t("common.action")}</TableHead>
                       </TableRow></TableHeader>
                       <TableBody>
-                        {rows.map(bill => (
-                          <TableRow key={bill.id} className="border-border hover:bg-muted/50">
-                            <TableCell className="font-medium text-foreground">{bill.bill_number}</TableCell>
-                            <TableCell className="text-muted-foreground">{formatDate(bill.issue_date)}</TableCell>
-                            <TableCell className="text-foreground">{contactMap.get(bill.contact_id) ?? "—"}</TableCell>
-                            <TableCell className="text-right text-foreground">{formatCurrency(bill.total)}</TableCell>
-                            <TableCell className="text-right text-muted-foreground">{formatCurrency(bill.total - (bill.amount_paid ?? 0))}</TableCell>
-                            <TableCell><Badge variant="outline" className={cn("rounded-lg px-2 py-0.5 text-[11px] font-semibold", statusColors[bill.status] ?? "")}>{bill.status.charAt(0).toUpperCase() + bill.status.slice(1)}</Badge></TableCell>
-                            <TableCell className="text-right">
-                              <RowActionsMenu actions={[
-                                { label: "Edit", icon: <Pencil className="h-3.5 w-3.5" />, onClick: () => navigate(`/purchases/bills/${bill.id}/edit`), disabled: bill.status === "void" },
-                                { label: "View", icon: <FileText className="h-3.5 w-3.5" />, onClick: () => setViewItem(bill) },
-                                { label: "Mark as Received", icon: <PackageCheck className="h-3.5 w-3.5" />, onClick: () => updateBillStatus.mutate({ id: bill.id, status: "received" }), dividerBefore: true, disabled: bill.status !== "draft" },
-                                { label: "Approve Bill", icon: <PackageCheck className="h-3.5 w-3.5" />, onClick: () => updateBillStatus.mutate({ id: bill.id, status: "outstanding" }), disabled: bill.status !== "received" },
-                                { label: t("invoices.addPayment"), icon: <CreditCard className="h-3.5 w-3.5" />, onClick: () => navigate(`/purchases/payments/new?bill_id=${bill.id}&contact_id=${bill.contact_id}&amount=${bill.total - (bill.amount_paid ?? 0)}`), disabled: bill.status === "void" || bill.status === "draft" || bill.status === "received" || bill.status === "paid" },
-                                { label: t("invoices.duplicate"), icon: <Copy className="h-3.5 w-3.5" />, onClick: () => navigate(`/purchases/bills/new?copy=${bill.id}`) },
-                                { label: t("invoices.printPdf"), icon: <Printer className="h-3.5 w-3.5" />, onClick: () => window.print() },
-                                { label: t("invoices.void"), icon: <XCircle className="h-3.5 w-3.5" />, onClick: () => { if (confirm("Void this bill?")) updateBillStatus.mutate({ id: bill.id, status: "void" }) }, danger: true, dividerBefore: true, disabled: bill.status === "void" || bill.status === "paid" },
-                                { label: "Delete", icon: <Trash2 className="h-3.5 w-3.5" />, onClick: () => { if (confirm("Delete this bill?")) deleteBill.mutate(bill.id) }, danger: true, disabled: bill.status === "paid" },
-                              ]} />
-                            </TableCell>
-                          </TableRow>
-                        ))}
+                        {rows.map(bill => {
+                          const isPaid = bill.status === "paid"
+                          const isVoid = bill.status === "void"
+                          const isDraft = bill.status === "draft"
+                          const isReceived = bill.status === "received"
+                          const isApproved = bill.status === "outstanding" || bill.status === "approved"
+                          const canPay = isApproved || bill.status === "overdue"
+                          return (
+                            <TableRow key={bill.id} className="border-border hover:bg-muted/50">
+                              <TableCell className="font-medium text-foreground">{bill.bill_number}</TableCell>
+                              <TableCell className="text-muted-foreground">{formatDate(bill.issue_date)}</TableCell>
+                              <TableCell className="text-foreground">{contactMap.get(bill.contact_id) ?? "—"}</TableCell>
+                              <TableCell className="text-right text-foreground">{formatCurrency(bill.total)}</TableCell>
+                              <TableCell className="text-right text-muted-foreground">{formatCurrency(bill.total - (bill.amount_paid ?? 0))}</TableCell>
+                              <TableCell><Badge variant="outline" className={cn("rounded-lg px-2 py-0.5 text-[11px] font-semibold", statusColors[bill.status] ?? "")}>{statusLabel(bill.status)}</Badge></TableCell>
+                              <TableCell className="text-right">
+                                <RowActionsMenu actions={[
+                                  { label: "Edit", icon: <Pencil className="h-3.5 w-3.5" />, onClick: () => navigate(`/purchases/bills/${bill.id}/edit`), disabled: isVoid || isPaid },
+                                  { label: "View", icon: <FileText className="h-3.5 w-3.5" />, onClick: () => setViewItem(bill) },
+                                  { label: "Mark as Received", icon: <PackageCheck className="h-3.5 w-3.5" />, onClick: () => updateBillStatus.mutate({ id: bill.id, status: "received" }), dividerBefore: true, disabled: !isDraft },
+                                  { label: "Approve Bill", icon: <PackageCheck className="h-3.5 w-3.5" />, onClick: () => updateBillStatus.mutate({ id: bill.id, status: "outstanding" }), disabled: !isReceived },
+                                  { label: "Add Payment", icon: <CreditCard className="h-3.5 w-3.5" />, onClick: () => navigate(`/purchases/payments/new?bill_id=${bill.id}&contact_id=${bill.contact_id}&amount=${bill.total - (bill.amount_paid ?? 0)}`), disabled: !canPay },
+                                  { label: "Attach Vendor Credit", icon: <ArrowRightLeft className="h-3.5 w-3.5" />, onClick: () => { setCreditDialog({ open: true, bill }); setSelectedCreditId("") }, disabled: !canPay },
+                                  { label: "Convert to GRN", icon: <ArrowRightLeft className="h-3.5 w-3.5" />, onClick: () => navigate(`/purchases/goods-received-notes/new?from_bill=${bill.id}`), disabled: isDraft || isVoid },
+                                  { label: t("invoices.duplicate"), icon: <Copy className="h-3.5 w-3.5" />, onClick: () => navigate(`/purchases/bills/new?copy=${bill.id}`) },
+                                  { label: t("invoices.printPdf"), icon: <Printer className="h-3.5 w-3.5" />, onClick: () => window.print() },
+                                  { label: "Void Bill", icon: <XCircle className="h-3.5 w-3.5" />, onClick: () => { if (confirm("Void this bill? This will reverse any GL entries.")) updateBillStatus.mutate({ id: bill.id, status: "void" }) }, danger: true, dividerBefore: true, disabled: isVoid || isPaid },
+                                  { label: "Delete", icon: <Trash2 className="h-3.5 w-3.5" />, onClick: () => { if (confirm("Delete this bill?")) deleteBill.mutate(bill.id) }, danger: true, disabled: isPaid },
+                                ]} />
+                              </TableCell>
+                            </TableRow>
+                          )
+                        })}
                       </TableBody>
                     </Table>
                   </div>
@@ -195,14 +253,15 @@ export default function BillsPage() {
           </Card>
         </div>
       </div>
+
       <ViewDetailSheet
         open={!!viewItem}
         onOpenChange={(open) => { if (!open) setViewItem(null) }}
         title={viewItem ? `Bill ${viewItem.bill_number}` : ""}
-        subtitle={viewItem?.status ? viewItem.status.charAt(0).toUpperCase() + viewItem.status.slice(1) : undefined}
+        subtitle={viewItem?.status ? statusLabel(viewItem.status) : undefined}
         fields={viewItem ? [
           { label: "Bill Number", value: viewItem.bill_number },
-          { label: "Status", value: <Badge variant="outline" className={cn("rounded-lg px-2 py-0.5 text-[11px] font-semibold", statusColors[viewItem.status] ?? "")}>{viewItem.status.charAt(0).toUpperCase() + viewItem.status.slice(1)}</Badge> },
+          { label: "Status", value: <Badge variant="outline" className={cn("rounded-lg px-2 py-0.5 text-[11px] font-semibold", statusColors[viewItem.status] ?? "")}>{statusLabel(viewItem.status)}</Badge> },
           { label: "Vendor", value: contactMap.get(viewItem.contact_id) ?? "—" },
           { label: "Issue Date", value: formatDate(viewItem.issue_date) },
           { label: "Due Date", value: viewItem.due_date ? formatDate(viewItem.due_date) : "—" },
@@ -214,6 +273,61 @@ export default function BillsPage() {
           { label: "Currency", value: viewItem.currency ?? "MYR" },
         ] : []}
       />
+
+      {/* Attach Vendor Credit Dialog */}
+      {creditDialog.open && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="w-full max-w-md rounded-2xl bg-card p-6 shadow-xl">
+            <div className="flex items-center justify-between">
+              <h3 className="text-lg font-semibold text-foreground">Attach Vendor Credit</h3>
+              <button onClick={() => setCreditDialog({ open: false, bill: null })} className="text-muted-foreground hover:text-foreground">
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <p className="mt-2 text-sm text-muted-foreground">
+              Select an unlinked vendor credit from the same supplier to attach to <strong>{creditDialog.bill?.bill_number}</strong>.
+            </p>
+            <div className="mt-4">
+              {eligibleCredits.length === 0 ? (
+                <div className="rounded-xl border border-border bg-muted/40 px-4 py-6 text-center text-sm text-muted-foreground">
+                  No available vendor credits for this supplier.
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {eligibleCredits.map((vc: any) => (
+                    <label key={vc.id} className={cn(
+                      "flex cursor-pointer items-center gap-3 rounded-xl border p-3 transition-colors hover:bg-muted/50",
+                      selectedCreditId === vc.id ? "border-primary bg-primary/5" : "border-border"
+                    )}>
+                      <input
+                        type="radio"
+                        name="vendor_credit"
+                        checked={selectedCreditId === vc.id}
+                        onChange={() => setSelectedCreditId(vc.id)}
+                        className="h-4 w-4"
+                      />
+                      <div className="flex-1">
+                        <div className="text-sm font-medium text-foreground">{vc.vendor_credit_number}</div>
+                        <div className="text-xs text-muted-foreground">{formatDate(vc.issue_date)} · {formatCurrency(vc.total, vc.currency)}</div>
+                      </div>
+                    </label>
+                  ))}
+                </div>
+              )}
+            </div>
+            <div className="mt-6 flex justify-end gap-3">
+              <Button variant="outline" onClick={() => setCreditDialog({ open: false, bill: null })}>Cancel</Button>
+              <Button
+                onClick={handleAttachCredit}
+                disabled={!selectedCreditId || applyingCredit}
+                className="bg-gradient-to-r from-[#7C9DFF] to-[#4D63FF] text-white hover:opacity-95"
+              >
+                {applyingCredit ? "Attaching..." : "Attach Credit"}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

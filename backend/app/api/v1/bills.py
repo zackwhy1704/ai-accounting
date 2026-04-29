@@ -205,15 +205,15 @@ async def update_bill_status(
     if not bill:
         raise HTTPException(status_code=404, detail="Bill not found")
 
-    valid_statuses = {"draft", "received", "approved", "paid", "overdue", "cancelled"}
+    valid_statuses = {"draft", "received", "approved", "outstanding", "paid", "overdue", "void", "cancelled"}
     if status not in valid_statuses:
         raise HTTPException(status_code=400, detail=f"Invalid status. Must be one of: {valid_statuses}")
 
     prev_status = bill.status
     bill.status = status
 
-    # draft/received → approved: post Dr Expense (+ Dr GST Input) / Cr AP
-    if status == "approved" and prev_status in ("draft", "received"):
+    # draft/received → approved/outstanding: post Dr Expense (+ Dr GST Input) / Cr AP
+    if status in ("approved", "outstanding") and prev_status in ("draft", "received"):
         subtotal = float(bill.subtotal)
         tax_amount = float(bill.tax_amount)
         total = float(bill.total)
@@ -229,8 +229,8 @@ async def update_bill_status(
             bill.bill_number, "bill", bill.id, entries,
         )
 
-    # cancelled: reverse any posted GL entries
-    elif status == "cancelled" and prev_status not in ("draft", "received"):
+    # void/cancelled: reverse any posted GL entries
+    elif status in ("void", "cancelled") and prev_status not in ("draft", "received"):
         await revert_gl(
             db, org_id, bill.id, "bill",
             bill.issue_date,
