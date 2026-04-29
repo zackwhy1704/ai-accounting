@@ -1,10 +1,9 @@
-import random
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, delete
 from sqlalchemy.orm import selectinload
 from uuid import UUID
-from datetime import datetime, timezone
+from datetime import datetime
 from typing import Optional
 from pydantic import BaseModel
 
@@ -76,11 +75,6 @@ class PurchaseOrderResponse(BaseModel):
     model_config = {"from_attributes": True}
 
 
-def _gen_po_number() -> str:
-    now = datetime.now(timezone.utc)
-    return f"PO-{now.strftime('%Y%m')}-{random.randint(1000, 9999)}"
-
-
 @router.get("", response_model=list[PurchaseOrderResponse])
 async def list_purchase_orders(
     status: Optional[str] = None,
@@ -118,7 +112,8 @@ async def create_purchase_order(
             raise HTTPException(status_code=400, detail="PO number already in use")
         po_number = payload.po_number
     else:
-        po_number = _gen_po_number()
+        from .sales import next_sequence_number
+        po_number = await next_sequence_number(db, PurchaseOrder, PurchaseOrder.po_number, org_id, "PO")
 
     po = PurchaseOrder(
         organization_id=org_id,

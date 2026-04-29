@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func, delete
+from sqlalchemy import select, delete
 from sqlalchemy.orm import selectinload
 from uuid import UUID
 from app.core.database import get_db
@@ -41,11 +41,8 @@ async def create_bill(
             raise HTTPException(status_code=400, detail="Bill number already in use")
         bill_number = data.bill_number
     else:
-        count_result = await db.execute(
-            select(func.count(Bill.id)).where(Bill.organization_id == org_id)
-        )
-        count = count_result.scalar() or 0
-        bill_number = f"BILL-{count + 1:04d}"
+        from .sales import next_sequence_number
+        bill_number = await next_sequence_number(db, Bill, Bill.bill_number, org_id, "BILL")
 
     # Calculate totals (discount applied before tax)
     subtotal = 0
