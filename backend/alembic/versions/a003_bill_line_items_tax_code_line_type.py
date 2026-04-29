@@ -8,7 +8,7 @@ from alembic import op
 import sqlalchemy as sa
 from sqlalchemy.dialects.postgresql import UUID
 
-revision = "a003_bill_line_items_tax_code_line_type"
+revision = "a003"
 down_revision = "a002_grn_add_bill_id"
 branch_labels = None
 depends_on = None
