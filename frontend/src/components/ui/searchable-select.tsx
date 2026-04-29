@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useRef, useState } from "react"
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
+import { createPortal } from "react-dom"
 import { ChevronDown, Check, X } from "lucide-react"
 
 export interface SearchableOption {
@@ -32,8 +33,10 @@ export function SearchableSelect({
 }: SearchableSelectProps) {
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState("")
-  const containerRef = useRef<HTMLDivElement>(null)
+  const triggerRef = useRef<HTMLButtonElement>(null)
+  const popoverRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
+  const [pos, setPos] = useState<{ top: number; left: number; width: number; placement: "below" | "above" } | null>(null)
 
   const selected = useMemo(() => options.find(o => o.value === value), [options, value])
 
@@ -45,13 +48,42 @@ export function SearchableSelect({
     )
   }, [options, query])
 
+  const updatePosition = () => {
+    const trigger = triggerRef.current
+    if (!trigger) return
+    const rect = trigger.getBoundingClientRect()
+    const popoverHeight = Math.min(288, 60 + filtered.length * 28)
+    const spaceBelow = window.innerHeight - rect.bottom
+    const placement: "below" | "above" = spaceBelow < popoverHeight + 8 && rect.top > popoverHeight ? "above" : "below"
+    setPos({
+      top: placement === "below" ? rect.bottom + 4 : rect.top - 4 - popoverHeight,
+      left: rect.left,
+      width: rect.width,
+      placement,
+    })
+  }
+
+  useLayoutEffect(() => {
+    if (!open) return
+    updatePosition()
+    const onScroll = () => updatePosition()
+    window.addEventListener("scroll", onScroll, true)
+    window.addEventListener("resize", onScroll)
+    return () => {
+      window.removeEventListener("scroll", onScroll, true)
+      window.removeEventListener("resize", onScroll)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, filtered.length])
+
   useEffect(() => {
     if (!open) return
     const onClick = (e: MouseEvent) => {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
-        setOpen(false)
-        setQuery("")
-      }
+      const target = e.target as Node
+      if (triggerRef.current?.contains(target)) return
+      if (popoverRef.current?.contains(target)) return
+      setOpen(false)
+      setQuery("")
     }
     document.addEventListener("mousedown", onClick)
     return () => document.removeEventListener("mousedown", onClick)
@@ -62,8 +94,9 @@ export function SearchableSelect({
   }, [open])
 
   return (
-    <div ref={containerRef} className={`relative ${className}`}>
+    <div className={`relative ${className}`}>
       <button
+        ref={triggerRef}
         type="button"
         onClick={() => setOpen(o => !o)}
         className={`flex h-10 w-full items-center justify-between rounded-xl border border-input bg-transparent px-3 py-2 text-sm shadow-sm hover:bg-accent/40 focus:outline-none focus:ring-2 focus:ring-ring ${triggerClassName}`}
@@ -84,8 +117,12 @@ export function SearchableSelect({
           <ChevronDown className="h-4 w-4 text-muted-foreground" />
         </div>
       </button>
-      {open && (
-        <div className="absolute left-0 right-0 top-full z-50 mt-1 max-h-72 overflow-auto rounded-xl border border-border bg-popover text-popover-foreground shadow-lg">
+      {open && pos && createPortal(
+        <div
+          ref={popoverRef}
+          style={{ position: "fixed", top: pos.top, left: pos.left, width: pos.width, zIndex: 1000 }}
+          className="max-h-72 overflow-auto rounded-xl border border-border bg-popover text-popover-foreground shadow-lg"
+        >
           <div className="sticky top-0 border-b border-border bg-popover p-2">
             <input
               ref={inputRef}
@@ -131,7 +168,8 @@ export function SearchableSelect({
               </button>
             )}
           </div>
-        </div>
+        </div>,
+        document.body,
       )}
     </div>
   )
