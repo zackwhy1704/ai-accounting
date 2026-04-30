@@ -1066,17 +1066,17 @@ function AccountPicker({
         {display}
       </button>
       {open && (
-        <div className="absolute left-0 top-full z-50 mt-0.5 w-64 rounded-lg border border-border bg-popover shadow-lg">
-          <div className="p-1.5 border-b border-border">
+        <div className="absolute left-0 top-full z-[200] mt-0.5 w-80 rounded-lg border border-border bg-popover shadow-xl">
+          <div className="p-2 border-b border-border">
             <input
               autoFocus
               value={search}
               onChange={e => setSearch(e.target.value)}
               placeholder="Search code or name…"
-              className="w-full rounded-md bg-muted/40 px-2 py-1 text-xs focus:outline-none"
+              className="w-full rounded-md bg-muted/40 px-2 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-primary/40"
             />
           </div>
-          <ul className="max-h-52 overflow-y-auto py-1">
+          <ul className="max-h-72 overflow-y-auto py-1">
             {filtered.length === 0 && (
               <li className="px-3 py-2 text-xs text-muted-foreground">No accounts found</li>
             )}

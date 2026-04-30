@@ -7,6 +7,7 @@ import { Card } from "../../../components/ui/card"
 import { Button } from "../../../components/ui/button"
 import { Input } from "../../../components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../../components/ui/select"
+import { SearchableSelect } from "../../../components/ui/searchable-select"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../../../components/ui/table"
 
 interface LineItem {
@@ -175,21 +176,15 @@ export default function NewDeliveryOrderPage() {
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
           <div>
             <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Customer *</label>
-            <Select value={contactId} onValueChange={handleCustomerChange}>
-              <SelectTrigger className="h-10 rounded-xl">
-                <SelectValue placeholder="Select customer" />
-              </SelectTrigger>
-              <SelectContent>
-                {contacts
-                  .filter(c => c.type === "customer" || c.type === "both")
-                  .map(c => (
-                    <SelectItem key={c.id} value={c.id}>
-                      {c.name}
-                    </SelectItem>
-                  ))}
-                <SelectItem value="__add_new__" className="text-primary font-medium">+ Add New Customer</SelectItem>
-              </SelectContent>
-            </Select>
+            <SearchableSelect
+              value={contactId}
+              onChange={handleCustomerChange}
+              placeholder="Search or select customer"
+              options={contacts
+                .filter(c => c.type === "customer" || c.type === "both")
+                .map(c => ({ value: c.id, label: c.name, hint: c.email ?? "" }))}
+              footerAction={{ label: "+ Add New Customer", onClick: () => navigate("/contacts/new") }}
+            />
           </div>
 
           <div>

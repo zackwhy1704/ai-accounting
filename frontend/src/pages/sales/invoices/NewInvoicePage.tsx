@@ -37,7 +37,7 @@ export default function NewInvoicePage() {
   const createInvoice = useCreateInvoice()
   const { data: taxRates = [] } = useTaxRates()
 
-  const [invoiceNumber, setInvoiceNumber] = useState(() => `INV-${Date.now().toString().slice(-6)}`)
+  const [invoiceNumber, setInvoiceNumber] = useState("")
   const [contactId, setContactId] = useState("")
   const [terms, setTerms] = useState("cbd")
   const [invoiceDate, setInvoiceDate] = useState(() => new Date().toISOString().slice(0, 10))
