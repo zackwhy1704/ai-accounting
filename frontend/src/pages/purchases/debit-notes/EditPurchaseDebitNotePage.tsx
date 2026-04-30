@@ -133,7 +133,7 @@ export default function EditPurchaseDebitNotePage() {
       } as any,
       {
         onSuccess: () => navigate("/purchases/debit-notes"),
-        onError: (err: any) => toast({ title: "Error", description: err?.response?.data?.detail ?? "Failed to save debit note", variant: "destructive" }),
+        onError: (err: any) => toast(err?.response?.data?.detail ?? "Failed to save debit note", "warning"),
       }
     )
   }
