@@ -1148,6 +1148,43 @@ export function useDeleteDebitNote() {
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['debit-notes'] }) },
   })
 }
+export function usePurchaseDebitNotes(status?: string) {
+  return useQuery<any[]>({
+    queryKey: ['purchase-debit-notes', status],
+    queryFn: () => api.get('/purchase-debit-notes', { params: status ? { status } : {} }).then(r => r.data),
+  })
+}
+export function usePurchaseDebitNote(id: string | undefined) {
+  return useQuery({ queryKey: ['purchase-debit-note', id], queryFn: () => api.get(`/purchase-debit-notes/${id}`).then(r => r.data), enabled: !!id })
+}
+export function useCreatePurchaseDebitNote() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (data: Record<string, unknown>) => api.post('/purchase-debit-notes', data).then(r => r.data),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['purchase-debit-notes'] }) },
+  })
+}
+export function useUpdatePurchaseDebitNote() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, ...data }: Record<string, unknown>) => api.patch(`/purchase-debit-notes/${id}`, data).then(r => r.data),
+    onSuccess: (_d: any, v: any) => { qc.invalidateQueries({ queryKey: ['purchase-debit-notes'] }); qc.invalidateQueries({ queryKey: ['purchase-debit-note', v.id] }) },
+  })
+}
+export function useUpdatePurchaseDebitNoteStatus() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, status }: { id: string; status: string }) => api.patch(`/purchase-debit-notes/${id}/status`, null, { params: { status } }).then(r => r.data),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['purchase-debit-notes'] }) },
+  })
+}
+export function useDeletePurchaseDebitNote() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) => api.delete(`/purchase-debit-notes/${id}`).then(r => r.data),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['purchase-debit-notes'] }) },
+  })
+}
 export function useUpdateSalesPaymentStatus() {
   const qc = useQueryClient()
   return useMutation({

@@ -35,11 +35,12 @@ import AcceptInvitePage from './pages/firm/AcceptInvitePage'
 import PayPage from './pages/public/PayPage'
 import ProductsPage from './pages/products/ProductsPage'
 import RecurringInvoicesPage from './pages/sales/recurring/RecurringInvoicesPage'
-import VendorCreditsPage from './pages/purchases/VendorCreditsPage'
 import NewBillPage from './pages/purchases/NewBillPage'
 import NewPurchaseOrderPage from './pages/purchases/NewPurchaseOrderPage'
 import NewGoodsReceivedNotePage from './pages/purchases/NewGoodsReceivedNotePage'
-import NewVendorCreditPage from './pages/purchases/NewVendorCreditPage'
+import PurchaseDebitNotesPage from './pages/purchases/debit-notes/PurchaseDebitNotesPage'
+import NewPurchaseDebitNotePage from './pages/purchases/debit-notes/NewPurchaseDebitNotePage'
+import EditPurchaseDebitNotePage from './pages/purchases/debit-notes/EditPurchaseDebitNotePage'
 import NewPurchasePaymentPage from './pages/purchases/NewPurchasePaymentPage'
 import NewPurchaseRefundPage from './pages/purchases/NewPurchaseRefundPage'
 import SaleReceiptsPage from './pages/sales/receipts/SaleReceiptsPage'
@@ -112,7 +113,6 @@ import EditSaleReceiptPage from './pages/sales/receipts/EditSaleReceiptPage'
 import EditBillPage from './pages/purchases/EditBillPage'
 import EditPurchaseOrderPage from './pages/purchases/EditPurchaseOrderPage'
 import EditGoodsReceivedNotePage from './pages/purchases/EditGoodsReceivedNotePage'
-import EditVendorCreditPage from './pages/purchases/EditVendorCreditPage'
 import EditPurchasePaymentPage from './pages/purchases/EditPurchasePaymentPage'
 import EditPurchaseRefundPage from './pages/purchases/EditPurchaseRefundPage'
 import EditManualJournalPage from './pages/accounting/EditManualJournalPage'
@@ -195,9 +195,9 @@ function App() {
         <Route path="/purchases/goods-received-notes/new" element={<NewGoodsReceivedNotePage />} />
         <Route path="/purchases/goods-received-notes/:id/edit" element={<EditGoodsReceivedNotePage />} />
         <Route path="/purchases/credit-notes" element={<PurchaseCreditNotesPage />} />
-        <Route path="/purchases/vendor-credits" element={<VendorCreditsPage />} />
-        <Route path="/purchases/vendor-credits/new" element={<NewVendorCreditPage />} />
-        <Route path="/purchases/vendor-credits/:id/edit" element={<EditVendorCreditPage />} />
+        <Route path="/purchases/debit-notes" element={<PurchaseDebitNotesPage />} />
+        <Route path="/purchases/debit-notes/new" element={<NewPurchaseDebitNotePage />} />
+        <Route path="/purchases/debit-notes/:id/edit" element={<EditPurchaseDebitNotePage />} />
         <Route path="/purchases/payments" element={<PurchasePaymentsPage />} />
         <Route path="/purchases/payments/new" element={<NewPurchasePaymentPage />} />
         <Route path="/purchases/payments/:id/edit" element={<EditPurchasePaymentPage />} />

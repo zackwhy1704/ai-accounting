@@ -598,6 +598,58 @@ class DebitNoteLineItem(Base):
 
 
 # ──────────────────────────────────────────────
+# Purchase Debit Note
+# ──────────────────────────────────────────────
+class PurchaseDebitNote(Base):
+    __tablename__ = "purchase_debit_notes"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=new_uuid)
+    organization_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("organizations.id"))
+    contact_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("contacts.id"))
+    bill_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("bills.id"), nullable=True)
+    debit_note_number: Mapped[str] = mapped_column(String(50))
+    status: Mapped[str] = mapped_column(String(20), default="draft")  # draft, issued, applied, void
+    issue_date: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    reference: Mapped[str | None] = mapped_column(String(100))
+    subtotal: Mapped[float] = mapped_column(Numeric(15, 2), default=0)
+    discount_amount: Mapped[float] = mapped_column(Numeric(15, 2), default=0)
+    tax_amount: Mapped[float] = mapped_column(Numeric(15, 2), default=0)
+    total: Mapped[float] = mapped_column(Numeric(15, 2), default=0)
+    currency: Mapped[str] = mapped_column(String(3), default="MYR")
+    notes: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
+
+    organization: Mapped["Organization"] = relationship()
+    contact: Mapped["Contact"] = relationship()
+    line_items: Mapped[list["PurchaseDebitNoteLineItem"]] = relationship(back_populates="debit_note", cascade="all, delete-orphan")
+
+    __table_args__ = (
+        UniqueConstraint("organization_id", "debit_note_number", name="uq_org_purchase_debit_note_number"),
+        Index("ix_purchase_debit_notes_org_status", "organization_id", "status"),
+    )
+
+
+class PurchaseDebitNoteLineItem(Base):
+    __tablename__ = "purchase_debit_note_line_items"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=new_uuid)
+    debit_note_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("purchase_debit_notes.id", ondelete="CASCADE"))
+    line_type: Mapped[str] = mapped_column(String(10), default="goods")
+    description: Mapped[str] = mapped_column(String(500))
+    quantity: Mapped[float] = mapped_column(Numeric(10, 2), default=1)
+    unit_price: Mapped[float] = mapped_column(Numeric(15, 2))
+    tax_rate: Mapped[float] = mapped_column(Numeric(5, 2), default=0)
+    tax_code_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("tax_rates.id"))
+    discount: Mapped[float] = mapped_column(Numeric(15, 2), default=0)
+    amount: Mapped[float] = mapped_column(Numeric(15, 2))
+    account_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("accounts.id"))
+    sort_order: Mapped[int] = mapped_column(Integer, default=0)
+
+    debit_note: Mapped["PurchaseDebitNote"] = relationship(back_populates="line_items")
+
+
+# ──────────────────────────────────────────────
 # Sales Payment
 # ──────────────────────────────────────────────
 class SalesPayment(Base):

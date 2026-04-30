@@ -1,13 +1,10 @@
 import { useMemo, useState, useRef } from "react"
 import { useNavigate } from "react-router-dom"
 import { ViewDetailSheet } from "../../components/ui/view-detail-sheet"
-import { Plus, Search, CalendarDays, FileText, Copy, Printer, XCircle, CreditCard, Pencil, PackageCheck, Trash2, ArrowRightLeft, X } from "lucide-react"
-import { useBills, useContacts, useUpdateBillStatus, useDeleteBill, useVendorCredits } from "../../lib/hooks"
-import api from "../../lib/api"
+import { Plus, Search, CalendarDays, FileText, Copy, Printer, XCircle, CreditCard, Pencil, PackageCheck, Trash2, ArrowRightLeft } from "lucide-react"
+import { useBills, useContacts, useUpdateBillStatus, useDeleteBill } from "../../lib/hooks"
 import { formatCurrency, formatDate, cn } from "../../lib/utils"
 import { useTheme } from "../../lib/theme"
-import { useQueryClient } from "@tanstack/react-query"
-import { useToast } from "../../components/ui/toast"
 import { Card } from "../../components/ui/card"
 import { Button } from "../../components/ui/button"
 import { Input } from "../../components/ui/input"
@@ -35,8 +32,6 @@ function statusLabel(status: string) {
 
 export default function BillsPage() {
   const navigate = useNavigate()
-  const queryClient = useQueryClient()
-  const { toast } = useToast()
   const updateBillStatus = useUpdateBillStatus()
   const deleteBill = useDeleteBill()
   const [tab, setTab] = useState("all")
@@ -48,14 +43,8 @@ export default function BillsPage() {
   const dateToRef = useRef<HTMLInputElement>(null)
   const { data: bills = [], isLoading } = useBills(tab === "all" ? undefined : tab)
   const { data: contacts = [] } = useContacts()
-  const { data: vendorCredits = [] } = useVendorCredits()
   const { t } = useTheme()
   const [viewItem, setViewItem] = useState<typeof bills[0] | null>(null)
-
-  // Attach vendor credit dialog
-  const [creditDialog, setCreditDialog] = useState<{ open: boolean; bill: typeof bills[0] | null }>({ open: false, bill: null })
-  const [selectedCreditId, setSelectedCreditId] = useState("")
-  const [applyingCredit, setApplyingCredit] = useState(false)
 
   const statusTabs = [
     { label: t("common.all"), value: "all" },
@@ -86,33 +75,6 @@ export default function BillsPage() {
     if (dateTo) filtered = filtered.filter(b => b.due_date && b.due_date <= dateTo)
     return filtered
   }, [bills, tab, search, contactMap, contactFilter, dateFrom, dateTo])
-
-  // Unlinked vendor credits for the selected bill's supplier
-  const eligibleCredits = useMemo(() => {
-    if (!creditDialog.bill) return []
-    return vendorCredits.filter((vc: any) =>
-      vc.contact_id === creditDialog.bill!.contact_id &&
-      !vc.bill_id &&
-      vc.status !== "void"
-    )
-  }, [vendorCredits, creditDialog.bill])
-
-  const handleAttachCredit = async () => {
-    if (!selectedCreditId || !creditDialog.bill) return
-    setApplyingCredit(true)
-    try {
-      await api.patch(`/vendor-credits/${selectedCreditId}`, { bill_id: creditDialog.bill.id })
-      queryClient.invalidateQueries({ queryKey: ["vendor-credits"] })
-      queryClient.invalidateQueries({ queryKey: ["bills"] })
-      toast("Vendor credit attached to bill", "success")
-      setCreditDialog({ open: false, bill: null })
-      setSelectedCreditId("")
-    } catch {
-      toast("Failed to attach vendor credit", "warning")
-    } finally {
-      setApplyingCredit(false)
-    }
-  }
 
   return (
     <div className="flex flex-col gap-4">
@@ -223,7 +185,7 @@ export default function BillsPage() {
                                   { label: "Mark as Received", icon: <PackageCheck className="h-3.5 w-3.5" />, onClick: () => updateBillStatus.mutate({ id: bill.id, status: "received" }), dividerBefore: true, disabled: !isDraft },
                                   { label: "Approve Bill", icon: <PackageCheck className="h-3.5 w-3.5" />, onClick: () => updateBillStatus.mutate({ id: bill.id, status: "outstanding" }), disabled: !isReceived },
                                   { label: "Add Payment", icon: <CreditCard className="h-3.5 w-3.5" />, onClick: () => navigate(`/purchases/payments/new?bill_id=${bill.id}&contact_id=${bill.contact_id}&amount=${bill.total - (bill.amount_paid ?? 0)}`), disabled: !canPay },
-                                  { label: "Attach Vendor Credit", icon: <ArrowRightLeft className="h-3.5 w-3.5" />, onClick: () => { setCreditDialog({ open: true, bill }); setSelectedCreditId("") }, disabled: !canPay },
+                                  { label: "Convert to Debit Note", icon: <ArrowRightLeft className="h-3.5 w-3.5" />, onClick: () => navigate(`/purchases/debit-notes/new?from_bill=${bill.id}`), disabled: isDraft || isVoid },
                                   { label: "Convert to GRN", icon: <ArrowRightLeft className="h-3.5 w-3.5" />, onClick: () => navigate(`/purchases/goods-received-notes/new?from_bill=${bill.id}`), disabled: isDraft || isVoid },
                                   { label: t("invoices.duplicate"), icon: <Copy className="h-3.5 w-3.5" />, onClick: () => navigate(`/purchases/bills/new?copy=${bill.id}`) },
                                   { label: t("invoices.printPdf"), icon: <Printer className="h-3.5 w-3.5" />, onClick: () => window.print() },
@@ -274,60 +236,6 @@ export default function BillsPage() {
         ] : []}
       />
 
-      {/* Attach Vendor Credit Dialog */}
-      {creditDialog.open && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-          <div className="w-full max-w-md rounded-2xl bg-card p-6 shadow-xl">
-            <div className="flex items-center justify-between">
-              <h3 className="text-lg font-semibold text-foreground">Attach Vendor Credit</h3>
-              <button onClick={() => setCreditDialog({ open: false, bill: null })} className="text-muted-foreground hover:text-foreground">
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-            <p className="mt-2 text-sm text-muted-foreground">
-              Select an unlinked vendor credit from the same supplier to attach to <strong>{creditDialog.bill?.bill_number}</strong>.
-            </p>
-            <div className="mt-4">
-              {eligibleCredits.length === 0 ? (
-                <div className="rounded-xl border border-border bg-muted/40 px-4 py-6 text-center text-sm text-muted-foreground">
-                  No available vendor credits for this supplier.
-                </div>
-              ) : (
-                <div className="space-y-2">
-                  {eligibleCredits.map((vc: any) => (
-                    <label key={vc.id} className={cn(
-                      "flex cursor-pointer items-center gap-3 rounded-xl border p-3 transition-colors hover:bg-muted/50",
-                      selectedCreditId === vc.id ? "border-primary bg-primary/5" : "border-border"
-                    )}>
-                      <input
-                        type="radio"
-                        name="vendor_credit"
-                        checked={selectedCreditId === vc.id}
-                        onChange={() => setSelectedCreditId(vc.id)}
-                        className="h-4 w-4"
-                      />
-                      <div className="flex-1">
-                        <div className="text-sm font-medium text-foreground">{vc.vendor_credit_number}</div>
-                        <div className="text-xs text-muted-foreground">{formatDate(vc.issue_date)} · {formatCurrency(vc.total, vc.currency)}</div>
-                      </div>
-                    </label>
-                  ))}
-                </div>
-              )}
-            </div>
-            <div className="mt-6 flex justify-end gap-3">
-              <Button variant="outline" onClick={() => setCreditDialog({ open: false, bill: null })}>Cancel</Button>
-              <Button
-                onClick={handleAttachCredit}
-                disabled={!selectedCreditId || applyingCredit}
-                className="bg-gradient-to-r from-[#7C9DFF] to-[#4D63FF] text-white hover:opacity-95"
-              >
-                {applyingCredit ? "Attaching..." : "Attach Credit"}
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   )
 }

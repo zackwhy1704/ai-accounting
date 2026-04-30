@@ -39,7 +39,7 @@ export const navItems: NavItem[] = [
       { labelKey: "nav.goodsReceivedNotes", href: "/purchases/goods-received-notes" },
       { labelKey: "nav.bills", href: "/purchases/bills" },
       { labelKey: "nav.purchaseCreditNotes", href: "/purchases/credit-notes" },
-      { labelKey: "nav.vendorCredits", href: "/purchases/vendor-credits" },
+      { labelKey: "nav.purchaseDebitNotes", href: "/purchases/debit-notes" },
       { labelKey: "nav.purchasePayments", href: "/purchases/payments" },
       { labelKey: "nav.purchaseRefunds", href: "/purchases/refunds" },
     ],

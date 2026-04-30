@@ -605,6 +605,60 @@ class DebitNoteResponse(BaseModel):
     model_config = {"from_attributes": True}
 
 
+# ── Purchase Debit Note ──
+class PurchaseDebitNoteCreate(BaseModel):
+    contact_id: UUID
+    debit_note_number: str | None = None
+    bill_id: UUID | None = None
+    issue_date: datetime
+    reference: str | None = None
+    currency: str = "MYR"
+    notes: str | None = None
+    line_items: list[CreditNoteLineItemCreate]
+
+class PurchaseDebitNoteUpdate(BaseModel):
+    contact_id: UUID | None = None
+    debit_note_number: str | None = None
+    bill_id: UUID | None = None
+    issue_date: datetime | None = None
+    reference: str | None = None
+    currency: str | None = None
+    notes: str | None = None
+    line_items: list[CreditNoteLineItemCreate] | None = None
+
+class PurchaseDebitNoteLineItemResponse(BaseModel):
+    id: UUID
+    description: str
+    quantity: float
+    unit_price: float
+    tax_rate: float
+    discount: float
+    amount: float
+    line_type: str
+    tax_code_id: UUID | None
+    account_id: UUID | None
+    sort_order: int
+    model_config = {"from_attributes": True}
+
+class PurchaseDebitNoteResponse(BaseModel):
+    id: UUID
+    debit_note_number: str
+    contact_id: UUID
+    bill_id: UUID | None
+    status: str
+    issue_date: datetime
+    reference: str | None
+    subtotal: float
+    discount_amount: float
+    tax_amount: float
+    total: float
+    currency: str
+    notes: str | None
+    created_at: datetime
+    line_items: list[PurchaseDebitNoteLineItemResponse] = []
+    model_config = {"from_attributes": True}
+
+
 # ── Sales Payment ──
 class PaymentAllocationCreate(BaseModel):
     invoice_id: UUID
