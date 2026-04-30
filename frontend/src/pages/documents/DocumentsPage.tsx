@@ -1027,7 +1027,8 @@ function VendorHintedCategoryPicker({
   )
 }
 
-/* Searchable account picker for journal line rows */
+/* Searchable account picker for journal line rows — uses fixed positioning
+   to escape any overflow:hidden ancestor (the journal table wrapper). */
 function AccountPicker({
   code, name, accounts, onChange,
 }: {
@@ -1038,35 +1039,57 @@ function AccountPicker({
 }) {
   const [open, setOpen] = useState(false)
   const [search, setSearch] = useState("")
-  const ref = useRef<HTMLDivElement>(null)
+  const [rect, setRect] = useState<DOMRect | null>(null)
+  const btnRef = useRef<HTMLButtonElement>(null)
 
-  // Close on outside click
   useEffect(() => {
+    if (!open) return
     const handler = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
+      const target = e.target as Node
+      if (btnRef.current && !btnRef.current.closest("[data-account-picker]")?.contains(target)) {
+        setOpen(false)
+      }
     }
     document.addEventListener("mousedown", handler)
     return () => document.removeEventListener("mousedown", handler)
-  }, [])
+  }, [open])
+
+  const handleOpen = () => {
+    if (!open && btnRef.current) {
+      setRect(btnRef.current.getBoundingClientRect())
+    }
+    setOpen(o => !o)
+    setSearch("")
+  }
 
   const filtered = accounts.filter(a => {
     const q = search.toLowerCase()
     return a.code.toLowerCase().includes(q) || a.name.toLowerCase().includes(q)
-  }).slice(0, 30)
+  }).slice(0, 50)
 
   const display = code ? `${code} – ${name}` : name || "Select account…"
 
   return (
-    <div ref={ref} className="relative w-full">
+    <div data-account-picker className="w-full">
       <button
+        ref={btnRef}
         type="button"
-        onClick={() => { setOpen(o => !o); setSearch("") }}
+        onClick={handleOpen}
         className="w-full text-left rounded px-1.5 py-0.5 text-xs text-foreground bg-transparent hover:bg-muted/40 focus:outline-none focus:ring-1 focus:ring-primary/40 truncate"
       >
         {display}
       </button>
-      {open && (
-        <div className="absolute left-0 top-full z-[200] mt-0.5 w-80 rounded-lg border border-border bg-popover shadow-xl">
+      {open && rect && (
+        <div
+          style={{
+            position: "fixed",
+            top: rect.bottom + 4,
+            left: rect.left,
+            width: 320,
+            zIndex: 9999,
+          }}
+          className="rounded-lg border border-border bg-popover shadow-2xl"
+        >
           <div className="p-2 border-b border-border">
             <input
               autoFocus
@@ -1076,7 +1099,7 @@ function AccountPicker({
               className="w-full rounded-md bg-muted/40 px-2 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-primary/40"
             />
           </div>
-          <ul className="max-h-72 overflow-y-auto py-1">
+          <ul className="max-h-64 overflow-y-auto py-1">
             {filtered.length === 0 && (
               <li className="px-3 py-2 text-xs text-muted-foreground">No accounts found</li>
             )}
@@ -1085,7 +1108,11 @@ function AccountPicker({
                 <button
                   type="button"
                   className="w-full text-left px-3 py-1.5 text-xs hover:bg-muted/60 flex items-center gap-2"
-                  onClick={() => { onChange(a.code, a.name); setOpen(false) }}
+                  onMouseDown={e => {
+                    e.preventDefault()
+                    onChange(a.code, a.name)
+                    setOpen(false)
+                  }}
                 >
                   <span className="font-mono text-muted-foreground w-12 shrink-0">{a.code}</span>
                   <span className="truncate">{a.name}</span>
