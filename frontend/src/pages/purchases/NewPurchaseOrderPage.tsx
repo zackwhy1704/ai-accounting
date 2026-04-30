@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useMemo } from "react"
 import { useNavigate, useSearchParams } from "react-router-dom"
 import { Plus, Trash2, Loader2 } from "lucide-react"
-import { useContacts, useAccounts, useCreatePurchaseOrder, useTaxRates, usePurchaseOrder } from "../../lib/hooks"
+import { useContacts, useCreatePurchaseOrder, useTaxRates, usePurchaseOrder } from "../../lib/hooks"
 import { getContactPrefs, saveContactPref } from "../../lib/contact-prefs"
 import { useQuery } from "@tanstack/react-query"
 import api from "../../lib/api"
@@ -40,7 +40,6 @@ export default function NewPurchaseOrderPage() {
   const [searchParams] = useSearchParams()
   const { toast } = useToast()
   const { data: contacts = [] } = useContacts()
-  const { data: accounts = [] } = useAccounts()
   const { data: taxRates = [] } = useTaxRates()
   const createPO = useCreatePurchaseOrder()
 
@@ -243,7 +242,6 @@ export default function NewPurchaseOrderPage() {
                 <TableHead className="w-10 text-center text-muted-foreground">#</TableHead>
                 <TableHead className="w-[100px] text-muted-foreground">Type</TableHead>
                 <TableHead className="min-w-[180px] text-muted-foreground">Description</TableHead>
-                <TableHead className="w-[160px] text-muted-foreground">Account</TableHead>
                 <TableHead className="w-[80px] text-muted-foreground">Qty</TableHead>
                 <TableHead className="w-[110px] text-muted-foreground">Unit Price</TableHead>
                 <TableHead className="w-[140px] text-muted-foreground">Discount</TableHead>
@@ -269,14 +267,6 @@ export default function NewPurchaseOrderPage() {
                   </TableCell>
                   <TableCell>
                     <Input value={item.description} onChange={e => updateLine(idx, "description", e.target.value)} placeholder="Description" className="h-9 rounded-lg border-0 bg-transparent px-1 text-sm shadow-none focus-visible:ring-1" />
-                  </TableCell>
-                  <TableCell>
-                    <SearchableSelect
-                      value={item.account_id}
-                      onChange={v => updateLine(idx, "account_id", v)}
-                      placeholder="Account"
-                      options={accounts.map((a: any) => ({ value: a.id, label: `${a.code} – ${a.name}`, hint: a.code }))}
-                    />
                   </TableCell>
                   {item.line_type === "services" ? (
                     <TableCell className="text-center text-xs text-muted-foreground">—</TableCell>
