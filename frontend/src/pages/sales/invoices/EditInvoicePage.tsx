@@ -72,7 +72,7 @@ export default function EditInvoicePage() {
         unit_price: l.unit_price ?? 0,
         amount: l.amount ?? 0,
         discount: l.discount ?? 0,
-        discount_mode: l.discount_mode ?? "percent",
+        discount_mode: (l.discount_mode === "amount" ? "amount" : "percent") as "percent" | "amount",
         tax_rate: l.tax_rate ?? 0,
         line_type: l.line_type ?? "goods",
         tax_code_id: l.tax_code_id ? String(l.tax_code_id) : "",
@@ -160,20 +160,17 @@ export default function EditInvoicePage() {
         billing_state: billingState || null,
         billing_postcode: billingPostcode || null,
         billing_country: billingCountry || null,
-        line_items: lineItems.map(li => {
-          const lineTotal = li.quantity * li.unit_price
-          const discAmt = lineDiscountAmount(li)
-          return {
-            description: li.description,
-            account_id: li.account_id || undefined,
-            quantity: li.quantity,
-            unit_price: li.unit_price,
-            tax_rate: li.tax_rate,
-            tax_code_id: li.tax_code_id || undefined,
-            line_type: li.line_type,
-            discount: li.discount_mode === "amount" ? (lineTotal > 0 ? (discAmt / lineTotal) * 100 : 0) : li.discount,
-          }
-        }),
+        line_items: lineItems.map(li => ({
+          description: li.description,
+          account_id: li.account_id || undefined,
+          quantity: li.quantity,
+          unit_price: li.unit_price,
+          tax_rate: li.tax_rate,
+          tax_code_id: li.tax_code_id || undefined,
+          line_type: li.line_type,
+          discount: li.discount,
+          discount_mode: li.discount_mode,
+        })),
       })
       navigate("/sales/invoices")
     } catch {

@@ -3,6 +3,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, delete
 from sqlalchemy.orm import selectinload
 from uuid import UUID
+from datetime import datetime, timezone
+from pydantic import BaseModel
 from app.core.database import get_db
 from app.core.security import get_current_user
 from app.models.models import (
@@ -14,6 +16,12 @@ from app.schemas.schemas import InvoiceCreate, InvoiceUpdate, InvoiceResponse
 from .gl_helpers import post_gl, revert_gl
 
 router = APIRouter(prefix="/invoices", tags=["Invoices"])
+
+
+def _disc_amount(item_discount: float, discount_mode: str, line_total: float) -> float:
+    if discount_mode == "amount":
+        return min(item_discount, line_total)
+    return line_total * (item_discount / 100)
 
 
 @router.get("", response_model=list[InvoiceResponse])
@@ -49,7 +57,8 @@ async def create_invoice(
     tax_amount = 0
     for item in data.line_items:
         line_total = item.quantity * item.unit_price
-        after_disc = line_total - (line_total * (item.discount or 0) / 100)
+        disc = _disc_amount(item.discount or 0, item.discount_mode, line_total)
+        after_disc = line_total - disc
         tax = after_disc * (item.tax_rate / 100)
         subtotal += after_disc
         tax_amount += tax
@@ -79,7 +88,8 @@ async def create_invoice(
     # Add line items — no GL entries at draft stage
     for i, item in enumerate(data.line_items):
         line_total = item.quantity * item.unit_price
-        after_disc = line_total - (line_total * (item.discount or 0) / 100)
+        disc = _disc_amount(item.discount or 0, item.discount_mode, line_total)
+        after_disc = line_total - disc
         db.add(InvoiceLineItem(
             invoice_id=invoice.id,
             line_type=item.line_type,
@@ -89,6 +99,7 @@ async def create_invoice(
             tax_rate=item.tax_rate,
             tax_code_id=item.tax_code_id,
             discount=item.discount or 0,
+            discount_mode=item.discount_mode,
             amount=after_disc,
             account_id=item.account_id,
             sort_order=i,
@@ -148,7 +159,8 @@ async def update_invoice(
         tax_amount = 0
         for item in data.line_items:
             line_total = item.quantity * item.unit_price
-            after_disc = line_total - (line_total * (item.discount or 0) / 100)
+            disc = _disc_amount(item.discount or 0, item.discount_mode, line_total)
+            after_disc = line_total - disc
             tax = after_disc * (item.tax_rate / 100)
             subtotal += after_disc
             tax_amount += tax
@@ -160,7 +172,8 @@ async def update_invoice(
         # Insert new line items
         for i, item in enumerate(data.line_items):
             line_total = item.quantity * item.unit_price
-            after_disc = line_total - (line_total * (item.discount or 0) / 100)
+            disc = _disc_amount(item.discount or 0, item.discount_mode, line_total)
+            after_disc = line_total - disc
             db.add(InvoiceLineItem(
                 invoice_id=invoice.id,
                 line_type=item.line_type,
@@ -170,6 +183,7 @@ async def update_invoice(
                 tax_rate=item.tax_rate,
                 tax_code_id=item.tax_code_id,
                 discount=item.discount or 0,
+                discount_mode=item.discount_mode,
                 amount=after_disc,
                 account_id=item.account_id,
                 sort_order=i,
@@ -398,3 +412,108 @@ async def delete_invoice(
     )
     await db.delete(invoice)
     await db.commit()
+
+
+class ApplyCreditRequest(BaseModel):
+    target_invoice_id: UUID
+    amount: float
+
+
+@router.post("/{invoice_id}/apply-overpaid")
+async def apply_overpaid_to_invoice(
+    invoice_id: UUID,
+    body: ApplyCreditRequest,
+    current_user: dict = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Apply the overpaid credit from one invoice to reduce the balance of another."""
+    org_id = current_user["org_id"]
+
+    src = (await db.execute(
+        select(Invoice).where(Invoice.id == invoice_id, Invoice.organization_id == org_id)
+    )).scalar_one_or_none()
+    if not src:
+        raise HTTPException(status_code=404, detail="Source invoice not found")
+
+    overpaid = float(src.amount_paid or 0) - float(src.total or 0)
+    if overpaid <= 0:
+        raise HTTPException(status_code=400, detail="Invoice is not overpaid")
+    if body.amount <= 0 or body.amount > overpaid:
+        raise HTTPException(status_code=400, detail=f"Amount must be between 0 and {overpaid:.2f}")
+
+    tgt = (await db.execute(
+        select(Invoice).where(Invoice.id == body.target_invoice_id, Invoice.organization_id == org_id)
+    )).scalar_one_or_none()
+    if not tgt:
+        raise HTTPException(status_code=404, detail="Target invoice not found")
+    if tgt.id == src.id:
+        raise HTTPException(status_code=400, detail="Cannot apply to the same invoice")
+
+    # Deduct from source's effective overpaid amount by reducing amount_paid
+    src.amount_paid = float(src.amount_paid or 0) - body.amount
+    if src.amount_paid <= float(src.total or 0):
+        src.status = "paid"
+
+    # Apply to target invoice
+    tgt.amount_paid = float(tgt.amount_paid or 0) + body.amount
+    if tgt.amount_paid >= float(tgt.total or 0):
+        tgt.status = "paid"
+
+    await db.commit()
+    return {"applied": body.amount, "source_invoice_id": str(invoice_id), "target_invoice_id": str(body.target_invoice_id)}
+
+
+class RefundOverpaidRequest(BaseModel):
+    amount: float
+    payment_date: str | None = None
+    notes: str | None = None
+
+
+@router.post("/{invoice_id}/refund-overpaid")
+async def refund_overpaid(
+    invoice_id: UUID,
+    body: RefundOverpaidRequest,
+    current_user: dict = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Issue a refund for the overpaid amount on an invoice."""
+    org_id = current_user["org_id"]
+
+    inv = (await db.execute(
+        select(Invoice).where(Invoice.id == invoice_id, Invoice.organization_id == org_id)
+    )).scalar_one_or_none()
+    if not inv:
+        raise HTTPException(status_code=404, detail="Invoice not found")
+
+    overpaid = float(inv.amount_paid or 0) - float(inv.total or 0)
+    if overpaid <= 0:
+        raise HTTPException(status_code=400, detail="Invoice is not overpaid")
+    if body.amount <= 0 or body.amount > overpaid:
+        raise HTTPException(status_code=400, detail=f"Amount must be between 0 and {overpaid:.2f}")
+
+    from .sales import next_sequence_number, SalesRefund
+    ref_number = await next_sequence_number(db, SalesRefund, SalesRefund.refund_number, org_id, "REF")
+    if body.payment_date:
+        refund_date = datetime.fromisoformat(body.payment_date).replace(tzinfo=timezone.utc)
+    else:
+        refund_date = datetime.now(timezone.utc)
+
+    refund = SalesRefund(
+        organization_id=org_id,
+        contact_id=inv.contact_id,
+        refund_number=ref_number,
+        refund_date=refund_date,
+        amount=body.amount,
+        status="completed",
+        notes=body.notes or f"Refund of overpayment on invoice {inv.invoice_number}",
+        currency=inv.currency or "MYR",
+    )
+    db.add(refund)
+
+    # Deduct from invoice amount_paid
+    inv.amount_paid = float(inv.amount_paid or 0) - body.amount
+    if inv.amount_paid <= float(inv.total or 0):
+        inv.status = "paid"
+
+    await db.commit()
+    return {"refund_number": ref_number, "amount": body.amount}

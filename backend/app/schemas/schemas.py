@@ -149,6 +149,7 @@ class LineItemCreate(BaseModel):
     tax_rate: float = 0.0
     tax_code_id: UUID | None = None
     discount: float = 0.0
+    discount_mode: str = "percent"  # percent | amount
     account_id: UUID | None = None
 
 class LineItemResponse(BaseModel):
@@ -159,9 +160,11 @@ class LineItemResponse(BaseModel):
     tax_rate: float
     tax_code_id: UUID | None = None
     discount: float = 0.0
+    discount_mode: str = "percent"
     account_id: UUID | None = None
     amount: float
     sort_order: int = 0
+    line_type: str = "goods"
     model_config = {"from_attributes": True}
 
 class InvoiceCreate(BaseModel):

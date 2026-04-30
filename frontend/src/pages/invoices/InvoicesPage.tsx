@@ -1,9 +1,12 @@
 import { useMemo, useState } from "react"
 import { useNavigate } from "react-router-dom"
-import { Plus, Search, CreditCard, FileText, Copy, Printer, XCircle, Truck, Pencil, Send, Trash2 } from "lucide-react"
+import { Plus, Search, CreditCard, FileText, Copy, Printer, XCircle, Truck, Pencil, Send, Trash2, ArrowRightLeft, RotateCcw } from "lucide-react"
 import { useInvoices, useContacts, useUpdateInvoiceStatus, useDeleteInvoice } from "../../lib/hooks"
+import { useQueryClient } from "@tanstack/react-query"
+import api from "../../lib/api"
 import { formatCurrency, formatDate, cn } from "../../lib/utils"
 import { useTheme } from "../../lib/theme"
+import { useToast } from "../../components/ui/toast"
 import { Card } from "../../components/ui/card"
 import { Button } from "../../components/ui/button"
 import { Input } from "../../components/ui/input"
@@ -20,18 +23,32 @@ const statusColors: Record<string, string> = {
   overdue: "bg-rose-500/10 text-rose-700 border-rose-400/20",
   "partially paid": "bg-amber-500/10 text-amber-700 border-amber-400/20",
   paid: "bg-emerald-500/10 text-emerald-700 border-emerald-400/20",
+  overpaid: "bg-violet-500/10 text-violet-700 border-violet-400/20",
   void: "bg-slate-500/10 text-slate-500 border-slate-300/20",
 }
+
+type OverpaidInvoice = { id: string; invoice_number: string; contact_id: string; total: number; amount_paid: number }
 
 export default function InvoicesPage() {
   const navigate = useNavigate()
   const updateInvoiceStatus = useUpdateInvoiceStatus()
   const deleteInvoice = useDeleteInvoice()
+  const qc = useQueryClient()
+  const { toast } = useToast()
   const [tab, setTab] = useState("all")
   const [search, setSearch] = useState("")
   const [contactFilter, setContactFilter] = useState("all")
   const [dateFrom, setDateFrom] = useState("")
   const [dateTo, setDateTo] = useState("")
+
+  // Overpaid dialogs
+  const [applyDialog, setApplyDialog] = useState<{ open: boolean; inv: OverpaidInvoice | null }>({ open: false, inv: null })
+  const [refundDialog, setRefundDialog] = useState<{ open: boolean; inv: OverpaidInvoice | null }>({ open: false, inv: null })
+  const [applyTargetId, setApplyTargetId] = useState("")
+  const [applyAmount, setApplyAmount] = useState("")
+  const [refundAmount, setRefundAmount] = useState("")
+  const [refundDate, setRefundDate] = useState(new Date().toISOString().slice(0, 10))
+  const [overpaidBusy, setOverpaidBusy] = useState(false)
 
   const { data: invoices = [], isLoading } = useInvoices(tab === "all" ? undefined : tab)
   const { data: contacts = [] } = useContacts()
@@ -66,6 +83,53 @@ export default function InvoicesPage() {
     if (dateTo) filtered = filtered.filter(i => (i.issue_date || "") <= dateTo)
     return filtered
   }, [invoices, search, contactMap, contactFilter, dateFrom, dateTo])
+
+  const overpaidOf = (inv: any) => Math.max(0, (inv.amount_paid ?? 0) - inv.total)
+  const displayStatus = (inv: any) => overpaidOf(inv) > 0 ? "overpaid" : inv.status
+
+  const handleApplyCredit = async () => {
+    if (!applyDialog.inv || !applyTargetId || !applyAmount) return
+    setOverpaidBusy(true)
+    try {
+      await api.post(`/invoices/${applyDialog.inv.id}/apply-overpaid`, { target_invoice_id: applyTargetId, amount: Number(applyAmount) })
+      qc.invalidateQueries({ queryKey: ["invoices"] })
+      toast("Overpaid amount applied to invoice", "success")
+      setApplyDialog({ open: false, inv: null })
+      setApplyTargetId("")
+      setApplyAmount("")
+    } catch (e: any) {
+      toast(e?.response?.data?.detail ?? "Failed to apply credit", "warning")
+    } finally {
+      setOverpaidBusy(false)
+    }
+  }
+
+  const handleRefundOverpaid = async () => {
+    if (!refundDialog.inv || !refundAmount) return
+    setOverpaidBusy(true)
+    try {
+      await api.post(`/invoices/${refundDialog.inv.id}/refund-overpaid`, { amount: Number(refundAmount), payment_date: refundDate })
+      qc.invalidateQueries({ queryKey: ["invoices"] })
+      toast("Refund created successfully", "success")
+      setRefundDialog({ open: false, inv: null })
+      setRefundAmount("")
+    } catch (e: any) {
+      toast(e?.response?.data?.detail ?? "Failed to create refund", "warning")
+    } finally {
+      setOverpaidBusy(false)
+    }
+  }
+
+  // Outstanding invoices for the same customer (for apply-credit target)
+  const applyTargetOptions = useMemo(() => {
+    if (!applyDialog.inv) return []
+    return invoices.filter((i: any) =>
+      i.contact_id === applyDialog.inv!.contact_id &&
+      i.id !== applyDialog.inv!.id &&
+      !["void", "paid"].includes(i.status) &&
+      (i.total - (i.amount_paid ?? 0)) > 0
+    )
+  }, [invoices, applyDialog.inv])
 
   return (
     <div className="flex flex-col gap-4">
@@ -145,15 +209,19 @@ export default function InvoicesPage() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {rows.map(inv => (
+                    {rows.map(inv => {
+                      const overpaid = overpaidOf(inv)
+                      const ds = displayStatus(inv)
+                      const balance = inv.total - (inv.amount_paid ?? 0)
+                      return (
                       <TableRow key={inv.id} className="border-border hover:bg-muted/50">
                         <TableCell className="font-medium text-foreground">{inv.invoice_number}</TableCell>
                         <TableCell className="text-muted-foreground">{formatDate(inv.issue_date)}</TableCell>
                         <TableCell className="text-foreground">{contactMap.get(inv.contact_id) ?? "—"}</TableCell>
                         <TableCell className="text-right text-foreground">{formatCurrency(inv.total)}</TableCell>
-                        <TableCell className="text-right text-muted-foreground">{formatCurrency(inv.total - (inv.amount_paid ?? 0))}</TableCell>
+                        <TableCell className={cn("text-right", balance < 0 ? "text-violet-600 font-semibold" : "text-muted-foreground")}>{formatCurrency(balance)}</TableCell>
                         <TableCell>
-                          <Badge variant="outline" className={cn("rounded-lg px-2 py-0.5 text-[11px] font-semibold", statusColors[inv.status] ?? "")}>{inv.status.charAt(0).toUpperCase() + inv.status.slice(1)}</Badge>
+                          <Badge variant="outline" className={cn("rounded-lg px-2 py-0.5 text-[11px] font-semibold", statusColors[ds] ?? "")}>{ds.charAt(0).toUpperCase() + ds.slice(1)}</Badge>
                         </TableCell>
                         <TableCell className="text-right">
                           <RowActionsMenu actions={[
@@ -161,6 +229,10 @@ export default function InvoicesPage() {
                             { label: "Mark as Sent", icon: <Send className="h-3.5 w-3.5" />, onClick: () => updateInvoiceStatus.mutate({ id: inv.id, status: "sent" }), dividerBefore: true, disabled: inv.status !== "draft" },
                             { label: t("invoices.addPayment"), icon: <CreditCard className="h-3.5 w-3.5" />, onClick: () => navigate(`/sales/payments/new?invoice_id=${inv.id}`), disabled: inv.status === "void" || inv.status === "draft" },
                             { label: t("invoices.creditNote"), icon: <FileText className="h-3.5 w-3.5" />, onClick: () => navigate(`/sales/credit-notes/new?invoice_id=${inv.id}`) },
+                            ...(overpaid > 0 ? [
+                              { label: "Apply to Another Invoice", icon: <ArrowRightLeft className="h-3.5 w-3.5" />, onClick: () => { setApplyDialog({ open: true, inv: inv as any }); setApplyAmount(overpaid.toFixed(2)); setApplyTargetId("") }, dividerBefore: true },
+                              { label: "Refund to Customer", icon: <RotateCcw className="h-3.5 w-3.5" />, onClick: () => { setRefundDialog({ open: true, inv: inv as any }); setRefundAmount(overpaid.toFixed(2)); setRefundDate(new Date().toISOString().slice(0, 10)) } },
+                            ] : []),
                             { label: t("invoices.duplicate"), icon: <Copy className="h-3.5 w-3.5" />, onClick: () => navigate(`/sales/invoices/new?copy=${inv.id}`), dividerBefore: true },
                             { label: t("invoices.printPdf"), icon: <Printer className="h-3.5 w-3.5" />, onClick: () => window.print() },
                             { label: t("invoices.convertToDelivery"), icon: <Truck className="h-3.5 w-3.5" />, onClick: () => navigate(`/sales/delivery-orders/new?invoice_id=${inv.id}`), dividerBefore: true },
@@ -169,7 +241,8 @@ export default function InvoicesPage() {
                           ]} />
                         </TableCell>
                       </TableRow>
-                    ))}
+                      )
+                    })}
                   </TableBody>
                 </Table>
               </div>
@@ -177,6 +250,72 @@ export default function InvoicesPage() {
           </div>
         </Tabs>
       </Card>
+
+      {/* Apply Overpaid to Another Invoice */}
+      {applyDialog.open && applyDialog.inv && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="w-full max-w-md rounded-2xl bg-card p-6 shadow-xl">
+            <h3 className="text-base font-semibold text-foreground">Apply Overpaid Credit</h3>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Invoice <strong>{applyDialog.inv.invoice_number}</strong> has an overpaid amount of <strong>{formatCurrency(overpaidOf(applyDialog.inv))}</strong>. Apply it to reduce another outstanding invoice.
+            </p>
+            <div className="mt-4 space-y-3">
+              <div>
+                <label className="text-xs font-medium text-muted-foreground">Target Invoice</label>
+                <Select value={applyTargetId} onValueChange={setApplyTargetId}>
+                  <SelectTrigger className="mt-1.5 h-10 rounded-xl"><SelectValue placeholder="Select invoice" /></SelectTrigger>
+                  <SelectContent>
+                    {applyTargetOptions.length === 0
+                      ? <SelectItem value="__none__" disabled>No outstanding invoices for this customer</SelectItem>
+                      : applyTargetOptions.map((i: any) => (
+                          <SelectItem key={i.id} value={i.id}>{i.invoice_number} — Balance {formatCurrency(i.total - (i.amount_paid ?? 0))}</SelectItem>
+                        ))
+                    }
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <label className="text-xs font-medium text-muted-foreground">Amount to Apply</label>
+                <Input type="number" min={0.01} step={0.01} max={overpaidOf(applyDialog.inv)} value={applyAmount} onChange={e => setApplyAmount(e.target.value)} className="mt-1.5 h-10 rounded-xl" />
+              </div>
+            </div>
+            <div className="mt-5 flex justify-end gap-3">
+              <Button variant="outline" onClick={() => setApplyDialog({ open: false, inv: null })}>Cancel</Button>
+              <Button onClick={handleApplyCredit} disabled={overpaidBusy || !applyTargetId || !applyAmount} className="bg-gradient-to-r from-[#7C9DFF] to-[#4D63FF] text-white hover:opacity-95">
+                {overpaidBusy ? "Applying..." : "Apply Credit"}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Refund Overpaid to Customer */}
+      {refundDialog.open && refundDialog.inv && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="w-full max-w-md rounded-2xl bg-card p-6 shadow-xl">
+            <h3 className="text-base font-semibold text-foreground">Refund to Customer</h3>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Invoice <strong>{refundDialog.inv.invoice_number}</strong> was overpaid by <strong>{formatCurrency(overpaidOf(refundDialog.inv))}</strong>. Issue a refund to the customer.
+            </p>
+            <div className="mt-4 space-y-3">
+              <div>
+                <label className="text-xs font-medium text-muted-foreground">Refund Amount</label>
+                <Input type="number" min={0.01} step={0.01} max={overpaidOf(refundDialog.inv)} value={refundAmount} onChange={e => setRefundAmount(e.target.value)} className="mt-1.5 h-10 rounded-xl" />
+              </div>
+              <div>
+                <label className="text-xs font-medium text-muted-foreground">Refund Date</label>
+                <Input type="date" value={refundDate} onChange={e => setRefundDate(e.target.value)} className="mt-1.5 h-10 rounded-xl" />
+              </div>
+            </div>
+            <div className="mt-5 flex justify-end gap-3">
+              <Button variant="outline" onClick={() => setRefundDialog({ open: false, inv: null })}>Cancel</Button>
+              <Button onClick={handleRefundOverpaid} disabled={overpaidBusy || !refundAmount} className="bg-gradient-to-r from-emerald-500 to-emerald-600 text-white hover:opacity-95">
+                {overpaidBusy ? "Processing..." : "Issue Refund"}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
