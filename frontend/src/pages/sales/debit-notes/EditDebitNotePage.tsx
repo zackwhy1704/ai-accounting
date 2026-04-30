@@ -58,6 +58,20 @@ export default function EditDebitNotePage() {
   const [lines, setLines] = useState<LineItem[]>([emptyLine()])
   const [, setCurrency] = useState("MYR")
 
+  const [billingLine1, setBillingLine1] = useState("")
+  const [billingLine2, setBillingLine2] = useState("")
+  const [billingCity, setBillingCity] = useState("")
+  const [billingState, setBillingState] = useState("")
+  const [billingPostcode, setBillingPostcode] = useState("")
+  const [billingCountry, setBillingCountry] = useState("")
+
+  const [shippingLine1, setShippingLine1] = useState("")
+  const [shippingLine2, setShippingLine2] = useState("")
+  const [shippingCity, setShippingCity] = useState("")
+  const [shippingState, setShippingState] = useState("")
+  const [shippingPostcode, setShippingPostcode] = useState("")
+  const [shippingCountry, setShippingCountry] = useState("")
+
   useEffect(() => {
     if (!debitNote || populated.current) return
     setDebitNoteNumber(debitNote.debit_note_number ?? "")
@@ -65,6 +79,18 @@ export default function EditDebitNotePage() {
     setLinkedInvoiceId(String(debitNote.invoice_id ?? ""))
     setDate(debitNote.issue_date?.slice(0, 10) ?? new Date().toISOString().slice(0, 10))
     setReference(debitNote.reference ?? "")
+    setBillingLine1(debitNote.billing_address_line1 ?? "")
+    setBillingLine2(debitNote.billing_address_line2 ?? "")
+    setBillingCity(debitNote.billing_city ?? "")
+    setBillingState(debitNote.billing_state ?? "")
+    setBillingPostcode(debitNote.billing_postcode ?? "")
+    setBillingCountry(debitNote.billing_country ?? "")
+    setShippingLine1(debitNote.shipping_address_line1 ?? "")
+    setShippingLine2(debitNote.shipping_address_line2 ?? "")
+    setShippingCity(debitNote.shipping_city ?? "")
+    setShippingState(debitNote.shipping_state ?? "")
+    setShippingPostcode(debitNote.shipping_postcode ?? "")
+    setShippingCountry(debitNote.shipping_country ?? "")
     if (debitNote.line_items?.length) {
       setLines(debitNote.line_items.map((l: any) => ({
         id: crypto.randomUUID(),
@@ -73,7 +99,7 @@ export default function EditDebitNotePage() {
         quantity: l.quantity ?? 1,
         unitPrice: l.unit_price ?? 0,
         discount: l.discount ?? 0,
-        discount_mode: l.discount_mode ?? "percent",
+        discount_mode: (l.discount_mode === "amount" ? "amount" : "percent") as "percent" | "amount",
         taxRate: l.tax_rate ?? 0,
         taxCodeId: l.tax_code_id ? String(l.tax_code_id) : "",
       })))
@@ -87,6 +113,15 @@ export default function EditDebitNotePage() {
     if (v === "__add_new__") { navigate("/contacts/new"); return }
     setCustomerId(v)
     setLinkedInvoiceId("")
+    const contact = contacts.find((c: any) => c.id === v) as any
+    if (contact) {
+      setBillingLine1(contact.billing_address_line1 ?? "")
+      setBillingLine2(contact.billing_address_line2 ?? "")
+      setBillingCity(contact.billing_city ?? "")
+      setBillingState(contact.billing_state ?? "")
+      setBillingPostcode(contact.billing_postcode ?? "")
+      setBillingCountry(contact.billing_country ?? "")
+    }
     const prefs = getContactPrefs(v)
     if (prefs.currency) setCurrency(prefs.currency)
   }
@@ -123,6 +158,18 @@ export default function EditDebitNotePage() {
         issue_date: date,
         reference,
         notes: null,
+        billing_address_line1: billingLine1 || null,
+        billing_address_line2: billingLine2 || null,
+        billing_city: billingCity || null,
+        billing_state: billingState || null,
+        billing_postcode: billingPostcode || null,
+        billing_country: billingCountry || null,
+        shipping_address_line1: shippingLine1 || null,
+        shipping_address_line2: shippingLine2 || null,
+        shipping_city: shippingCity || null,
+        shipping_state: shippingState || null,
+        shipping_postcode: shippingPostcode || null,
+        shipping_country: shippingCountry || null,
         line_items: lines.map(l => ({
           description: l.description,
           account_id: l.accountId || undefined,
@@ -169,7 +216,7 @@ export default function EditDebitNotePage() {
                 value={customerId}
                 onChange={handleCustomerChange}
                 placeholder="Search or select customer"
-                options={customers.map((c: any) => ({ value: c.id, label: c.name, hint: c.email ?? "" }))}
+                options={customers.map((c: any) => ({ value: c.id, label: c.name, hint: (c as any).email ?? "" }))}
                 footerAction={{ label: "+ Add New Customer", onClick: () => navigate("/contacts/new") }}
               />
             </div>
@@ -189,6 +236,40 @@ export default function EditDebitNotePage() {
             <div>
               <label className="text-xs font-medium text-muted-foreground">Reference</label>
               <Input value={reference} onChange={e => setReference(e.target.value)} placeholder="Enter reference" className="mt-1.5 h-10 rounded-xl" />
+            </div>
+          </div>
+
+          {/* Billing & Shipping Address */}
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+            <div className="rounded-xl border border-border p-4">
+              <div className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Billing Address</div>
+              <div className="flex flex-col gap-2">
+                <Input value={billingLine1} onChange={e => setBillingLine1(e.target.value)} placeholder="Address Line 1" className="h-9 rounded-lg" />
+                <Input value={billingLine2} onChange={e => setBillingLine2(e.target.value)} placeholder="Address Line 2" className="h-9 rounded-lg" />
+                <div className="grid grid-cols-2 gap-2">
+                  <Input value={billingCity} onChange={e => setBillingCity(e.target.value)} placeholder="City" className="h-9 rounded-lg" />
+                  <Input value={billingState} onChange={e => setBillingState(e.target.value)} placeholder="State" className="h-9 rounded-lg" />
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <Input value={billingPostcode} onChange={e => setBillingPostcode(e.target.value)} placeholder="Postcode" className="h-9 rounded-lg" />
+                  <Input value={billingCountry} onChange={e => setBillingCountry(e.target.value)} placeholder="Country" className="h-9 rounded-lg" />
+                </div>
+              </div>
+            </div>
+            <div className="rounded-xl border border-border p-4">
+              <div className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Shipping Address</div>
+              <div className="flex flex-col gap-2">
+                <Input value={shippingLine1} onChange={e => setShippingLine1(e.target.value)} placeholder="Address Line 1" className="h-9 rounded-lg" />
+                <Input value={shippingLine2} onChange={e => setShippingLine2(e.target.value)} placeholder="Address Line 2" className="h-9 rounded-lg" />
+                <div className="grid grid-cols-2 gap-2">
+                  <Input value={shippingCity} onChange={e => setShippingCity(e.target.value)} placeholder="City" className="h-9 rounded-lg" />
+                  <Input value={shippingState} onChange={e => setShippingState(e.target.value)} placeholder="State" className="h-9 rounded-lg" />
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <Input value={shippingPostcode} onChange={e => setShippingPostcode(e.target.value)} placeholder="Postcode" className="h-9 rounded-lg" />
+                  <Input value={shippingCountry} onChange={e => setShippingCountry(e.target.value)} placeholder="Country" className="h-9 rounded-lg" />
+                </div>
+              </div>
             </div>
           </div>
 

@@ -55,15 +55,39 @@ export default function NewDebitNotePage() {
   const [lines, setLines] = useState<LineItem[]>([emptyLine()])
   const [, setCurrency] = useState("MYR")
 
-  const customers = contacts.filter(c => c.type === "customer" || c.type === "both")
+  const [billingLine1, setBillingLine1] = useState("")
+  const [billingLine2, setBillingLine2] = useState("")
+  const [billingCity, setBillingCity] = useState("")
+  const [billingState, setBillingState] = useState("")
+  const [billingPostcode, setBillingPostcode] = useState("")
+  const [billingCountry, setBillingCountry] = useState("")
+
+  const [shippingLine1, setShippingLine1] = useState("")
+  const [shippingLine2, setShippingLine2] = useState("")
+  const [shippingCity, setShippingCity] = useState("")
+  const [shippingState, setShippingState] = useState("")
+  const [shippingPostcode, setShippingPostcode] = useState("")
+  const [shippingCountry, setShippingCountry] = useState("")
+
+  const customers = contacts.filter((c: any) => c.type === "customer" || c.type === "both")
 
   const handleCustomerChange = (v: string) => {
     if (v === "__add_new__") { navigate("/contacts/new"); return }
     setCustomerId(v)
     setLinkedInvoiceId("")
+    const contact = contacts.find((c: any) => c.id === v) as any
+    if (contact) {
+      setBillingLine1(contact.billing_address_line1 ?? "")
+      setBillingLine2(contact.billing_address_line2 ?? "")
+      setBillingCity(contact.billing_city ?? "")
+      setBillingState(contact.billing_state ?? "")
+      setBillingPostcode(contact.billing_postcode ?? "")
+      setBillingCountry(contact.billing_country ?? "")
+    }
     const prefs = getContactPrefs(v)
     if (prefs.currency) setCurrency(prefs.currency)
   }
+
   const filteredInvoices = customerId
     ? invoices.filter((inv: any) => inv.contact_id === customerId)
     : invoices
@@ -101,6 +125,18 @@ export default function NewDebitNotePage() {
         issue_date: date,
         reference,
         notes: null,
+        billing_address_line1: billingLine1 || null,
+        billing_address_line2: billingLine2 || null,
+        billing_city: billingCity || null,
+        billing_state: billingState || null,
+        billing_postcode: billingPostcode || null,
+        billing_country: billingCountry || null,
+        shipping_address_line1: shippingLine1 || null,
+        shipping_address_line2: shippingLine2 || null,
+        shipping_city: shippingCity || null,
+        shipping_state: shippingState || null,
+        shipping_postcode: shippingPostcode || null,
+        shipping_country: shippingCountry || null,
         line_items: lines.map(l => ({
           description: l.description,
           account_id: l.accountId || undefined,
@@ -147,7 +183,7 @@ export default function NewDebitNotePage() {
                 value={customerId}
                 onChange={handleCustomerChange}
                 placeholder="Search or select customer"
-                options={customers.map(c => ({ value: c.id, label: c.name, hint: (c as any).email ?? "" }))}
+                options={customers.map((c: any) => ({ value: c.id, label: c.name, hint: (c as any).email ?? "" }))}
                 footerAction={{ label: "+ Add New Customer", onClick: () => navigate("/contacts/new") }}
               />
             </div>
@@ -183,6 +219,40 @@ export default function NewDebitNotePage() {
                 placeholder="Enter reference"
                 className="mt-1.5 h-10 rounded-xl"
               />
+            </div>
+          </div>
+
+          {/* Billing & Shipping Address */}
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+            <div className="rounded-xl border border-border p-4">
+              <div className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Billing Address</div>
+              <div className="flex flex-col gap-2">
+                <Input value={billingLine1} onChange={e => setBillingLine1(e.target.value)} placeholder="Address Line 1" className="h-9 rounded-lg" />
+                <Input value={billingLine2} onChange={e => setBillingLine2(e.target.value)} placeholder="Address Line 2" className="h-9 rounded-lg" />
+                <div className="grid grid-cols-2 gap-2">
+                  <Input value={billingCity} onChange={e => setBillingCity(e.target.value)} placeholder="City" className="h-9 rounded-lg" />
+                  <Input value={billingState} onChange={e => setBillingState(e.target.value)} placeholder="State" className="h-9 rounded-lg" />
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <Input value={billingPostcode} onChange={e => setBillingPostcode(e.target.value)} placeholder="Postcode" className="h-9 rounded-lg" />
+                  <Input value={billingCountry} onChange={e => setBillingCountry(e.target.value)} placeholder="Country" className="h-9 rounded-lg" />
+                </div>
+              </div>
+            </div>
+            <div className="rounded-xl border border-border p-4">
+              <div className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Shipping Address</div>
+              <div className="flex flex-col gap-2">
+                <Input value={shippingLine1} onChange={e => setShippingLine1(e.target.value)} placeholder="Address Line 1" className="h-9 rounded-lg" />
+                <Input value={shippingLine2} onChange={e => setShippingLine2(e.target.value)} placeholder="Address Line 2" className="h-9 rounded-lg" />
+                <div className="grid grid-cols-2 gap-2">
+                  <Input value={shippingCity} onChange={e => setShippingCity(e.target.value)} placeholder="City" className="h-9 rounded-lg" />
+                  <Input value={shippingState} onChange={e => setShippingState(e.target.value)} placeholder="State" className="h-9 rounded-lg" />
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <Input value={shippingPostcode} onChange={e => setShippingPostcode(e.target.value)} placeholder="Postcode" className="h-9 rounded-lg" />
+                  <Input value={shippingCountry} onChange={e => setShippingCountry(e.target.value)} placeholder="Country" className="h-9 rounded-lg" />
+                </div>
+              </div>
             </div>
           </div>
 
