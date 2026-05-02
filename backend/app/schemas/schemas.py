@@ -456,11 +456,18 @@ class CreditNoteLineItemCreate(BaseModel):
     tax_rate: float = 0.0
     tax_code_id: UUID | None = None
     discount: float = 0.0
+    discount_mode: str = "percent"  # percent | amount
     account_id: UUID | None = None
 
 class CreditApplicationCreate(BaseModel):
     invoice_id: UUID
     amount: float
+
+class CreditApplicationResponse(BaseModel):
+    id: UUID
+    invoice_id: UUID
+    amount: float
+    model_config = {"from_attributes": True}
 
 class CreditNoteCreate(BaseModel):
     contact_id: UUID
@@ -515,6 +522,7 @@ class CreditNoteLineItemResponse(BaseModel):
     unit_price: float
     tax_rate: float
     discount: float
+    discount_mode: str = "percent"
     amount: float
     line_type: str
     tax_code_id: UUID | None
@@ -551,6 +559,7 @@ class CreditNoteResponse(BaseModel):
     shipping_country: str | None = None
     created_at: datetime
     line_items: list[CreditNoteLineItemResponse] = []
+    credit_applications: list[CreditApplicationResponse] = []
     model_config = {"from_attributes": True}
 
 

@@ -2,7 +2,7 @@ import { useMemo, useState } from "react"
 import { useNavigate } from "react-router-dom"
 import { Plus, Search, ArrowRightLeft, Pencil, Send, XCircle, RotateCcw, Trash2 } from "lucide-react"
 import { RowActionsMenu } from "../../../components/ui/row-actions"
-import { useCreditNotes, useContacts, useInvoices, useUpdateCreditNoteStatus, useDeleteCreditNote } from "../../../lib/hooks"
+import { useCreditNotes, useContacts, useInvoices, useUpdateCreditNoteStatus, useDeleteCreditNote, useRemoveCreditApplications } from "../../../lib/hooks"
 import { formatCurrency, formatDate, cn } from "../../../lib/utils"
 import { useTheme } from "../../../lib/theme"
 import { Card } from "../../../components/ui/card"
@@ -24,6 +24,7 @@ export default function CreditNotesPage() {
   const navigate = useNavigate()
   const updateStatus = useUpdateCreditNoteStatus()
   const deleteCreditNote = useDeleteCreditNote()
+  const removeApplications = useRemoveCreditApplications()
   const patch = (id: string, status: string) => updateStatus.mutate({ id, status })
   const [tab, setTab] = useState("all")
   const [search, setSearch] = useState("")
@@ -167,8 +168,9 @@ export default function CreditNotesPage() {
                             { label: "Mark as Issued", icon: <Send className="h-3.5 w-3.5" />, onClick: () => patch(row.id, "issued"), dividerBefore: true, disabled: row.status !== "draft" },
                             { label: t("creditNotes.applyToInvoice"), icon: <ArrowRightLeft className="h-3.5 w-3.5" />, onClick: () => navigate(`/sales/credit-notes/${row.id}/edit?tab=apply_credit`), disabled: row.status === "void" || row.status === "draft" },
                             { label: "Issue Refund", icon: <RotateCcw className="h-3.5 w-3.5" />, onClick: () => navigate(`/sales/refunds/new?credit_note_id=${row.id}&amount=${row.total}&contact_id=${row.contact_id}`), disabled: row.status === "void" || row.status === "applied" },
-                            { label: "Void", icon: <XCircle className="h-3.5 w-3.5" />, onClick: () => { if (confirm("Void this credit note?")) patch(row.id, "void") }, danger: true, dividerBefore: true, disabled: row.status === "void" || row.status === "applied" },
-                            { label: "Delete", icon: <Trash2 className="h-3.5 w-3.5" />, onClick: () => { if (confirm("Delete this credit note?")) deleteCreditNote.mutate(row.id) }, danger: true, disabled: row.status === "applied" },
+                            { label: "Remove Applications", icon: <ArrowRightLeft className="h-3.5 w-3.5" />, onClick: () => { if (confirm("Remove all credit applications from this CN? Invoice balances will be restored.")) removeApplications.mutate(row.id) }, danger: true, dividerBefore: true, disabled: row.status !== "applied" || (row.credit_applied ?? 0) <= 0 },
+                            { label: "Void", icon: <XCircle className="h-3.5 w-3.5" />, onClick: () => { if (confirm("Void this credit note?")) patch(row.id, "void") }, danger: true, disabled: row.status === "void" || row.status === "applied" },
+                            { label: "Delete", icon: <Trash2 className="h-3.5 w-3.5" />, onClick: () => { if (confirm("Delete this credit note?")) deleteCreditNote.mutate(row.id) }, danger: true, disabled: row.status === "void" ? false : row.status === "applied" },
                           ]} />
                         </TableCell>
                       </TableRow>

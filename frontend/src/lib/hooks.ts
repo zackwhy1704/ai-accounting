@@ -1131,7 +1131,14 @@ export function useDeleteCreditNote() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: (id: string) => api.delete(`/credit-notes/${id}`).then(r => r.data),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['credit-notes'] }) },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['credit-notes'] }); qc.invalidateQueries({ queryKey: ['invoices'] }) },
+  })
+}
+export function useRemoveCreditApplications() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) => api.delete(`/credit-notes/${id}/applications`).then(r => r.data),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['credit-notes'] }); qc.invalidateQueries({ queryKey: ['invoices'] }) },
   })
 }
 export function useUpdateDebitNoteStatus() {

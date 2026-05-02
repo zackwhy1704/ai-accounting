@@ -51,11 +51,9 @@ export default function NewCreditNotePage() {
   const [lineItems, setLineItems] = useState<LineItem[]>([])
   const [applyCreditLines, setApplyCreditLines] = useState<ApplyCreditLine[]>([])
 
+  // All invoices for this customer — including paid/closed ones (for linking purposes)
   const customerInvoices = invoices.filter(
-    (inv: any) =>
-      String(inv.contact_id) === String(contactId) &&
-      (inv.status === "draft" || inv.status === "sent" || inv.status === "viewed" || inv.status === "overdue" || inv.status === "partial" || inv.status === "outstanding") &&
-      (inv.total - (inv.amount_paid || 0)) > 0
+    (inv: any) => String(inv.contact_id) === String(contactId) && inv.status !== "void"
   )
 
   const handleContactChange = (id: string) => {
@@ -63,13 +61,15 @@ export default function NewCreditNotePage() {
     setContactId(id)
     const prefs = getContactPrefs(id)
     if (prefs.currency) setCurrency(prefs.currency)
-    const custInvoices = invoices.filter((inv: any) => inv.contact_id === id)
+    const custInvoices = invoices.filter((inv: any) => inv.contact_id === id && inv.status !== "void")
     setApplyCreditLines(
-      custInvoices.map((inv: any) => ({
-        invoice_id: inv.id,
-        selected: false,
-        apply_amount: 0,
-      }))
+      custInvoices
+        .filter((inv: any) => (inv.total - (inv.amount_paid || 0)) > 0)
+        .map((inv: any) => ({
+          invoice_id: inv.id,
+          selected: false,
+          apply_amount: 0,
+        }))
     )
   }
 
@@ -141,20 +141,17 @@ export default function NewCreditNotePage() {
         reference,
         currency,
         notes: null,
-        line_items: lineItems.map(li => {
-          const lineTotal = li.quantity * li.unit_price
-          const discAmt = lineDiscountAmount(li)
-          return {
-            description: li.description,
-            account_id: li.account_id || undefined,
-            quantity: li.quantity,
-            unit_price: li.unit_price,
-            tax_rate: li.tax_rate,
-            tax_code_id: li.tax_code_id || undefined,
-            line_type: li.line_type,
-            discount: li.discount_mode === "amount" ? (lineTotal > 0 ? (discAmt / lineTotal) * 100 : 0) : li.discount,
-          }
-        }),
+        line_items: lineItems.map(li => ({
+          description: li.description,
+          account_id: li.account_id || undefined,
+          quantity: li.quantity,
+          unit_price: li.unit_price,
+          tax_rate: li.tax_rate,
+          tax_code_id: li.tax_code_id || undefined,
+          line_type: li.line_type,
+          discount: li.discount,
+          discount_mode: li.discount_mode,
+        })),
         credit_applications: applyCreditLines
           .filter(l => l.selected && l.apply_amount > 0)
           .map(l => ({ invoice_id: l.invoice_id, amount: l.apply_amount })),

@@ -91,10 +91,9 @@ export default function EditCreditNotePage() {
 
   const customerInvoices = useMemo(() => {
     if (!contactId) return []
+    // Include all non-void invoices for this customer — paid/closed can also receive credit
     return invoices.filter((inv: any) =>
-      String(inv.contact_id) === String(contactId) &&
-      (inv.status === "draft" || inv.status === "sent" || inv.status === "viewed" || inv.status === "overdue" || inv.status === "partial" || inv.status === "outstanding") &&
-      (inv.total - (inv.amount_paid || 0)) > 0
+      String(inv.contact_id) === String(contactId) && inv.status !== "void"
     )
   }, [invoices, contactId])
 
@@ -179,20 +178,17 @@ export default function EditCreditNotePage() {
         reference,
         currency,
         notes: null,
-        line_items: lineItems.map(li => {
-          const lineTotal = li.quantity * li.unit_price
-          const discAmt = lineDiscountAmount(li)
-          return {
-            description: li.description,
-            account_id: li.account_id || undefined,
-            quantity: li.quantity,
-            unit_price: li.unit_price,
-            tax_rate: li.tax_rate,
-            tax_code_id: li.tax_code_id || undefined,
-            line_type: li.line_type,
-            discount: li.discount_mode === "amount" ? (lineTotal > 0 ? (discAmt / lineTotal) * 100 : 0) : li.discount,
-          }
-        }),
+        line_items: lineItems.map(li => ({
+          description: li.description,
+          account_id: li.account_id || undefined,
+          quantity: li.quantity,
+          unit_price: li.unit_price,
+          tax_rate: li.tax_rate,
+          tax_code_id: li.tax_code_id || undefined,
+          line_type: li.line_type,
+          discount: li.discount,
+          discount_mode: li.discount_mode,
+        })),
         credit_applications: applyCreditLines
           .filter(l => l.selected && l.apply_amount > 0)
           .map(l => ({ invoice_id: l.invoice_id, amount: l.apply_amount })),

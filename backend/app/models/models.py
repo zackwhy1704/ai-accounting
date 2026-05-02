@@ -526,6 +526,7 @@ class CreditNoteLineItem(Base):
     tax_rate: Mapped[float] = mapped_column(Numeric(5, 2), default=0)
     tax_code_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("tax_rates.id"))
     discount: Mapped[float] = mapped_column(Numeric(15, 2), default=0)
+    discount_mode: Mapped[str] = mapped_column(String(10), default="percent")
     amount: Mapped[float] = mapped_column(Numeric(15, 2))
     account_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("accounts.id"))
     sort_order: Mapped[int] = mapped_column(Integer, default=0)

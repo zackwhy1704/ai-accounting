@@ -48,14 +48,18 @@ async def next_sequence_number(db: AsyncSession, model, number_column, org_id: s
 
 # ── Helper: calculate line item totals ──
 def calc_totals(line_items, has_discount=True):
-    """Discount is a percentage (0-100) applied per line before tax."""
+    """Discount is either a percentage (0-100) or a flat amount depending on discount_mode."""
     subtotal = 0
     tax_amount = 0
     discount_total = 0
     for item in line_items:
         amount = item.quantity * item.unit_price
-        disc_pct = getattr(item, 'discount', 0) or 0
-        disc_value = amount * (disc_pct / 100)
+        disc_raw = getattr(item, 'discount', 0) or 0
+        disc_mode = getattr(item, 'discount_mode', 'percent') or 'percent'
+        if disc_mode == 'amount':
+            disc_value = min(disc_raw, amount)
+        else:
+            disc_value = amount * (disc_raw / 100)
         amount_after_disc = amount - disc_value
         tax = amount_after_disc * (item.tax_rate / 100)
         subtotal += amount
@@ -441,26 +445,13 @@ async def create_credit_note(data: CreditNoteCreate, current_user: dict = Depend
         db.add(CreditNoteLineItem(
             credit_note_id=obj.id, description=item.description, quantity=item.quantity,
             unit_price=item.unit_price, tax_rate=item.tax_rate, tax_code_id=item.tax_code_id,
-            discount=item.discount,
+            discount=item.discount, discount_mode=getattr(item, 'discount_mode', 'percent'),
             amount=item.quantity * item.unit_price, account_id=item.account_id, sort_order=i,
         ))
 
-    # Apply credit to invoices
-    credit_applied = 0
-    for app in data.credit_applications:
-        db.add(CreditApplicationModel(credit_note_id=obj.id, invoice_id=app.invoice_id, amount=app.amount))
-        credit_applied += app.amount
-        # Reduce invoice balance
-        inv_result = await db.execute(select(Invoice).where(Invoice.id == app.invoice_id))
-        inv = inv_result.scalar_one_or_none()
-        if inv:
-            inv.amount_paid = float(inv.amount_paid or 0) + app.amount
-
-    obj.credit_applied = credit_applied
-    if credit_applied >= total:
-        obj.status = "applied"
-    else:
-        obj.status = "issued"
+    # CN starts as draft — user must explicitly issue and apply
+    obj.status = "draft"
+    obj.credit_applied = 0
 
     # GL: Dr Revenue / Cr AR (+ Dr GST Payable if tax)
     entries = [
@@ -503,14 +494,20 @@ async def update_credit_note(cn_id: UUID, data: CreditNoteUpdate, current_user: 
         line_items_data = update_data.pop("line_items")
         await db.execute(delete(CreditNoteLineItem).where(CreditNoteLineItem.credit_note_id == obj.id))
         subtotal = sum(li["quantity"] * li["unit_price"] for li in line_items_data)
-        discount_total = sum(li.get("discount", 0) or 0 for li in line_items_data)
-        tax_amount = sum((li["quantity"] * li["unit_price"] - (li.get("discount", 0) or 0)) * (li["tax_rate"] / 100) for li in line_items_data)
+        def _disc(li):
+            raw = li.get("discount", 0) or 0
+            mode = li.get("discount_mode", "percent") or "percent"
+            amount = li["quantity"] * li["unit_price"]
+            return min(raw, amount) if mode == "amount" else amount * (raw / 100)
+        discount_total = sum(_disc(li) for li in line_items_data)
+        tax_amount = sum((li["quantity"] * li["unit_price"] - _disc(li)) * (li["tax_rate"] / 100) for li in line_items_data)
         for i, item in enumerate(line_items_data):
             db.add(CreditNoteLineItem(
                 credit_note_id=obj.id, description=item["description"], quantity=item["quantity"],
                 unit_price=item["unit_price"], tax_rate=item["tax_rate"],
                 tax_code_id=item.get("tax_code_id"),
                 discount=item.get("discount", 0),
+                discount_mode=item.get("discount_mode", "percent"),
                 amount=item["quantity"] * item["unit_price"],
                 account_id=item.get("account_id"), sort_order=i,
             ))
@@ -537,6 +534,14 @@ async def update_credit_note(cn_id: UUID, data: CreditNoteUpdate, current_user: 
             if inv:
                 inv.amount_paid = float(inv.amount_paid or 0) + app["amount"]
         obj.credit_applied = credit_applied
+        # Update status based on how much credit has been applied
+        if credit_applied <= 0:
+            if obj.status in ("applied", "issued"):
+                obj.status = "issued"
+        elif credit_applied >= float(obj.total or 0):
+            obj.status = "applied"
+        else:
+            obj.status = "issued"
 
     new_num = update_data.get("credit_note_number")
     if new_num and new_num != obj.credit_note_number:
@@ -1072,14 +1077,48 @@ async def delete_delivery_order(do_id: UUID, current_user: dict = Depends(get_cu
     await db.commit()
 
 
-@router.delete("/credit-notes/{cn_id}", status_code=204)
-async def delete_credit_note(cn_id: UUID, current_user: dict = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
-    result = await db.execute(select(CreditNote).where(CreditNote.id == cn_id, CreditNote.organization_id == current_user["org_id"]))
+@router.delete("/credit-notes/{cn_id}/applications", status_code=200)
+async def remove_credit_applications(cn_id: UUID, current_user: dict = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    """Remove all credit applications from a credit note, reverting invoice balances."""
+    result = await db.execute(
+        select(CreditNote)
+        .options(selectinload(CreditNote.credit_applications))
+        .where(CreditNote.id == cn_id, CreditNote.organization_id == current_user["org_id"])
+    )
     obj = result.scalar_one_or_none()
     if not obj:
         raise HTTPException(status_code=404, detail="Credit note not found")
-    if obj.status not in ("draft", "void"):
-        raise HTTPException(status_code=400, detail="Only draft or void credit notes can be deleted")
+    if obj.status == "void":
+        raise HTTPException(status_code=400, detail="Cannot modify a voided credit note")
+    # Revert invoice balances
+    for app in obj.credit_applications:
+        inv_result = await db.execute(select(Invoice).where(Invoice.id == app.invoice_id))
+        inv = inv_result.scalar_one_or_none()
+        if inv:
+            inv.amount_paid = max(0.0, float(inv.amount_paid or 0) - app.amount)
+            if inv.status == "paid" and float(inv.amount_paid) < float(inv.total):
+                inv.status = "sent"
+    await db.execute(delete(CreditApplicationModel).where(CreditApplicationModel.credit_note_id == obj.id))
+    obj.credit_applied = 0
+    obj.status = "issued"
+    await db.commit()
+    return {"removed": True}
+
+
+@router.delete("/credit-notes/{cn_id}", status_code=204)
+async def delete_credit_note(cn_id: UUID, current_user: dict = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    result = await db.execute(
+        select(CreditNote)
+        .options(selectinload(CreditNote.credit_applications))
+        .where(CreditNote.id == cn_id, CreditNote.organization_id == current_user["org_id"])
+    )
+    obj = result.scalar_one_or_none()
+    if not obj:
+        raise HTTPException(status_code=404, detail="Credit note not found")
+    if obj.status == "applied" and obj.credit_applications:
+        raise HTTPException(status_code=400, detail="Remove credit applications first before deleting")
+    if obj.status not in ("draft", "issued", "void"):
+        raise HTTPException(status_code=400, detail="Only draft, issued, or void credit notes can be deleted")
     await db.delete(obj)
     await db.commit()
 
