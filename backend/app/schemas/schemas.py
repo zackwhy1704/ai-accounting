@@ -803,6 +803,18 @@ class BillCreate(BaseModel):
     currency: str = "SGD"
     notes: str | None = None
     terms: str | None = None
+    billing_address_line1: str | None = None
+    billing_address_line2: str | None = None
+    billing_city: str | None = None
+    billing_state: str | None = None
+    billing_postcode: str | None = None
+    billing_country: str | None = None
+    shipping_address_line1: str | None = None
+    shipping_address_line2: str | None = None
+    shipping_city: str | None = None
+    shipping_state: str | None = None
+    shipping_postcode: str | None = None
+    shipping_country: str | None = None
     line_items: list[LineItemCreate]
 
 class BillUpdate(BaseModel):
@@ -812,6 +824,18 @@ class BillUpdate(BaseModel):
     due_date: datetime | None = None
     currency: str | None = None
     notes: str | None = None
+    billing_address_line1: str | None = None
+    billing_address_line2: str | None = None
+    billing_city: str | None = None
+    billing_state: str | None = None
+    billing_postcode: str | None = None
+    billing_country: str | None = None
+    shipping_address_line1: str | None = None
+    shipping_address_line2: str | None = None
+    shipping_city: str | None = None
+    shipping_state: str | None = None
+    shipping_postcode: str | None = None
+    shipping_country: str | None = None
     line_items: list[LineItemCreate] | None = None
 
 class BillResponse(BaseModel):
@@ -828,6 +852,18 @@ class BillResponse(BaseModel):
     currency: str
     notes: str | None
     created_at: datetime
+    billing_address_line1: str | None = None
+    billing_address_line2: str | None = None
+    billing_city: str | None = None
+    billing_state: str | None = None
+    billing_postcode: str | None = None
+    billing_country: str | None = None
+    shipping_address_line1: str | None = None
+    shipping_address_line2: str | None = None
+    shipping_city: str | None = None
+    shipping_state: str | None = None
+    shipping_postcode: str | None = None
+    shipping_country: str | None = None
     line_items: list[LineItemResponse] = []
     model_config = {"from_attributes": True}
 

@@ -108,6 +108,7 @@ export default function NewPurchasePaymentPage() {
             reference_no: referenceNo || null,
             payment_no: paymentNo || undefined,
             notes: notes || null,
+            bank_account_id: bankAccountId || null,
           })
         }
       } else {

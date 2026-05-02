@@ -45,10 +45,25 @@ export default function EditBillPage() {
 
   const [contactId, setContactId] = useState("")
   const [billNumber, setBillNumber] = useState("")
+  const [originalBillNumber, setOriginalBillNumber] = useState("")
   const [issueDate, setIssueDate] = useState("")
   const [dueDate, setDueDate] = useState("")
   const [currency, setCurrency] = useState("MYR")
   const [notes, setNotes] = useState("")
+
+  const [billingLine1, setBillingLine1] = useState("")
+  const [billingLine2, setBillingLine2] = useState("")
+  const [billingCity, setBillingCity] = useState("")
+  const [billingState, setBillingState] = useState("")
+  const [billingPostcode, setBillingPostcode] = useState("")
+  const [billingCountry, setBillingCountry] = useState("")
+  const [shippingLine1, setShippingLine1] = useState("")
+  const [shippingLine2, setShippingLine2] = useState("")
+  const [shippingCity, setShippingCity] = useState("")
+  const [shippingState, setShippingState] = useState("")
+  const [shippingPostcode, setShippingPostcode] = useState("")
+  const [shippingCountry, setShippingCountry] = useState("")
+
   const [lineItems, setLineItems] = useState<LineItem[]>([emptyLine()])
 
   const populated = useRef(false)
@@ -57,19 +72,32 @@ export default function EditBillPage() {
       populated.current = true
       setContactId(String(data.contact_id || ""))
       setBillNumber(data.bill_number || "")
+      setOriginalBillNumber(data.bill_number || "")
       setIssueDate(data.issue_date ? data.issue_date.slice(0, 10) : "")
       setDueDate(data.due_date ? data.due_date.slice(0, 10) : "")
       setCurrency(data.currency || "MYR")
       setNotes(data.notes || "")
+      setBillingLine1((data as any).billing_address_line1 || "")
+      setBillingLine2((data as any).billing_address_line2 || "")
+      setBillingCity((data as any).billing_city || "")
+      setBillingState((data as any).billing_state || "")
+      setBillingPostcode((data as any).billing_postcode || "")
+      setBillingCountry((data as any).billing_country || "")
+      setShippingLine1((data as any).shipping_address_line1 || "")
+      setShippingLine2((data as any).shipping_address_line2 || "")
+      setShippingCity((data as any).shipping_city || "")
+      setShippingState((data as any).shipping_state || "")
+      setShippingPostcode((data as any).shipping_postcode || "")
+      setShippingCountry((data as any).shipping_country || "")
       if (data.line_items && data.line_items.length > 0) {
         setLineItems(data.line_items.map((li: any) => ({
-          line_type: "goods" as const,
+          line_type: (li.line_type as "goods" | "services") || "goods",
           description: li.description || "",
           account_id: li.account_id ? String(li.account_id) : "",
           quantity: li.quantity || 1,
           unit_price: li.unit_price || 0,
           discount: li.discount || 0,
-          discount_mode: "percent" as const,
+          discount_mode: (li.discount_mode as "percent" | "amount") || "percent",
           tax_rate: li.tax_rate || 0,
           tax_code_id: li.tax_code_id ? String(li.tax_code_id) : "",
           amount: li.amount || 0,
@@ -121,17 +149,25 @@ export default function EditBillPage() {
       await updateBill.mutateAsync({
         id: id!,
         contact_id: contactId,
-        bill_number: billNumber,
+        ...(billNumber !== originalBillNumber ? { bill_number: billNumber } : {}),
         issue_date: new Date(issueDate).toISOString(),
         due_date: dueDate ? new Date(dueDate).toISOString() : new Date(issueDate).toISOString(),
         currency,
         notes: notes || null,
+        billing_address_line1: billingLine1 || null,
+        billing_address_line2: billingLine2 || null,
+        billing_city: billingCity || null,
+        billing_state: billingState || null,
+        billing_postcode: billingPostcode || null,
+        billing_country: billingCountry || null,
+        shipping_address_line1: shippingLine1 || null,
+        shipping_address_line2: shippingLine2 || null,
+        shipping_city: shippingCity || null,
+        shipping_state: shippingState || null,
+        shipping_postcode: shippingPostcode || null,
+        shipping_country: shippingCountry || null,
         line_items: lineItems.map((item, i) => {
           const qty = item.line_type === "services" ? 1 : item.quantity
-          const lineTotal = qty * item.unit_price
-          const discPct = item.discount_mode === "amount"
-            ? (lineTotal > 0 ? Math.min(item.discount, lineTotal) / lineTotal * 100 : 0)
-            : item.discount
           return {
             description: item.description,
             account_id: item.account_id || undefined,
@@ -139,7 +175,8 @@ export default function EditBillPage() {
             unit_price: item.unit_price,
             tax_rate: item.tax_rate,
             tax_code_id: item.tax_code_id || undefined,
-            discount: discPct,
+            discount: item.discount,
+            discount_mode: item.discount_mode,
             amount: item.amount,
             sort_order: i,
           }
@@ -207,6 +244,39 @@ export default function EditBillPage() {
                 <SelectItem value="PHP">PHP - Philippine Peso</SelectItem>
               </SelectContent>
             </Select>
+          </div>
+        </div>
+
+        <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-2">
+          <div className="rounded-xl border border-border p-4">
+            <div className="mb-3 text-xs font-semibold text-muted-foreground uppercase tracking-wide">Billing Address</div>
+            <div className="space-y-2">
+              <Input value={billingLine1} onChange={e => setBillingLine1(e.target.value)} placeholder="Address Line 1" className="h-9 rounded-lg text-sm" />
+              <Input value={billingLine2} onChange={e => setBillingLine2(e.target.value)} placeholder="Address Line 2" className="h-9 rounded-lg text-sm" />
+              <div className="grid grid-cols-2 gap-2">
+                <Input value={billingCity} onChange={e => setBillingCity(e.target.value)} placeholder="City" className="h-9 rounded-lg text-sm" />
+                <Input value={billingState} onChange={e => setBillingState(e.target.value)} placeholder="State" className="h-9 rounded-lg text-sm" />
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <Input value={billingPostcode} onChange={e => setBillingPostcode(e.target.value)} placeholder="Postcode" className="h-9 rounded-lg text-sm" />
+                <Input value={billingCountry} onChange={e => setBillingCountry(e.target.value)} placeholder="Country" className="h-9 rounded-lg text-sm" />
+              </div>
+            </div>
+          </div>
+          <div className="rounded-xl border border-border p-4">
+            <div className="mb-3 text-xs font-semibold text-muted-foreground uppercase tracking-wide">Shipping Address</div>
+            <div className="space-y-2">
+              <Input value={shippingLine1} onChange={e => setShippingLine1(e.target.value)} placeholder="Address Line 1" className="h-9 rounded-lg text-sm" />
+              <Input value={shippingLine2} onChange={e => setShippingLine2(e.target.value)} placeholder="Address Line 2" className="h-9 rounded-lg text-sm" />
+              <div className="grid grid-cols-2 gap-2">
+                <Input value={shippingCity} onChange={e => setShippingCity(e.target.value)} placeholder="City" className="h-9 rounded-lg text-sm" />
+                <Input value={shippingState} onChange={e => setShippingState(e.target.value)} placeholder="State" className="h-9 rounded-lg text-sm" />
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <Input value={shippingPostcode} onChange={e => setShippingPostcode(e.target.value)} placeholder="Postcode" className="h-9 rounded-lg text-sm" />
+                <Input value={shippingCountry} onChange={e => setShippingCountry(e.target.value)} placeholder="Country" className="h-9 rounded-lg text-sm" />
+              </div>
+            </div>
           </div>
         </div>
 

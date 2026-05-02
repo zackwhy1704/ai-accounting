@@ -10,7 +10,7 @@ from app.core.database import get_db
 from app.core.security import get_current_user
 from app.models.models import Bill, BillLineItem, PurchasePayment
 from app.schemas.schemas import BillCreate, BillUpdate, BillResponse
-from .gl_helpers import post_gl, revert_gl
+from .gl_helpers import post_gl, post_gl_by_id, revert_gl, _acct
 
 router = APIRouter(prefix="/bills", tags=["Bills"])
 
@@ -65,15 +65,20 @@ async def create_bill(
         from .sales import next_sequence_number
         bill_number = await next_sequence_number(db, Bill, Bill.bill_number, org_id, "BILL")
 
+    def _disc_amount(item) -> float:
+        raw = getattr(item, 'discount', 0) or 0
+        mode = getattr(item, 'discount_mode', 'percent') or 'percent'
+        line_total = item.quantity * item.unit_price
+        return min(raw, line_total) if mode == 'amount' else line_total * raw / 100
+
     # Calculate totals (discount applied before tax)
-    subtotal = 0
-    tax_amount = 0
+    subtotal = 0.0
+    tax_amount = 0.0
     for item in data.line_items:
         line_total = item.quantity * item.unit_price
-        after_disc = line_total - (line_total * (getattr(item, 'discount', 0) or 0) / 100)
-        tax = after_disc * (item.tax_rate / 100)
+        after_disc = line_total - _disc_amount(item)
         subtotal += after_disc
-        tax_amount += tax
+        tax_amount += after_disc * (item.tax_rate / 100)
 
     bill = Bill(
         organization_id=org_id,
@@ -87,14 +92,24 @@ async def create_bill(
         currency=data.currency,
         notes=data.notes,
         terms=data.terms,
+        billing_address_line1=data.billing_address_line1,
+        billing_address_line2=data.billing_address_line2,
+        billing_city=data.billing_city,
+        billing_state=data.billing_state,
+        billing_postcode=data.billing_postcode,
+        billing_country=data.billing_country,
+        shipping_address_line1=data.shipping_address_line1,
+        shipping_address_line2=data.shipping_address_line2,
+        shipping_city=data.shipping_city,
+        shipping_state=data.shipping_state,
+        shipping_postcode=data.shipping_postcode,
+        shipping_country=data.shipping_country,
     )
     db.add(bill)
     await db.flush()
 
     for i, item in enumerate(data.line_items):
-        line_total = item.quantity * item.unit_price
-        disc_pct = getattr(item, 'discount', 0) or 0
-        after_disc = line_total - (line_total * disc_pct / 100)
+        after_disc = item.quantity * item.unit_price - _disc_amount(item)
         line = BillLineItem(
             bill_id=bill.id,
             description=item.description,
@@ -102,7 +117,7 @@ async def create_bill(
             unit_price=item.unit_price,
             tax_rate=item.tax_rate,
             tax_code_id=item.tax_code_id,
-            discount=disc_pct,
+            discount=getattr(item, 'discount', 0) or 0,
             amount=after_disc,
             account_id=item.account_id,
             sort_order=i,
@@ -149,25 +164,31 @@ async def update_bill(
 
     update_data = data.model_dump(exclude_unset=True)
 
-    if "bill_number" in update_data and update_data["bill_number"]:
-        existing = (await db.execute(select(Bill.id).where(Bill.organization_id == org_id, Bill.bill_number == update_data["bill_number"], Bill.id != bill.id))).first()
+    new_bill_number = (update_data.get("bill_number") or "").strip()
+    if new_bill_number and new_bill_number != bill.bill_number:
+        existing = (await db.execute(select(Bill.id).where(Bill.organization_id == org_id, Bill.bill_number == new_bill_number, Bill.id != bill.id))).first()
         if existing:
             raise HTTPException(status_code=400, detail="Bill number already in use")
+    if "bill_number" in update_data:
+        update_data["bill_number"] = new_bill_number or bill.bill_number
 
     if "line_items" in update_data:
         update_data.pop("line_items")
+
+        def _disc_upd(item) -> float:
+            raw = getattr(item, 'discount', 0) or 0
+            mode = getattr(item, 'discount_mode', 'percent') or 'percent'
+            lt = item.quantity * item.unit_price
+            return min(raw, lt) if mode == 'amount' else lt * raw / 100
 
         # Delete old line items atomically then flush before inserting new ones
         await db.execute(delete(BillLineItem).where(BillLineItem.bill_id == bill.id))
         await db.flush()
 
-        # Calculate totals (with discount)
         subtotal = 0.0
         tax_amount = 0.0
         for item in data.line_items:
-            line_total = item.quantity * item.unit_price
-            disc_pct = getattr(item, 'discount', 0) or 0
-            after_disc = line_total - (line_total * disc_pct / 100)
+            after_disc = item.quantity * item.unit_price - _disc_upd(item)
             subtotal += after_disc
             tax_amount += after_disc * (item.tax_rate / 100)
 
@@ -175,11 +196,8 @@ async def update_bill(
         bill.tax_amount = tax_amount
         bill.total = subtotal + tax_amount
 
-        # Insert new line items
         for i, item in enumerate(data.line_items):
-            line_total = item.quantity * item.unit_price
-            disc_pct = getattr(item, 'discount', 0) or 0
-            after_disc = line_total - (line_total * disc_pct / 100)
+            after_disc = item.quantity * item.unit_price - _disc_upd(item)
             line = BillLineItem(
                 bill_id=bill.id,
                 description=item.description,
@@ -187,7 +205,7 @@ async def update_bill(
                 unit_price=item.unit_price,
                 tax_rate=item.tax_rate,
                 tax_code_id=item.tax_code_id,
-                discount=disc_pct,
+                discount=getattr(item, 'discount', 0) or 0,
                 amount=after_disc,
                 account_id=item.account_id,
                 sort_order=i,
@@ -287,6 +305,7 @@ class BillPaymentCreate(BaseModel):
     reference_no: Optional[str] = None
     payment_no: Optional[str] = None
     notes: Optional[str] = None
+    bank_account_id: Optional[str] = None
 
 
 @router.post("/{bill_id}/pay", response_model=BillResponse, status_code=201)
@@ -329,13 +348,32 @@ async def pay_bill(
     db.add(payment)
     await db.flush()
 
-    # GL: Dr AP / Cr Cash
-    await post_gl(
-        db, org_id, payload.payment_date,
-        f"Payment for Bill {bill.bill_number}",
-        payment.payment_no, "purchase_payment", payment.id,
-        [("2000", apply_amount, 0), ("1000", 0, apply_amount)],
-    )
+    # GL: Dr AP / Cr Bank (or Cash if no bank account selected)
+    if payload.bank_account_id:
+        from uuid import UUID as _UUID
+        bank_uuid = _UUID(payload.bank_account_id)
+        ap_acct = await _acct(db, org_id, "2000")
+        if ap_acct:
+            await post_gl_by_id(
+                db, org_id, payload.payment_date,
+                f"Payment for Bill {bill.bill_number}",
+                payment.payment_no, "purchase_payment", payment.id,
+                [(ap_acct.id, apply_amount, 0), (bank_uuid, 0, apply_amount)],
+            )
+        else:
+            await post_gl(
+                db, org_id, payload.payment_date,
+                f"Payment for Bill {bill.bill_number}",
+                payment.payment_no, "purchase_payment", payment.id,
+                [("2000", apply_amount, 0), ("1000", 0, apply_amount)],
+            )
+    else:
+        await post_gl(
+            db, org_id, payload.payment_date,
+            f"Payment for Bill {bill.bill_number}",
+            payment.payment_no, "purchase_payment", payment.id,
+            [("2000", apply_amount, 0), ("1000", 0, apply_amount)],
+        )
 
     bill.amount_paid = float(bill.amount_paid) + apply_amount
     if bill.amount_paid >= float(bill.total):
