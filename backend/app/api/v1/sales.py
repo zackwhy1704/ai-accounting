@@ -13,7 +13,7 @@ from app.models.models import (
     CreditApplication as CreditApplicationModel, DebitNote, DebitNoteLineItem,
     SalesPayment, PaymentAllocation, SalesRefund, Invoice, InvoiceLineItem,
 )
-from .gl_helpers import post_gl, revert_gl
+from .gl_helpers import post_gl, post_gl_by_id, revert_gl
 from app.schemas.schemas import (
     QuotationCreate, QuotationUpdate, QuotationResponse,
     DeliveryOrderCreate, DeliveryOrderUpdate, DeliveryOrderResponse,
@@ -746,13 +746,24 @@ async def create_sales_payment(data: SalesPaymentCreate, current_user: dict = De
             if inv.amount_paid >= float(inv.total):
                 inv.status = "paid"
 
-    # GL: Dr Cash/Bank / Cr AR
-    await post_gl(
-        db, org_id, data.payment_date,
-        f"Payment received {obj.payment_number}",
-        obj.payment_number, "payment", obj.id,
-        [("1000", float(data.amount), 0), ("1100", 0, float(data.amount))],
-    )
+    # GL: Dr Cash/Bank / Cr AR — use selected bank account if provided, else default code "1000"
+    if data.bank_account_id:
+        from .gl_helpers import _acct
+        ar_acct = await _acct(db, org_id, "1100")
+        if ar_acct:
+            await post_gl_by_id(
+                db, org_id, data.payment_date,
+                f"Payment received {obj.payment_number}",
+                obj.payment_number, "payment", obj.id,
+                [(data.bank_account_id, float(data.amount), 0), (ar_acct.id, 0, float(data.amount))],
+            )
+    else:
+        await post_gl(
+            db, org_id, data.payment_date,
+            f"Payment received {obj.payment_number}",
+            obj.payment_number, "payment", obj.id,
+            [("1000", float(data.amount), 0), ("1100", 0, float(data.amount))],
+        )
 
     await db.commit()
     await db.refresh(obj)
@@ -882,12 +893,23 @@ async def create_sales_refund(data: SalesRefundCreate, current_user: dict = Depe
             cn.status = "applied"
 
     # GL: Dr AR / Cr Cash/Bank (refund reduces cash, reinstates AR)
-    await post_gl(
-        db, org_id, data.refund_date,
-        f"Refund {obj.refund_number}",
-        obj.refund_number, "refund", obj.id,
-        [("1100", float(data.amount), 0), ("1000", 0, float(data.amount))],
-    )
+    if data.bank_account_id:
+        from .gl_helpers import _acct
+        ar_acct = await _acct(db, org_id, "1100")
+        if ar_acct:
+            await post_gl_by_id(
+                db, org_id, data.refund_date,
+                f"Refund {obj.refund_number}",
+                obj.refund_number, "refund", obj.id,
+                [(ar_acct.id, float(data.amount), 0), (data.bank_account_id, 0, float(data.amount))],
+            )
+    else:
+        await post_gl(
+            db, org_id, data.refund_date,
+            f"Refund {obj.refund_number}",
+            obj.refund_number, "refund", obj.id,
+            [("1100", float(data.amount), 0), ("1000", 0, float(data.amount))],
+        )
 
     await db.commit()
     await db.refresh(obj)

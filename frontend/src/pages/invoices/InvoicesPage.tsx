@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react"
 import { useNavigate } from "react-router-dom"
 import { Plus, Search, CreditCard, FileText, Copy, Printer, XCircle, Truck, Pencil, Send, Trash2, ArrowRightLeft, RotateCcw } from "lucide-react"
-import { useInvoices, useContacts, useUpdateInvoiceStatus, useDeleteInvoice } from "../../lib/hooks"
+import { useInvoices, useContacts, useAccounts, useUpdateInvoiceStatus, useDeleteInvoice } from "../../lib/hooks"
 import { useQueryClient } from "@tanstack/react-query"
 import api from "../../lib/api"
 import { formatCurrency, formatDate, cn } from "../../lib/utils"
@@ -12,6 +12,7 @@ import { Button } from "../../components/ui/button"
 import { Input } from "../../components/ui/input"
 import { Tabs, TabsList, TabsTrigger } from "../../components/ui/tabs"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../components/ui/select"
+import { SearchableSelect } from "../../components/ui/searchable-select"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../../components/ui/table"
 import { Badge } from "../../components/ui/badge"
 import { RowActionsMenu } from "../../components/ui/row-actions"
@@ -48,10 +49,13 @@ export default function InvoicesPage() {
   const [applyAmount, setApplyAmount] = useState("")
   const [refundAmount, setRefundAmount] = useState("")
   const [refundDate, setRefundDate] = useState(new Date().toISOString().slice(0, 10))
+  const [refundBankAccountId, setRefundBankAccountId] = useState("")
   const [overpaidBusy, setOverpaidBusy] = useState(false)
 
   const { data: invoices = [], isLoading } = useInvoices(tab === "all" ? undefined : tab)
   const { data: contacts = [] } = useContacts()
+  const { data: accounts = [] } = useAccounts()
+  const bankAccounts = useMemo(() => accounts.filter((a: any) => a.type === "bank" || a.type === "cash"), [accounts])
   const { t } = useTheme()
 
   const statusTabs = [
@@ -108,11 +112,12 @@ export default function InvoicesPage() {
     if (!refundDialog.inv || !refundAmount) return
     setOverpaidBusy(true)
     try {
-      await api.post(`/invoices/${refundDialog.inv.id}/refund-overpaid`, { amount: Number(refundAmount), payment_date: refundDate })
+      await api.post(`/invoices/${refundDialog.inv.id}/refund-overpaid`, { amount: Number(refundAmount), payment_date: refundDate, bank_account_id: refundBankAccountId || undefined })
       qc.invalidateQueries({ queryKey: ["invoices"] })
       toast("Refund created successfully", "success")
       setRefundDialog({ open: false, inv: null })
       setRefundAmount("")
+      setRefundBankAccountId("")
     } catch (e: any) {
       toast(e?.response?.data?.detail ?? "Failed to create refund", "warning")
     } finally {
@@ -305,6 +310,15 @@ export default function InvoicesPage() {
               <div>
                 <label className="text-xs font-medium text-muted-foreground">Refund Date</label>
                 <Input type="date" value={refundDate} onChange={e => setRefundDate(e.target.value)} className="mt-1.5 h-10 rounded-xl" />
+              </div>
+              <div>
+                <label className="text-xs font-medium text-muted-foreground">Bank Account</label>
+                <SearchableSelect
+                  value={refundBankAccountId}
+                  onChange={setRefundBankAccountId}
+                  placeholder="Select bank account"
+                  options={bankAccounts.map((a: any) => ({ value: a.id, label: `${a.code} – ${a.name}`, hint: a.code }))}
+                />
               </div>
             </div>
             <div className="mt-5 flex justify-end gap-3">

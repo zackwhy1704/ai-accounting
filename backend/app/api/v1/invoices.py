@@ -467,6 +467,7 @@ class RefundOverpaidRequest(BaseModel):
     amount: float
     payment_date: str | None = None
     notes: str | None = None
+    bank_account_id: str | None = None
 
 
 @router.post("/{invoice_id}/refund-overpaid")
@@ -498,22 +499,52 @@ async def refund_overpaid(
     else:
         refund_date = datetime.now(timezone.utc)
 
+    bank_account_uuid = None
+    if body.bank_account_id:
+        try:
+            from uuid import UUID as _UUID
+            bank_account_uuid = _UUID(body.bank_account_id)
+        except ValueError:
+            pass
+
     refund = SalesRefund(
         organization_id=org_id,
         contact_id=inv.contact_id,
         refund_number=ref_number,
         refund_date=refund_date,
         amount=body.amount,
+        bank_account_id=bank_account_uuid,
         status="completed",
+        refund_method="bank_transfer",
         notes=body.notes or f"Refund of overpayment on invoice {inv.invoice_number}",
         currency=inv.currency or "MYR",
     )
     db.add(refund)
+    await db.flush()
 
     # Deduct from invoice amount_paid
     inv.amount_paid = float(inv.amount_paid or 0) - body.amount
     if inv.amount_paid <= float(inv.total or 0):
         inv.status = "paid"
+
+    # GL: Dr AR / Cr Cash/Bank
+    from .gl_helpers import post_gl, post_gl_by_id, _acct
+    if bank_account_uuid:
+        ar_acct = await _acct(db, org_id, "1100")
+        if ar_acct:
+            await post_gl_by_id(
+                db, org_id, refund_date,
+                f"Refund {ref_number}",
+                ref_number, "refund", refund.id,
+                [(ar_acct.id, body.amount, 0), (bank_account_uuid, 0, body.amount)],
+            )
+    else:
+        await post_gl(
+            db, org_id, refund_date,
+            f"Refund {ref_number}",
+            ref_number, "refund", refund.id,
+            [("1100", body.amount, 0), ("1000", 0, body.amount)],
+        )
 
     await db.commit()
     return {"refund_number": ref_number, "amount": body.amount}

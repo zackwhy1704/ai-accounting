@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect } from "react"
 import { useNavigate, useSearchParams } from "react-router-dom"
-import { useContacts, useCreditNotes, useCreateSalesRefund } from "../../../lib/hooks"
+import { useContacts, useAccounts, useCreditNotes, useCreateSalesRefund } from "../../../lib/hooks"
 import { formatCurrency } from "../../../lib/utils"
 import { Card } from "../../../components/ui/card"
 import { Button } from "../../../components/ui/button"
@@ -19,14 +19,21 @@ export default function NewRefundPage() {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const { data: contacts = [] } = useContacts()
+  const { data: accounts = [] } = useAccounts()
   const { data: creditNotes = [] } = useCreditNotes()
   const createRefund = useCreateSalesRefund()
+
+  const bankAccounts = useMemo(
+    () => accounts.filter((a: any) => a.type === "bank" || a.type === "cash"),
+    [accounts]
+  )
 
   const [refundNumber, setRefundNumber] = useState("")
   const [contactId, setContactId] = useState("")
   const [refundDate, setRefundDate] = useState(new Date().toISOString().slice(0, 10))
   const [refundMethod, setRefundMethod] = useState("")
   const [reference, setReference] = useState("")
+  const [bankAccountId, setBankAccountId] = useState("")
   const [creditNoteId, setCreditNoteId] = useState("")
   const [amount, setAmount] = useState("")
   const [currency, setCurrency] = useState("MYR")
@@ -62,6 +69,7 @@ export default function NewRefundPage() {
         refund_date: refundDate,
         refund_method: refundMethod,
         reference: reference || null,
+        bank_account_id: bankAccountId || null,
         credit_note_id: creditNoteId || null,
         amount: parseFloat(amount),
         currency,
@@ -142,6 +150,21 @@ export default function NewRefundPage() {
               placeholder="e.g. REF-001"
               value={reference}
               onChange={(e) => setReference(e.target.value)}
+            />
+          </div>
+
+          {/* Bank Account */}
+          <div className="space-y-1.5">
+            <label className="text-sm font-medium text-foreground">Bank Account</label>
+            <SearchableSelect
+              value={bankAccountId}
+              onChange={setBankAccountId}
+              placeholder="Search or select bank account"
+              options={bankAccounts.map((a: any) => ({
+                value: a.id,
+                label: `${a.code} – ${a.name}`,
+                hint: a.code,
+              }))}
             />
           </div>
 
