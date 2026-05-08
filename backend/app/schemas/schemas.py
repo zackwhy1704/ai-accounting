@@ -1141,6 +1141,12 @@ class VendorCreditLineItem(BaseModel):
     unit_price: float
     tax_rate: float = 0.0
     amount: float
+    discount: float = 0.0
+    discount_mode: str = "percent"
+    tax_code_id: str | None = None
+    account_id: str | None = None
+    line_type: str = "goods"
+    sort_order: int = 0
 
 class VendorCreditCreate(BaseModel):
     contact_id: UUID

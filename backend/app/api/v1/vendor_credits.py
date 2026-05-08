@@ -34,10 +34,18 @@ async def _next_vc_number(org_id: UUID, db: AsyncSession) -> str:
     return f"VC-{count:05d}"
 
 
+def _line_discount(item) -> float:
+    line_total = item.quantity * item.unit_price
+    if item.discount_mode == "amount":
+        return min(item.discount, line_total)
+    return line_total * item.discount / 100
+
+
 def _calc_totals(line_items: list) -> tuple[float, float, float]:
     subtotal = sum(item.quantity * item.unit_price for item in line_items)
-    tax_amount = sum(item.quantity * item.unit_price * item.tax_rate / 100 for item in line_items)
-    return subtotal, tax_amount, subtotal + tax_amount
+    total_discount = sum(_line_discount(item) for item in line_items)
+    tax_amount = sum((item.quantity * item.unit_price - _line_discount(item)) * item.tax_rate / 100 for item in line_items)
+    return subtotal, tax_amount, subtotal - total_discount + tax_amount
 
 
 @router.get("", response_model=list[VendorCreditResponse])
