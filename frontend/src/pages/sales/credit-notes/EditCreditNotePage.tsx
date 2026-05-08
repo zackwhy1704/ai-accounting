@@ -4,6 +4,7 @@ import { Plus, Trash2, Loader2 } from "lucide-react"
 import { useCreditNote, useUpdateCreditNote, useContacts, useAccounts, useTaxRates, useInvoices } from "../../../lib/hooks"
 import { formatCurrency, formatDate } from "../../../lib/utils"
 import { getContactPrefs, saveContactPref } from "../../../lib/contact-prefs"
+import { useToast } from "../../../components/ui/toast"
 import { Card } from "../../../components/ui/card"
 import { Button } from "../../../components/ui/button"
 import { Input } from "../../../components/ui/input"
@@ -40,6 +41,7 @@ const cardClass = "rounded-2xl border-border bg-card p-6 shadow-[0_0_0_1px_rgba(
 export default function EditCreditNotePage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
+  const { toast } = useToast()
   const { data: creditNote, isLoading } = useCreditNote(id)
   const { data: contacts = [] } = useContacts()
   const { data: accounts = [] } = useAccounts()
@@ -168,13 +170,15 @@ export default function EditCreditNotePage() {
   const total = subTotal - totalDiscount + totalTax
 
   const handleSave = async () => {
+    if (!contactId) { toast("Please select a customer", "warning"); return }
+    if (!lineItems.some(li => li.description.trim())) { toast("Please add at least one line item", "warning"); return }
     try {
       await updateCreditNote.mutateAsync({
         id,
         contact_id: contactId,
         credit_note_number: creditNoteNumber || undefined,
         invoice_id: forInvoiceId || null,
-        issue_date: creditNoteDate,
+        issue_date: new Date(creditNoteDate).toISOString(),
         reference,
         currency,
         notes: null,
@@ -193,9 +197,11 @@ export default function EditCreditNotePage() {
           .filter(l => l.selected && l.apply_amount > 0)
           .map(l => ({ invoice_id: l.invoice_id, amount: l.apply_amount })),
       })
+      toast("Credit note saved", "success")
       navigate("/sales/credit-notes")
     } catch (err: any) {
-      alert(err?.response?.data?.detail ?? "Failed to save credit note")
+      const detail = err?.response?.data?.detail
+      toast(typeof detail === "string" ? detail : "Failed to save credit note", "warning")
     }
   }
 
@@ -207,9 +213,11 @@ export default function EditCreditNotePage() {
           .filter(l => l.selected && l.apply_amount > 0)
           .map(l => ({ invoice_id: l.invoice_id, amount: l.apply_amount })),
       })
+      toast("Credit applied", "success")
       navigate("/sales/credit-notes")
     } catch (err: any) {
-      alert(err?.response?.data?.detail ?? "Failed to apply credit")
+      const detail = err?.response?.data?.detail
+      toast(typeof detail === "string" ? detail : "Failed to apply credit", "warning")
     }
   }
 

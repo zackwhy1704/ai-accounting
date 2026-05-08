@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom"
 import { Plus, Trash2 } from "lucide-react"
 import { useContacts, useAccounts, useInvoices, useCreateCreditNote, useTaxRates } from "../../../lib/hooks"
 import { getContactPrefs } from "../../../lib/contact-prefs"
+import { useToast } from "../../../components/ui/toast"
 import { Card } from "../../../components/ui/card"
 import { Button } from "../../../components/ui/button"
 import { Input } from "../../../components/ui/input"
@@ -36,6 +37,7 @@ interface ApplyCreditLine {
 
 export default function NewCreditNotePage() {
   const navigate = useNavigate()
+  const { toast } = useToast()
   const { data: contacts = [] } = useContacts()
   const { data: accounts = [] } = useAccounts()
   const { data: invoices = [] } = useInvoices()
@@ -132,12 +134,14 @@ export default function NewCreditNotePage() {
   const creditApplied = applyCreditLines.reduce((sum, line) => sum + (line.selected ? line.apply_amount : 0), 0)
 
   const handleSave = async () => {
+    if (!contactId) { toast("Please select a customer", "warning"); return }
+    if (!lineItems.some(li => li.description.trim())) { toast("Please add at least one line item", "warning"); return }
     try {
       await createCreditNote.mutateAsync({
         contact_id: contactId,
         credit_note_number: creditNoteNumber || undefined,
         invoice_id: forInvoiceId || null,
-        issue_date: creditNoteDate,
+        issue_date: new Date(creditNoteDate).toISOString(),
         reference,
         currency,
         notes: null,
@@ -156,9 +160,11 @@ export default function NewCreditNotePage() {
           .filter(l => l.selected && l.apply_amount > 0)
           .map(l => ({ invoice_id: l.invoice_id, amount: l.apply_amount })),
       })
+      toast("Credit note created", "success")
       navigate("/sales/credit-notes")
-    } catch {
-      // error handled by mutation
+    } catch (err: any) {
+      const detail = err?.response?.data?.detail
+      toast(typeof detail === "string" ? detail : "Failed to save credit note", "warning")
     }
   }
 
