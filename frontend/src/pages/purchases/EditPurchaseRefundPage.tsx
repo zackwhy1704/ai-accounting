@@ -103,7 +103,7 @@ export default function EditPurchaseRefundPage() {
               onChange={handleContactChange}
               placeholder="Select supplier (optional)"
               options={(contacts as any[])
-                .filter((c: any) => c.type === "supplier" || c.type === "both")
+                .filter((c: any) => c.type === "supplier" || c.type === "vendor" || c.type === "both")
                 .map((c: any) => ({ value: c.id, label: c.name, hint: c.email ?? "" }))}
               footerAction={{ label: "+ Add New Supplier", onClick: () => navigate("/contacts/new") }}
             />

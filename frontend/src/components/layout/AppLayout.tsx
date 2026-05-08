@@ -1,4 +1,4 @@
-import { Outlet } from 'react-router-dom'
+import { Outlet, useLocation } from 'react-router-dom'
 import { ErrorBoundary } from '../ErrorBoundary'
 import { Sidebar } from './Sidebar'
 import { User, Sun, Moon, Globe, Check, X, Settings } from 'lucide-react'
@@ -170,6 +170,7 @@ export function AppLayout() {
   const { user } = useAuth()
   useTheme()
   const [settingsOpen, setSettingsOpen] = useState(false)
+  const location = useLocation()
 
   return (
     <div className="flex min-h-screen">
@@ -203,7 +204,7 @@ export function AppLayout() {
 
         {/* Main content */}
         <main className="flex-1 p-6">
-          <ErrorBoundary>
+          <ErrorBoundary key={location.pathname}>
             <Outlet />
           </ErrorBoundary>
         </main>

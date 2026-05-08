@@ -449,6 +449,7 @@ async def create_credit_note(data: CreditNoteCreate, current_user: dict = Depend
             credit_note_id=obj.id, description=item.description, quantity=item.quantity,
             unit_price=item.unit_price, tax_rate=item.tax_rate, tax_code_id=item.tax_code_id,
             discount=item.discount, discount_mode=disc_mode,
+            line_type=getattr(item, 'line_type', 'goods') or 'goods',
             amount=line_total - disc_val, account_id=item.account_id, sort_order=i,
         ))
 
@@ -532,6 +533,7 @@ async def update_credit_note(cn_id: UUID, data: CreditNoteUpdate, current_user: 
                 tax_code_id=item.get("tax_code_id"),
                 discount=item.get("discount", 0),
                 discount_mode=_disc_mode,
+                line_type=item.get("line_type", "goods") or "goods",
                 amount=_line_total - _disc_val,
                 account_id=item.get("account_id"), sort_order=i,
             ))

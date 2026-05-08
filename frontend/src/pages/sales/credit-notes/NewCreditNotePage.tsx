@@ -50,7 +50,9 @@ export default function NewCreditNotePage() {
   const [reference, setReference] = useState("")
   const [forInvoiceId, setForInvoiceId] = useState("")
   const [currency, setCurrency] = useState("MYR")
-  const [lineItems, setLineItems] = useState<LineItem[]>([])
+  const [lineItems, setLineItems] = useState<LineItem[]>([
+    { description: "", account_id: "", quantity: 1, unit_price: 0, amount: 0, discount: 0, discount_mode: "percent", tax_rate: 0, line_type: "goods", tax_code_id: "" },
+  ])
   const [applyCreditLines, setApplyCreditLines] = useState<ApplyCreditLine[]>([])
 
   // All invoices for this customer — including paid/closed ones (for linking purposes)

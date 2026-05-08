@@ -61,7 +61,7 @@ export default function CreditNotesPage() {
     if (search.trim()) {
       const q = search.toLowerCase()
       filtered = filtered.filter(i =>
-        i.credit_note_number.toLowerCase().includes(q) ||
+        (i.credit_note_number ?? "").toLowerCase().includes(q) ||
         (contactMap.get(i.contact_id) ?? "").toLowerCase().includes(q)
       )
     }
@@ -153,14 +153,14 @@ export default function CreditNotesPage() {
                   <TableBody>
                     {rows.map(row => (
                       <TableRow key={row.id} className="border-border hover:bg-muted/50">
-                        <TableCell className="font-medium text-foreground">{row.credit_note_number}</TableCell>
+                        <TableCell className="font-medium text-foreground">{row.credit_note_number ?? "—"}</TableCell>
                         <TableCell className="text-muted-foreground">{formatDate(row.issue_date)}</TableCell>
                         <TableCell className="text-foreground">{contactMap.get(row.contact_id) ?? "\u2014"}</TableCell>
                         <TableCell className="text-muted-foreground">{row.invoice_id ? (invoiceMap.get(row.invoice_id) ?? row.invoice_id) : "\u2014"}</TableCell>
                         <TableCell className="text-right text-foreground">{formatCurrency(row.total)}</TableCell>
                         <TableCell className="text-right text-foreground">{formatCurrency(row.credit_applied ?? 0)}</TableCell>
                         <TableCell>
-                          <Badge variant="outline" className={cn("rounded-lg px-2 py-0.5 text-[11px] font-semibold", statusColors[row.status] ?? "")}>{row.status.charAt(0).toUpperCase() + row.status.slice(1)}</Badge>
+                          <Badge variant="outline" className={cn("rounded-lg px-2 py-0.5 text-[11px] font-semibold", statusColors[row.status] ?? "")}>{row.status ? row.status.charAt(0).toUpperCase() + row.status.slice(1) : "—"}</Badge>
                         </TableCell>
                         <TableCell className="text-right">
                           <RowActionsMenu actions={[

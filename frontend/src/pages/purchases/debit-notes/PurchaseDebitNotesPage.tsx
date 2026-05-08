@@ -53,7 +53,7 @@ export default function PurchaseDebitNotesPage() {
     return m
   }, [bills])
 
-  const vendors = useMemo(() => contacts.filter((c: any) => c.type === "supplier" || c.type === "both"), [contacts])
+  const vendors = useMemo(() => contacts.filter((c: any) => c.type === "supplier" || c.type === "vendor" || c.type === "both"), [contacts])
 
   const rows = useMemo(() => {
     let filtered = debitNotes
