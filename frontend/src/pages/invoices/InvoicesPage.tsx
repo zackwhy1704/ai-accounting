@@ -91,6 +91,10 @@ export default function InvoicesPage() {
   const overpaidOf = (inv: any) => Math.max(0, (inv.amount_paid ?? 0) - inv.total)
   const displayStatus = (inv: any) => overpaidOf(inv) > 0 ? "overpaid" : inv.status
 
+  // Always use live invoice data in dialogs so amounts reflect latest state
+  const liveApplyInv = useMemo(() => applyDialog.inv ? (invoices.find((i: any) => i.id === applyDialog.inv!.id) ?? applyDialog.inv) : null, [invoices, applyDialog.inv])
+  const liveRefundInv = useMemo(() => refundDialog.inv ? (invoices.find((i: any) => i.id === refundDialog.inv!.id) ?? refundDialog.inv) : null, [invoices, refundDialog.inv])
+
   const handleApplyCredit = async () => {
     if (!applyDialog.inv || !applyTargetId || !applyAmount) return
     setOverpaidBusy(true)
@@ -127,14 +131,14 @@ export default function InvoicesPage() {
 
   // Outstanding invoices for the same customer (for apply-credit target)
   const applyTargetOptions = useMemo(() => {
-    if (!applyDialog.inv) return []
+    if (!liveApplyInv) return []
     return invoices.filter((i: any) =>
-      i.contact_id === applyDialog.inv!.contact_id &&
-      i.id !== applyDialog.inv!.id &&
+      i.contact_id === liveApplyInv.contact_id &&
+      i.id !== liveApplyInv.id &&
       !["void", "paid"].includes(i.status) &&
       (i.total - (i.amount_paid ?? 0)) > 0
     )
-  }, [invoices, applyDialog.inv])
+  }, [invoices, liveApplyInv])
 
   return (
     <div className="flex flex-col gap-4">
@@ -257,17 +261,25 @@ export default function InvoicesPage() {
       </Card>
 
       {/* Apply Overpaid to Another Invoice */}
-      {applyDialog.open && applyDialog.inv && (
+      {applyDialog.open && liveApplyInv && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
           <div className="w-full max-w-md rounded-2xl bg-card p-6 shadow-xl">
             <h3 className="text-base font-semibold text-foreground">Apply Overpaid Credit</h3>
             <p className="mt-1 text-sm text-muted-foreground">
-              Invoice <strong>{applyDialog.inv.invoice_number}</strong> has an overpaid amount of <strong>{formatCurrency(overpaidOf(applyDialog.inv))}</strong>. Apply it to reduce another outstanding invoice.
+              Invoice <strong>{liveApplyInv.invoice_number}</strong> has an overpaid amount of <strong>{formatCurrency(overpaidOf(liveApplyInv))}</strong>. Apply it to reduce another outstanding invoice.
             </p>
             <div className="mt-4 space-y-3">
               <div>
                 <label className="text-xs font-medium text-muted-foreground">Target Invoice</label>
-                <Select value={applyTargetId} onValueChange={setApplyTargetId}>
+                <Select value={applyTargetId} onValueChange={v => {
+                  setApplyTargetId(v)
+                  const tgt = applyTargetOptions.find((i: any) => i.id === v)
+                  if (tgt) {
+                    const tgtBalance = tgt.total - (tgt.amount_paid ?? 0)
+                    const maxApply = Math.min(overpaidOf(liveApplyInv), tgtBalance)
+                    setApplyAmount(maxApply.toFixed(2))
+                  }
+                }}>
                   <SelectTrigger className="mt-1.5 h-10 rounded-xl"><SelectValue placeholder="Select invoice" /></SelectTrigger>
                   <SelectContent>
                     {applyTargetOptions.length === 0
@@ -280,13 +292,25 @@ export default function InvoicesPage() {
                 </Select>
               </div>
               <div>
-                <label className="text-xs font-medium text-muted-foreground">Amount to Apply</label>
-                <Input type="number" min={0.01} step={0.01} max={overpaidOf(applyDialog.inv)} value={applyAmount} onChange={e => setApplyAmount(e.target.value)} className="mt-1.5 h-10 rounded-xl" />
+                <label className="text-xs font-medium text-muted-foreground">
+                  Amount to Apply <span className="text-muted-foreground">(max {formatCurrency(overpaidOf(liveApplyInv))})</span>
+                </label>
+                <Input
+                  type="number" min={0.01} step={0.01}
+                  max={overpaidOf(liveApplyInv)}
+                  value={applyAmount}
+                  onChange={e => {
+                    const val = Number(e.target.value)
+                    const max = overpaidOf(liveApplyInv)
+                    setApplyAmount(val > max ? max.toFixed(2) : e.target.value)
+                  }}
+                  className="mt-1.5 h-10 rounded-xl"
+                />
               </div>
             </div>
             <div className="mt-5 flex justify-end gap-3">
               <Button variant="outline" onClick={() => setApplyDialog({ open: false, inv: null })}>Cancel</Button>
-              <Button onClick={handleApplyCredit} disabled={overpaidBusy || !applyTargetId || !applyAmount} className="bg-gradient-to-r from-[#7C9DFF] to-[#4D63FF] text-white hover:opacity-95">
+              <Button onClick={handleApplyCredit} disabled={overpaidBusy || !applyTargetId || !applyAmount || Number(applyAmount) <= 0} className="bg-gradient-to-r from-[#7C9DFF] to-[#4D63FF] text-white hover:opacity-95">
                 {overpaidBusy ? "Applying..." : "Apply Credit"}
               </Button>
             </div>
@@ -295,17 +319,29 @@ export default function InvoicesPage() {
       )}
 
       {/* Refund Overpaid to Customer */}
-      {refundDialog.open && refundDialog.inv && (
+      {refundDialog.open && liveRefundInv && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
           <div className="w-full max-w-md rounded-2xl bg-card p-6 shadow-xl">
             <h3 className="text-base font-semibold text-foreground">Refund to Customer</h3>
             <p className="mt-1 text-sm text-muted-foreground">
-              Invoice <strong>{refundDialog.inv.invoice_number}</strong> was overpaid by <strong>{formatCurrency(overpaidOf(refundDialog.inv))}</strong>. Issue a refund to the customer.
+              Invoice <strong>{liveRefundInv.invoice_number}</strong> was overpaid by <strong>{formatCurrency(overpaidOf(liveRefundInv))}</strong>. Issue a refund to the customer.
             </p>
             <div className="mt-4 space-y-3">
               <div>
-                <label className="text-xs font-medium text-muted-foreground">Refund Amount</label>
-                <Input type="number" min={0.01} step={0.01} max={overpaidOf(refundDialog.inv)} value={refundAmount} onChange={e => setRefundAmount(e.target.value)} className="mt-1.5 h-10 rounded-xl" />
+                <label className="text-xs font-medium text-muted-foreground">
+                  Refund Amount <span className="text-muted-foreground">(max {formatCurrency(overpaidOf(liveRefundInv))})</span>
+                </label>
+                <Input
+                  type="number" min={0.01} step={0.01}
+                  max={overpaidOf(liveRefundInv)}
+                  value={refundAmount}
+                  onChange={e => {
+                    const val = Number(e.target.value)
+                    const max = overpaidOf(liveRefundInv)
+                    setRefundAmount(val > max ? max.toFixed(2) : e.target.value)
+                  }}
+                  className="mt-1.5 h-10 rounded-xl"
+                />
               </div>
               <div>
                 <label className="text-xs font-medium text-muted-foreground">Refund Date</label>
@@ -323,7 +359,7 @@ export default function InvoicesPage() {
             </div>
             <div className="mt-5 flex justify-end gap-3">
               <Button variant="outline" onClick={() => setRefundDialog({ open: false, inv: null })}>Cancel</Button>
-              <Button onClick={handleRefundOverpaid} disabled={overpaidBusy || !refundAmount} className="bg-gradient-to-r from-emerald-500 to-emerald-600 text-white hover:opacity-95">
+              <Button onClick={handleRefundOverpaid} disabled={overpaidBusy || !refundAmount || Number(refundAmount) <= 0} className="bg-gradient-to-r from-emerald-500 to-emerald-600 text-white hover:opacity-95">
                 {overpaidBusy ? "Processing..." : "Issue Refund"}
               </Button>
             </div>

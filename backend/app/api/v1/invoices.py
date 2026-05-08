@@ -449,15 +449,24 @@ async def apply_overpaid_to_invoice(
     if tgt.id == src.id:
         raise HTTPException(status_code=400, detail="Cannot apply to the same invoice")
 
-    # Deduct from source's effective overpaid amount by reducing amount_paid
+    # Deduct from source's overpaid amount by reducing amount_paid
     src.amount_paid = float(src.amount_paid or 0) - body.amount
-    if src.amount_paid <= float(src.total or 0):
-        src.status = "paid"
+    src_total = float(src.total or 0)
+    if src.amount_paid >= src_total:
+        src.status = "paid"  # still paid / still overpaid
+    elif src.amount_paid > 0:
+        src.status = "partially paid"
+    else:
+        src.status = "outstanding"
 
     # Apply to target invoice
     tgt.amount_paid = float(tgt.amount_paid or 0) + body.amount
-    if tgt.amount_paid >= float(tgt.total or 0):
+    tgt_total = float(tgt.total or 0)
+    if tgt.amount_paid >= tgt_total:
         tgt.status = "paid"
+    elif tgt.amount_paid > 0:
+        tgt.status = "partially paid"
+    # else status stays as-is (still outstanding/overdue)
 
     await db.commit()
     return {"applied": body.amount, "source_invoice_id": str(invoice_id), "target_invoice_id": str(body.target_invoice_id)}
@@ -522,10 +531,15 @@ async def refund_overpaid(
     db.add(refund)
     await db.flush()
 
-    # Deduct from invoice amount_paid
+    # Deduct from invoice amount_paid and update status
     inv.amount_paid = float(inv.amount_paid or 0) - body.amount
-    if inv.amount_paid <= float(inv.total or 0):
+    inv_total = float(inv.total or 0)
+    if inv.amount_paid >= inv_total:
         inv.status = "paid"
+    elif inv.amount_paid > 0:
+        inv.status = "partially paid"
+    else:
+        inv.status = "outstanding"
 
     # GL: Dr AR / Cr Cash/Bank
     from .gl_helpers import post_gl, post_gl_by_id, _acct
