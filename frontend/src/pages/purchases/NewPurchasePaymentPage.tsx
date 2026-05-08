@@ -29,7 +29,7 @@ export default function NewPurchasePaymentPage() {
   const fromAmount = searchParams.get("amount")
 
   const bankAccounts = useMemo(
-    () => accounts.filter((a: any) => a.type === "bank" || a.type === "cash"),
+    () => accounts.filter((a: any) => a.type === "asset"),
     [accounts]
   )
 

@@ -18,7 +18,7 @@ export default function NewPurchaseRefundPage() {
   const createRefund = useCreatePurchaseRefund()
 
   const bankAccounts = useMemo(
-    () => accounts.filter((a: any) => a.type === "bank" || a.type === "cash"),
+    () => accounts.filter((a: any) => a.type === "asset"),
     [accounts]
   )
 

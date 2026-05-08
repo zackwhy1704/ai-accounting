@@ -19,7 +19,7 @@ export default function NewPaymentPage() {
   const { data: contacts } = useContacts()
   const { data: accounts = [] } = useAccounts()
   const bankAccounts = useMemo(
-    () => accounts.filter((a: any) => a.type === "bank" || a.type === "cash"),
+    () => accounts.filter((a: any) => a.type === "asset"),
     [accounts],
   )
   const { data: invoices } = useInvoices()

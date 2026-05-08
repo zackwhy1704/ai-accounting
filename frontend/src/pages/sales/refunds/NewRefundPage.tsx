@@ -24,7 +24,7 @@ export default function NewRefundPage() {
   const createRefund = useCreateSalesRefund()
 
   const bankAccounts = useMemo(
-    () => accounts.filter((a: any) => a.type === "bank" || a.type === "cash"),
+    () => accounts.filter((a: any) => a.type === "asset"),
     [accounts]
   )
 

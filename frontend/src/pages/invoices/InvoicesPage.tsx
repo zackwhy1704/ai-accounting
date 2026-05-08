@@ -55,7 +55,7 @@ export default function InvoicesPage() {
   const { data: invoices = [], isLoading } = useInvoices(tab === "all" ? undefined : tab)
   const { data: contacts = [] } = useContacts()
   const { data: accounts = [] } = useAccounts()
-  const bankAccounts = useMemo(() => accounts.filter((a: any) => a.type === "bank" || a.type === "cash"), [accounts])
+  const bankAccounts = useMemo(() => accounts.filter((a: any) => a.type === "asset"), [accounts])
   const { t } = useTheme()
 
   const statusTabs = [

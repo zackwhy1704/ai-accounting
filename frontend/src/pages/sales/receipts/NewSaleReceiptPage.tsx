@@ -39,7 +39,7 @@ export default function NewSaleReceiptPage() {
   ])
 
   const bankAccounts = useMemo(() =>
-    accounts.filter((a: any) => a.type === "bank" || a.type === "cash" || a.account_type === "bank" || a.account_type === "cash"),
+    accounts.filter((a: any) => a.type === "asset"),
     [accounts]
   )
 

@@ -20,7 +20,7 @@ export default function EditPurchasePaymentPage() {
   const updatePayment = useUpdatePurchasePayment()
 
   const bankAccounts = useMemo(
-    () => accounts.filter((a: any) => a.type === "bank" || a.type === "cash"),
+    () => accounts.filter((a: any) => a.type === "asset"),
     [accounts]
   )
 
