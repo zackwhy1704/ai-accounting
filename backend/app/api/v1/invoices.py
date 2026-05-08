@@ -194,8 +194,10 @@ async def update_invoice(
         setattr(invoice, field, value)
 
     await db.commit()
-    await db.refresh(invoice)
-    return invoice
+    result2 = await db.execute(
+        select(Invoice).options(selectinload(Invoice.line_items)).where(Invoice.id == invoice_id)
+    )
+    return result2.scalar_one()
 
 
 @router.patch("/{invoice_id}/status")
