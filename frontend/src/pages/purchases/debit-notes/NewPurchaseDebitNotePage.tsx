@@ -13,6 +13,7 @@ import { useToast } from "../../../components/ui/toast"
 interface LineItem {
   id: string
   description: string
+  line_type: "goods" | "services"
   accountId: string
   quantity: number
   unitPrice: number
@@ -30,6 +31,7 @@ function lineDiscountAmount(item: LineItem): number {
 const emptyLine = (): LineItem => ({
   id: crypto.randomUUID(),
   description: "",
+  line_type: "goods",
   accountId: "",
   quantity: 1,
   unitPrice: 0,
@@ -68,7 +70,7 @@ export default function NewPurchaseDebitNotePage() {
   const [reference, setReference] = useState("")
   const [lines, setLines] = useState<LineItem[]>([emptyLine()])
 
-  const vendors = (contacts as any[]).filter((c: any) => c.type === "supplier" || c.type === "both")
+  const vendors = (contacts as any[]).filter((c: any) => c.type === "supplier" || c.type === "vendor" || c.type === "both")
   const filteredBills = vendorId
     ? (bills as any[]).filter((b: any) => b.contact_id === vendorId)
     : (bills as any[])
@@ -114,6 +116,7 @@ export default function NewPurchaseDebitNotePage() {
         notes: null,
         line_items: lines.map(l => ({
           description: l.description,
+          line_type: l.line_type,
           account_id: l.accountId || undefined,
           quantity: l.quantity,
           unit_price: l.unitPrice,
@@ -203,6 +206,7 @@ export default function NewPurchaseDebitNotePage() {
               <TableHeader>
                 <TableRow className="border-border hover:bg-transparent">
                   <TableHead className="w-[50px] text-muted-foreground">#</TableHead>
+                  <TableHead className="w-[110px] text-muted-foreground">Type</TableHead>
                   <TableHead className="text-muted-foreground">Description</TableHead>
                   <TableHead className="w-[180px] text-muted-foreground">Account</TableHead>
                   <TableHead className="w-[100px] text-muted-foreground">Quantity</TableHead>
@@ -217,6 +221,15 @@ export default function NewPurchaseDebitNotePage() {
                 {lines.map((line, idx) => (
                   <TableRow key={line.id} className="border-border hover:bg-muted/50">
                     <TableCell className="text-muted-foreground">{idx + 1}</TableCell>
+                    <TableCell>
+                      <Select value={line.line_type} onValueChange={v => updateLine(line.id, "line_type", v as "goods" | "services")}>
+                        <SelectTrigger className="h-9 rounded-lg border-0 bg-transparent shadow-none focus:ring-1 text-xs"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="goods">Goods</SelectItem>
+                          <SelectItem value="services">Services</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </TableCell>
                     <TableCell>
                       <Input
                         value={line.description}
