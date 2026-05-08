@@ -401,7 +401,7 @@ async def update_delivery_order(do_id: UUID, data: DeliveryOrderUpdate, current_
 @router.get("/credit-notes", response_model=list[CreditNoteResponse])
 async def list_credit_notes(status: str | None = None, current_user: dict = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
     org_id = current_user["org_id"]
-    q = select(CreditNote).options(selectinload(CreditNote.line_items)).where(CreditNote.organization_id == org_id).order_by(CreditNote.created_at.desc())
+    q = select(CreditNote).options(selectinload(CreditNote.line_items), selectinload(CreditNote.credit_applications)).where(CreditNote.organization_id == org_id).order_by(CreditNote.created_at.desc())
     if status:
         q = q.where(CreditNote.status == status)
     return (await db.execute(q)).scalars().all()
@@ -410,7 +410,7 @@ async def list_credit_notes(status: str | None = None, current_user: dict = Depe
 @router.get("/credit-notes/{cn_id}", response_model=CreditNoteResponse)
 async def get_credit_note(cn_id: UUID, current_user: dict = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
     result = await db.execute(
-        select(CreditNote).options(selectinload(CreditNote.line_items))
+        select(CreditNote).options(selectinload(CreditNote.line_items), selectinload(CreditNote.credit_applications))
         .where(CreditNote.id == cn_id, CreditNote.organization_id == current_user["org_id"])
     )
     obj = result.scalar_one_or_none()
