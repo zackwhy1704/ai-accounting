@@ -66,7 +66,6 @@ export default function NewCreditNotePage() {
     const custInvoices = invoices.filter((inv: any) => inv.contact_id === id && inv.status !== "void")
     setApplyCreditLines(
       custInvoices
-        .filter((inv: any) => (inv.total - (inv.amount_paid || 0)) > 0)
         .map((inv: any) => ({
           invoice_id: inv.id,
           selected: false,

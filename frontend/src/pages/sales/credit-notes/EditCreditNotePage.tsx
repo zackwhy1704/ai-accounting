@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useMemo } from "react"
 import { useNavigate, useParams } from "react-router-dom"
-import { Plus, Trash2, Loader2 } from "lucide-react"
-import { useCreditNote, useUpdateCreditNote, useContacts, useAccounts, useTaxRates, useInvoices } from "../../../lib/hooks"
+import { Plus, Trash2, Loader2, X } from "lucide-react"
+import { useCreditNote, useUpdateCreditNote, useContacts, useAccounts, useTaxRates, useInvoices, useRemoveSingleCreditApplication } from "../../../lib/hooks"
 import { formatCurrency, formatDate } from "../../../lib/utils"
 import { getContactPrefs, saveContactPref } from "../../../lib/contact-prefs"
 import { useToast } from "../../../components/ui/toast"
@@ -34,6 +34,7 @@ interface ApplyCreditLine {
   invoice_id: string
   selected: boolean
   apply_amount: number
+  app_id?: string  // DB-backed CreditApplicationModel.id (present when loaded from existing CN)
 }
 
 const cardClass = "rounded-2xl border-border bg-card p-6 shadow-[0_0_0_1px_rgba(15,23,42,0.06),0_18px_55px_rgba(2,6,23,0.08)]"
@@ -48,6 +49,7 @@ export default function EditCreditNotePage() {
   const { data: taxRates = [] } = useTaxRates()
   const { data: invoices = [] } = useInvoices()
   const updateCreditNote = useUpdateCreditNote()
+  const removeSingleApp = useRemoveSingleCreditApplication()
   const populated = useRef(false)
 
   const [applyCreditLines, setApplyCreditLines] = useState<ApplyCreditLine[]>([])
@@ -86,6 +88,7 @@ export default function EditCreditNotePage() {
         invoice_id: String(a.invoice_id),
         selected: true,
         apply_amount: a.amount ?? 0,
+        app_id: a.id ? String(a.id) : undefined,
       })))
     }
     populated.current = true
@@ -461,11 +464,12 @@ export default function EditCreditNotePage() {
                   <TableHead className="text-right text-muted-foreground">Total</TableHead>
                   <TableHead className="text-right text-muted-foreground">Balance</TableHead>
                   <TableHead className="w-[140px] text-right text-muted-foreground">Apply Amount</TableHead>
+                  <TableHead className="w-10" />
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {applyCreditLines.length === 0 ? (
-                  <TableRow><TableCell colSpan={6} className="py-8 text-center text-sm text-muted-foreground">No invoices selected. Click an invoice above to add it.</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={7} className="py-8 text-center text-sm text-muted-foreground">No invoices selected. Click an invoice above to add it.</TableCell></TableRow>
                 ) : (
                   applyCreditLines.map((line, idx) => {
                     const inv = invoices.find((i: any) => i.id === line.invoice_id) as any
@@ -480,6 +484,39 @@ export default function EditCreditNotePage() {
                         <TableCell className="text-right text-sm text-foreground">{formatCurrency(inv ? inv.total - (inv.amount_paid || 0) : 0)}</TableCell>
                         <TableCell>
                           <Input type="number" min={0} step={0.01} value={line.apply_amount} onChange={e => updateApplyAmount(idx, Number(e.target.value))} disabled={!line.selected} className="h-9 rounded-lg text-right text-sm" />
+                        </TableCell>
+                        <TableCell>
+                          {line.app_id ? (
+                            <button
+                              type="button"
+                              title="Remove this credit application"
+                              disabled={removeSingleApp.isPending}
+                              onClick={() => {
+                                if (confirm("Remove this credit application? The invoice balance will be restored.")) {
+                                  removeSingleApp.mutate(
+                                    { cnId: id!, appId: line.app_id! },
+                                    {
+                                      onSuccess: () => {
+                                        setApplyCreditLines(prev => prev.filter((_, i) => i !== idx))
+                                      },
+                                    }
+                                  )
+                                }
+                              }}
+                              className="text-muted-foreground hover:text-rose-500 disabled:opacity-40"
+                            >
+                              <X className="h-4 w-4" />
+                            </button>
+                          ) : (
+                            <button
+                              type="button"
+                              title="Remove row"
+                              onClick={() => setApplyCreditLines(prev => prev.filter((_, i) => i !== idx))}
+                              className="text-muted-foreground hover:text-rose-500"
+                            >
+                              <X className="h-4 w-4" />
+                            </button>
+                          )}
                         </TableCell>
                       </TableRow>
                     )

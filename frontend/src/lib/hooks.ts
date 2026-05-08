@@ -1141,6 +1141,17 @@ export function useRemoveCreditApplications() {
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['credit-notes'] }); qc.invalidateQueries({ queryKey: ['invoices'] }) },
   })
 }
+export function useRemoveSingleCreditApplication() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ cnId, appId }: { cnId: string; appId: string }) =>
+      api.delete(`/credit-notes/${cnId}/applications/${appId}`).then(r => r.data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['credit-notes'] })
+      qc.invalidateQueries({ queryKey: ['invoices'] })
+    },
+  })
+}
 export function useUpdateDebitNoteStatus() {
   const qc = useQueryClient()
   return useMutation({
