@@ -1,9 +1,10 @@
-import { useState } from "react"
+import { useState, useMemo } from "react"
 import { useNavigate } from "react-router-dom"
 import { ViewDetailSheet } from "../../components/ui/view-detail-sheet"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { Plus, Search, RotateCcw, FileText, Download, XCircle, Pencil, CheckCircle, Trash2 } from "lucide-react"
 import api from "../../lib/api"
+import { useBills } from "../../lib/hooks"
 import { formatCurrency, formatDate, cn } from "../../lib/utils"
 import { Card } from "../../components/ui/card"
 import { Button } from "../../components/ui/button"
@@ -14,12 +15,15 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from ".
 
 interface PurchaseRefund {
   id: string
-  refund_number: string
+  refund_no: string
   refund_date: string
-  contact_name: string
+  contact_id: string | null
+  bill_id: string | null
   amount: number
   currency: string
   payment_method: string
+  reference_no: string | null
+  notes: string | null
   status: string
 }
 
@@ -51,11 +55,13 @@ export default function PurchaseRefundsPage() {
       return res.data
     },
   })
+  const { data: bills = [] } = useBills()
+  const billMap = useMemo(() => new Map((bills as any[]).map((b: any) => [String(b.id), b.bill_number])), [bills])
 
   const rows = search.trim()
     ? refunds.filter(r =>
-        r.refund_number.toLowerCase().includes(search.toLowerCase()) ||
-        (r.contact_name ?? "").toLowerCase().includes(search.toLowerCase())
+        r.refund_no.toLowerCase().includes(search.toLowerCase()) ||
+        (r.bill_id && (billMap.get(r.bill_id) ?? "").toLowerCase().includes(search.toLowerCase()))
       )
     : refunds
 
@@ -111,7 +117,7 @@ export default function PurchaseRefundsPage() {
                 <TableRow className="border-border hover:bg-transparent">
                   <TableHead className="text-muted-foreground">No.</TableHead>
                   <TableHead className="text-muted-foreground">Date</TableHead>
-                  <TableHead className="text-muted-foreground">Supplier</TableHead>
+                  <TableHead className="text-muted-foreground">Linked Bill</TableHead>
                   <TableHead className="text-right text-muted-foreground">Amount</TableHead>
                   <TableHead className="text-muted-foreground">Method</TableHead>
                   <TableHead className="text-muted-foreground">Status</TableHead>
@@ -121,9 +127,9 @@ export default function PurchaseRefundsPage() {
               <TableBody>
                 {rows.map(r => (
                   <TableRow key={r.id} className="border-border hover:bg-muted/50">
-                    <TableCell className="font-medium text-foreground">{r.refund_number}</TableCell>
+                    <TableCell className="font-medium text-foreground">{r.refund_no}</TableCell>
                     <TableCell className="text-muted-foreground">{formatDate(r.refund_date)}</TableCell>
-                    <TableCell className="text-foreground">{r.contact_name || "—"}</TableCell>
+                    <TableCell className="text-foreground">{r.bill_id ? (billMap.get(r.bill_id) ?? r.bill_id) : "—"}</TableCell>
                     <TableCell className="text-right text-foreground">{formatCurrency(r.amount, r.currency)}</TableCell>
                     <TableCell className="text-muted-foreground">{methodLabel[r.payment_method] ?? r.payment_method}</TableCell>
                     <TableCell>
@@ -151,15 +157,17 @@ export default function PurchaseRefundsPage() {
       <ViewDetailSheet
         open={!!viewItem}
         onOpenChange={(open) => { if (!open) setViewItem(null) }}
-        title={viewItem ? `Refund ${viewItem.refund_number}` : ""}
+        title={viewItem ? `Refund ${viewItem.refund_no}` : ""}
         subtitle={viewItem?.status ? viewItem.status.charAt(0).toUpperCase() + viewItem.status.slice(1) : undefined}
         fields={viewItem ? [
-          { label: "Refund Number", value: viewItem.refund_number },
+          { label: "Refund Number", value: viewItem.refund_no },
           { label: "Status", value: <Badge variant="outline" className={cn("rounded-lg px-2 py-0.5 text-[11px] font-semibold", statusColors[viewItem.status] ?? "")}>{viewItem.status.charAt(0).toUpperCase() + viewItem.status.slice(1)}</Badge> },
-          { label: "Vendor", value: viewItem.contact_name || "—" },
+          { label: "Linked Bill", value: viewItem.bill_id ? (billMap.get(viewItem.bill_id) ?? "—") : "—" },
           { label: "Date", value: formatDate(viewItem.refund_date) },
           { label: "Amount", value: formatCurrency(viewItem.amount, viewItem.currency) },
           { label: "Method", value: methodLabel[viewItem.payment_method] ?? viewItem.payment_method },
+          ...(viewItem.reference_no ? [{ label: "Reference", value: viewItem.reference_no }] : []),
+          ...(viewItem.notes ? [{ label: "Notes", value: viewItem.notes }] : []),
         ] : []}
       />
     </div>

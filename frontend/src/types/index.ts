@@ -491,6 +491,7 @@ export interface PurchaseRefund {
   organization_id: string
   refund_no: string
   contact_id: string | null
+  bill_id: string | null
   refund_date: string
   amount: number
   currency: string

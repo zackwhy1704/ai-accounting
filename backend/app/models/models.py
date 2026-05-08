@@ -1385,6 +1385,7 @@ class PurchaseRefund(Base):
     currency: Mapped[str] = mapped_column(String(3), default="MYR")
     payment_method: Mapped[str] = mapped_column(String(30), default="bank_transfer")
     bank_account_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("bank_accounts.id", ondelete="SET NULL"))
+    bill_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("bills.id", ondelete="SET NULL"), nullable=True)
     reference_no: Mapped[str | None] = mapped_column(String(100))
     notes: Mapped[str | None] = mapped_column(Text)
     status: Mapped[str] = mapped_column(String(20), default="completed")

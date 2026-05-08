@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react"
 import { useNavigate, useParams } from "react-router-dom"
 import { Loader2 } from "lucide-react"
-import { useContacts, useBankAccounts, usePurchaseRefund, useUpdatePurchaseRefund } from "../../lib/hooks"
+import { useContacts, useBankAccounts, usePurchaseRefund, useUpdatePurchaseRefund, useBills } from "../../lib/hooks"
 import { getContactPrefs, saveContactPref } from "../../lib/contact-prefs"
 import { useToast } from "../../components/ui/toast"
 import { Card } from "../../components/ui/card"
@@ -16,11 +16,13 @@ export default function EditPurchaseRefundPage() {
   const { toast } = useToast()
   const { data: contacts = [] } = useContacts()
   const { data: bankAccounts = [] } = useBankAccounts()
+  const { data: bills = [] } = useBills()
   const { data } = usePurchaseRefund(id!)
   const updateRefund = useUpdatePurchaseRefund()
 
   const [refundNo, setRefundNo] = useState("")
   const [contactId, setContactId] = useState("")
+  const [billId, setBillId] = useState("")
   const [paymentDate, setPaymentDate] = useState("")
   const [amount, setAmount] = useState("")
   const [currency, setCurrency] = useState("MYR")
@@ -35,6 +37,7 @@ export default function EditPurchaseRefundPage() {
       populated.current = true
       setRefundNo(data.refund_no || "")
       setContactId(data.contact_id || "")
+      setBillId(data.bill_id || "")
       setPaymentDate(data.refund_date ? data.refund_date.slice(0, 10) : "")
       setAmount(data.amount != null ? String(data.amount) : "")
       setCurrency(data.currency || "MYR")
@@ -45,6 +48,17 @@ export default function EditPurchaseRefundPage() {
     }
   }, [data])
 
+  const filteredBills = contactId
+    ? (bills as any[]).filter((b: any) => String(b.contact_id) === contactId && b.status !== "void" && b.status !== "draft")
+    : (bills as any[]).filter((b: any) => b.status !== "void" && b.status !== "draft")
+
+  const handleContactChange = (v: string) => {
+    if (v === "__add_new__") { navigate("/contacts/new"); return }
+    setContactId(v)
+    setBillId("")
+    if (v) { const prefs = getContactPrefs(v); if (prefs.currency) setCurrency(prefs.currency) }
+  }
+
   const handleSave = async () => {
     if (!paymentDate) { toast("Please enter refund date", "warning"); return }
     if (!amount || Number(amount) <= 0) { toast("Please enter a valid amount", "warning"); return }
@@ -52,6 +66,7 @@ export default function EditPurchaseRefundPage() {
       await updateRefund.mutateAsync({
         id: id!,
         contact_id: contactId || null,
+        bill_id: billId || null,
         refund_no: refundNo || undefined,
         refund_date: new Date(paymentDate).toISOString(),
         amount: Number(amount),
@@ -83,16 +98,29 @@ export default function EditPurchaseRefundPage() {
           </div>
           <div>
             <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Supplier</label>
-            <Select value={contactId} onValueChange={v => { if (v === "__add_new__") { navigate("/contacts/new"); return } setContactId(v); if (v) { const prefs = getContactPrefs(v); if (prefs.currency) setCurrency(prefs.currency) } }}>
+            <SearchableSelect
+              value={contactId}
+              onChange={handleContactChange}
+              placeholder="Select supplier (optional)"
+              options={(contacts as any[])
+                .filter((c: any) => c.type === "supplier" || c.type === "both")
+                .map((c: any) => ({ value: c.id, label: c.name, hint: c.email ?? "" }))}
+              footerAction={{ label: "+ Add New Supplier", onClick: () => navigate("/contacts/new") }}
+            />
+          </div>
+          <div>
+            <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Linked Bill</label>
+            <Select value={billId || "__none__"} onValueChange={v => setBillId(v === "__none__" ? "" : v)}>
               <SelectTrigger className="h-10 rounded-xl">
-                <SelectValue placeholder="Select supplier (optional)" />
+                <SelectValue placeholder="Select bill (optional)" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">None</SelectItem>
-                {contacts.map(c => (
-                  <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                <SelectItem value="__none__">No linked bill</SelectItem>
+                {filteredBills.map((b: any) => (
+                  <SelectItem key={b.id} value={String(b.id)}>
+                    {b.bill_number} — balance {(parseFloat(b.total) - parseFloat(b.amount_paid || 0)).toFixed(2)}
+                  </SelectItem>
                 ))}
-                <SelectItem value="__add_new__" className="text-primary font-medium">+ Add New Supplier</SelectItem>
               </SelectContent>
             </Select>
           </div>

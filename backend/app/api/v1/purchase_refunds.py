@@ -9,7 +9,7 @@ from pydantic import BaseModel
 
 from app.core.database import get_db
 from app.core.security import get_current_user
-from app.models.models import PurchaseRefund
+from app.models.models import PurchaseRefund, Bill
 from .gl_helpers import post_gl, revert_gl
 
 router = APIRouter(prefix="/purchase-refunds", tags=["purchase-refunds"])
@@ -21,6 +21,7 @@ class PurchaseRefundCreate(BaseModel):
     amount: float
     currency: str = "MYR"
     contact_id: Optional[UUID] = None
+    bill_id: Optional[UUID] = None
     payment_method: str = "bank_transfer"
     bank_account_id: Optional[str] = None
     reference_no: Optional[str] = None
@@ -33,6 +34,7 @@ class PurchaseRefundUpdate(BaseModel):
     amount: Optional[float] = None
     currency: Optional[str] = None
     contact_id: Optional[UUID] = None
+    bill_id: Optional[UUID] = None
     payment_method: Optional[str] = None
     bank_account_id: Optional[str] = None
     reference_no: Optional[str] = None
@@ -44,6 +46,7 @@ class PurchaseRefundResponse(BaseModel):
     organization_id: UUID
     refund_no: str
     contact_id: Optional[UUID]
+    bill_id: Optional[UUID]
     refund_date: datetime
     amount: float
     currency: str
@@ -60,6 +63,26 @@ class PurchaseRefundResponse(BaseModel):
 def _gen_refund_no() -> str:
     now = datetime.now(timezone.utc)
     return f"PRF-{now.strftime('%Y%m')}-{random.randint(1000, 9999)}"
+
+
+async def _deduct_bill(db: AsyncSession, bill_id: UUID, amount: float):
+    """Reduce bill.amount_paid by amount (min 0), reopen if was paid."""
+    result = await db.execute(select(Bill).where(Bill.id == bill_id))
+    bill = result.scalar_one_or_none()
+    if bill:
+        bill.amount_paid = max(0.0, float(bill.amount_paid or 0) - amount)
+        if bill.status == "paid":
+            bill.status = "outstanding"
+
+
+async def _restore_bill(db: AsyncSession, bill_id: UUID, amount: float):
+    """Add amount back to bill.amount_paid, mark paid if fully covered."""
+    result = await db.execute(select(Bill).where(Bill.id == bill_id))
+    bill = result.scalar_one_or_none()
+    if bill:
+        bill.amount_paid = float(bill.amount_paid or 0) + amount
+        if bill.amount_paid >= float(bill.total or 0):
+            bill.status = "paid"
 
 
 @router.get("", response_model=list[PurchaseRefundResponse])
@@ -109,6 +132,10 @@ async def create_purchase_refund(
     db.add(refund)
     await db.flush()
 
+    # Deduct refund amount from linked bill's amount_paid
+    if payload.bill_id:
+        await _deduct_bill(db, payload.bill_id, float(payload.amount))
+
     # GL: Dr Cash/Bank (1000) / Cr AP (2000)
     await post_gl(
         db, org_id, payload.refund_date,
@@ -156,11 +183,27 @@ async def update_purchase_refund(
     refund = result.scalar_one_or_none()
     if not refund:
         raise HTTPException(status_code=404, detail="Purchase refund not found")
+
     update_data = payload.model_dump(exclude_unset=True)
+
     if "refund_no" in update_data and update_data["refund_no"]:
         existing = (await db.execute(select(PurchaseRefund.id).where(PurchaseRefund.organization_id == current_user["org_id"], PurchaseRefund.refund_no == update_data["refund_no"], PurchaseRefund.id != refund.id))).first()
         if existing:
             raise HTTPException(status_code=400, detail="Refund number already in use")
+
+    # If bill_id or amount changed, reverse old bill effect and apply new one
+    new_bill_id = update_data.get("bill_id", refund.bill_id)
+    new_amount = float(update_data.get("amount", refund.amount) or 0)
+    old_bill_id = refund.bill_id
+    old_amount = float(refund.amount or 0)
+
+    bill_changed = "bill_id" in update_data or "amount" in update_data
+    if bill_changed and refund.status != "void":
+        if old_bill_id:
+            await _restore_bill(db, old_bill_id, old_amount)
+        if new_bill_id:
+            await _deduct_bill(db, new_bill_id, new_amount)
+
     for key, val in update_data.items():
         setattr(refund, key, val)
     await db.commit()
@@ -183,6 +226,8 @@ async def void_purchase_refund(
     refund = result.scalar_one_or_none()
     if not refund:
         raise HTTPException(status_code=404, detail="Purchase refund not found")
+    if refund.bill_id and refund.status != "void":
+        await _restore_bill(db, refund.bill_id, float(refund.amount or 0))
     refund.status = "void"
     await revert_gl(
         db, current_user["org_id"], refund_id, "purchase_refund",
@@ -213,6 +258,8 @@ async def update_purchase_refund_status(
     if not refund:
         raise HTTPException(status_code=404, detail="Purchase refund not found")
     if status == "void" and refund.status != "void":
+        if refund.bill_id:
+            await _restore_bill(db, refund.bill_id, float(refund.amount or 0))
         await revert_gl(
             db, current_user["org_id"], refund_id, "purchase_refund",
             refund.refund_date,

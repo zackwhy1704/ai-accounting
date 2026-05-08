@@ -1,7 +1,7 @@
-import { useState } from "react"
+import { useState, useEffect, useRef } from "react"
 import { useNavigate } from "react-router-dom"
 import { Loader2 } from "lucide-react"
-import { useContacts, useBankAccounts, useCreatePurchaseRefund } from "../../lib/hooks"
+import { useContacts, useBankAccounts, useCreatePurchaseRefund, useBills } from "../../lib/hooks"
 import { getContactPrefs, saveContactPref } from "../../lib/contact-prefs"
 import { useToast } from "../../components/ui/toast"
 import { Card } from "../../components/ui/card"
@@ -15,10 +15,12 @@ export default function NewPurchaseRefundPage() {
   const { toast } = useToast()
   const { data: contacts = [] } = useContacts()
   const { data: bankAccounts = [] } = useBankAccounts()
+  const { data: bills = [] } = useBills()
   const createRefund = useCreatePurchaseRefund()
 
   const [refundNo, setRefundNo] = useState(() => `PRF-${Date.now().toString().slice(-6)}`)
   const [contactId, setContactId] = useState("")
+  const [billId, setBillId] = useState("")
   const [paymentDate, setPaymentDate] = useState(() => new Date().toISOString().slice(0, 10))
   const [amount, setAmount] = useState("")
   const [currency, setCurrency] = useState("MYR")
@@ -27,12 +29,42 @@ export default function NewPurchaseRefundPage() {
   const [referenceNo, setReferenceNo] = useState("")
   const [notes, setNotes] = useState("")
 
+  // When a bill is selected, prefill amount with remaining balance
+  const amountPrefilled = useRef(false)
+  useEffect(() => {
+    if (!billId || amountPrefilled.current) return
+    const bill = (bills as any[]).find((b: any) => String(b.id) === billId)
+    if (bill) {
+      const balance = parseFloat(bill.total) - parseFloat(bill.amount_paid || 0)
+      if (balance > 0) setAmount(balance.toFixed(2))
+      amountPrefilled.current = true
+    }
+  }, [billId, bills])
+
+  const filteredBills = contactId
+    ? (bills as any[]).filter((b: any) => String(b.contact_id) === contactId && b.status !== "void" && b.status !== "draft")
+    : (bills as any[]).filter((b: any) => b.status !== "void" && b.status !== "draft")
+
+  const handleContactChange = (v: string) => {
+    if (v === "__add_new__") { navigate("/contacts/new"); return }
+    setContactId(v)
+    setBillId("")
+    amountPrefilled.current = false
+    if (v) { const prefs = getContactPrefs(v); if (prefs.currency) setCurrency(prefs.currency) }
+  }
+
+  const handleBillChange = (v: string) => {
+    setBillId(v === "__none__" ? "" : v)
+    amountPrefilled.current = false
+  }
+
   const handleSave = async () => {
     if (!paymentDate) { toast("Please enter refund date", "warning"); return }
     if (!amount || Number(amount) <= 0) { toast("Please enter a valid amount", "warning"); return }
     try {
       await createRefund.mutateAsync({
         contact_id: contactId || null,
+        bill_id: billId || null,
         refund_no: refundNo || undefined,
         refund_date: new Date(paymentDate).toISOString(),
         amount: Number(amount),
@@ -64,16 +96,29 @@ export default function NewPurchaseRefundPage() {
           </div>
           <div>
             <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Supplier</label>
-            <Select value={contactId} onValueChange={v => { if (v === "__add_new__") { navigate("/contacts/new"); return } setContactId(v); if (v) { const prefs = getContactPrefs(v); if (prefs.currency) setCurrency(prefs.currency) } }}>
+            <SearchableSelect
+              value={contactId}
+              onChange={handleContactChange}
+              placeholder="Select supplier (optional)"
+              options={(contacts as any[])
+                .filter((c: any) => c.type === "supplier" || c.type === "both")
+                .map((c: any) => ({ value: c.id, label: c.name, hint: c.email ?? "" }))}
+              footerAction={{ label: "+ Add New Supplier", onClick: () => navigate("/contacts/new") }}
+            />
+          </div>
+          <div>
+            <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Linked Bill</label>
+            <Select value={billId || "__none__"} onValueChange={handleBillChange}>
               <SelectTrigger className="h-10 rounded-xl">
-                <SelectValue placeholder="Select supplier (optional)" />
+                <SelectValue placeholder="Select bill (optional)" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">None</SelectItem>
-                {contacts.map(c => (
-                  <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                <SelectItem value="__none__">No linked bill</SelectItem>
+                {filteredBills.map((b: any) => (
+                  <SelectItem key={b.id} value={String(b.id)}>
+                    {b.bill_number} — balance {(parseFloat(b.total) - parseFloat(b.amount_paid || 0)).toFixed(2)}
+                  </SelectItem>
                 ))}
-                <SelectItem value="__add_new__" className="text-primary font-medium">+ Add New Supplier</SelectItem>
               </SelectContent>
             </Select>
           </div>
