@@ -10,7 +10,7 @@ from app.core.database import get_db
 from app.core.security import get_current_user
 from app.models.models import Bill, BillLineItem, PurchasePayment
 from app.schemas.schemas import BillCreate, BillUpdate, BillResponse
-from .gl_helpers import post_gl, post_gl_by_id, revert_gl, _acct
+from .gl_helpers import post_gl, revert_gl
 
 router = APIRouter(prefix="/bills", tags=["Bills"])
 
@@ -348,32 +348,13 @@ async def pay_bill(
     db.add(payment)
     await db.flush()
 
-    # GL: Dr AP / Cr Bank (or Cash if no bank account selected)
-    if payload.bank_account_id:
-        from uuid import UUID as _UUID
-        bank_uuid = _UUID(payload.bank_account_id)
-        ap_acct = await _acct(db, org_id, "2000")
-        if ap_acct:
-            await post_gl_by_id(
-                db, org_id, payload.payment_date,
-                f"Payment for Bill {bill.bill_number}",
-                payment.payment_no, "purchase_payment", payment.id,
-                [(ap_acct.id, apply_amount, 0), (bank_uuid, 0, apply_amount)],
-            )
-        else:
-            await post_gl(
-                db, org_id, payload.payment_date,
-                f"Payment for Bill {bill.bill_number}",
-                payment.payment_no, "purchase_payment", payment.id,
-                [("2000", apply_amount, 0), ("1000", 0, apply_amount)],
-            )
-    else:
-        await post_gl(
-            db, org_id, payload.payment_date,
-            f"Payment for Bill {bill.bill_number}",
-            payment.payment_no, "purchase_payment", payment.id,
-            [("2000", apply_amount, 0), ("1000", 0, apply_amount)],
-        )
+    # GL: Dr AP (2000) / Cr Cash/Bank (1000)
+    await post_gl(
+        db, org_id, payload.payment_date,
+        f"Payment for Bill {bill.bill_number}",
+        payment.payment_no, "purchase_payment", payment.id,
+        [("2000", apply_amount, 0), ("1000", 0, apply_amount)],
+    )
 
     bill.amount_paid = float(bill.amount_paid) + apply_amount
     if bill.amount_paid >= float(bill.total):

@@ -10,7 +10,7 @@ from pydantic import BaseModel
 from app.core.database import get_db
 from app.core.security import get_current_user
 from app.models.models import PurchasePayment
-from .gl_helpers import post_gl, post_gl_by_id, revert_gl, _acct
+from .gl_helpers import post_gl, revert_gl
 
 router = APIRouter(prefix="/purchase-payments", tags=["purchase-payments"])
 
@@ -48,6 +48,7 @@ class PurchasePaymentResponse(BaseModel):
     amount: float
     currency: str
     payment_method: str
+    bank_account_id: Optional[UUID]
     reference_no: Optional[str]
     notes: Optional[str]
     status: str
@@ -93,7 +94,6 @@ async def create_purchase_payment(
     org_id = current_user["org_id"]
     data = payload.model_dump()
     custom_no = data.pop("payment_no", None)
-    bank_account_id = data.pop("bank_account_id", None)
     if custom_no:
         existing = (await db.execute(select(PurchasePayment.id).where(PurchasePayment.organization_id == org_id, PurchasePayment.payment_no == custom_no))).first()
         if existing:
@@ -109,32 +109,13 @@ async def create_purchase_payment(
     db.add(payment)
     await db.flush()
 
-    # GL: Dr AP / Cr Bank (paying a vendor reduces AP and reduces bank balance)
-    if bank_account_id:
-        from uuid import UUID as _UUID
-        bank_uuid = _UUID(bank_account_id)
-        ap_acct = await _acct(db, org_id, "2000")
-        if ap_acct:
-            await post_gl_by_id(
-                db, org_id, payload.payment_date,
-                f"Purchase payment {payment.payment_no}",
-                payment.payment_no, "purchase_payment", payment.id,
-                [(ap_acct.id, float(payload.amount), 0), (bank_uuid, 0, float(payload.amount))],
-            )
-        else:
-            await post_gl(
-                db, org_id, payload.payment_date,
-                f"Purchase payment {payment.payment_no}",
-                payment.payment_no, "purchase_payment", payment.id,
-                [("2000", float(payload.amount), 0), ("1000", 0, float(payload.amount))],
-            )
-    else:
-        await post_gl(
-            db, org_id, payload.payment_date,
-            f"Purchase payment {payment.payment_no}",
-            payment.payment_no, "purchase_payment", payment.id,
-            [("2000", float(payload.amount), 0), ("1000", 0, float(payload.amount))],
-        )
+    # GL: Dr AP (2000) / Cr Cash/Bank (1000)
+    await post_gl(
+        db, org_id, payload.payment_date,
+        f"Purchase payment {payment.payment_no}",
+        payment.payment_no, "purchase_payment", payment.id,
+        [("2000", float(payload.amount), 0), ("1000", 0, float(payload.amount))],
+    )
 
     await db.commit()
     await db.refresh(payment)

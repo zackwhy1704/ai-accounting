@@ -10,7 +10,7 @@ from pydantic import BaseModel
 from app.core.database import get_db
 from app.core.security import get_current_user
 from app.models.models import PurchaseRefund
-from .gl_helpers import post_gl, post_gl_by_id, revert_gl, _acct
+from .gl_helpers import post_gl, revert_gl
 
 router = APIRouter(prefix="/purchase-refunds", tags=["purchase-refunds"])
 
@@ -48,6 +48,7 @@ class PurchaseRefundResponse(BaseModel):
     amount: float
     currency: str
     payment_method: str
+    bank_account_id: Optional[UUID]
     reference_no: Optional[str]
     notes: Optional[str]
     status: str
@@ -93,7 +94,6 @@ async def create_purchase_refund(
     org_id = current_user["org_id"]
     data = payload.model_dump()
     custom_no = data.pop("refund_no", None)
-    bank_account_id = data.pop("bank_account_id", None)
     if custom_no:
         existing = (await db.execute(select(PurchaseRefund.id).where(PurchaseRefund.organization_id == org_id, PurchaseRefund.refund_no == custom_no))).first()
         if existing:
@@ -109,32 +109,13 @@ async def create_purchase_refund(
     db.add(refund)
     await db.flush()
 
-    # GL: Dr Bank / Cr AP (vendor refunds us — bank increases, AP decreases)
-    if bank_account_id:
-        from uuid import UUID as _UUID
-        bank_uuid = _UUID(bank_account_id)
-        ap_acct = await _acct(db, org_id, "2000")
-        if ap_acct:
-            await post_gl_by_id(
-                db, org_id, payload.refund_date,
-                f"Purchase refund {refund.refund_no}",
-                refund.refund_no, "purchase_refund", refund.id,
-                [(bank_uuid, float(payload.amount), 0), (ap_acct.id, 0, float(payload.amount))],
-            )
-        else:
-            await post_gl(
-                db, org_id, payload.refund_date,
-                f"Purchase refund {refund.refund_no}",
-                refund.refund_no, "purchase_refund", refund.id,
-                [("1000", float(payload.amount), 0), ("2000", 0, float(payload.amount))],
-            )
-    else:
-        await post_gl(
-            db, org_id, payload.refund_date,
-            f"Purchase refund {refund.refund_no}",
-            refund.refund_no, "purchase_refund", refund.id,
-            [("1000", float(payload.amount), 0), ("2000", 0, float(payload.amount))],
-        )
+    # GL: Dr Cash/Bank (1000) / Cr AP (2000)
+    await post_gl(
+        db, org_id, payload.refund_date,
+        f"Purchase refund {refund.refund_no}",
+        refund.refund_no, "purchase_refund", refund.id,
+        [("1000", float(payload.amount), 0), ("2000", 0, float(payload.amount))],
+    )
 
     await db.commit()
     await db.refresh(refund)

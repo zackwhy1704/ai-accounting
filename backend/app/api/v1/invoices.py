@@ -543,24 +543,14 @@ async def refund_overpaid(
     else:
         inv.status = "outstanding"
 
-    # GL: Dr AR / Cr Cash/Bank
-    from .gl_helpers import post_gl, post_gl_by_id, _acct
-    if bank_account_uuid:
-        ar_acct = await _acct(db, org_id, "1100")
-        if ar_acct:
-            await post_gl_by_id(
-                db, org_id, refund_date,
-                f"Refund {ref_number}",
-                ref_number, "refund", refund.id,
-                [(ar_acct.id, body.amount, 0), (bank_account_uuid, 0, body.amount)],
-            )
-    else:
-        await post_gl(
-            db, org_id, refund_date,
-            f"Refund {ref_number}",
-            ref_number, "refund", refund.id,
-            [("1100", body.amount, 0), ("1000", 0, body.amount)],
-        )
+    # GL: Dr AR (1100) / Cr Cash/Bank (1000)
+    from .gl_helpers import post_gl
+    await post_gl(
+        db, org_id, refund_date,
+        f"Refund {ref_number}",
+        ref_number, "refund", refund.id,
+        [("1100", body.amount, 0), ("1000", 0, body.amount)],
+    )
 
     await db.commit()
     return {"refund_number": ref_number, "amount": body.amount}
