@@ -175,8 +175,8 @@ export default function BillsPage() {
                               <TableCell className="font-medium text-foreground">{bill.bill_number}</TableCell>
                               <TableCell className="text-muted-foreground">{formatDate(bill.issue_date)}</TableCell>
                               <TableCell className="text-foreground">{contactMap.get(bill.contact_id) ?? "—"}</TableCell>
-                              <TableCell className="text-right text-foreground">{formatCurrency(bill.total)}</TableCell>
-                              <TableCell className="text-right text-muted-foreground">{formatCurrency(bill.total - (bill.amount_paid ?? 0))}</TableCell>
+                              <TableCell className="text-right text-foreground">{formatCurrency(bill.total, bill.currency)}</TableCell>
+                              <TableCell className="text-right text-muted-foreground">{formatCurrency(bill.total - (bill.amount_paid ?? 0), bill.currency)}</TableCell>
                               <TableCell><Badge variant="outline" className={cn("rounded-lg px-2 py-0.5 text-[11px] font-semibold", statusColors[bill.status] ?? "")}>{statusLabel(bill.status)}</Badge></TableCell>
                               <TableCell className="text-right">
                                 <RowActionsMenu actions={[
@@ -227,11 +227,11 @@ export default function BillsPage() {
           { label: "Vendor", value: contactMap.get(viewItem.contact_id) ?? "—" },
           { label: "Issue Date", value: formatDate(viewItem.issue_date) },
           { label: "Due Date", value: viewItem.due_date ? formatDate(viewItem.due_date) : "—" },
-          { label: "Subtotal", value: formatCurrency(viewItem.subtotal) },
-          { label: "Tax", value: formatCurrency(viewItem.tax_amount ?? 0) },
-          { label: "Total", value: formatCurrency(viewItem.total) },
-          { label: "Amount Paid", value: formatCurrency(viewItem.amount_paid ?? 0) },
-          { label: "Balance Due", value: formatCurrency(viewItem.total - (viewItem.amount_paid ?? 0)) },
+          { label: "Subtotal", value: formatCurrency(viewItem.subtotal, viewItem.currency) },
+          { label: "Tax", value: formatCurrency(viewItem.tax_amount ?? 0, viewItem.currency) },
+          { label: "Total", value: formatCurrency(viewItem.total, viewItem.currency) },
+          { label: "Amount Paid", value: formatCurrency(viewItem.amount_paid ?? 0, viewItem.currency) },
+          { label: "Balance Due", value: formatCurrency(viewItem.total - (viewItem.amount_paid ?? 0), viewItem.currency) },
           { label: "Currency", value: viewItem.currency ?? "MYR" },
         ] : []}
       />
