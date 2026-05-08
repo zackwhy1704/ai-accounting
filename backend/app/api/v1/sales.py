@@ -468,7 +468,7 @@ async def create_credit_note(data: CreditNoteCreate, current_user: dict = Depend
 
     await db.commit()
     result2 = await db.execute(
-        select(CreditNote).options(selectinload(CreditNote.line_items)).where(CreditNote.id == obj.id)
+        select(CreditNote).options(selectinload(CreditNote.line_items), selectinload(CreditNote.credit_applications)).where(CreditNote.id == obj.id)
     )
     return result2.scalar_one()
 
