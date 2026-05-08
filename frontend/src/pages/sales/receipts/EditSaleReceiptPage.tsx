@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useMemo } from "react"
 import { useNavigate, useParams } from "react-router-dom"
 import { Loader2, Plus, Trash2 } from "lucide-react"
-import { useSaleReceipt, useUpdateSaleReceipt, useContacts, useAccounts, useTaxRates } from "../../../lib/hooks"
+import { useSaleReceipt, useUpdateSaleReceipt, useContacts, useBankAccounts, useTaxRates } from "../../../lib/hooks"
 import { Card } from "../../../components/ui/card"
 import { Button } from "../../../components/ui/button"
 import { Input } from "../../../components/ui/input"
@@ -26,7 +26,7 @@ export default function EditSaleReceiptPage() {
   const navigate = useNavigate()
   const { data: receipt, isLoading } = useSaleReceipt(id)
   const { data: contacts = [] } = useContacts()
-  const { data: accounts = [] } = useAccounts()
+  const { data: bankAccounts = [] } = useBankAccounts()
   const { data: taxRates = [] } = useTaxRates()
   const updateSaleReceipt = useUpdateSaleReceipt()
   const populated = useRef(false)
@@ -62,11 +62,6 @@ export default function EditSaleReceiptPage() {
     }
     populated.current = true
   }, [receipt])
-
-  const bankAccounts = useMemo(() =>
-    accounts.filter((a: any) => a.type === "asset"),
-    [accounts]
-  )
 
   const addLine = () => setLineItems(prev => [...prev, { description: "", quantity: 1, unit_price: 0, discount: 0, discount_mode: "percent", tax_code_id: "", tax_rate: 0 }])
   const removeLine = (i: number) => setLineItems(prev => prev.filter((_, idx) => idx !== i))

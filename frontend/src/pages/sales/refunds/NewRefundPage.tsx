@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect } from "react"
 import { useNavigate, useSearchParams } from "react-router-dom"
-import { useContacts, useAccounts, useCreditNotes, useCreateSalesRefund } from "../../../lib/hooks"
+import { useContacts, useBankAccounts, useCreditNotes, useCreateSalesRefund } from "../../../lib/hooks"
 import { formatCurrency } from "../../../lib/utils"
 import { Card } from "../../../components/ui/card"
 import { Button } from "../../../components/ui/button"
@@ -19,14 +19,9 @@ export default function NewRefundPage() {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const { data: contacts = [] } = useContacts()
-  const { data: accounts = [] } = useAccounts()
+  const { data: bankAccounts = [] } = useBankAccounts()
   const { data: creditNotes = [] } = useCreditNotes()
   const createRefund = useCreateSalesRefund()
-
-  const bankAccounts = useMemo(
-    () => accounts.filter((a: any) => a.type === "asset"),
-    [accounts]
-  )
 
   const [refundNumber, setRefundNumber] = useState("")
   const [contactId, setContactId] = useState("")
@@ -162,8 +157,8 @@ export default function NewRefundPage() {
               placeholder="Search or select bank account"
               options={bankAccounts.map((a: any) => ({
                 value: a.id,
-                label: `${a.code} – ${a.name}`,
-                hint: a.code,
+                label: a.name,
+                hint: a.account_number ?? a.bank_name ?? "",
               }))}
             />
           </div>

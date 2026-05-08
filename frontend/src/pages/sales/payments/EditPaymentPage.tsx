@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useMemo } from "react"
 import { useNavigate, useParams } from "react-router-dom"
 import { Loader2 } from "lucide-react"
-import { useSalesPayment, useUpdateSalesPayment, useContacts, useAccounts, useInvoices } from "../../../lib/hooks"
+import { useSalesPayment, useUpdateSalesPayment, useContacts, useBankAccounts, useInvoices } from "../../../lib/hooks"
 import { formatCurrency, formatDate } from "../../../lib/utils"
 import { Card } from "../../../components/ui/card"
 import { Button } from "../../../components/ui/button"
@@ -18,11 +18,7 @@ export default function EditPaymentPage() {
   const navigate = useNavigate()
   const { data: payment, isLoading } = useSalesPayment(id)
   const { data: contacts } = useContacts()
-  const { data: accounts = [] } = useAccounts()
-  const bankAccounts = useMemo(
-    () => accounts.filter((a: any) => a.type === "asset"),
-    [accounts],
-  )
+  const { data: bankAccounts = [] } = useBankAccounts()
   const { data: invoices } = useInvoices()
   const updatePayment = useUpdateSalesPayment()
   const populated = useRef(false)
@@ -180,8 +176,8 @@ export default function EditPaymentPage() {
               placeholder="Search or select account"
               options={bankAccounts.map((a: any) => ({
                 value: a.id,
-                label: `${a.code} – ${a.name}`,
-                hint: a.code,
+                label: a.name,
+                hint: a.account_number ?? a.bank_name ?? "",
               }))}
             />
           </div>

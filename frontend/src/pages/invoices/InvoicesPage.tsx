@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react"
 import { useNavigate } from "react-router-dom"
 import { Plus, Search, CreditCard, FileText, Copy, Printer, XCircle, Truck, Pencil, Send, Trash2, ArrowRightLeft, RotateCcw } from "lucide-react"
-import { useInvoices, useContacts, useAccounts, useUpdateInvoiceStatus, useDeleteInvoice } from "../../lib/hooks"
+import { useInvoices, useContacts, useBankAccounts, useUpdateInvoiceStatus, useDeleteInvoice } from "../../lib/hooks"
 import { useQueryClient } from "@tanstack/react-query"
 import api from "../../lib/api"
 import { formatCurrency, formatDate, cn } from "../../lib/utils"
@@ -54,8 +54,7 @@ export default function InvoicesPage() {
 
   const { data: invoices = [], isLoading } = useInvoices(tab === "all" ? undefined : tab)
   const { data: contacts = [] } = useContacts()
-  const { data: accounts = [] } = useAccounts()
-  const bankAccounts = useMemo(() => accounts.filter((a: any) => a.type === "asset"), [accounts])
+  const { data: bankAccounts = [] } = useBankAccounts()
   const { t } = useTheme()
 
   const statusTabs = [
@@ -353,7 +352,7 @@ export default function InvoicesPage() {
                   value={refundBankAccountId}
                   onChange={setRefundBankAccountId}
                   placeholder="Select bank account"
-                  options={bankAccounts.map((a: any) => ({ value: a.id, label: `${a.code} – ${a.name}`, hint: a.code }))}
+                  options={bankAccounts.map((a: any) => ({ value: a.id, label: a.name, hint: a.account_number ?? a.bank_name ?? "" }))}
                 />
               </div>
             </div>

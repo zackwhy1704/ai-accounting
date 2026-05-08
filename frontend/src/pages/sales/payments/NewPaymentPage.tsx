@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect } from "react"
 import { useNavigate, useSearchParams } from "react-router-dom"
-import { useContacts, useAccounts, useInvoices, useCreateSalesPayment } from "../../../lib/hooks"
+import { useContacts, useBankAccounts, useInvoices, useCreateSalesPayment } from "../../../lib/hooks"
 import api from "../../../lib/api"
 import { formatCurrency, formatDate } from "../../../lib/utils"
 import { Card } from "../../../components/ui/card"
@@ -17,11 +17,7 @@ export default function NewPaymentPage() {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const { data: contacts } = useContacts()
-  const { data: accounts = [] } = useAccounts()
-  const bankAccounts = useMemo(
-    () => accounts.filter((a: any) => a.type === "asset"),
-    [accounts],
-  )
+  const { data: bankAccounts = [] } = useBankAccounts()
   const { data: invoices } = useInvoices()
   const createPayment = useCreateSalesPayment()
 
@@ -201,8 +197,8 @@ export default function NewPaymentPage() {
               placeholder="Search or select account"
               options={bankAccounts.map((a: any) => ({
                 value: a.id,
-                label: `${a.code} – ${a.name}`,
-                hint: a.code,
+                label: a.name,
+                hint: a.account_number ?? a.bank_name ?? "",
               }))}
             />
           </div>

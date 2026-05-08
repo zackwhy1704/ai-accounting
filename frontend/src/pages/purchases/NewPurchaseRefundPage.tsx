@@ -1,7 +1,7 @@
 import { useState, useMemo } from "react"
 import { useNavigate } from "react-router-dom"
 import { Loader2 } from "lucide-react"
-import { useContacts, useAccounts, useCreatePurchaseRefund } from "../../lib/hooks"
+import { useContacts, useBankAccounts, useCreatePurchaseRefund } from "../../lib/hooks"
 import { getContactPrefs, saveContactPref } from "../../lib/contact-prefs"
 import { useToast } from "../../components/ui/toast"
 import { Card } from "../../components/ui/card"
@@ -14,13 +14,8 @@ export default function NewPurchaseRefundPage() {
   const navigate = useNavigate()
   const { toast } = useToast()
   const { data: contacts = [] } = useContacts()
-  const { data: accounts = [] } = useAccounts()
+  const { data: bankAccounts = [] } = useBankAccounts()
   const createRefund = useCreatePurchaseRefund()
-
-  const bankAccounts = useMemo(
-    () => accounts.filter((a: any) => a.type === "asset"),
-    [accounts]
-  )
 
   const [refundNo, setRefundNo] = useState(() => `PRF-${Date.now().toString().slice(-6)}`)
   const [contactId, setContactId] = useState("")
@@ -130,7 +125,7 @@ export default function NewPurchaseRefundPage() {
               value={bankAccountId}
               onChange={setBankAccountId}
               placeholder="Search or select account"
-              options={bankAccounts.map((a: any) => ({ value: a.id, label: `${a.code} – ${a.name}`, hint: a.code }))}
+              options={bankAccounts.map((a: any) => ({ value: a.id, label: a.name, hint: a.account_number ?? a.bank_name ?? "" }))}
             />
           </div>
           <div>

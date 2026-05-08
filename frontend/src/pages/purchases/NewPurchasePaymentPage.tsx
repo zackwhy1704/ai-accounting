@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect } from "react"
 import { useNavigate, useSearchParams } from "react-router-dom"
 import { Loader2 } from "lucide-react"
-import { useContacts, useAccounts, useCreatePurchasePayment, useBills } from "../../lib/hooks"
+import { useContacts, useBankAccounts, useCreatePurchasePayment, useBills } from "../../lib/hooks"
 import { formatCurrency, formatDate } from "../../lib/utils"
 import api from "../../lib/api"
 import { getContactPrefs, saveContactPref } from "../../lib/contact-prefs"
@@ -20,18 +20,13 @@ export default function NewPurchasePaymentPage() {
   const [searchParams] = useSearchParams()
   const { toast } = useToast()
   const { data: contacts = [] } = useContacts()
-  const { data: accounts = [] } = useAccounts()
+  const { data: bankAccounts = [] } = useBankAccounts()
   const { data: bills = [] } = useBills()
   const createPayment = useCreatePurchasePayment()
 
   const fromBillId = searchParams.get("bill_id")
   const fromContactId = searchParams.get("contact_id")
   const fromAmount = searchParams.get("amount")
-
-  const bankAccounts = useMemo(
-    () => accounts.filter((a: any) => a.type === "asset"),
-    [accounts]
-  )
 
   const [paymentNo, setPaymentNo] = useState("")
   const [contactId, setContactId] = useState(fromContactId ?? "")
@@ -187,7 +182,7 @@ export default function NewPurchasePaymentPage() {
               value={bankAccountId}
               onChange={setBankAccountId}
               placeholder="Search or select account"
-              options={bankAccounts.map((a: any) => ({ value: a.id, label: `${a.code} – ${a.name}`, hint: a.code }))}
+              options={bankAccounts.map((a: any) => ({ value: a.id, label: a.name, hint: a.account_number ?? a.bank_name ?? "" }))}
             />
           </div>
 

@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react"
 import { useNavigate } from "react-router-dom"
-import { useContacts, useAccounts, useTaxRates, useCreateSaleReceipt } from "../../../lib/hooks"
+import { useContacts, useBankAccounts, useTaxRates, useCreateSaleReceipt } from "../../../lib/hooks"
 import { Card } from "../../../components/ui/card"
 import { Button } from "../../../components/ui/button"
 import { Input } from "../../../components/ui/input"
@@ -24,7 +24,7 @@ const CURRENCIES = ["MYR", "SGD", "USD", "HKD", "AUD", "EUR", "GBP", "JPY", "CNY
 export default function NewSaleReceiptPage() {
   const navigate = useNavigate()
   const { data: contacts = [] } = useContacts()
-  const { data: accounts = [] } = useAccounts()
+  const { data: bankAccounts = [] } = useBankAccounts()
   const { data: taxRates = [] } = useTaxRates()
   const createReceipt = useCreateSaleReceipt()
 
@@ -37,11 +37,6 @@ export default function NewSaleReceiptPage() {
   const [lineItems, setLineItems] = useState<LineItem[]>([
     { description: "", quantity: 1, unit_price: 0, discount: 0, discount_mode: "percent", tax_code_id: "", tax_rate: 0 },
   ])
-
-  const bankAccounts = useMemo(() =>
-    accounts.filter((a: any) => a.type === "asset"),
-    [accounts]
-  )
 
   const addLine = () => setLineItems(prev => [...prev, { description: "", quantity: 1, unit_price: 0, discount: 0, discount_mode: "percent", tax_code_id: "", tax_rate: 0 }])
   const removeLine = (i: number) => setLineItems(prev => prev.filter((_, idx) => idx !== i))

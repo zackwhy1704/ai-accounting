@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useMemo } from "react"
 import { useNavigate, useParams } from "react-router-dom"
 import { Loader2 } from "lucide-react"
-import { useSalesRefund, useUpdateSalesRefund, useContacts, useAccounts, useCreditNotes } from "../../../lib/hooks"
+import { useSalesRefund, useUpdateSalesRefund, useContacts, useBankAccounts, useCreditNotes } from "../../../lib/hooks"
 import { formatCurrency } from "../../../lib/utils"
 import { Card } from "../../../components/ui/card"
 import { Button } from "../../../components/ui/button"
@@ -21,7 +21,7 @@ export default function EditRefundPage() {
   const navigate = useNavigate()
   const { data: refund, isLoading } = useSalesRefund(id)
   const { data: contacts = [] } = useContacts()
-  const { data: accounts = [] } = useAccounts()
+  const { data: bankAccounts = [] } = useBankAccounts()
   const { data: creditNotes = [] } = useCreditNotes()
   const updateRefund = useUpdateSalesRefund()
   const populated = useRef(false)
@@ -51,11 +51,6 @@ export default function EditRefundPage() {
     setNotes(refund.notes ?? "")
     populated.current = true
   }, [refund])
-
-  const bankAccounts = useMemo(
-    () => accounts.filter((a: any) => a.type === "asset"),
-    [accounts]
-  )
 
   const filteredCreditNotes = useMemo(
     () => (contactId
@@ -155,8 +150,8 @@ export default function EditRefundPage() {
               placeholder="Search or select bank account"
               options={bankAccounts.map((a: any) => ({
                 value: a.id,
-                label: `${a.code} – ${a.name}`,
-                hint: a.code,
+                label: a.name,
+                hint: a.account_number ?? a.bank_name ?? "",
               }))}
             />
           </div>
