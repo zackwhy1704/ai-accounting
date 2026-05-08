@@ -120,7 +120,10 @@ async def update_bank_account(
     account = result.scalar_one_or_none()
     if not account:
         raise HTTPException(status_code=404, detail="Bank account not found")
-    for key, val in payload.model_dump(exclude_unset=True).items():
+    updates = payload.model_dump(exclude_unset=True)
+    if "opening_balance" in updates and "current_balance" not in updates:
+        updates["current_balance"] = updates["opening_balance"]
+    for key, val in updates.items():
         setattr(account, key, val)
     await db.commit()
     await db.refresh(account)
