@@ -62,12 +62,25 @@ export default function NewDebitNotePage() {
   const [billingPostcode, setBillingPostcode] = useState("")
   const [billingCountry, setBillingCountry] = useState("")
 
+  const [sameAsShipping, setSameAsShipping] = useState(true)
   const [shippingLine1, setShippingLine1] = useState("")
   const [shippingLine2, setShippingLine2] = useState("")
   const [shippingCity, setShippingCity] = useState("")
   const [shippingState, setShippingState] = useState("")
   const [shippingPostcode, setShippingPostcode] = useState("")
   const [shippingCountry, setShippingCountry] = useState("")
+
+  const syncShipping = (field: string, value: string) => {
+    if (!sameAsShipping) return
+    switch (field) {
+      case "line1": setShippingLine1(value); break
+      case "line2": setShippingLine2(value); break
+      case "city": setShippingCity(value); break
+      case "state": setShippingState(value); break
+      case "postcode": setShippingPostcode(value); break
+      case "country": setShippingCountry(value); break
+    }
+  }
 
   const customers = contacts.filter((c: any) => c.type === "customer" || c.type === "both")
 
@@ -77,12 +90,18 @@ export default function NewDebitNotePage() {
     setLinkedInvoiceId("")
     const contact = contacts.find((c: any) => c.id === v) as any
     if (contact) {
-      setBillingLine1(contact.billing_address_line1 ?? "")
-      setBillingLine2(contact.billing_address_line2 ?? "")
-      setBillingCity(contact.billing_city ?? "")
-      setBillingState(contact.billing_state ?? "")
-      setBillingPostcode(contact.billing_postcode ?? "")
-      setBillingCountry(contact.billing_country ?? "")
+      const l1 = contact.billing_address_line1 ?? ""
+      const l2 = contact.billing_address_line2 ?? ""
+      const city = contact.billing_city ?? ""
+      const state = contact.billing_state ?? ""
+      const postcode = contact.billing_postcode ?? ""
+      const country = contact.billing_country ?? ""
+      setBillingLine1(l1); setBillingLine2(l2); setBillingCity(city)
+      setBillingState(state); setBillingPostcode(postcode); setBillingCountry(country)
+      if (sameAsShipping) {
+        setShippingLine1(l1); setShippingLine2(l2); setShippingCity(city)
+        setShippingState(state); setShippingPostcode(postcode); setShippingCountry(country)
+      }
     }
     const prefs = getContactPrefs(v)
     if (prefs.currency) setCurrency(prefs.currency)
@@ -142,7 +161,8 @@ export default function NewDebitNotePage() {
           account_id: l.accountId || undefined,
           quantity: l.quantity,
           unit_price: l.unitPrice,
-          discount: lineDiscountAmount(l),
+          discount: l.discount,
+          discount_mode: l.discount_mode,
           tax_rate: l.taxRate,
           tax_code_id: l.taxCodeId || undefined,
         })),
@@ -227,30 +247,48 @@ export default function NewDebitNotePage() {
             <div className="rounded-xl border border-border p-4">
               <div className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Billing Address</div>
               <div className="flex flex-col gap-2">
-                <Input value={billingLine1} onChange={e => setBillingLine1(e.target.value)} placeholder="Address Line 1" className="h-9 rounded-lg" />
-                <Input value={billingLine2} onChange={e => setBillingLine2(e.target.value)} placeholder="Address Line 2" className="h-9 rounded-lg" />
+                <Input value={billingLine1} onChange={e => { setBillingLine1(e.target.value); syncShipping("line1", e.target.value) }} placeholder="Address Line 1" className="h-9 rounded-lg" />
+                <Input value={billingLine2} onChange={e => { setBillingLine2(e.target.value); syncShipping("line2", e.target.value) }} placeholder="Address Line 2" className="h-9 rounded-lg" />
                 <div className="grid grid-cols-2 gap-2">
-                  <Input value={billingCity} onChange={e => setBillingCity(e.target.value)} placeholder="City" className="h-9 rounded-lg" />
-                  <Input value={billingState} onChange={e => setBillingState(e.target.value)} placeholder="State" className="h-9 rounded-lg" />
+                  <Input value={billingCity} onChange={e => { setBillingCity(e.target.value); syncShipping("city", e.target.value) }} placeholder="City" className="h-9 rounded-lg" />
+                  <Input value={billingState} onChange={e => { setBillingState(e.target.value); syncShipping("state", e.target.value) }} placeholder="State" className="h-9 rounded-lg" />
                 </div>
                 <div className="grid grid-cols-2 gap-2">
-                  <Input value={billingPostcode} onChange={e => setBillingPostcode(e.target.value)} placeholder="Postcode" className="h-9 rounded-lg" />
-                  <Input value={billingCountry} onChange={e => setBillingCountry(e.target.value)} placeholder="Country" className="h-9 rounded-lg" />
+                  <Input value={billingPostcode} onChange={e => { setBillingPostcode(e.target.value); syncShipping("postcode", e.target.value) }} placeholder="Postcode" className="h-9 rounded-lg" />
+                  <Input value={billingCountry} onChange={e => { setBillingCountry(e.target.value); syncShipping("country", e.target.value) }} placeholder="Country" className="h-9 rounded-lg" />
                 </div>
               </div>
             </div>
             <div className="rounded-xl border border-border p-4">
-              <div className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Shipping Address</div>
+              <div className="mb-3 flex items-center justify-between">
+                <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Shipping Address</div>
+                <label className="flex items-center gap-1.5 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={sameAsShipping}
+                    onChange={e => {
+                      setSameAsShipping(e.target.checked)
+                      if (e.target.checked) {
+                        setShippingLine1(billingLine1); setShippingLine2(billingLine2)
+                        setShippingCity(billingCity); setShippingState(billingState)
+                        setShippingPostcode(billingPostcode); setShippingCountry(billingCountry)
+                      }
+                    }}
+                    className="h-3.5 w-3.5 rounded"
+                  />
+                  <span className="text-[11px] text-muted-foreground">Same as billing</span>
+                </label>
+              </div>
               <div className="flex flex-col gap-2">
-                <Input value={shippingLine1} onChange={e => setShippingLine1(e.target.value)} placeholder="Address Line 1" className="h-9 rounded-lg" />
-                <Input value={shippingLine2} onChange={e => setShippingLine2(e.target.value)} placeholder="Address Line 2" className="h-9 rounded-lg" />
+                <Input value={shippingLine1} onChange={e => { setSameAsShipping(false); setShippingLine1(e.target.value) }} placeholder="Address Line 1" className="h-9 rounded-lg" />
+                <Input value={shippingLine2} onChange={e => { setSameAsShipping(false); setShippingLine2(e.target.value) }} placeholder="Address Line 2" className="h-9 rounded-lg" />
                 <div className="grid grid-cols-2 gap-2">
-                  <Input value={shippingCity} onChange={e => setShippingCity(e.target.value)} placeholder="City" className="h-9 rounded-lg" />
-                  <Input value={shippingState} onChange={e => setShippingState(e.target.value)} placeholder="State" className="h-9 rounded-lg" />
+                  <Input value={shippingCity} onChange={e => { setSameAsShipping(false); setShippingCity(e.target.value) }} placeholder="City" className="h-9 rounded-lg" />
+                  <Input value={shippingState} onChange={e => { setSameAsShipping(false); setShippingState(e.target.value) }} placeholder="State" className="h-9 rounded-lg" />
                 </div>
                 <div className="grid grid-cols-2 gap-2">
-                  <Input value={shippingPostcode} onChange={e => setShippingPostcode(e.target.value)} placeholder="Postcode" className="h-9 rounded-lg" />
-                  <Input value={shippingCountry} onChange={e => setShippingCountry(e.target.value)} placeholder="Country" className="h-9 rounded-lg" />
+                  <Input value={shippingPostcode} onChange={e => { setSameAsShipping(false); setShippingPostcode(e.target.value) }} placeholder="Postcode" className="h-9 rounded-lg" />
+                  <Input value={shippingCountry} onChange={e => { setSameAsShipping(false); setShippingCountry(e.target.value) }} placeholder="Country" className="h-9 rounded-lg" />
                 </div>
               </div>
             </div>

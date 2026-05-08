@@ -73,7 +73,7 @@ export default function EditPurchaseDebitNotePage() {
         quantity: l.quantity ?? 1,
         unitPrice: l.unit_price ?? 0,
         discount: l.discount ?? 0,
-        discount_mode: "percent",
+        discount_mode: (l.discount_mode === "amount" ? "amount" : "percent") as "percent" | "amount",
         taxRate: l.tax_rate ?? 0,
         taxCodeId: l.tax_code_id ? String(l.tax_code_id) : "",
       })))
@@ -126,7 +126,8 @@ export default function EditPurchaseDebitNotePage() {
           account_id: l.accountId || undefined,
           quantity: l.quantity,
           unit_price: l.unitPrice,
-          discount: lineDiscountAmount(l),
+          discount: l.discount,
+          discount_mode: l.discount_mode,
           tax_rate: l.taxRate,
           tax_code_id: l.taxCodeId || undefined,
         })),

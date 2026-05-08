@@ -615,6 +615,7 @@ class DebitNoteLineItemResponse(BaseModel):
     unit_price: float
     tax_rate: float
     discount: float
+    discount_mode: str
     amount: float
     line_type: str
     tax_code_id: UUID | None
@@ -681,6 +682,7 @@ class PurchaseDebitNoteLineItemResponse(BaseModel):
     unit_price: float
     tax_rate: float
     discount: float
+    discount_mode: str
     amount: float
     line_type: str
     tax_code_id: UUID | None

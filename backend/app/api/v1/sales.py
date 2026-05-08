@@ -617,11 +617,14 @@ async def create_debit_note(data: DebitNoteCreate, current_user: dict = Depends(
     await db.flush()
 
     for i, item in enumerate(data.line_items):
+        disc_mode = getattr(item, 'discount_mode', 'percent') or 'percent'
+        line_total = item.quantity * item.unit_price
+        disc_val = min(item.discount, line_total) if disc_mode == 'amount' else line_total * item.discount / 100
         db.add(DebitNoteLineItem(
             debit_note_id=obj.id, description=item.description, quantity=item.quantity,
             unit_price=item.unit_price, tax_rate=item.tax_rate, tax_code_id=item.tax_code_id,
-            discount=item.discount,
-            amount=item.quantity * item.unit_price, account_id=item.account_id, sort_order=i,
+            discount=item.discount, discount_mode=disc_mode,
+            amount=line_total - disc_val, account_id=item.account_id, sort_order=i,
         ))
 
     # GL: Dr AR / Cr Revenue (debit note increases what customer owes)
@@ -664,16 +667,29 @@ async def update_debit_note(dn_id: UUID, data: DebitNoteUpdate, current_user: di
     if "line_items" in update_data:
         line_items_data = update_data.pop("line_items")
         await db.execute(delete(DebitNoteLineItem).where(DebitNoteLineItem.debit_note_id == obj.id))
-        subtotal = sum(li["quantity"] * li["unit_price"] for li in line_items_data)
-        discount_total = sum(li.get("discount", 0) or 0 for li in line_items_data)
-        tax_amount = sum((li["quantity"] * li["unit_price"] - (li.get("discount", 0) or 0)) * (li["tax_rate"] / 100) for li in line_items_data)
+        subtotal = 0.0
+        discount_total = 0.0
+        tax_amount = 0.0
+        for li in line_items_data:
+            line_total = li["quantity"] * li["unit_price"]
+            disc_mode = li.get("discount_mode", "percent") or "percent"
+            raw_disc = li.get("discount", 0) or 0
+            disc_val = min(raw_disc, line_total) if disc_mode == "amount" else line_total * raw_disc / 100
+            after_disc = line_total - disc_val
+            subtotal += line_total
+            discount_total += disc_val
+            tax_amount += after_disc * (li["tax_rate"] / 100)
         for i, item in enumerate(line_items_data):
+            line_total = item["quantity"] * item["unit_price"]
+            disc_mode = item.get("discount_mode", "percent") or "percent"
+            raw_disc = item.get("discount", 0) or 0
+            disc_val = min(raw_disc, line_total) if disc_mode == "amount" else line_total * raw_disc / 100
             db.add(DebitNoteLineItem(
                 debit_note_id=obj.id, description=item["description"], quantity=item["quantity"],
                 unit_price=item["unit_price"], tax_rate=item["tax_rate"],
                 tax_code_id=item.get("tax_code_id"),
-                discount=item.get("discount", 0),
-                amount=item["quantity"] * item["unit_price"],
+                discount=raw_disc, discount_mode=disc_mode,
+                amount=line_total - disc_val,
                 account_id=item.get("account_id"), sort_order=i,
             ))
         obj.subtotal = subtotal
