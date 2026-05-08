@@ -479,6 +479,7 @@ export interface PurchasePayment {
   amount: number
   currency: string
   payment_method: string
+  bank_account_id: string | null
   reference_no: string | null
   notes: string | null
   status: string
@@ -490,10 +491,11 @@ export interface PurchaseRefund {
   organization_id: string
   refund_no: string
   contact_id: string | null
-  payment_date: string
+  refund_date: string
   amount: number
   currency: string
   payment_method: string
+  bank_account_id: string | null
   reference_no: string | null
   notes: string | null
   status: string

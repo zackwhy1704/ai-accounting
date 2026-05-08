@@ -1,28 +1,36 @@
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect, useRef, useMemo } from "react"
 import { useNavigate, useParams } from "react-router-dom"
 import { Loader2 } from "lucide-react"
-import { useContacts, usePurchaseRefund, useUpdatePurchaseRefund } from "../../lib/hooks"
+import { useContacts, useAccounts, usePurchaseRefund, useUpdatePurchaseRefund } from "../../lib/hooks"
 import { getContactPrefs, saveContactPref } from "../../lib/contact-prefs"
 import { useToast } from "../../components/ui/toast"
 import { Card } from "../../components/ui/card"
 import { Button } from "../../components/ui/button"
 import { Input } from "../../components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../components/ui/select"
+import { SearchableSelect } from "../../components/ui/searchable-select"
 
 export default function EditPurchaseRefundPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const { toast } = useToast()
   const { data: contacts = [] } = useContacts()
+  const { data: accounts = [] } = useAccounts()
   const { data } = usePurchaseRefund(id!)
   const updateRefund = useUpdatePurchaseRefund()
+
+  const bankAccounts = useMemo(
+    () => accounts.filter((a: any) => a.type === "bank" || a.type === "cash"),
+    [accounts]
+  )
 
   const [refundNo, setRefundNo] = useState("")
   const [contactId, setContactId] = useState("")
   const [paymentDate, setPaymentDate] = useState("")
   const [amount, setAmount] = useState("")
-  const [currency, setCurrency] = useState("SGD")
+  const [currency, setCurrency] = useState("MYR")
   const [paymentMethod, setPaymentMethod] = useState("bank_transfer")
+  const [bankAccountId, setBankAccountId] = useState("")
   const [referenceNo, setReferenceNo] = useState("")
   const [notes, setNotes] = useState("")
 
@@ -32,10 +40,11 @@ export default function EditPurchaseRefundPage() {
       populated.current = true
       setRefundNo(data.refund_no || "")
       setContactId(data.contact_id || "")
-      setPaymentDate(data.payment_date ? data.payment_date.slice(0, 10) : "")
+      setPaymentDate(data.refund_date ? data.refund_date.slice(0, 10) : "")
       setAmount(data.amount != null ? String(data.amount) : "")
-      setCurrency(data.currency || "SGD")
+      setCurrency(data.currency || "MYR")
       setPaymentMethod(data.payment_method || "bank_transfer")
+      setBankAccountId((data as any).bank_account_id || "")
       setReferenceNo(data.reference_no || "")
       setNotes(data.notes || "")
     }
@@ -53,6 +62,7 @@ export default function EditPurchaseRefundPage() {
         amount: Number(amount),
         currency,
         payment_method: paymentMethod,
+        bank_account_id: bankAccountId || null,
         reference_no: referenceNo || null,
         notes: notes || null,
       })
@@ -132,6 +142,15 @@ export default function EditPurchaseRefundPage() {
                 <SelectItem value="card">Card</SelectItem>
               </SelectContent>
             </Select>
+          </div>
+          <div>
+            <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Bank Account</label>
+            <SearchableSelect
+              value={bankAccountId}
+              onChange={setBankAccountId}
+              placeholder="Search or select account"
+              options={bankAccounts.map((a: any) => ({ value: a.id, label: `${a.code} – ${a.name}`, hint: a.code }))}
+            />
           </div>
           <div>
             <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Reference No</label>
