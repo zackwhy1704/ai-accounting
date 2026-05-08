@@ -12,6 +12,7 @@ from app.api.v1.goods_received_notes import router as goods_received_notes_route
 from app.api.v1.sharing import router as sharing_router
 from app.api.v1.invitations import router as invitations_router
 from app.api.v1.purchase_debit_notes import router as purchase_debit_notes_router
+from app.api.v1.vendor_credits import router as vendor_credits_router
 
 settings = get_settings()
 
@@ -109,3 +110,4 @@ app.include_router(purchase_orders_router, prefix=settings.API_V1_PREFIX)
 app.include_router(adjustments_router, prefix=settings.API_V1_PREFIX)
 app.include_router(goods_received_notes_router, prefix=settings.API_V1_PREFIX)
 app.include_router(bank_reconciliation.router, prefix=settings.API_V1_PREFIX)
+app.include_router(vendor_credits_router, prefix=settings.API_V1_PREFIX)

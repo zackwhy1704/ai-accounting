@@ -45,7 +45,7 @@ export default function PurchaseCreditNotesPage() {
 
   const rows = search.trim()
     ? credits.filter(c =>
-        c.credit_number.toLowerCase().includes(search.toLowerCase()) ||
+        (c.credit_number ?? "").toLowerCase().includes(search.toLowerCase()) ||
         (c.contact_name ?? "").toLowerCase().includes(search.toLowerCase())
       )
     : credits
@@ -117,7 +117,7 @@ export default function PurchaseCreditNotesPage() {
                     <TableCell className="text-right text-foreground">{formatCurrency(c.total, c.currency)}</TableCell>
                     <TableCell>
                       <Badge variant="outline" className={cn("rounded-lg px-2 py-0.5 text-[11px] font-semibold", statusColors[c.status] ?? "")}>
-                        {c.status.charAt(0).toUpperCase() + c.status.slice(1)}
+                        {c.status ? c.status.charAt(0).toUpperCase() + c.status.slice(1) : "—"}
                       </Badge>
                     </TableCell>
                     <TableCell className="text-right">
@@ -138,10 +138,10 @@ export default function PurchaseCreditNotesPage() {
         open={!!viewItem}
         onOpenChange={(open) => { if (!open) setViewItem(null) }}
         title={viewItem ? `CN ${viewItem.credit_number}` : ""}
-        subtitle={viewItem?.status ? viewItem.status.charAt(0).toUpperCase() + viewItem.status.slice(1) : undefined}
+        subtitle={viewItem?.status ? viewItem.status ? viewItem.status.charAt(0).toUpperCase() + viewItem.status.slice(1) : "—" : undefined}
         fields={viewItem ? [
           { label: "CN Number", value: viewItem.credit_number },
-          { label: "Status", value: <Badge variant="outline" className={cn("rounded-lg px-2 py-0.5 text-[11px] font-semibold", statusColors[viewItem.status] ?? "")}>{viewItem.status.charAt(0).toUpperCase() + viewItem.status.slice(1)}</Badge> },
+          { label: "Status", value: <Badge variant="outline" className={cn("rounded-lg px-2 py-0.5 text-[11px] font-semibold", statusColors[viewItem.status] ?? "")}>{viewItem.status ? viewItem.status.charAt(0).toUpperCase() + viewItem.status.slice(1) : "—"}</Badge> },
           { label: "Vendor", value: viewItem.contact_name || "—" },
           { label: "Date", value: formatDate(viewItem.credit_date) },
           { label: "Total", value: formatCurrency(viewItem.total, viewItem.currency) },
