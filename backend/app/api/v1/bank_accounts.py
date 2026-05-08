@@ -69,10 +69,16 @@ async def create_bank_account(
     current_user: dict = Depends(get_current_user),
 ):
     data = payload.model_dump()
+    opening_bal = data["opening_balance"]
     account = BankAccount(
         organization_id=current_user["org_id"],
-        current_balance=data["opening_balance"],
-        **data,
+        name=data["name"],
+        account_type=data["account_type"],
+        bank_name=data.get("bank_name"),
+        account_number=data.get("account_number"),
+        currency=data["currency"],
+        opening_balance=opening_bal,
+        current_balance=opening_bal,
     )
     db.add(account)
     await db.commit()

@@ -19,7 +19,8 @@ interface BankAccount {
   bank_name: string
   account_number: string
   currency: string
-  balance: number
+  opening_balance: number
+  current_balance: number
   is_active: boolean
 }
 
@@ -142,7 +143,7 @@ export default function BankAccountsPage() {
                     <TableCell className="text-muted-foreground">{a.bank_name || "—"}</TableCell>
                     <TableCell className="text-muted-foreground">{a.account_number || "—"}</TableCell>
                     <TableCell className="text-muted-foreground">{a.currency}</TableCell>
-                    <TableCell className="text-right text-foreground">{formatCurrency(a.balance, a.currency)}</TableCell>
+                    <TableCell className="text-right text-foreground">{formatCurrency(a.current_balance, a.currency)}</TableCell>
                     <TableCell>
                       <Badge variant="outline" className={cn("rounded-lg px-2 py-0.5 text-[11px] font-semibold", a.is_active ? "bg-emerald-500/10 text-emerald-700 border-emerald-400/20" : "bg-slate-500/10 text-slate-700 border-slate-400/20")}>
                         {a.is_active ? "Active" : "Inactive"}
