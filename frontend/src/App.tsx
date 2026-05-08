@@ -127,13 +127,13 @@ import EditStockTransferPage from './pages/stock/EditStockTransferPage'
 function ProtectedRoute({ children, allowOnboarding }: { children: React.ReactNode; allowOnboarding?: boolean }) {
   const { token, isLoading, onboardingCompleted } = useAuth()
   if (isLoading) return <div className="flex min-h-screen items-center justify-center text-slate-500">Loading...</div>
-  if (!token) return <Navigate to="/login" replace />
-  // Redirect to onboarding if not completed (except on the onboarding page itself)
-  if (!allowOnboarding && onboardingCompleted === false) return <Navigate to="/onboarding" replace />
+  if (!token) { console.error("[ProtectedRoute] no token, redirecting to login"); return <Navigate to="/login" replace /> }
+  if (!allowOnboarding && onboardingCompleted === false) { console.error("[ProtectedRoute] onboarding not completed"); return <Navigate to="/onboarding" replace /> }
   return <>{children}</>
 }
 
 function SmartRedirect() {
+  console.error("[SmartRedirect] catch-all fired, location:", window.location.pathname)
   return <Navigate to="/dashboard" replace />
 }
 

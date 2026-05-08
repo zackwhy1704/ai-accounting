@@ -36,6 +36,7 @@ interface ApplyCreditLine {
 }
 
 export default function NewCreditNotePage() {
+  console.log("[NewCreditNotePage] rendering")
   const navigate = useNavigate()
   const { toast } = useToast()
   const { data: contacts = [] } = useContacts()

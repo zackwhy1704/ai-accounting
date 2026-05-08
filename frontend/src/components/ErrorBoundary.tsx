@@ -7,6 +7,7 @@ export class ErrorBoundary extends Component<Props, State> {
   state: State = { error: null }
 
   static getDerivedStateFromError(error: Error): State {
+    console.error("[ErrorBoundary] caught:", error)
     return { error }
   }
 
