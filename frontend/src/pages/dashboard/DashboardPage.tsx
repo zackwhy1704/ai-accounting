@@ -134,9 +134,9 @@ export default function DashboardPage() {
               </div>
               <RangeDropdown value={c.range} onChange={c.setRange} />
             </div>
-            <div className="mt-4 w-full min-h-[176px]">
+            <div className="mt-4 w-full" style={{ minWidth: 0, height: 176 }}>
               {mounted ? (
-                <ResponsiveContainer width="100%" aspect={3.2}>
+                <ResponsiveContainer width="100%" height="100%">
                   <LineChart data={c.data} margin={{ top: 6, right: 10, bottom: 0, left: -12 }}>
                     <CartesianGrid stroke="rgba(15,23,42,0.08)" vertical={false} />
                     <XAxis dataKey="label" tick={{ fill: "rgba(15,23,42,0.50)", fontSize: 10 }} axisLine={false} tickLine={false} />
@@ -146,7 +146,7 @@ export default function DashboardPage() {
                   </LineChart>
                 </ResponsiveContainer>
               ) : (
-                <div className="h-[176px] w-full rounded-xl border border-border bg-muted" />
+                <div className="h-full w-full rounded-xl border border-border bg-muted" />
               )}
             </div>
           </Card>
