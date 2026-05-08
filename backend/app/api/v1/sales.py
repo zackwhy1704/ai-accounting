@@ -1029,13 +1029,29 @@ async def update_debit_note_status(dn_id: UUID, status: str, current_user: dict 
 
 @router.patch("/sales-payments/{sp_id}/status")
 async def update_sales_payment_status(sp_id: UUID, status: str, current_user: dict = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
-    result = await db.execute(select(SalesPayment).where(SalesPayment.id == sp_id, SalesPayment.organization_id == current_user["org_id"]))
+    result = await db.execute(
+        select(SalesPayment)
+        .options(selectinload(SalesPayment.allocations))
+        .where(SalesPayment.id == sp_id, SalesPayment.organization_id == current_user["org_id"])
+    )
     obj = result.scalar_one_or_none()
     if not obj:
         raise HTTPException(status_code=404, detail="Sales payment not found")
     valid = {"draft", "completed", "void"}
     if status not in valid:
         raise HTTPException(status_code=400, detail=f"Invalid status. Must be one of: {', '.join(valid)}")
+
+    voiding = status == "void" and obj.status != "void"
+    if voiding:
+        for alloc in obj.allocations:
+            inv_result = await db.execute(select(Invoice).where(Invoice.id == alloc.invoice_id))
+            inv = inv_result.scalar_one_or_none()
+            if inv:
+                inv.amount_paid = max(0.0, float(inv.amount_paid or 0) - float(alloc.amount))
+                if inv.status == "paid":
+                    inv.status = "sent"
+        await revert_gl(db, "payment", obj.id)
+
     obj.status = status
     await db.commit()
     return {"id": str(sp_id), "status": status}
@@ -1204,10 +1220,24 @@ async def delete_debit_note(dn_id: UUID, current_user: dict = Depends(get_curren
 
 @router.delete("/sales-payments/{sp_id}", status_code=204)
 async def delete_sales_payment(sp_id: UUID, current_user: dict = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
-    result = await db.execute(select(SalesPayment).where(SalesPayment.id == sp_id, SalesPayment.organization_id == current_user["org_id"]))
+    result = await db.execute(
+        select(SalesPayment)
+        .options(selectinload(SalesPayment.allocations))
+        .where(SalesPayment.id == sp_id, SalesPayment.organization_id == current_user["org_id"])
+    )
     obj = result.scalar_one_or_none()
     if not obj:
         raise HTTPException(status_code=404, detail="Sales payment not found")
+    # Revert invoice balances and GL unless already voided (void already handled reversal)
+    if obj.status != "void":
+        for alloc in obj.allocations:
+            inv_result = await db.execute(select(Invoice).where(Invoice.id == alloc.invoice_id))
+            inv = inv_result.scalar_one_or_none()
+            if inv:
+                inv.amount_paid = max(0.0, float(inv.amount_paid or 0) - float(alloc.amount))
+                if inv.status == "paid":
+                    inv.status = "sent"
+        await revert_gl(db, "payment", obj.id)
     await db.delete(obj)
     await db.commit()
 

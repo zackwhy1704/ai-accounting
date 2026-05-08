@@ -58,14 +58,18 @@ export default function EditPaymentPage() {
   }, [payment])
 
 
+  const allocatedInvoiceIds = useMemo(() => new Set(Object.keys(selectedInvoices).filter(id => selectedInvoices[id])), [selectedInvoices])
+
   const outstandingInvoices = useMemo(() => {
     if (!invoices || !customerId) return []
-    return invoices.filter((inv: any) =>
-      (inv.customer_id === customerId || inv.contact_id === customerId) &&
-      (inv.status === "draft" || inv.status === "sent" || inv.status === "viewed" || inv.status === "outstanding" || inv.status === "partial" || inv.status === "overdue") &&
-      (inv.balance ?? inv.amount_due ?? (inv.total - (inv.amount_paid || 0))) > 0
-    )
-  }, [invoices, customerId])
+    return invoices.filter((inv: any) => {
+      if (inv.customer_id !== customerId && inv.contact_id !== customerId) return false
+      if (inv.status === "void" || inv.status === "draft") return false
+      // Always show invoices currently allocated to this payment so they can be corrected
+      if (allocatedInvoiceIds.has(inv.id)) return true
+      return (inv.balance ?? inv.amount_due ?? (inv.total - (inv.amount_paid || 0))) > 0
+    })
+  }, [invoices, customerId, allocatedInvoiceIds])
 
   const totalApplied = useMemo(() => {
     return Object.entries(allocations).reduce((sum, [id, val]) => {
