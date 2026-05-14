@@ -212,7 +212,7 @@ async def update_purchase_refund(
 
 
 @router.delete("/{refund_id}", status_code=204)
-async def void_purchase_refund(
+async def delete_purchase_refund(
     refund_id: UUID,
     db: AsyncSession = Depends(get_db),
     current_user: dict = Depends(get_current_user),
@@ -226,15 +226,9 @@ async def void_purchase_refund(
     refund = result.scalar_one_or_none()
     if not refund:
         raise HTTPException(status_code=404, detail="Purchase refund not found")
-    if refund.bill_id and refund.status != "void":
-        await _restore_bill(db, refund.bill_id, float(refund.amount or 0))
-    refund.status = "void"
-    await revert_gl(
-        db, current_user["org_id"], refund_id, "purchase_refund",
-        refund.refund_date,
-        f"Reversal: Purchase refund {refund.refund_no} voided",
-        refund.refund_no,
-    )
+    if refund.status not in ("draft", "void"):
+        raise HTTPException(status_code=400, detail="Only draft or void refunds can be deleted. Void the refund first.")
+    await db.delete(refund)
     await db.commit()
 
 

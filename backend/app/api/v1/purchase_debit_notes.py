@@ -255,6 +255,8 @@ async def delete_purchase_debit_note(
     if not obj:
         raise HTTPException(status_code=404, detail="Purchase debit note not found")
     if obj.status == "applied":
-        raise HTTPException(status_code=400, detail="Cannot delete an applied debit note")
+        raise HTTPException(status_code=400, detail="This debit note has a payment applied. Void the payment first, then void the debit note before deleting.")
+    if obj.status not in ("draft", "void", "issued"):
+        raise HTTPException(status_code=400, detail="Only draft, issued, or void debit notes can be deleted.")
     await db.delete(obj)
     await db.commit()

@@ -290,8 +290,10 @@ async def delete_bill(
     bill = result.scalar_one_or_none()
     if not bill:
         raise HTTPException(status_code=404, detail="Bill not found")
-    if bill.status in ("paid",):
-        raise HTTPException(status_code=400, detail="Cannot delete a paid bill")
+    if float(bill.amount_paid or 0) > 0:
+        raise HTTPException(status_code=400, detail="This bill has payments applied. Void the payments first before deleting.")
+    if bill.status not in ("draft", "void", "cancelled"):
+        raise HTTPException(status_code=400, detail="Only draft or void bills can be deleted. Void the bill first.")
     await db.execute(
         delete(BillLineItem).where(BillLineItem.bill_id == bill_id)
     )

@@ -162,8 +162,8 @@ export default function RefundsPage() {
                           <RowActionsMenu actions={[
                             { label: "Edit", icon: <Pencil className="h-3.5 w-3.5" />, onClick: () => navigate(`/sales/refunds/${r.id}/edit`), disabled: r.status === "void" },
                             { label: "Mark as Completed", icon: <CheckCircle className="h-3.5 w-3.5" />, onClick: () => updateRefundStatus.mutate({ id: r.id, status: "completed" }), dividerBefore: true, disabled: r.status !== "draft" },
-                            { label: t("refunds.void"), icon: <XCircle className="h-3.5 w-3.5" />, onClick: () => { if (confirm("Void this refund?")) updateRefundStatus.mutate({ id: r.id, status: "void" }) }, danger: true, disabled: r.status === "void" },
-                            { label: "Delete", icon: <Trash2 className="h-3.5 w-3.5" />, onClick: () => { if (confirm("Delete this refund?")) deleteRefund.mutate(r.id) }, danger: true, disabled: r.status === "void" },
+                            { label: t("refunds.void"), icon: <XCircle className="h-3.5 w-3.5" />, onClick: () => { if (confirm("Void this refund? This reverses the GL entries and cannot be undone.")) updateRefundStatus.mutate({ id: r.id, status: "void" }) }, danger: true, disabled: r.status === "void" },
+                            { label: "Delete", icon: <Trash2 className="h-3.5 w-3.5" />, onClick: () => { if (r.status !== "void" && r.status !== "draft") { alert("Please void this refund first before deleting."); return } if (confirm(`Delete refund ${r.refund_number ?? ""}? This cannot be undone.`)) deleteRefund.mutate(r.id) }, danger: true, disabled: r.status !== "void" && r.status !== "draft" },
                           ]} />
                         </TableCell>
                       </TableRow>
