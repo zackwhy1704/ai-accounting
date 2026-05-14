@@ -142,7 +142,7 @@ export default function EditVendorCreditPage() {
         })),
       })
       toast("Vendor credit updated", "success")
-      navigate("/purchases/vendor-credits")
+      navigate("/purchases/credit-notes")
     } catch (err: any) {
       const detail = err?.response?.data?.detail
       toast(typeof detail === "string" ? detail : "Failed to update vendor credit", "warning")
@@ -359,7 +359,7 @@ export default function EditVendorCreditPage() {
         </div>
 
         <div className="mt-6 flex items-center justify-end gap-2">
-          <Button type="button" variant="secondary" className="h-9 rounded-xl px-3 text-xs font-semibold" onClick={() => navigate("/purchases/vendor-credits")}>Cancel</Button>
+          <Button type="button" variant="secondary" className="h-9 rounded-xl px-3 text-xs font-semibold" onClick={() => navigate("/purchases/credit-notes")}>Cancel</Button>
           <Button type="button" onClick={handleSave} disabled={updateVendorCredit.isPending || !contactId || !lineItems.some(li => li.description.trim())} className="h-9 rounded-xl bg-gradient-to-r from-[#7C9DFF] to-[#4D63FF] px-3 text-xs font-semibold text-white hover:opacity-95">
             {updateVendorCredit.isPending ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Saving...</> : "Save Changes"}
           </Button>

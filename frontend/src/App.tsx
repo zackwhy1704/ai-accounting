@@ -64,7 +64,7 @@ import NewStockTransferPage from './pages/stock/NewStockTransferPage'
 import StockValuesPage from './pages/stock/StockValuesPage'
 import PurchaseOrdersPage from './pages/purchases/PurchaseOrdersPage'
 import GoodsReceivedNotesPage from './pages/purchases/GoodsReceivedNotesPage'
-import VendorCreditsPage from './pages/purchases/VendorCreditsPage'
+import PurchaseCreditNotesPage from './pages/purchases/PurchaseCreditNotesPage'
 import NewVendorCreditPage from './pages/purchases/NewVendorCreditPage'
 import EditVendorCreditPage from './pages/purchases/EditVendorCreditPage'
 import PurchasePaymentsPage from './pages/purchases/PurchasePaymentsPage'
@@ -196,10 +196,9 @@ function App() {
         <Route path="/purchases/goods-received-notes" element={<GoodsReceivedNotesPage />} />
         <Route path="/purchases/goods-received-notes/new" element={<NewGoodsReceivedNotePage />} />
         <Route path="/purchases/goods-received-notes/:id/edit" element={<EditGoodsReceivedNotePage />} />
-        <Route path="/purchases/credit-notes" element={<VendorCreditsPage />} />
-        <Route path="/purchases/vendor-credits" element={<VendorCreditsPage />} />
-        <Route path="/purchases/vendor-credits/new" element={<NewVendorCreditPage />} />
-        <Route path="/purchases/vendor-credits/:id/edit" element={<EditVendorCreditPage />} />
+        <Route path="/purchases/credit-notes" element={<PurchaseCreditNotesPage />} />
+        <Route path="/purchases/credit-notes/new" element={<NewVendorCreditPage />} />
+        <Route path="/purchases/credit-notes/:id/edit" element={<EditVendorCreditPage />} />
         <Route path="/purchases/debit-notes" element={<PurchaseDebitNotesPage />} />
         <Route path="/purchases/debit-notes/new" element={<NewPurchaseDebitNotePage />} />
         <Route path="/purchases/debit-notes/:id/edit" element={<EditPurchaseDebitNotePage />} />
