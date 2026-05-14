@@ -341,6 +341,7 @@ async def pay_bill(
         organization_id=org_id,
         payment_no=payment_no,
         contact_id=bill.contact_id,
+        bill_id=bill_id,
         payment_date=payload.payment_date,
         amount=apply_amount,
         currency=payload.currency,
@@ -361,8 +362,11 @@ async def pay_bill(
     )
 
     bill.amount_paid = float(bill.amount_paid) + apply_amount
-    if bill.amount_paid >= float(bill.total):
+    bill_total = float(bill.total or 0)
+    if bill.amount_paid >= bill_total:
         bill.status = "paid"
+    elif bill.amount_paid > 0:
+        bill.status = "partially paid"
 
     await db.commit()
     result2 = await db.execute(

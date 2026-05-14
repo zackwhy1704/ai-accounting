@@ -814,7 +814,7 @@ class Transaction(Base):
     date: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     description: Mapped[str] = mapped_column(String(500))
     reference: Mapped[str | None] = mapped_column(String(100))
-    source: Mapped[str] = mapped_column(String(20), default="manual")  # manual, invoice, bill, bank, ai
+    source: Mapped[str] = mapped_column(String(50), default="manual")  # manual, invoice, bill, bank, ai
     source_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True))  # linked invoice/bill id
     is_posted: Mapped[bool] = mapped_column(Boolean, default=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
@@ -1369,6 +1369,7 @@ class PurchasePayment(Base):
     bank_account_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("bank_accounts.id", ondelete="SET NULL"))
     reference_no: Mapped[str | None] = mapped_column(String(100))
     notes: Mapped[str | None] = mapped_column(Text)
+    bill_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("bills.id", ondelete="SET NULL"))
     status: Mapped[str] = mapped_column(String(20), default="completed")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
     __table_args__ = (UniqueConstraint("organization_id", "payment_no", name="uq_org_pur_payment_no"),)

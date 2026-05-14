@@ -9,7 +9,7 @@ from pydantic import BaseModel
 
 from app.core.database import get_db
 from app.core.security import get_current_user
-from app.models.models import PurchasePayment
+from app.models.models import PurchasePayment, Bill
 from .gl_helpers import post_gl, revert_gl
 
 router = APIRouter(prefix="/purchase-payments", tags=["purchase-payments"])
@@ -44,6 +44,7 @@ class PurchasePaymentResponse(BaseModel):
     organization_id: UUID
     payment_no: str
     contact_id: Optional[UUID]
+    bill_id: Optional[UUID] = None
     payment_date: datetime
     amount: float
     currency: str
@@ -168,6 +169,24 @@ async def update_purchase_payment(
     return payment
 
 
+async def _revert_bill_balance(db: AsyncSession, payment: PurchasePayment) -> None:
+    """Reverse the bill's amount_paid and recalculate its status after voiding a payment."""
+    if not payment.bill_id:
+        return
+    result = await db.execute(select(Bill).where(Bill.id == payment.bill_id))
+    bill = result.scalar_one_or_none()
+    if not bill:
+        return
+    bill.amount_paid = max(0.0, float(bill.amount_paid or 0) - float(payment.amount or 0))
+    bill_total = float(bill.total or 0)
+    if float(bill.amount_paid) >= bill_total:
+        bill.status = "paid"
+    elif float(bill.amount_paid) > 0:
+        bill.status = "partially paid"
+    else:
+        bill.status = "outstanding"
+
+
 @router.delete("/{payment_id}", status_code=204)
 async def void_purchase_payment(
     payment_id: UUID,
@@ -184,6 +203,7 @@ async def void_purchase_payment(
     if not payment:
         raise HTTPException(status_code=404, detail="Purchase payment not found")
     payment.status = "void"
+    await _revert_bill_balance(db, payment)
     await revert_gl(
         db, current_user["org_id"], payment_id, "purchase_payment",
         payment.payment_date,
@@ -213,6 +233,7 @@ async def update_purchase_payment_status(
     if not payment:
         raise HTTPException(status_code=404, detail="Purchase payment not found")
     if status == "void" and payment.status != "void":
+        await _revert_bill_balance(db, payment)
         await revert_gl(
             db, current_user["org_id"], payment_id, "purchase_payment",
             payment.payment_date,
