@@ -1024,6 +1024,8 @@ async def update_debit_note_status(dn_id: UUID, status: str, current_user: dict 
     valid = {"draft", "issued", "applied", "void"}
     if status not in valid:
         raise HTTPException(status_code=400, detail=f"Invalid status. Must be one of: {', '.join(valid)}")
+    if status == "void" and obj.status == "applied":
+        raise HTTPException(status_code=400, detail="This debit note has a payment applied. Void the payment first before voiding the debit note.")
     obj.status = status
     await db.commit()
     return {"id": str(dn_id), "status": status}
@@ -1219,8 +1221,10 @@ async def delete_debit_note(dn_id: UUID, current_user: dict = Depends(get_curren
     obj = result.scalar_one_or_none()
     if not obj:
         raise HTTPException(status_code=404, detail="Debit note not found")
-    if obj.status not in ("draft", "void"):
-        raise HTTPException(status_code=400, detail="Only draft or void debit notes can be deleted")
+    if obj.status == "applied":
+        raise HTTPException(status_code=400, detail="This debit note has a payment applied. Void the payment first, then void the debit note before deleting.")
+    if obj.status not in ("draft", "void", "issued"):
+        raise HTTPException(status_code=400, detail="Only draft, issued, or void debit notes can be deleted.")
     await db.delete(obj)
     await db.commit()
 

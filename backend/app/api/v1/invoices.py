@@ -215,9 +215,14 @@ async def update_invoice_status(
     if not invoice:
         raise HTTPException(status_code=404, detail="Invoice not found")
 
-    valid_statuses = {"draft", "sent", "viewed", "paid", "overdue", "cancelled"}
+    valid_statuses = {"draft", "sent", "viewed", "paid", "overdue", "cancelled", "void"}
     if status not in valid_statuses:
         raise HTTPException(status_code=400, detail=f"Invalid status. Must be one of: {valid_statuses}")
+
+    # Block voiding an invoice that still has payments applied
+    if status in ("void", "cancelled") and invoice.status not in ("void", "cancelled"):
+        if float(invoice.amount_paid or 0) > 0:
+            raise HTTPException(status_code=400, detail="This invoice has payments applied. Remove or void the payments first before voiding the invoice.")
 
     prev_status = invoice.status
     invoice.status = status
@@ -407,8 +412,10 @@ async def delete_invoice(
     invoice = result.scalar_one_or_none()
     if not invoice:
         raise HTTPException(status_code=404, detail="Invoice not found")
-    if invoice.status in ("paid",):
-        raise HTTPException(status_code=400, detail="Cannot delete a paid invoice")
+    if float(invoice.amount_paid or 0) > 0:
+        raise HTTPException(status_code=400, detail="This invoice has payments applied. Void it first to remove the payments before deleting.")
+    if invoice.status not in ("draft", "void", "cancelled"):
+        raise HTTPException(status_code=400, detail="Only draft, void, or cancelled invoices can be deleted. Void the invoice first.")
     await db.execute(
         delete(InvoiceLineItem).where(InvoiceLineItem.invoice_id == invoice_id)
     )
