@@ -66,6 +66,6 @@ describe("cn (class merge)", () => {
   })
 
   it("handles conditional falsy values", () => {
-    expect(cn("foo", false && "bar", undefined, "baz")).toBe("foo baz")
+    expect(cn("foo", (false as boolean) && "bar", undefined, "baz")).toBe("foo baz")
   })
 })

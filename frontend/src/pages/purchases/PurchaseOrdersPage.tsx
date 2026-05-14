@@ -73,7 +73,7 @@ export default function PurchaseOrdersPage() {
 
   const updateStatus = (poId: string, status: string, label?: string) =>
     api.patch(`/purchase-orders/${poId}/status`, null, { params: { status } })
-      .then(() => { queryClient.invalidateQueries({ queryKey: ["purchase-orders"] }); label && toast(label, "success") })
+      .then(() => { queryClient.invalidateQueries({ queryKey: ["purchase-orders"] }); if (label) toast(label, "success") })
       .catch((e: any) => toast(e?.response?.data?.detail ?? "Failed to update status", "warning"))
 
   return (

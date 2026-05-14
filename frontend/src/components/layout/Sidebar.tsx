@@ -102,7 +102,7 @@ export function Sidebar() {
                 <button
                   type="button"
                   onClick={() =>
-                    setOpenByHref((prev) => ({ ...prev, [item.href]: !Boolean(prev[item.href]) }))
+                    setOpenByHref((prev) => ({ ...prev, [item.href]: !prev[item.href] }))
                   }
                   className={cn(
                     'group flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-[13px] font-medium transition-colors',
