@@ -828,18 +828,28 @@ async def update_sales_payment(sp_id: UUID, data: SalesPaymentUpdate, current_us
             inv_result = await db.execute(select(Invoice).where(Invoice.id == existing_alloc.invoice_id))
             inv = inv_result.scalar_one_or_none()
             if inv:
-                inv.amount_paid = float(inv.amount_paid or 0) - existing_alloc.amount
-                if inv.status == "paid":
-                    inv.status = "sent"
+                inv.amount_paid = max(0.0, float(inv.amount_paid or 0) - float(existing_alloc.amount))
+                inv_total = float(inv.total or 0)
+                if float(inv.amount_paid) >= inv_total:
+                    inv.status = "paid"
+                elif float(inv.amount_paid) > 0:
+                    inv.status = "partially paid"
+                else:
+                    inv.status = "outstanding"
         await db.execute(delete(PaymentAllocation).where(PaymentAllocation.payment_id == obj.id))
         for alloc in allocs_data:
             db.add(PaymentAllocation(payment_id=obj.id, invoice_id=alloc["invoice_id"], amount=alloc["amount"]))
             inv_result = await db.execute(select(Invoice).where(Invoice.id == alloc["invoice_id"]))
             inv = inv_result.scalar_one_or_none()
             if inv:
-                inv.amount_paid = float(inv.amount_paid or 0) + alloc["amount"]
-                if inv.amount_paid >= float(inv.total):
+                inv.amount_paid = float(inv.amount_paid or 0) + float(alloc["amount"])
+                inv_total = float(inv.total or 0)
+                if float(inv.amount_paid) >= inv_total:
                     inv.status = "paid"
+                elif float(inv.amount_paid) > 0:
+                    inv.status = "partially paid"
+                else:
+                    inv.status = "outstanding"
 
     new_num = update_data.get("payment_number")
     if new_num and new_num != obj.payment_number:
@@ -1052,8 +1062,13 @@ async def update_sales_payment_status(sp_id: UUID, status: str, current_user: di
             inv = inv_result.scalar_one_or_none()
             if inv:
                 inv.amount_paid = max(0.0, float(inv.amount_paid or 0) - float(alloc.amount))
-                if inv.status == "paid" and float(inv.amount_paid) < float(inv.total or 0):
-                    inv.status = "sent"
+                inv_total = float(inv.total or 0)
+                if float(inv.amount_paid) >= inv_total:
+                    inv.status = "paid"
+                elif float(inv.amount_paid) > 0:
+                    inv.status = "partially paid"
+                else:
+                    inv.status = "outstanding"
         await revert_gl(
             db, current_user["org_id"], obj.id, "payment",
             obj.payment_date,
@@ -1256,8 +1271,13 @@ async def delete_sales_payment(sp_id: UUID, current_user: dict = Depends(get_cur
             inv = inv_result.scalar_one_or_none()
             if inv:
                 inv.amount_paid = max(0.0, float(inv.amount_paid or 0) - float(alloc.amount))
-                if inv.status == "paid" and float(inv.amount_paid) < float(inv.total or 0):
-                    inv.status = "sent"
+                inv_total = float(inv.total or 0)
+                if float(inv.amount_paid) >= inv_total:
+                    inv.status = "paid"
+                elif float(inv.amount_paid) > 0:
+                    inv.status = "partially paid"
+                else:
+                    inv.status = "outstanding"
         await revert_gl(
             db, current_user["org_id"], obj.id, "payment",
             obj.payment_date,
