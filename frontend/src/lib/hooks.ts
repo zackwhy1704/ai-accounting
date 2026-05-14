@@ -1247,7 +1247,7 @@ export function useUpdateInvoiceStatus() {
 export function useDeleteInvoice() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: (id: string) => api.delete(`/invoices/${id}`).then(r => r.data),
+    mutationFn: (id: string) => api.delete(`/invoices/${id}`),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['invoices'] }) },
   })
 }
