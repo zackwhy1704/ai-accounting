@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, delete
+from sqlalchemy import select, delete, update
 from sqlalchemy.orm import selectinload
 from uuid import UUID
 from datetime import datetime, timezone
@@ -10,7 +10,7 @@ from app.core.security import get_current_user
 from app.models.models import (
     Invoice, InvoiceLineItem, CreditNote, DebitNote,
     SalesPayment, PaymentAllocation, SalesRefund,
-    Transaction, JournalEntry, Account,
+    Transaction, JournalEntry, Account, DeliveryOrder, Document,
 )
 from app.schemas.schemas import InvoiceCreate, InvoiceUpdate, InvoiceResponse
 from .gl_helpers import post_gl, revert_gl
@@ -416,9 +416,12 @@ async def delete_invoice(
         raise HTTPException(status_code=400, detail="This invoice has payments applied. Void it first to remove the payments before deleting.")
     if invoice.status not in ("draft", "void", "cancelled"):
         raise HTTPException(status_code=400, detail="Only draft, void, or cancelled invoices can be deleted. Void the invoice first.")
-    await db.execute(
-        delete(InvoiceLineItem).where(InvoiceLineItem.invoice_id == invoice_id)
-    )
+    # Null out nullable FKs on related tables so the delete isn't blocked
+    await db.execute(update(CreditNote).where(CreditNote.invoice_id == invoice_id).values(invoice_id=None))
+    await db.execute(update(DebitNote).where(DebitNote.invoice_id == invoice_id).values(invoice_id=None))
+    await db.execute(update(DeliveryOrder).where(DeliveryOrder.invoice_id == invoice_id).values(invoice_id=None))
+    await db.execute(update(Document).where(Document.linked_invoice_id == invoice_id).values(linked_invoice_id=None))
+    await db.execute(delete(InvoiceLineItem).where(InvoiceLineItem.invoice_id == invoice_id))
     await db.delete(invoice)
     await db.commit()
 
