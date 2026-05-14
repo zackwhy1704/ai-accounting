@@ -789,9 +789,14 @@ async def create_sales_payment(data: SalesPaymentCreate, current_user: dict = De
         inv_result = await db.execute(select(Invoice).where(Invoice.id == alloc.invoice_id))
         inv = inv_result.scalar_one_or_none()
         if inv:
-            inv.amount_paid = float(inv.amount_paid or 0) + alloc.amount
-            if inv.amount_paid >= float(inv.total):
+            inv.amount_paid = float(inv.amount_paid or 0) + float(alloc.amount)
+            inv_total = float(inv.total or 0)
+            if float(inv.amount_paid) >= inv_total:
                 inv.status = "paid"
+            elif float(inv.amount_paid) > 0:
+                inv.status = "partially paid"
+            else:
+                inv.status = "outstanding"
 
     # GL: Dr Cash/Bank (1000) / Cr AR (1100)
     await post_gl(

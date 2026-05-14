@@ -853,6 +853,7 @@ class BillResponse(BaseModel):
     amount_paid: float
     currency: str
     notes: str | None
+    terms: str | None = None
     created_at: datetime
     billing_address_line1: str | None = None
     billing_address_line2: str | None = None
