@@ -1167,16 +1167,16 @@ class SaleReceipt(Base):
 # ──────────────────────────────────────────────
 # Vendor Credits (purchase-side credit notes)
 # ──────────────────────────────────────────────
-class VendorCredit(Base):
-    __tablename__ = "vendor_credits"
+class PurchaseCreditNote(Base):
+    __tablename__ = "purchase_credit_notes"
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=new_uuid)
     organization_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("organizations.id", ondelete="CASCADE"), index=True)
-    vendor_credit_number: Mapped[str] = mapped_column(String(50))
+    pcn_number: Mapped[str] = mapped_column(String(50))
     contact_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("contacts.id"))
     bill_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("bills.id"))
     issue_date: Mapped[datetime] = mapped_column(DateTime(timezone=True))
-    status: Mapped[str] = mapped_column(String(20), default="open")  # open | applied | void
+    status: Mapped[str] = mapped_column(String(20), default="draft")  # draft | issued | applied | void
     currency: Mapped[str] = mapped_column(String(3), default="MYR")
     subtotal: Mapped[float] = mapped_column(Numeric(18, 4), default=0)
     tax_amount: Mapped[float] = mapped_column(Numeric(18, 4), default=0)
@@ -1189,9 +1189,13 @@ class VendorCredit(Base):
     contact: Mapped["Contact"] = relationship("Contact", foreign_keys=[contact_id])
 
     __table_args__ = (
-        UniqueConstraint("organization_id", "vendor_credit_number", name="uq_org_vendor_credit_number"),
-        Index("ix_vendor_credits_org_status", "organization_id", "status"),
+        UniqueConstraint("organization_id", "pcn_number", name="uq_org_pcn_number"),
+        Index("ix_purchase_credit_notes_org_status", "organization_id", "status"),
     )
+
+
+# Backward-compat alias so document_router.py doesn't break during migration
+VendorCredit = PurchaseCreditNote
 
 
 # ──────────────────────────────────────────────

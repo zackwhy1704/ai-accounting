@@ -1,11 +1,10 @@
 import { useMemo, useState } from "react"
 import { useQueryClient } from "@tanstack/react-query"
 import { useNavigate } from "react-router-dom"
-import { ViewDetailSheet } from "../../components/ui/view-detail-sheet"
-import { Plus, Search, Tag, FileText, ArrowRightLeft, XCircle, Pencil, Trash2 } from "lucide-react"
-import { useVendorCredits, useContacts, useDeleteVendorCredit } from "../../lib/hooks"
+import { Plus, Search, FileText, Send, XCircle, Pencil, Trash2, Receipt } from "lucide-react"
+import { usePurchaseCreditNotes, useContacts, useDeletePurchaseCreditNote, useBills } from "../../lib/hooks"
 import api from "../../lib/api"
-import { formatCurrency, formatDate, cn as cx } from "../../lib/utils"
+import { formatCurrency, formatDate, cn } from "../../lib/utils"
 import { useToast } from "../../components/ui/toast"
 import { Card } from "../../components/ui/card"
 import { Button } from "../../components/ui/button"
@@ -17,8 +16,8 @@ import { Badge } from "../../components/ui/badge"
 import { RowActionsMenu } from "../../components/ui/row-actions"
 
 const statusColors: Record<string, string> = {
-  draft: "bg-slate-500/10 text-slate-700 border-slate-400/20",
-  open: "bg-blue-500/10 text-blue-700 border-blue-400/20",
+  draft: "bg-slate-500/10 text-slate-600 border-slate-300/20",
+  issued: "bg-sky-500/10 text-sky-700 border-sky-400/20",
   applied: "bg-emerald-500/10 text-emerald-700 border-emerald-400/20",
   void: "bg-rose-500/10 text-rose-700 border-rose-400/20",
 }
@@ -26,7 +25,7 @@ const statusColors: Record<string, string> = {
 const STATUS_TABS = [
   { label: "All", value: "all" },
   { label: "Draft", value: "draft" },
-  { label: "Open", value: "open" },
+  { label: "Issued", value: "issued" },
   { label: "Applied", value: "applied" },
   { label: "Void", value: "void" },
 ]
@@ -35,31 +34,36 @@ export default function PurchaseCreditNotesPage() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const { toast } = useToast()
-  const deleteVendorCredit = useDeleteVendorCredit()
+  const deletePCN = useDeletePurchaseCreditNote()
   const [tab, setTab] = useState("all")
   const [search, setSearch] = useState("")
   const [contactFilter, setContactFilter] = useState("all")
   const [dateFrom, setDateFrom] = useState("")
   const [dateTo, setDateTo] = useState("")
-  const { data: creditNotes = [], isLoading } = useVendorCredits()
-  const [viewItem, setViewItem] = useState<typeof creditNotes[0] | null>(null)
+  const { data: creditNotes = [], isLoading } = usePurchaseCreditNotes(tab === "all" ? undefined : tab)
   const { data: contacts = [] } = useContacts()
+  const { data: bills = [] } = useBills()
 
   const vendors = useMemo(() => contacts.filter((c: any) => c.type === "supplier" || c.type === "vendor" || c.type === "both"), [contacts])
 
   const contactMap = useMemo(() => {
     const m = new Map<string, string>()
-    contacts.forEach(c => m.set(c.id, c.name))
+    contacts.forEach((c: any) => m.set(c.id, c.name))
     return m
   }, [contacts])
 
+  const billMap = useMemo(() => {
+    const m = new Map<string, string>()
+    bills.forEach((b: any) => m.set(b.id, b.bill_number))
+    return m
+  }, [bills])
+
   const rows = useMemo(() => {
     let filtered = creditNotes
-    if (tab !== "all") filtered = filtered.filter((cn: any) => cn.status === tab)
     if (search.trim()) {
       const q = search.toLowerCase()
       filtered = filtered.filter((cn: any) =>
-        cn.vendor_credit_number.toLowerCase().includes(q) ||
+        cn.pcn_number.toLowerCase().includes(q) ||
         (contactMap.get(cn.contact_id) ?? "").toLowerCase().includes(q)
       )
     }
@@ -67,15 +71,20 @@ export default function PurchaseCreditNotesPage() {
     if (dateFrom) filtered = filtered.filter((cn: any) => (cn.issue_date || "") >= dateFrom)
     if (dateTo) filtered = filtered.filter((cn: any) => (cn.issue_date || "") <= dateTo)
     return filtered
-  }, [creditNotes, tab, search, contactMap, contactFilter, dateFrom, dateTo])
+  }, [creditNotes, search, contactMap, contactFilter, dateFrom, dateTo])
+
+  const patch = (id: string, status: string, label: string) =>
+    api.patch(`/purchase-credit-notes/${id}/status`, null, { params: { status } })
+      .then(() => { queryClient.invalidateQueries({ queryKey: ["purchase-credit-notes"] }); toast(label, "success") })
+      .catch((e: any) => toast(e?.response?.data?.detail ?? "Failed to update status", "warning"))
 
   return (
     <div className="flex flex-col gap-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <div className="text-xs text-muted-foreground">Purchases</div>
-          <div className="mt-1 text-2xl font-semibold tracking-tight text-foreground">Credit Notes</div>
-          <div className="mt-1 max-w-2xl text-sm text-muted-foreground">Credit notes received from suppliers for returns or adjustments</div>
+          <div className="mt-1 text-2xl font-semibold tracking-tight text-foreground">Purchase Credit Notes</div>
+          <div className="mt-1 max-w-2xl text-sm text-muted-foreground">Credit notes received from suppliers for returns or overbilled amounts</div>
         </div>
         <Button type="button" onClick={() => navigate("/purchases/credit-notes/new")} className="h-9 rounded-xl bg-gradient-to-r from-[#7C9DFF] to-[#4D63FF] px-3 text-xs font-semibold text-white shadow-[0_0_0_1px_rgba(124,157,255,0.25),0_16px_40px_rgba(0,0,0,0.35)] hover:opacity-95">
           <Plus className="mr-2 h-4 w-4" /> New Credit Note
@@ -125,9 +134,9 @@ export default function PurchaseCreditNotesPage() {
               <div className="py-10 text-center text-sm text-muted-foreground">Loading...</div>
             ) : rows.length === 0 ? (
               <div className="rounded-2xl border border-border bg-card px-6 py-10 text-center">
-                <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-muted shadow-[0_0_0_1px_rgba(15,23,42,0.08)]"><Tag className="h-6 w-6 text-muted-foreground" /></div>
-                <div className="mt-4 text-base font-semibold text-foreground">No credit notes</div>
-                <div className="mt-1 text-sm text-muted-foreground">Record credit notes you receive from suppliers</div>
+                <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-muted shadow-[0_0_0_1px_rgba(15,23,42,0.08)]"><Receipt className="h-6 w-6 text-muted-foreground" /></div>
+                <div className="mt-4 text-base font-semibold text-foreground">No purchase credit notes</div>
+                <div className="mt-1 text-sm text-muted-foreground">Record credit notes received from suppliers</div>
                 <Button type="button" onClick={() => navigate("/purchases/credit-notes/new")} className="mt-6 h-9 rounded-xl bg-gradient-to-r from-[#7C9DFF] to-[#4D63FF] px-3 text-xs font-semibold text-white"><Plus className="mr-2 h-4 w-4" /> New Credit Note</Button>
               </div>
             ) : (
@@ -138,6 +147,7 @@ export default function PurchaseCreditNotesPage() {
                       <TableHead className="w-[120px] text-muted-foreground">No.</TableHead>
                       <TableHead className="w-[130px] text-muted-foreground">Date</TableHead>
                       <TableHead className="text-muted-foreground">Supplier</TableHead>
+                      <TableHead className="w-[150px] text-muted-foreground">Linked Bill</TableHead>
                       <TableHead className="w-[150px] text-right text-muted-foreground">Total</TableHead>
                       <TableHead className="w-[150px] text-right text-muted-foreground">Applied</TableHead>
                       <TableHead className="w-[120px] text-muted-foreground">Status</TableHead>
@@ -147,23 +157,24 @@ export default function PurchaseCreditNotesPage() {
                   <TableBody>
                     {rows.map((cn: any) => (
                       <TableRow key={cn.id} className="border-border hover:bg-muted/50">
-                        <TableCell className="font-medium text-foreground">{cn.vendor_credit_number}</TableCell>
+                        <TableCell className="font-medium text-foreground">{cn.pcn_number}</TableCell>
                         <TableCell className="text-muted-foreground">{formatDate(cn.issue_date)}</TableCell>
                         <TableCell className="text-foreground">{contactMap.get(cn.contact_id) ?? "—"}</TableCell>
+                        <TableCell className="text-foreground">{cn.bill_id ? (billMap.get(cn.bill_id) ?? "—") : "—"}</TableCell>
                         <TableCell className="text-right text-foreground">{formatCurrency(cn.total, cn.currency)}</TableCell>
                         <TableCell className="text-right text-muted-foreground">{formatCurrency(cn.amount_applied, cn.currency)}</TableCell>
                         <TableCell>
-                          <Badge variant="outline" className={cx("rounded-lg px-2 py-0.5 text-[11px] font-semibold", statusColors[cn.status] ?? "")}>
+                          <Badge variant="outline" className={cn("rounded-lg px-2 py-0.5 text-[11px] font-semibold", statusColors[cn.status] ?? "")}>
                             {cn.status.charAt(0).toUpperCase() + cn.status.slice(1)}
                           </Badge>
                         </TableCell>
                         <TableCell className="text-right">
                           <RowActionsMenu actions={[
-                            { label: "View", icon: <FileText className="h-3.5 w-3.5" />, onClick: () => setViewItem(cn) },
-                            { label: "Edit", icon: <Pencil className="h-3.5 w-3.5" />, onClick: () => navigate(`/purchases/credit-notes/${cn.id}/edit`), disabled: cn.status === "void" || cn.status === "applied" },
-                            { label: "Apply to Bill", icon: <ArrowRightLeft className="h-3.5 w-3.5" />, onClick: () => navigate(`/purchases/bills/new?credit_id=${cn.id}`), dividerBefore: true, disabled: cn.status === "void" || cn.status === "applied" },
-                            { label: "Void", icon: <XCircle className="h-3.5 w-3.5" />, onClick: () => { if (confirm("Void this credit note?")) api.post(`/vendor-credits/${cn.id}/void`).then(() => { queryClient.invalidateQueries({ queryKey: ["vendor-credits"] }); toast("Credit note voided", "success") }).catch((e: any) => toast(e?.response?.data?.detail ?? "Failed to void credit note", "warning")) }, danger: true, dividerBefore: true, disabled: cn.status === "void" || cn.status === "applied" },
-                            { label: "Delete", icon: <Trash2 className="h-3.5 w-3.5" />, onClick: () => { if (cn.status === "applied") { alert("Applied credit notes cannot be deleted."); return } if (confirm(`Delete credit note ${cn.vendor_credit_number}? This cannot be undone.`)) deleteVendorCredit.mutate(cn.id, { onSuccess: () => toast("Credit note deleted", "success"), onError: (e: any) => toast(e?.response?.data?.detail ?? "Failed to delete credit note", "warning") }) }, danger: true, disabled: cn.status === "applied" },
+                            { label: "View", icon: <FileText className="h-3.5 w-3.5" />, onClick: () => navigate(`/purchases/credit-notes/${cn.id}/edit`) },
+                            { label: "Edit", icon: <Pencil className="h-3.5 w-3.5" />, onClick: () => navigate(`/purchases/credit-notes/${cn.id}/edit`), disabled: cn.status !== "draft" },
+                            { label: "Mark as Issued", icon: <Send className="h-3.5 w-3.5" />, onClick: () => patch(cn.id, "issued", "Credit note marked as issued"), dividerBefore: true, disabled: cn.status !== "draft" },
+                            { label: "Void", icon: <XCircle className="h-3.5 w-3.5" />, onClick: () => { if (cn.status === "applied") { alert("Applied credit notes cannot be voided directly."); return } if (confirm("Void this credit note? This reverses the GL entries and cannot be undone.")) patch(cn.id, "void", "Credit note voided") }, danger: true, dividerBefore: true, disabled: cn.status === "void" },
+                            { label: "Delete", icon: <Trash2 className="h-3.5 w-3.5" />, onClick: () => { if (cn.status === "applied") { alert("Applied credit notes cannot be deleted."); return } if (cn.status === "issued") { alert("Please void this credit note before deleting."); return } if (confirm(`Delete credit note ${cn.pcn_number}? This cannot be undone.`)) deletePCN.mutate(cn.id, { onSuccess: () => toast("Credit note deleted", "success"), onError: (e: any) => toast(e?.response?.data?.detail ?? "Failed to delete", "warning") }) }, danger: true, disabled: cn.status === "applied" },
                           ]} />
                         </TableCell>
                       </TableRow>
@@ -175,22 +186,6 @@ export default function PurchaseCreditNotesPage() {
           </div>
         </Tabs>
       </Card>
-
-      <ViewDetailSheet
-        open={!!viewItem}
-        onOpenChange={(open) => { if (!open) setViewItem(null) }}
-        title={viewItem ? `CN ${viewItem.vendor_credit_number}` : ""}
-        subtitle={viewItem?.status ? viewItem.status.charAt(0).toUpperCase() + viewItem.status.slice(1) : undefined}
-        fields={viewItem ? [
-          { label: "Credit Number", value: viewItem.vendor_credit_number },
-          { label: "Status", value: <Badge variant="outline" className={cx("rounded-lg px-2 py-0.5 text-[11px] font-semibold", statusColors[viewItem.status] ?? "")}>{viewItem.status.charAt(0).toUpperCase() + viewItem.status.slice(1)}</Badge> },
-          { label: "Supplier", value: contactMap.get(viewItem.contact_id) ?? "—" },
-          { label: "Date", value: formatDate(viewItem.issue_date) },
-          { label: "Total", value: formatCurrency(viewItem.total, viewItem.currency) },
-          { label: "Applied", value: formatCurrency(viewItem.amount_applied, viewItem.currency) },
-          { label: "Currency", value: viewItem.currency ?? "MYR" },
-        ] : []}
-      />
     </div>
   )
 }

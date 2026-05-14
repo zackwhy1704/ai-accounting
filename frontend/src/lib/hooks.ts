@@ -628,24 +628,25 @@ export function useCreateManualJournal() {
   })
 }
 
-// ── Vendor Credits ──
-export function useVendorCredits(status?: string) {
+// ── Purchase Credit Notes ──
+export function usePurchaseCreditNotes(status?: string) {
   return useQuery<Array<{
-    id: string; organization_id: string; vendor_credit_number: string; contact_id: string;
+    id: string; organization_id: string; pcn_number: string; contact_id: string;
     bill_id: string | null; issue_date: string; status: string; currency: string;
     subtotal: number; tax_amount: number; total: number; amount_applied: number;
     notes: string | null; line_items: Array<Record<string, unknown>>; created_at: string;
   }>>({
-    queryKey: ['vendor-credits', status],
-    queryFn: () => api.get('/vendor-credits', { params: status ? { status } : {} }).then(r => r.data),
+    queryKey: ['purchase-credit-notes', status],
+    queryFn: () => api.get('/purchase-credit-notes', { params: status ? { status } : {} }).then(r => r.data),
   })
 }
+export const useVendorCredits = usePurchaseCreditNotes
 
-export function useCreateVendorCredit() {
+export function useCreatePurchaseCreditNote() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: (data: Record<string, unknown>) => api.post('/vendor-credits', data).then(r => r.data),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['vendor-credits'] }),
+    mutationFn: (data: Record<string, unknown>) => api.post('/purchase-credit-notes', data).then(r => r.data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['purchase-credit-notes'] }),
   })
 }
 
@@ -960,16 +961,19 @@ export function useUpdateGoodsReceivedNote() {
   })
 }
 
-export function useVendorCredit(id: string | undefined) {
-  return useQuery({ queryKey: ['vendor-credit', id], queryFn: () => api.get(`/vendor-credits/${id}`).then(r => r.data), enabled: !!id })
+export function usePurchaseCreditNote(id: string | undefined) {
+  return useQuery({ queryKey: ['purchase-credit-note', id], queryFn: () => api.get(`/purchase-credit-notes/${id}`).then(r => r.data), enabled: !!id })
 }
-export function useUpdateVendorCredit() {
+export const useVendorCredit = usePurchaseCreditNote
+
+export function useUpdatePurchaseCreditNote() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: ({ id, ...data }: Record<string, unknown>) => api.patch(`/vendor-credits/${id}`, data).then(r => r.data),
-    onSuccess: (_d, v) => { qc.invalidateQueries({ queryKey: ['vendor-credits'] }); qc.invalidateQueries({ queryKey: ['vendor-credit', v.id] }) },
+    mutationFn: ({ id, ...data }: Record<string, unknown>) => api.patch(`/purchase-credit-notes/${id}`, data).then(r => r.data),
+    onSuccess: (_d, v) => { qc.invalidateQueries({ queryKey: ['purchase-credit-notes'] }); qc.invalidateQueries({ queryKey: ['purchase-credit-note', v.id] }) },
   })
 }
+export const useUpdateVendorCredit = useUpdatePurchaseCreditNote
 
 export function usePurchasePayment(id: string | undefined) {
   return useQuery({ queryKey: ['purchase-payment', id], queryFn: () => api.get(`/purchase-payments/${id}`).then(r => r.data), enabled: !!id })
@@ -1272,13 +1276,14 @@ export function useDeleteGRN() {
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['goods-received-notes'] }) },
   })
 }
-export function useDeleteVendorCredit() {
+export function useDeletePurchaseCreditNote() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: (id: string) => api.delete(`/vendor-credits/${id}`).then(r => r.data),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['vendor-credits'] }) },
+    mutationFn: (id: string) => api.delete(`/purchase-credit-notes/${id}`).then(r => r.data),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['purchase-credit-notes'] }) },
   })
 }
+export const useDeleteVendorCredit = useDeletePurchaseCreditNote
 export function useDeleteRecurringInvoice() {
   const qc = useQueryClient()
   return useMutation({

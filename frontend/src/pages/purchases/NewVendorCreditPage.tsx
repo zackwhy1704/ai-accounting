@@ -1,238 +1,244 @@
-import { useState } from "react"
-import { useNavigate } from "react-router-dom"
+import { useState, useEffect, useRef } from "react"
+import { useNavigate, useSearchParams } from "react-router-dom"
 import { Plus, Trash2, Loader2 } from "lucide-react"
-import { useContacts, useBills, useTaxRates, useAccounts } from "../../lib/hooks"
+import { useContacts, useAccounts, useBills, useCreatePurchaseCreditNote, useTaxRates } from "../../lib/hooks"
 import { getContactPrefs, saveContactPref } from "../../lib/contact-prefs"
-import { useToast } from "../../components/ui/toast"
-import { useQueryClient, useMutation } from "@tanstack/react-query"
-import api from "../../lib/api"
 import { Card } from "../../components/ui/card"
 import { Button } from "../../components/ui/button"
 import { Input } from "../../components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../components/ui/select"
 import { SearchableSelect } from "../../components/ui/searchable-select"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../../components/ui/table"
+import { useToast } from "../../components/ui/toast"
 
 interface LineItem {
+  id: string
   description: string
-  account_id: string
+  line_type: "goods" | "services"
+  accountId: string
   quantity: number
-  unit_price: number
-  amount: number
+  unitPrice: number
   discount: number
   discount_mode: "percent" | "amount"
-  tax_rate: number
-  line_type: "goods" | "services"
-  tax_code_id: string
+  taxRate: number
+  taxCodeId: string
 }
 
 function lineDiscountAmount(item: LineItem): number {
-  const lineTotal = item.quantity * item.unit_price
+  const lineTotal = item.quantity * item.unitPrice
   return item.discount_mode === "amount" ? Math.min(item.discount, lineTotal) : (lineTotal * item.discount) / 100
 }
 
-function newLine(): LineItem {
-  return { description: "", account_id: "", quantity: 1, unit_price: 0, amount: 0, discount: 0, discount_mode: "percent", tax_rate: 0, line_type: "goods", tax_code_id: "" }
-}
+const emptyLine = (): LineItem => ({
+  id: crypto.randomUUID(),
+  description: "",
+  line_type: "goods",
+  accountId: "",
+  quantity: 1,
+  unitPrice: 0,
+  discount: 0,
+  discount_mode: "percent",
+  taxRate: 0,
+  taxCodeId: "",
+})
 
 export default function NewVendorCreditPage() {
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
   const { toast } = useToast()
   const { data: contacts = [] } = useContacts()
-  const { data: allBills = [] } = useBills()
-  const { data: taxRates = [] } = useTaxRates()
   const { data: accounts = [] } = useAccounts()
-  const qc = useQueryClient()
+  const { data: bills = [] } = useBills()
+  const createPCN = useCreatePurchaseCreditNote()
+  const { data: taxRates = [] } = useTaxRates()
 
-  const createVendorCredit = useMutation({
-    mutationFn: (data: Record<string, unknown>) => api.post('/vendor-credits', data).then(r => r.data),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['vendor-credits'] }),
-  })
+  const fromBillId = searchParams.get("from_bill") ?? ""
+  const fromBillPopulated = useRef(false)
 
-  const [vendorCreditNumber, setVendorCreditNumber] = useState("")
-  const [contactId, setContactId] = useState("")
-  const [billId, setBillId] = useState("")
-  const [issueDate, setIssueDate] = useState(() => new Date().toISOString().slice(0, 10))
+  const [pcnNumber, setPcnNumber] = useState("")
+  const [vendorId, setVendorId] = useState("")
+  const [linkedBillId, setLinkedBillId] = useState(fromBillId)
   const [currency, setCurrency] = useState("MYR")
   const [notes, setNotes] = useState("")
-  const [lineItems, setLineItems] = useState<LineItem[]>([newLine()])
 
-  const supplierBills = (allBills as any[]).filter(
-    (b: any) => String(b.contact_id) === String(contactId) && b.status !== "void"
-  )
+  useEffect(() => {
+    if (!fromBillId || fromBillPopulated.current || !(bills as any[]).length) return
+    const bill = (bills as any[]).find((b: any) => b.id === fromBillId)
+    if (bill) {
+      setVendorId(String(bill.contact_id))
+      fromBillPopulated.current = true
+    }
+  }, [bills, fromBillId])
 
-  const handleContactChange = (v: string) => {
+  const [date, setDate] = useState(new Date().toISOString().slice(0, 10))
+  const [lines, setLines] = useState<LineItem[]>([emptyLine()])
+
+  const vendors = (contacts as any[]).filter((c: any) => c.type === "supplier" || c.type === "vendor" || c.type === "both")
+  const filteredBills = vendorId
+    ? (bills as any[]).filter((b: any) => b.contact_id === vendorId && b.status !== "void")
+    : (bills as any[]).filter((b: any) => b.status !== "void")
+
+  const handleVendorChange = (v: string) => {
     if (v === "__add_new__") { navigate("/contacts/new"); return }
-    setContactId(v)
-    setBillId("")
+    setVendorId(v)
+    setLinkedBillId("")
     const prefs = getContactPrefs(v)
     if (prefs.currency) setCurrency(prefs.currency)
   }
 
-  const updateLine = (idx: number, field: keyof LineItem, value: string | number) => {
-    setLineItems(prev => {
-      const updated = [...prev]
-      updated[idx] = { ...updated[idx], [field]: value }
-      if (field === "tax_code_id") {
+  const updateLine = (id: string, field: keyof LineItem, value: any) => {
+    setLines(prev => prev.map(l => {
+      if (l.id !== id) return l
+      const updated = { ...l, [field]: value }
+      if (field === "taxCodeId") {
         const tc = (taxRates as any[]).find((t: any) => t.id === value)
-        if (tc) updated[idx].tax_rate = tc.rate
+        if (tc) updated.taxRate = tc.rate
       }
-      if (field === "line_type" && value === "services") {
-        updated[idx].quantity = 1
-      }
-      const item = updated[idx]
-      const discAmt = lineDiscountAmount(item)
-      const afterDiscount = item.quantity * item.unit_price - discAmt
-      updated[idx].amount = afterDiscount * (1 + item.tax_rate / 100)
+      if (field === "line_type" && value === "services") updated.quantity = 1
       return updated
-    })
+    }))
   }
 
-  const subtotal = lineItems.reduce((s, i) => s + i.quantity * i.unit_price, 0)
-  const totalDiscount = lineItems.reduce((s, i) => s + lineDiscountAmount(i), 0)
-  const taxAmount = lineItems.reduce((s, i) => s + (i.quantity * i.unit_price - lineDiscountAmount(i)) * (i.tax_rate / 100), 0)
-  const total = subtotal - totalDiscount + taxAmount
+  const removeLine = (id: string) => {
+    setLines(prev => (prev.length === 1 ? prev : prev.filter(l => l.id !== id)))
+  }
 
-  const handleSave = async () => {
-    if (!contactId) { toast("Please select a supplier", "warning"); return }
-    if (!lineItems.some(li => li.description.trim())) { toast("Please add at least one line item", "warning"); return }
-    try {
-      await createVendorCredit.mutateAsync({
-        contact_id: contactId,
-        vendor_credit_number: vendorCreditNumber || undefined,
-        bill_id: billId || null,
-        issue_date: new Date(issueDate).toISOString(),
+  const subTotal = lines.reduce((sum, l) => sum + l.quantity * l.unitPrice, 0)
+  const totalDiscount = lines.reduce((sum, l) => sum + lineDiscountAmount(l), 0)
+  const totalTax = lines.reduce((sum, l) => sum + (l.quantity * l.unitPrice - lineDiscountAmount(l)) * (l.taxRate / 100), 0)
+  const total = subTotal - totalDiscount + totalTax
+
+  const isFormValid = !!vendorId && lines.some(l => l.description.trim() !== "")
+
+  const handleSave = () => {
+    if (!isFormValid) { toast("Please select a supplier and add at least one line item", "warning"); return }
+    createPCN.mutate(
+      {
+        contact_id: vendorId,
+        pcn_number: pcnNumber || undefined,
+        bill_id: linkedBillId || undefined,
+        issue_date: new Date(date).toISOString(),
         currency,
         notes: notes || null,
-        line_items: lineItems.map((item, i) => ({
-          description: item.description,
-          account_id: item.account_id || undefined,
-          quantity: item.quantity,
-          unit_price: item.unit_price,
-          discount: item.discount,
-          discount_mode: item.discount_mode,
-          tax_rate: item.tax_rate,
-          tax_code_id: item.tax_code_id || undefined,
-          line_type: item.line_type,
-          amount: item.amount,
+        line_items: lines.map((l, i) => ({
+          description: l.description,
+          line_type: l.line_type,
+          account_id: l.accountId || undefined,
+          quantity: l.quantity,
+          unit_price: l.unitPrice,
+          discount: l.discount,
+          discount_mode: l.discount_mode,
+          tax_rate: l.taxRate,
+          tax_code_id: l.taxCodeId || undefined,
+          amount: (l.quantity * l.unitPrice - lineDiscountAmount(l)) * (1 + l.taxRate / 100),
           sort_order: i,
         })),
-      })
-      toast("Vendor credit created", "success")
-      navigate("/purchases/credit-notes")
-    } catch (err: any) {
-      const detail = err?.response?.data?.detail
-      toast(typeof detail === "string" ? detail : "Failed to create vendor credit", "warning")
-    }
+      } as any,
+      {
+        onSuccess: () => { toast("Purchase credit note created", "success"); navigate("/purchases/credit-notes") },
+        onError: (err: any) => toast(err?.response?.data?.detail ?? "Failed to save credit note", "warning"),
+      }
+    )
   }
 
-  const cardClass = "rounded-2xl border-border bg-card p-6 shadow-[0_0_0_1px_rgba(15,23,42,0.06),0_18px_55px_rgba(2,6,23,0.08)]"
-
   return (
-    <div className="flex flex-col gap-6">
-      <div className="flex flex-col gap-1">
-        <div className="text-xs text-muted-foreground">Purchases &rsaquo; Credit Notes</div>
-        <div className="text-2xl font-semibold tracking-tight text-foreground">New Vendor Credit</div>
+    <div className="flex flex-col gap-4">
+      <div>
+        <div className="text-xs text-muted-foreground">Purchases › Credit Notes</div>
+        <div className="mt-1 text-2xl font-semibold tracking-tight text-foreground">New Purchase Credit Note</div>
+        <div className="mt-1 max-w-2xl text-sm text-muted-foreground">Record a credit note received from a supplier for returns or overbilled amounts.</div>
       </div>
 
-      <Card className={cardClass}>
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
-          <div>
-            <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Credit #</label>
-            <Input value={vendorCreditNumber} onChange={e => setVendorCreditNumber(e.target.value)} placeholder="Auto-generated (VC-00001)" className="h-10 rounded-xl" />
+      <Card className="rounded-2xl border-border bg-card p-6 shadow-[0_0_0_1px_rgba(15,23,42,0.06),0_18px_55px_rgba(2,6,23,0.08)]">
+        <div className="flex flex-col gap-6">
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-4">
+            <div>
+              <label className="text-xs font-medium text-muted-foreground">Credit Note #</label>
+              <Input
+                value={pcnNumber}
+                onChange={e => setPcnNumber(e.target.value)}
+                placeholder="Auto-generated (PCN-00001)"
+                className="mt-1.5 h-10 rounded-xl"
+              />
+            </div>
+            <div>
+              <label className="text-xs font-medium text-muted-foreground">Supplier *</label>
+              <SearchableSelect
+                value={vendorId}
+                onChange={handleVendorChange}
+                placeholder="Search or select supplier"
+                options={vendors.map((c: any) => ({ value: c.id, label: c.name, hint: (c as any).email ?? "" }))}
+                footerAction={{ label: "+ Add New Supplier", onClick: () => navigate("/contacts/new") }}
+              />
+            </div>
+            <div>
+              <label className="text-xs font-medium text-muted-foreground">Linked Bill (optional)</label>
+              <Select value={linkedBillId} onValueChange={v => setLinkedBillId(v === "__none__" ? "" : v)}>
+                <SelectTrigger className="mt-1.5 h-10 rounded-xl">
+                  <SelectValue placeholder="Select bill (optional)" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__none__">No linked bill</SelectItem>
+                  {filteredBills.map((b: any) => (
+                    <SelectItem key={b.id} value={b.id}>{b.bill_number}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <label className="text-xs font-medium text-muted-foreground">Date</label>
+              <Input
+                type="date"
+                value={date}
+                onChange={e => setDate(e.target.value)}
+                className="mt-1.5 h-10 rounded-xl"
+              />
+            </div>
+            <div>
+              <label className="text-xs font-medium text-muted-foreground">Currency</label>
+              <Select value={currency} onValueChange={v => { setCurrency(v); if (vendorId) saveContactPref(vendorId, "currency", v) }}>
+                <SelectTrigger className="mt-1.5 h-10 rounded-xl"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="MYR">MYR - Malaysian Ringgit</SelectItem>
+                  <SelectItem value="SGD">SGD - Singapore Dollar</SelectItem>
+                  <SelectItem value="USD">USD - US Dollar</SelectItem>
+                  <SelectItem value="HKD">HKD - Hong Kong Dollar</SelectItem>
+                  <SelectItem value="AUD">AUD - Australian Dollar</SelectItem>
+                  <SelectItem value="EUR">EUR - Euro</SelectItem>
+                  <SelectItem value="GBP">GBP - British Pound</SelectItem>
+                  <SelectItem value="JPY">JPY - Japanese Yen</SelectItem>
+                  <SelectItem value="CNY">CNY - Chinese Yuan</SelectItem>
+                  <SelectItem value="THB">THB - Thai Baht</SelectItem>
+                  <SelectItem value="IDR">IDR - Indonesian Rupiah</SelectItem>
+                  <SelectItem value="PHP">PHP - Philippine Peso</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </div>
-          <div>
-            <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Supplier *</label>
-            <SearchableSelect
-              value={contactId}
-              onChange={handleContactChange}
-              placeholder="Search or select supplier"
-              options={(contacts as any[])
-                .filter((c: any) => c.type === "supplier" || c.type === "vendor" || c.type === "both")
-                .map((c: any) => ({ value: c.id, label: c.name, hint: c.email ?? "" }))}
-              footerAction={{ label: "+ Add New Supplier", onClick: () => navigate("/contacts/new") }}
-            />
-          </div>
-          <div>
-            <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Related Bill (optional)</label>
-            <SearchableSelect
-              value={billId}
-              onChange={setBillId}
-              placeholder={contactId ? "Search bill this CN adjusts" : "Select supplier first"}
-              allowClear
-              options={supplierBills.map((b: any) => ({
-                value: b.id,
-                label: b.bill_number,
-                hint: b.reference ?? "",
-              }))}
-            />
-          </div>
-          <div>
-            <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Issue Date</label>
-            <Input type="date" value={issueDate} onChange={e => setIssueDate(e.target.value)} className="h-10 rounded-xl" />
-          </div>
-          <div>
-            <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Currency</label>
-            <Select value={currency} onValueChange={v => { setCurrency(v); if (contactId) saveContactPref(contactId, "currency", v) }}>
-              <SelectTrigger className="h-10 rounded-xl"><SelectValue placeholder="Select currency" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="MYR">MYR - Malaysian Ringgit</SelectItem>
-                <SelectItem value="SGD">SGD - Singapore Dollar</SelectItem>
-                <SelectItem value="USD">USD - US Dollar</SelectItem>
-                <SelectItem value="HKD">HKD - Hong Kong Dollar</SelectItem>
-                <SelectItem value="AUD">AUD - Australian Dollar</SelectItem>
-                <SelectItem value="EUR">EUR - Euro</SelectItem>
-                <SelectItem value="GBP">GBP - British Pound</SelectItem>
-                <SelectItem value="JPY">JPY - Japanese Yen</SelectItem>
-                <SelectItem value="CNY">CNY - Chinese Yuan</SelectItem>
-                <SelectItem value="THB">THB - Thai Baht</SelectItem>
-                <SelectItem value="IDR">IDR - Indonesian Rupiah</SelectItem>
-                <SelectItem value="PHP">PHP - Philippine Peso</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
 
-        <div className="mt-4">
-          <Button
-            type="button"
-            onClick={() => setLineItems(p => [...p, newLine()])}
-            className="h-9 rounded-xl bg-gradient-to-r from-[#7C9DFF] to-[#4D63FF] px-3 text-xs font-semibold text-white shadow-sm hover:opacity-95"
-          >
-            <Plus className="mr-1.5 h-4 w-4" /> Item
-          </Button>
-        </div>
-
-        <div className="mt-4 overflow-x-auto rounded-2xl border border-border">
-          <Table>
-            <TableHeader>
-              <TableRow className="border-border hover:bg-transparent">
-                <TableHead className="w-10 text-center text-muted-foreground">#</TableHead>
-                <TableHead className="w-[100px] text-muted-foreground">Type</TableHead>
-                <TableHead className="min-w-[200px] text-muted-foreground">Description</TableHead>
-                <TableHead className="w-[160px] text-muted-foreground">Account</TableHead>
-                <TableHead className="w-[80px] text-muted-foreground">Qty</TableHead>
-                <TableHead className="w-[110px] text-muted-foreground">Unit Price</TableHead>
-                <TableHead className="w-[80px] text-muted-foreground">Discount</TableHead>
-                <TableHead className="w-[160px] text-muted-foreground">Tax Code</TableHead>
-                <TableHead className="w-[80px] text-muted-foreground">Tax %</TableHead>
-                <TableHead className="w-10" />
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {lineItems.length === 0 ? (
-                <TableRow className="border-border">
-                  <TableCell colSpan={10} className="py-8 text-center text-sm text-muted-foreground">No Data</TableCell>
+          <div className="overflow-hidden rounded-2xl border border-border bg-card">
+            <Table>
+              <TableHeader>
+                <TableRow className="border-border hover:bg-transparent">
+                  <TableHead className="w-[50px] text-muted-foreground">#</TableHead>
+                  <TableHead className="w-[110px] text-muted-foreground">Type</TableHead>
+                  <TableHead className="text-muted-foreground">Description</TableHead>
+                  <TableHead className="w-[180px] text-muted-foreground">Account</TableHead>
+                  <TableHead className="w-[100px] text-muted-foreground">Quantity</TableHead>
+                  <TableHead className="w-[130px] text-muted-foreground">Unit Price</TableHead>
+                  <TableHead className="w-[80px] text-muted-foreground">Discount</TableHead>
+                  <TableHead className="w-[160px] text-muted-foreground">Tax Code</TableHead>
+                  <TableHead className="w-[80px] text-muted-foreground">Tax %</TableHead>
+                  <TableHead className="w-[50px]" />
                 </TableRow>
-              ) : (
-                lineItems.map((item, idx) => (
-                  <TableRow key={idx} className="border-border">
-                    <TableCell className="text-center text-xs text-muted-foreground">{idx + 1}</TableCell>
+              </TableHeader>
+              <TableBody>
+                {lines.map((line, idx) => (
+                  <TableRow key={line.id} className="border-border hover:bg-muted/50">
+                    <TableCell className="text-muted-foreground">{idx + 1}</TableCell>
                     <TableCell>
-                      <Select value={item.line_type} onValueChange={v => updateLine(idx, "line_type", v)}>
-                        <SelectTrigger className="h-9 rounded-lg border-0 bg-transparent shadow-none">
-                          <SelectValue />
-                        </SelectTrigger>
+                      <Select value={line.line_type} onValueChange={v => updateLine(line.id, "line_type", v as "goods" | "services")}>
+                        <SelectTrigger className="h-9 rounded-lg border-0 bg-transparent shadow-none focus:ring-1 text-xs"><SelectValue /></SelectTrigger>
                         <SelectContent>
                           <SelectItem value="goods">Goods</SelectItem>
                           <SelectItem value="services">Services</SelectItem>
@@ -240,47 +246,60 @@ export default function NewVendorCreditPage() {
                       </Select>
                     </TableCell>
                     <TableCell>
-                      <Input value={item.description} onChange={e => updateLine(idx, "description", e.target.value)} placeholder="Description" className="h-9 rounded-lg border-0 bg-transparent px-1 text-sm shadow-none focus-visible:ring-1" />
+                      <Input
+                        value={line.description}
+                        onChange={e => updateLine(line.id, "description", e.target.value)}
+                        placeholder="Item description"
+                        className="h-9 rounded-lg border-0 bg-transparent px-2 text-sm shadow-none focus-visible:ring-1"
+                      />
                     </TableCell>
                     <TableCell>
                       <SearchableSelect
-                        value={item.account_id}
-                        onChange={v => updateLine(idx, "account_id", v)}
+                        value={line.accountId}
+                        onChange={v => updateLine(line.id, "accountId", v)}
                         placeholder="Account"
-                        triggerClassName="h-9 rounded-lg border-0 bg-transparent shadow-none text-xs"
                         options={(accounts as any[]).map((a: any) => ({ value: a.id, label: `${a.code} – ${a.name}`, hint: a.code }))}
                       />
                     </TableCell>
                     <TableCell>
-                      {item.line_type === "services" ? (
-                        <span className="px-1 text-sm text-muted-foreground">&mdash;</span>
+                      {line.line_type === "services" ? (
+                        <span className="px-2 text-sm text-muted-foreground">—</span>
                       ) : (
-                        <Input type="number" min={0} value={item.quantity} onChange={e => updateLine(idx, "quantity", Number(e.target.value))} className="h-9 rounded-lg border-0 bg-transparent px-1 text-sm shadow-none focus-visible:ring-1" />
+                        <Input
+                          type="number" min={0}
+                          value={line.quantity}
+                          onChange={e => updateLine(line.id, "quantity", Number(e.target.value))}
+                          className="h-9 rounded-lg border-0 bg-transparent px-2 text-sm shadow-none focus-visible:ring-1"
+                        />
                       )}
                     </TableCell>
                     <TableCell>
-                      <Input type="number" min={0} step={0.01} value={item.unit_price} onChange={e => updateLine(idx, "unit_price", Number(e.target.value))} className="h-9 rounded-lg border-0 bg-transparent px-1 text-sm shadow-none focus-visible:ring-1" />
+                      <Input
+                        type="number" min={0} step={0.01}
+                        value={line.unitPrice}
+                        onChange={e => updateLine(line.id, "unitPrice", Number(e.target.value))}
+                        className="h-9 rounded-lg border-0 bg-transparent px-2 text-sm shadow-none focus-visible:ring-1"
+                      />
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center gap-1">
                         <Input
                           type="number" min={0} step={0.01}
-                          value={item.discount}
-                          onChange={e => updateLine(idx, "discount", Number(e.target.value))}
+                          value={line.discount}
+                          onChange={e => updateLine(line.id, "discount", Number(e.target.value))}
                           className="h-9 w-20 rounded-lg border-0 bg-transparent px-1 text-sm shadow-none focus-visible:ring-1"
                         />
                         <button
                           type="button"
-                          onClick={() => updateLine(idx, "discount_mode", item.discount_mode === "percent" ? "amount" : "percent")}
+                          onClick={() => updateLine(line.id, "discount_mode", line.discount_mode === "percent" ? "amount" : "percent")}
                           className="h-7 w-9 rounded-md border border-border bg-muted/40 text-[11px] font-semibold text-foreground hover:bg-muted"
-                          title={item.discount_mode === "percent" ? "Switch to flat amount" : "Switch to percentage"}
                         >
-                          {item.discount_mode === "percent" ? "%" : currency}
+                          {line.discount_mode === "percent" ? "%" : "#"}
                         </button>
                       </div>
                     </TableCell>
-                    <TableCell className="w-[160px]">
-                      <Select value={item.tax_code_id} onValueChange={v => updateLine(idx, "tax_code_id", v === "__none__" ? "" : v)}>
+                    <TableCell>
+                      <Select value={line.taxCodeId} onValueChange={v => updateLine(line.id, "taxCodeId", v === "__none__" ? "" : v)}>
                         <SelectTrigger className="h-9 rounded-lg border-0 bg-transparent shadow-none focus:ring-1 text-xs">
                           <SelectValue placeholder="Tax Code" />
                         </SelectTrigger>
@@ -292,56 +311,87 @@ export default function NewVendorCreditPage() {
                         </SelectContent>
                       </Select>
                     </TableCell>
-                    <TableCell className="w-[80px]">
-                      <Input type="number" min={0} max={100} step={0.01} value={item.tax_rate} onChange={e => updateLine(idx, "tax_rate", Number(e.target.value))} className="h-9 rounded-lg border-0 bg-transparent px-1 text-sm shadow-none focus-visible:ring-1" placeholder="%" />
+                    <TableCell>
+                      <Input
+                        type="number" min={0} max={100} step={0.01}
+                        value={line.taxRate}
+                        onChange={e => updateLine(line.id, "taxRate", Number(e.target.value))}
+                        className="h-9 rounded-lg border-0 bg-transparent px-1 text-sm shadow-none focus-visible:ring-1"
+                        placeholder="%"
+                      />
                     </TableCell>
                     <TableCell>
-                      <button type="button" onClick={() => setLineItems(p => p.length <= 1 ? p : p.filter((_, i) => i !== idx))} className="text-muted-foreground hover:text-rose-500">
+                      <Button
+                        type="button" variant="ghost" size="icon"
+                        className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                        onClick={() => removeLine(line.id)}
+                      >
                         <Trash2 className="h-4 w-4" />
-                      </button>
+                      </Button>
                     </TableCell>
                   </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
-        </div>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
 
-        <div className="mt-6 flex justify-end">
-          <div className="w-full max-w-xs space-y-2 text-sm">
-            <div className="flex items-center justify-between">
-              <span className="text-muted-foreground">Sub Total</span>
-              <span className="font-medium text-foreground">{currency} {subtotal.toFixed(2)}</span>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-muted-foreground">Tax</span>
-              <span className="font-medium text-foreground">{currency} {taxAmount.toFixed(2)}</span>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-muted-foreground">Discount</span>
-              <span className="font-medium text-foreground">{currency} {totalDiscount.toFixed(2)}</span>
-            </div>
-            <div className="border-t border-border pt-2">
-              <div className="flex items-center justify-between text-base font-semibold">
+          <div>
+            <Button
+              type="button" variant="outline"
+              className="h-9 rounded-xl border-blue-300 px-3 text-xs font-semibold text-blue-600 hover:bg-blue-50"
+              onClick={() => setLines(prev => [...prev, emptyLine()])}
+            >
+              <Plus className="mr-2 h-4 w-4" /> Item
+            </Button>
+          </div>
+
+          <div className="flex justify-end">
+            <div className="w-full max-w-sm flex flex-col gap-2">
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-muted-foreground">Sub Total</span>
+                <span className="text-foreground">{currency} {subTotal.toFixed(2)}</span>
+              </div>
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-muted-foreground">Discount</span>
+                <span className="text-foreground">- {currency} {totalDiscount.toFixed(2)}</span>
+              </div>
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-muted-foreground">Tax</span>
+                <span className="text-foreground">{currency} {totalTax.toFixed(2)}</span>
+              </div>
+              <div className="border-t border-border pt-2 flex items-center justify-between text-sm font-semibold">
                 <span className="text-foreground">TOTAL</span>
                 <span className="text-foreground">{currency} {total.toFixed(2)}</span>
               </div>
             </div>
           </div>
-        </div>
 
-        <div className="mt-6">
-          <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Notes</label>
-          <textarea value={notes} onChange={e => setNotes(e.target.value)} rows={2} placeholder="Internal notes..." className="w-full rounded-xl border border-border bg-card px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring" />
-        </div>
-
-        <div className="mt-6 flex items-center justify-end gap-2">
-          <Button type="button" variant="secondary" className="h-9 rounded-xl px-3 text-xs font-semibold" onClick={() => navigate("/purchases/credit-notes")}>Cancel</Button>
-          <Button type="button" onClick={handleSave} disabled={createVendorCredit.isPending || !contactId || !lineItems.some(li => li.description.trim())} className="h-9 rounded-xl bg-gradient-to-r from-[#7C9DFF] to-[#4D63FF] px-3 text-xs font-semibold text-white hover:opacity-95">
-            {createVendorCredit.isPending ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Saving...</> : "Save"}
-          </Button>
+          <div>
+            <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Notes</label>
+            <textarea
+              value={notes}
+              onChange={e => setNotes(e.target.value)}
+              rows={2}
+              placeholder="Internal notes..."
+              className="w-full rounded-xl border border-border bg-card px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+            />
+          </div>
         </div>
       </Card>
+
+      <div className="flex items-center justify-end">
+        <div className="flex items-center gap-3">
+          <Button type="button" variant="outline" onClick={() => navigate("/purchases/credit-notes")}>Cancel</Button>
+          <Button
+            type="button"
+            onClick={handleSave}
+            disabled={createPCN.isPending || !isFormValid}
+            className="h-9 rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-600 px-6 text-xs font-semibold text-white shadow-sm hover:opacity-95 disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            {createPCN.isPending ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Saving...</> : "Save"}
+          </Button>
+        </div>
+      </div>
     </div>
   )
 }

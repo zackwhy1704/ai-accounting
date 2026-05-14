@@ -1136,7 +1136,7 @@ class ManualJournalResponse(BaseModel):
 
 
 # ── Vendor Credits ──
-class VendorCreditLineItem(BaseModel):
+class PurchaseCreditNoteLineItem(BaseModel):
     description: str
     quantity: float = 1.0
     unit_price: float
@@ -1149,19 +1149,19 @@ class VendorCreditLineItem(BaseModel):
     line_type: str = "goods"
     sort_order: int = 0
 
-class VendorCreditCreate(BaseModel):
+class PurchaseCreditNoteCreate(BaseModel):
     contact_id: UUID
-    vendor_credit_number: str | None = None
+    pcn_number: str | None = None
     bill_id: UUID | None = None
     issue_date: datetime
     currency: str = "MYR"
     notes: str | None = None
-    line_items: list[VendorCreditLineItem]
+    line_items: list[PurchaseCreditNoteLineItem]
 
-class VendorCreditResponse(BaseModel):
+class PurchaseCreditNoteResponse(BaseModel):
     id: UUID
     organization_id: UUID
-    vendor_credit_number: str
+    pcn_number: str
     contact_id: UUID
     bill_id: UUID | None
     issue_date: datetime
@@ -1175,6 +1175,11 @@ class VendorCreditResponse(BaseModel):
     line_items: list[dict]
     created_at: datetime
     model_config = {"from_attributes": True}
+
+# Keep backward-compat aliases so document_router.py imports don't break
+VendorCreditLineItem = PurchaseCreditNoteLineItem
+VendorCreditCreate = PurchaseCreditNoteCreate
+VendorCreditResponse = PurchaseCreditNoteResponse
 
 
 # ── Sale Receipts ──

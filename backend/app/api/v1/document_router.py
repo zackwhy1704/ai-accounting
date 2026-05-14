@@ -286,14 +286,15 @@ async def create_vendor_credit_record(
     number = (
         data.get("vc_number")
         or data.get("dn_number")
-        or await _next_number(db, VendorCredit, "vendor_credit_number", org_id, "VC")
+        or data.get("pcn_number")
+        or await _next_number(db, VendorCredit, "pcn_number", org_id, "PCN")
     )
     items = _extract_line_items(data)
 
     record = VendorCredit(
         organization_id=org_id, contact_id=contact.id,
-        vendor_credit_number=number, issue_date=date,
-        status="open", currency=currency,
+        pcn_number=number, issue_date=date,
+        status="draft", currency=currency,
         subtotal=subtotal, tax_amount=tax, total=total,
         line_items=[
             {"description": it["description"], "quantity": it["quantity"],
@@ -304,8 +305,8 @@ async def create_vendor_credit_record(
     db.add(record)
     await db.flush()
 
-    await post_gl(db, org_id, date, f"Vendor Credit {number}", number, "vendor_credit", record.id, _gl_entries(journal_lines))
-    return record.id, number, "vendor_credit", f"/purchases/vendor-credits/{record.id}"
+    await post_gl(db, org_id, date, f"Purchase Credit Note {number}", number, "purchase_credit_note", record.id, _gl_entries(journal_lines))
+    return record.id, number, "purchase_credit_note", f"/purchases/credit-notes/{record.id}"
 
 
 async def create_purchase_payment_record(
