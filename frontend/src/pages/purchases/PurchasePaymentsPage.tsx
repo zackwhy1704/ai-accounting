@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useMemo, useState } from "react"
 import { useNavigate } from "react-router-dom"
 import { ViewDetailSheet } from "../../components/ui/view-detail-sheet"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
@@ -9,6 +9,8 @@ import { useToast } from "../../components/ui/toast"
 import { Card } from "../../components/ui/card"
 import { Button } from "../../components/ui/button"
 import { Input } from "../../components/ui/input"
+import { Tabs, TabsList, TabsTrigger } from "../../components/ui/tabs"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../components/ui/select"
 import { Badge } from "../../components/ui/badge"
 import { RowActionsMenu } from "../../components/ui/row-actions"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../../components/ui/table"
@@ -25,6 +27,7 @@ interface PurchasePayment {
 }
 
 const statusColors: Record<string, string> = {
+  draft: "bg-slate-500/10 text-slate-700 border-slate-400/20",
   completed: "bg-emerald-500/10 text-emerald-700 border-emerald-400/20",
   pending: "bg-amber-500/10 text-amber-700 border-amber-400/20",
   void: "bg-rose-500/10 text-rose-700 border-rose-400/20",
@@ -39,11 +42,23 @@ const methodLabel: Record<string, string> = {
   card: "Card",
 }
 
+const STATUS_TABS = [
+  { label: "All", value: "all" },
+  { label: "Draft", value: "draft" },
+  { label: "Pending", value: "pending" },
+  { label: "Completed", value: "completed" },
+  { label: "Void", value: "void" },
+]
+
 export default function PurchasePaymentsPage() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const { toast } = useToast()
+  const [tab, setTab] = useState("all")
   const [search, setSearch] = useState("")
+  const [supplierFilter, setSupplierFilter] = useState("all")
+  const [dateFrom, setDateFrom] = useState("")
+  const [dateTo, setDateTo] = useState("")
   const [viewItem, setViewItem] = useState<PurchasePayment | null>(null)
 
   const { data: payments = [], isLoading } = useQuery<PurchasePayment[]>({
@@ -54,12 +69,26 @@ export default function PurchasePaymentsPage() {
     },
   })
 
-  const rows = search.trim()
-    ? payments.filter(p =>
-        p.payment_number.toLowerCase().includes(search.toLowerCase()) ||
-        (p.contact_name ?? "").toLowerCase().includes(search.toLowerCase())
+  const suppliers = useMemo(() => {
+    const names = Array.from(new Set(payments.map(p => p.contact_name).filter(Boolean)))
+    return names.sort()
+  }, [payments])
+
+  const rows = useMemo(() => {
+    let filtered = payments
+    if (tab !== "all") filtered = filtered.filter(p => p.status === tab)
+    if (search.trim()) {
+      const q = search.toLowerCase()
+      filtered = filtered.filter(p =>
+        p.payment_number.toLowerCase().includes(q) ||
+        (p.contact_name ?? "").toLowerCase().includes(q)
       )
-    : payments
+    }
+    if (supplierFilter !== "all") filtered = filtered.filter(p => p.contact_name === supplierFilter)
+    if (dateFrom) filtered = filtered.filter(p => (p.payment_date || "") >= dateFrom)
+    if (dateTo) filtered = filtered.filter(p => (p.payment_date || "") <= dateTo)
+    return filtered
+  }, [payments, tab, search, supplierFilter, dateFrom, dateTo])
 
   return (
     <div className="flex flex-col gap-4">
@@ -79,77 +108,100 @@ export default function PurchasePaymentsPage() {
       </div>
 
       <Card className="rounded-2xl border-border bg-card p-4 shadow-[0_0_0_1px_rgba(15,23,42,0.06),0_18px_55px_rgba(2,6,23,0.08)]">
-        <div className="mb-4 relative max-w-sm">
-          <Search className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
-          <Input
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            placeholder="Search payments..."
-            className="h-10 rounded-xl pl-9 text-sm"
-          />
-        </div>
+        <Tabs value={tab} onValueChange={setTab}>
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+            <TabsList className="h-auto flex-wrap justify-start gap-1 rounded-xl bg-muted p-1">
+              {STATUS_TABS.map(st => (
+                <TabsTrigger key={st.value} value={st.value} className="rounded-lg px-3 py-1.5 text-xs">{st.label}</TabsTrigger>
+              ))}
+            </TabsList>
+          </div>
 
-        {isLoading ? (
-          <div className="py-10 text-center text-sm text-muted-foreground">Loading...</div>
-        ) : rows.length === 0 ? (
-          <div className="rounded-2xl border border-border bg-card px-6 py-10 text-center">
-            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-muted">
-              <CreditCard className="h-6 w-6 text-muted-foreground" />
+          <div className="mt-4 grid grid-cols-1 gap-3 lg:grid-cols-12">
+            <div className="lg:col-span-4">
+              <div className="text-xs font-medium text-muted-foreground">Date Range</div>
+              <div className="mt-2 flex items-center gap-2">
+                <Input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} className="h-10 rounded-xl text-sm" />
+                <span className="text-xs text-muted-foreground">to</span>
+                <Input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)} className="h-10 rounded-xl text-sm" />
+              </div>
             </div>
-            <div className="mt-4 text-base font-semibold text-foreground">No purchase payments</div>
-            <div className="mt-1 text-sm text-muted-foreground">Record payments made to your suppliers</div>
-            <Button
-              type="button"
-              onClick={() => navigate("/purchases/payments/new")}
-              className="mt-6 h-9 rounded-xl bg-gradient-to-r from-[#7C9DFF] to-[#4D63FF] px-3 text-xs font-semibold text-white"
-            >
-              <Plus className="mr-2 h-4 w-4" /> New Payment
-            </Button>
+            <div className="lg:col-span-4">
+              <div className="text-xs font-medium text-muted-foreground">Search</div>
+              <div className="mt-2 relative">
+                <Search className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+                <Input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search by number or supplier..." className="h-10 rounded-xl pl-9 text-sm" />
+              </div>
+            </div>
+            <div className="lg:col-span-4">
+              <div className="text-xs font-medium text-muted-foreground">Supplier</div>
+              <Select value={supplierFilter} onValueChange={setSupplierFilter}>
+                <SelectTrigger className="mt-2 h-10 rounded-xl"><SelectValue placeholder="All Suppliers" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Suppliers</SelectItem>
+                  {suppliers.map(name => <SelectItem key={name} value={name}>{name}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
-        ) : (
-          <div className="overflow-hidden rounded-2xl border border-border bg-card">
-            <Table>
-              <TableHeader>
-                <TableRow className="border-border hover:bg-transparent">
-                  <TableHead className="text-muted-foreground">No.</TableHead>
-                  <TableHead className="text-muted-foreground">Date</TableHead>
-                  <TableHead className="text-muted-foreground">Supplier</TableHead>
-                  <TableHead className="text-right text-muted-foreground">Amount</TableHead>
-                  <TableHead className="text-muted-foreground">Method</TableHead>
-                  <TableHead className="text-muted-foreground">Status</TableHead>
-                  <TableHead className="w-[60px]" />
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {rows.map(p => (
-                  <TableRow key={p.id} className="border-border hover:bg-muted/50">
-                    <TableCell className="font-medium text-foreground">{p.payment_number}</TableCell>
-                    <TableCell className="text-muted-foreground">{formatDate(p.payment_date)}</TableCell>
-                    <TableCell className="text-foreground">{p.contact_name || "—"}</TableCell>
-                    <TableCell className="text-right text-foreground">{formatCurrency(p.amount, p.currency)}</TableCell>
-                    <TableCell className="text-muted-foreground">{methodLabel[p.payment_method] ?? p.payment_method}</TableCell>
-                    <TableCell>
-                      <Badge variant="outline" className={cn("rounded-lg px-2 py-0.5 text-[11px] font-semibold", statusColors[p.status] ?? "")}>
-                        {p.status.charAt(0).toUpperCase() + p.status.slice(1)}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <RowActionsMenu actions={[
-                        { label: "Edit", icon: <Pencil className="h-3.5 w-3.5" />, onClick: () => navigate(`/purchases/payments/${p.id}/edit`), disabled: p.status === "void" },
-                        { label: "View", icon: <FileText className="h-3.5 w-3.5" />, onClick: () => setViewItem(p) },
-                        { label: "Mark as Completed", icon: <CheckCircle className="h-3.5 w-3.5" />, onClick: () => api.patch(`/purchase-payments/${p.id}/status`, null, { params: { status: "completed" } }).then(() => { queryClient.invalidateQueries({ queryKey: ["purchase-payments"] }); toast("Payment marked as completed", "success") }).catch((e: any) => toast(e?.response?.data?.detail ?? "Failed to mark as completed", "warning")), dividerBefore: true, disabled: p.status !== "draft" },
-                        { label: "Download Receipt", icon: <Download className="h-3.5 w-3.5" />, onClick: () => window.print() },
-                        { label: "Void", icon: <XCircle className="h-3.5 w-3.5" />, onClick: () => { if (confirm("Void this payment? This reverses the GL entries and cannot be undone.")) api.patch(`/purchase-payments/${p.id}/status`, null, { params: { status: "void" } }).then(() => { queryClient.invalidateQueries({ queryKey: ["purchase-payments"] }); toast("Payment voided", "success") }).catch((e: any) => toast(e?.response?.data?.detail ?? "Failed to void payment", "warning")) }, danger: true, dividerBefore: true, disabled: p.status === "void" },
-                        { label: "Delete", icon: <Trash2 className="h-3.5 w-3.5" />, onClick: () => { if (p.status !== "void" && p.status !== "draft") { alert("Please void this payment first before deleting."); return } if (confirm(`Delete payment ${p.payment_number ?? ""}? This cannot be undone.`)) api.delete(`/purchase-payments/${p.id}`).then(() => { queryClient.invalidateQueries({ queryKey: ["purchase-payments"] }); toast("Payment deleted", "success") }).catch((e: any) => toast(e?.response?.data?.detail ?? "Failed to delete payment", "warning")) }, danger: true, disabled: p.status !== "void" && p.status !== "draft" },
-                      ]} />
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+
+          <div className="mt-4">
+            {isLoading ? (
+              <div className="py-10 text-center text-sm text-muted-foreground">Loading...</div>
+            ) : rows.length === 0 ? (
+              <div className="rounded-2xl border border-border bg-card px-6 py-10 text-center">
+                <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-muted shadow-[0_0_0_1px_rgba(15,23,42,0.08)]"><CreditCard className="h-6 w-6 text-muted-foreground" /></div>
+                <div className="mt-4 text-base font-semibold text-foreground">No purchase payments</div>
+                <div className="mt-1 text-sm text-muted-foreground">Record payments made to your suppliers</div>
+                <Button type="button" onClick={() => navigate("/purchases/payments/new")} className="mt-6 h-9 rounded-xl bg-gradient-to-r from-[#7C9DFF] to-[#4D63FF] px-3 text-xs font-semibold text-white"><Plus className="mr-2 h-4 w-4" /> New Payment</Button>
+              </div>
+            ) : (
+              <div className="overflow-hidden rounded-2xl border border-border bg-card">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="border-border hover:bg-transparent">
+                      <TableHead className="w-[120px] text-muted-foreground">No.</TableHead>
+                      <TableHead className="w-[130px] text-muted-foreground">Date</TableHead>
+                      <TableHead className="text-muted-foreground">Supplier</TableHead>
+                      <TableHead className="w-[150px] text-right text-muted-foreground">Amount</TableHead>
+                      <TableHead className="w-[130px] text-muted-foreground">Method</TableHead>
+                      <TableHead className="w-[120px] text-muted-foreground">Status</TableHead>
+                      <TableHead className="w-[60px]" />
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {rows.map(p => (
+                      <TableRow key={p.id} className="border-border hover:bg-muted/50">
+                        <TableCell className="font-medium text-foreground">{p.payment_number}</TableCell>
+                        <TableCell className="text-muted-foreground">{formatDate(p.payment_date)}</TableCell>
+                        <TableCell className="text-foreground">{p.contact_name || "—"}</TableCell>
+                        <TableCell className="text-right text-foreground">{formatCurrency(p.amount, p.currency)}</TableCell>
+                        <TableCell className="text-muted-foreground">{methodLabel[p.payment_method] ?? p.payment_method}</TableCell>
+                        <TableCell>
+                          <Badge variant="outline" className={cn("rounded-lg px-2 py-0.5 text-[11px] font-semibold", statusColors[p.status] ?? "")}>
+                            {p.status.charAt(0).toUpperCase() + p.status.slice(1)}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <RowActionsMenu actions={[
+                            { label: "View", icon: <FileText className="h-3.5 w-3.5" />, onClick: () => setViewItem(p) },
+                            { label: "Edit", icon: <Pencil className="h-3.5 w-3.5" />, onClick: () => navigate(`/purchases/payments/${p.id}/edit`), disabled: p.status === "void" },
+                            { label: "Mark as Completed", icon: <CheckCircle className="h-3.5 w-3.5" />, onClick: () => api.patch(`/purchase-payments/${p.id}/status`, null, { params: { status: "completed" } }).then(() => { queryClient.invalidateQueries({ queryKey: ["purchase-payments"] }); toast("Payment marked as completed", "success") }).catch((e: any) => toast(e?.response?.data?.detail ?? "Failed to mark as completed", "warning")), dividerBefore: true, disabled: p.status !== "draft" && p.status !== "pending" },
+                            { label: "Download Receipt", icon: <Download className="h-3.5 w-3.5" />, onClick: () => window.print() },
+                            { label: "Void", icon: <XCircle className="h-3.5 w-3.5" />, onClick: () => { if (confirm("Void this payment? This reverses the GL entries and cannot be undone.")) api.patch(`/purchase-payments/${p.id}/status`, null, { params: { status: "void" } }).then(() => { queryClient.invalidateQueries({ queryKey: ["purchase-payments"] }); toast("Payment voided", "success") }).catch((e: any) => toast(e?.response?.data?.detail ?? "Failed to void payment", "warning")) }, danger: true, dividerBefore: true, disabled: p.status === "void" },
+                            { label: "Delete", icon: <Trash2 className="h-3.5 w-3.5" />, onClick: () => { if (p.status !== "void" && p.status !== "draft") { alert("Please void this payment first before deleting."); return } if (confirm(`Delete payment ${p.payment_number}? This cannot be undone.`)) api.delete(`/purchase-payments/${p.id}`).then(() => { queryClient.invalidateQueries({ queryKey: ["purchase-payments"] }); toast("Payment deleted", "success") }).catch((e: any) => toast(e?.response?.data?.detail ?? "Failed to delete payment", "warning")) }, danger: true, disabled: p.status !== "void" && p.status !== "draft" },
+                          ]} />
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
           </div>
-        )}
+        </Tabs>
       </Card>
+
       <ViewDetailSheet
         open={!!viewItem}
         onOpenChange={(open) => { if (!open) setViewItem(null) }}
@@ -162,7 +214,6 @@ export default function PurchasePaymentsPage() {
           { label: "Date", value: formatDate(viewItem.payment_date) },
           { label: "Amount", value: formatCurrency(viewItem.amount, viewItem.currency) },
           { label: "Method", value: methodLabel[viewItem.payment_method] ?? viewItem.payment_method },
-          { label: "Reference", value: viewItem.payment_number },
         ] : []}
       />
     </div>

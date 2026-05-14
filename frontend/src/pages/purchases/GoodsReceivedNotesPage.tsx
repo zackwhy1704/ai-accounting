@@ -2,13 +2,16 @@ import { useMemo, useState } from "react"
 import { useQueryClient } from "@tanstack/react-query"
 import { useNavigate } from "react-router-dom"
 import { ViewDetailSheet } from "../../components/ui/view-detail-sheet"
-import { Plus, ClipboardList, FileText, Pencil, Trash2, PackageCheck, Receipt } from "lucide-react"
+import { Plus, Search, ClipboardList, FileText, Pencil, Trash2, PackageCheck, Receipt } from "lucide-react"
 import { useGoodsReceivedNotes, useContacts, useBills } from "../../lib/hooks"
 import api from "../../lib/api"
 import { formatDate, cn } from "../../lib/utils"
 import { useToast } from "../../components/ui/toast"
 import { Card } from "../../components/ui/card"
 import { Button } from "../../components/ui/button"
+import { Input } from "../../components/ui/input"
+import { Tabs, TabsList, TabsTrigger } from "../../components/ui/tabs"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../components/ui/select"
 import { Badge } from "../../components/ui/badge"
 import { RowActionsMenu } from "../../components/ui/row-actions"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../../components/ui/table"
@@ -19,14 +22,28 @@ const statusColors: Record<string, string> = {
   billed: "bg-violet-500/10 text-violet-700 border-violet-400/20",
 }
 
+const STATUS_TABS = [
+  { label: "All", value: "all" },
+  { label: "Draft", value: "draft" },
+  { label: "Received", value: "received" },
+  { label: "Billed", value: "billed" },
+]
+
 export default function GoodsReceivedNotesPage() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const { toast } = useToast()
+  const [tab, setTab] = useState("all")
+  const [search, setSearch] = useState("")
+  const [contactFilter, setContactFilter] = useState("all")
+  const [dateFrom, setDateFrom] = useState("")
+  const [dateTo, setDateTo] = useState("")
   const { data: grns = [], isLoading } = useGoodsReceivedNotes()
   const { data: contacts = [] } = useContacts()
   const { data: bills = [] } = useBills()
   const [viewItem, setViewItem] = useState<typeof grns[0] | null>(null)
+
+  const vendors = useMemo(() => contacts.filter((c: any) => c.type === "supplier" || c.type === "vendor" || c.type === "both"), [contacts])
 
   const contactMap = useMemo(() => {
     const m = new Map<string, string>()
@@ -39,6 +56,22 @@ export default function GoodsReceivedNotesPage() {
     bills.forEach((b: any) => m.set(b.id, b.bill_number))
     return m
   }, [bills])
+
+  const rows = useMemo(() => {
+    let filtered = grns
+    if (tab !== "all") filtered = filtered.filter((grn: any) => grn.status === tab)
+    if (search.trim()) {
+      const q = search.toLowerCase()
+      filtered = filtered.filter((grn: any) =>
+        grn.grn_number.toLowerCase().includes(q) ||
+        (contactMap.get(grn.contact_id) ?? "").toLowerCase().includes(q)
+      )
+    }
+    if (contactFilter !== "all") filtered = filtered.filter((grn: any) => grn.contact_id === contactFilter)
+    if (dateFrom) filtered = filtered.filter((grn: any) => (grn.received_date || "") >= dateFrom)
+    if (dateTo) filtered = filtered.filter((grn: any) => (grn.received_date || "") <= dateTo)
+    return filtered
+  }, [grns, tab, search, contactMap, contactFilter, dateFrom, dateTo])
 
   return (
     <div className="flex flex-col gap-4">
@@ -58,81 +91,97 @@ export default function GoodsReceivedNotesPage() {
       </div>
 
       <Card className="rounded-2xl border-border bg-card p-4 shadow-[0_0_0_1px_rgba(15,23,42,0.06),0_18px_55px_rgba(2,6,23,0.08)]">
-        {isLoading ? (
-          <div className="py-10 text-center text-sm text-muted-foreground">Loading...</div>
-        ) : grns.length === 0 ? (
-          <div className="overflow-hidden rounded-2xl border border-border bg-card">
-            <Table>
-              <TableHeader>
-                <TableRow className="border-border hover:bg-transparent">
-                  <TableHead className="text-muted-foreground">GRN No.</TableHead>
-                  <TableHead className="text-muted-foreground">Date</TableHead>
-                  <TableHead className="text-muted-foreground">Supplier</TableHead>
-                  <TableHead className="text-muted-foreground">Status</TableHead>
-                  <TableHead className="w-[60px]" />
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                <TableRow>
-                  <TableCell colSpan={5}>
-                    <div className="py-8 text-center">
-                      <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-muted">
-                        <ClipboardList className="h-6 w-6 text-muted-foreground" />
-                      </div>
-                      <div className="mt-4 text-base font-semibold text-foreground">No goods received notes</div>
-                      <div className="mt-1 text-sm text-muted-foreground">Record deliveries from your suppliers to update stock levels</div>
-                      <Button
-                        type="button"
-                        onClick={() => navigate("/purchases/goods-received-notes/new")}
-                        className="mt-6 h-9 rounded-xl bg-gradient-to-r from-[#7C9DFF] to-[#4D63FF] px-3 text-xs font-semibold text-white"
-                      >
-                        <Plus className="mr-2 h-4 w-4" /> New GRN
-                      </Button>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              </TableBody>
-            </Table>
+        <Tabs value={tab} onValueChange={setTab}>
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+            <TabsList className="h-auto flex-wrap justify-start gap-1 rounded-xl bg-muted p-1">
+              {STATUS_TABS.map(st => (
+                <TabsTrigger key={st.value} value={st.value} className="rounded-lg px-3 py-1.5 text-xs">{st.label}</TabsTrigger>
+              ))}
+            </TabsList>
           </div>
-        ) : (
-          <div className="overflow-hidden rounded-2xl border border-border bg-card">
-            <Table>
-              <TableHeader>
-                <TableRow className="border-border hover:bg-transparent">
-                  <TableHead className="text-muted-foreground">GRN No.</TableHead>
-                  <TableHead className="text-muted-foreground">Date</TableHead>
-                  <TableHead className="text-muted-foreground">Supplier</TableHead>
-                  <TableHead className="text-muted-foreground">Status</TableHead>
-                  <TableHead className="w-[60px]" />
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {grns.map(grn => (
-                  <TableRow key={grn.id} className="border-border hover:bg-muted/50">
-                    <TableCell className="font-medium text-foreground">{grn.grn_number}</TableCell>
-                    <TableCell className="text-muted-foreground">{formatDate(grn.received_date)}</TableCell>
-                    <TableCell className="text-foreground">{contactMap.get(grn.contact_id) ?? "—"}</TableCell>
-                    <TableCell>
-                      <Badge variant="outline" className={cn("rounded-lg px-2 py-0.5 text-[11px] font-semibold", statusColors[grn.status] ?? "")}>
-                        {grn.status.charAt(0).toUpperCase() + grn.status.slice(1)}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <RowActionsMenu actions={[
-                        { label: "View", icon: <FileText className="h-3.5 w-3.5" />, onClick: () => setViewItem(grn) },
-                        { label: "Edit", icon: <Pencil className="h-3.5 w-3.5" />, onClick: () => navigate(`/purchases/goods-received-notes/${grn.id}/edit`) },
-                        { label: "Mark as Received", icon: <PackageCheck className="h-3.5 w-3.5" />, onClick: () => api.patch(`/goods-received-notes/${grn.id}/status`, null, { params: { status: "received" } }).then(() => { queryClient.invalidateQueries({ queryKey: ["goods-received-notes"] }); toast("GRN marked as received", "success") }).catch((e: any) => toast(e?.response?.data?.detail ?? "Failed to update status", "warning")), dividerBefore: true, disabled: grn.status !== "draft" },
-                        { label: "Mark as Billed", icon: <Receipt className="h-3.5 w-3.5" />, onClick: () => api.patch(`/goods-received-notes/${grn.id}/status`, null, { params: { status: "billed" } }).then(() => { queryClient.invalidateQueries({ queryKey: ["goods-received-notes"] }); toast("GRN marked as billed", "success") }).catch((e: any) => toast(e?.response?.data?.detail ?? "Failed to update status", "warning")), disabled: grn.status === "billed" || grn.status === "draft" },
-                        { label: "Delete", icon: <Trash2 className="h-3.5 w-3.5" />, onClick: () => { if (confirm("Delete this GRN?")) api.delete(`/goods-received-notes/${grn.id}`).then(() => { queryClient.invalidateQueries({ queryKey: ["goods-received-notes"] }); toast("GRN deleted", "success") }).catch((e: any) => toast(e?.response?.data?.detail ?? "Failed to delete GRN", "warning")) }, danger: true, dividerBefore: true, disabled: grn.status === "billed" },
-                      ]} />
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+
+          <div className="mt-4 grid grid-cols-1 gap-3 lg:grid-cols-12">
+            <div className="lg:col-span-4">
+              <div className="text-xs font-medium text-muted-foreground">Date Range</div>
+              <div className="mt-2 flex items-center gap-2">
+                <Input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} className="h-10 rounded-xl text-sm" />
+                <span className="text-xs text-muted-foreground">to</span>
+                <Input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)} className="h-10 rounded-xl text-sm" />
+              </div>
+            </div>
+            <div className="lg:col-span-4">
+              <div className="text-xs font-medium text-muted-foreground">Search</div>
+              <div className="mt-2 relative">
+                <Search className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+                <Input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search by GRN number or supplier..." className="h-10 rounded-xl pl-9 text-sm" />
+              </div>
+            </div>
+            <div className="lg:col-span-4">
+              <div className="text-xs font-medium text-muted-foreground">Supplier</div>
+              <Select value={contactFilter} onValueChange={setContactFilter}>
+                <SelectTrigger className="mt-2 h-10 rounded-xl"><SelectValue placeholder="All Suppliers" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Suppliers</SelectItem>
+                  {vendors.map((c: any) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
-        )}
+
+          <div className="mt-4">
+            {isLoading ? (
+              <div className="py-10 text-center text-sm text-muted-foreground">Loading...</div>
+            ) : rows.length === 0 ? (
+              <div className="rounded-2xl border border-border bg-card px-6 py-10 text-center">
+                <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-muted shadow-[0_0_0_1px_rgba(15,23,42,0.08)]"><ClipboardList className="h-6 w-6 text-muted-foreground" /></div>
+                <div className="mt-4 text-base font-semibold text-foreground">No goods received notes</div>
+                <div className="mt-1 text-sm text-muted-foreground">Record deliveries from your suppliers to update stock levels</div>
+                <Button type="button" onClick={() => navigate("/purchases/goods-received-notes/new")} className="mt-6 h-9 rounded-xl bg-gradient-to-r from-[#7C9DFF] to-[#4D63FF] px-3 text-xs font-semibold text-white"><Plus className="mr-2 h-4 w-4" /> New GRN</Button>
+              </div>
+            ) : (
+              <div className="overflow-hidden rounded-2xl border border-border bg-card">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="border-border hover:bg-transparent">
+                      <TableHead className="w-[120px] text-muted-foreground">GRN No.</TableHead>
+                      <TableHead className="w-[130px] text-muted-foreground">Date</TableHead>
+                      <TableHead className="text-muted-foreground">Supplier</TableHead>
+                      <TableHead className="w-[150px] text-muted-foreground">Linked Bill</TableHead>
+                      <TableHead className="w-[120px] text-muted-foreground">Status</TableHead>
+                      <TableHead className="w-[60px]" />
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {rows.map((grn: any) => (
+                      <TableRow key={grn.id} className="border-border hover:bg-muted/50">
+                        <TableCell className="font-medium text-foreground">{grn.grn_number}</TableCell>
+                        <TableCell className="text-muted-foreground">{formatDate(grn.received_date)}</TableCell>
+                        <TableCell className="text-foreground">{contactMap.get(grn.contact_id) ?? "—"}</TableCell>
+                        <TableCell className="text-muted-foreground">{grn.bill_id ? (billMap.get(grn.bill_id) ?? "—") : "—"}</TableCell>
+                        <TableCell>
+                          <Badge variant="outline" className={cn("rounded-lg px-2 py-0.5 text-[11px] font-semibold", statusColors[grn.status] ?? "")}>
+                            {grn.status.charAt(0).toUpperCase() + grn.status.slice(1)}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <RowActionsMenu actions={[
+                            { label: "View", icon: <FileText className="h-3.5 w-3.5" />, onClick: () => setViewItem(grn) },
+                            { label: "Edit", icon: <Pencil className="h-3.5 w-3.5" />, onClick: () => navigate(`/purchases/goods-received-notes/${grn.id}/edit`), disabled: grn.status === "billed" },
+                            { label: "Mark as Received", icon: <PackageCheck className="h-3.5 w-3.5" />, onClick: () => api.patch(`/goods-received-notes/${grn.id}/status`, null, { params: { status: "received" } }).then(() => { queryClient.invalidateQueries({ queryKey: ["goods-received-notes"] }); toast("GRN marked as received", "success") }).catch((e: any) => toast(e?.response?.data?.detail ?? "Failed to update status", "warning")), dividerBefore: true, disabled: grn.status !== "draft" },
+                            { label: "Mark as Billed", icon: <Receipt className="h-3.5 w-3.5" />, onClick: () => api.patch(`/goods-received-notes/${grn.id}/status`, null, { params: { status: "billed" } }).then(() => { queryClient.invalidateQueries({ queryKey: ["goods-received-notes"] }); toast("GRN marked as billed", "success") }).catch((e: any) => toast(e?.response?.data?.detail ?? "Failed to update status", "warning")), disabled: grn.status === "billed" || grn.status === "draft" },
+                            { label: "Delete", icon: <Trash2 className="h-3.5 w-3.5" />, onClick: () => { if (grn.status === "billed") { alert("This GRN has been billed and cannot be deleted."); return } if (confirm(`Delete GRN ${grn.grn_number}? This cannot be undone.`)) api.delete(`/goods-received-notes/${grn.id}`).then(() => { queryClient.invalidateQueries({ queryKey: ["goods-received-notes"] }); toast("GRN deleted", "success") }).catch((e: any) => toast(e?.response?.data?.detail ?? "Failed to delete GRN", "warning")) }, danger: true, dividerBefore: true, disabled: grn.status === "billed" },
+                          ]} />
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
+          </div>
+        </Tabs>
       </Card>
+
       <ViewDetailSheet
         open={!!viewItem}
         onOpenChange={(open) => { if (!open) setViewItem(null) }}
