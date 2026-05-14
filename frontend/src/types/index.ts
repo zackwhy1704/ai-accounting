@@ -164,16 +164,20 @@ export interface CreditNote {
   notes: string | null
   line_items: LineItem[]
   applied_to_invoices: CreditApplication[]
+  credit_applications: CreditApplication[]
   created_at: string
 }
 
 export interface CreditApplication {
+  id: string
   invoice_id: string
-  invoice_number: string
-  invoice_date: string
-  invoice_total: number
-  invoice_balance: number
-  apply_amount: number
+  amount: number
+  // extended fields used in edit views
+  invoice_number?: string
+  invoice_date?: string
+  invoice_total?: number
+  invoice_balance?: number
+  apply_amount?: number
 }
 
 export interface DebitNote {
