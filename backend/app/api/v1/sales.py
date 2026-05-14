@@ -1148,8 +1148,13 @@ async def remove_single_credit_application(cn_id: UUID, app_id: UUID, current_us
     inv = inv_result.scalar_one_or_none()
     if inv:
         inv.amount_paid = max(0.0, float(inv.amount_paid or 0) - float(app.amount))
-        if inv.status == "paid" and float(inv.amount_paid) < float(inv.total):
-            inv.status = "sent"
+        inv_total = float(inv.total or 0)
+        if float(inv.amount_paid) >= inv_total:
+            inv.status = "paid"
+        elif float(inv.amount_paid) > 0:
+            inv.status = "partially paid"
+        else:
+            inv.status = "outstanding"
     await db.delete(app)
     await db.flush()
     # Recalculate credit_applied from remaining applications
@@ -1187,9 +1192,14 @@ async def remove_credit_applications(cn_id: UUID, current_user: dict = Depends(g
         inv_result = await db.execute(select(Invoice).where(Invoice.id == app.invoice_id))
         inv = inv_result.scalar_one_or_none()
         if inv:
-            inv.amount_paid = max(0.0, float(inv.amount_paid or 0) - app.amount)
-            if inv.status == "paid" and float(inv.amount_paid) < float(inv.total):
-                inv.status = "sent"
+            inv.amount_paid = max(0.0, float(inv.amount_paid or 0) - float(app.amount))
+            inv_total = float(inv.total or 0)
+            if float(inv.amount_paid) >= inv_total:
+                inv.status = "paid"
+            elif float(inv.amount_paid) > 0:
+                inv.status = "partially paid"
+            else:
+                inv.status = "outstanding"
     await db.execute(delete(CreditApplicationModel).where(CreditApplicationModel.credit_note_id == obj.id))
     obj.credit_applied = 0
     obj.status = "issued"
