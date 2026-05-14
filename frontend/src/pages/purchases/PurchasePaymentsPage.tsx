@@ -5,6 +5,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { Plus, Search, CreditCard, FileText, Download, XCircle, Pencil, CheckCircle, Trash2 } from "lucide-react"
 import api from "../../lib/api"
 import { formatCurrency, formatDate, cn } from "../../lib/utils"
+import { useToast } from "../../components/ui/toast"
 import { Card } from "../../components/ui/card"
 import { Button } from "../../components/ui/button"
 import { Input } from "../../components/ui/input"
@@ -41,6 +42,7 @@ const methodLabel: Record<string, string> = {
 export default function PurchasePaymentsPage() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
+  const { toast } = useToast()
   const [search, setSearch] = useState("")
   const [viewItem, setViewItem] = useState<PurchasePayment | null>(null)
 
@@ -135,10 +137,10 @@ export default function PurchasePaymentsPage() {
                       <RowActionsMenu actions={[
                         { label: "Edit", icon: <Pencil className="h-3.5 w-3.5" />, onClick: () => navigate(`/purchases/payments/${p.id}/edit`), disabled: p.status === "void" },
                         { label: "View", icon: <FileText className="h-3.5 w-3.5" />, onClick: () => setViewItem(p) },
-                        { label: "Mark as Completed", icon: <CheckCircle className="h-3.5 w-3.5" />, onClick: () => api.patch(`/purchase-payments/${p.id}/status`, null, { params: { status: "completed" } }).then(() => queryClient.invalidateQueries({ queryKey: ["purchase-payments"] })), dividerBefore: true, disabled: p.status !== "draft" },
+                        { label: "Mark as Completed", icon: <CheckCircle className="h-3.5 w-3.5" />, onClick: () => api.patch(`/purchase-payments/${p.id}/status`, null, { params: { status: "completed" } }).then(() => { queryClient.invalidateQueries({ queryKey: ["purchase-payments"] }); toast("Payment marked as completed", "success") }).catch((e: any) => toast(e?.response?.data?.detail ?? "Failed to mark as completed", "warning")), dividerBefore: true, disabled: p.status !== "draft" },
                         { label: "Download Receipt", icon: <Download className="h-3.5 w-3.5" />, onClick: () => window.print() },
-                        { label: "Void", icon: <XCircle className="h-3.5 w-3.5" />, onClick: () => { if (confirm("Void this payment? This reverses the GL entries and cannot be undone.")) api.patch(`/purchase-payments/${p.id}/status`, null, { params: { status: "void" } }).then(() => queryClient.invalidateQueries({ queryKey: ["purchase-payments"] })) }, danger: true, dividerBefore: true, disabled: p.status === "void" },
-                        { label: "Delete", icon: <Trash2 className="h-3.5 w-3.5" />, onClick: () => { if (p.status !== "void" && p.status !== "draft") { alert("Please void this payment first before deleting."); return } if (confirm(`Delete payment ${p.payment_number ?? ""}? This cannot be undone.`)) api.delete(`/purchase-payments/${p.id}`).then(() => queryClient.invalidateQueries({ queryKey: ["purchase-payments"] })) }, danger: true, disabled: p.status !== "void" && p.status !== "draft" },
+                        { label: "Void", icon: <XCircle className="h-3.5 w-3.5" />, onClick: () => { if (confirm("Void this payment? This reverses the GL entries and cannot be undone.")) api.patch(`/purchase-payments/${p.id}/status`, null, { params: { status: "void" } }).then(() => { queryClient.invalidateQueries({ queryKey: ["purchase-payments"] }); toast("Payment voided", "success") }).catch((e: any) => toast(e?.response?.data?.detail ?? "Failed to void payment", "warning")) }, danger: true, dividerBefore: true, disabled: p.status === "void" },
+                        { label: "Delete", icon: <Trash2 className="h-3.5 w-3.5" />, onClick: () => { if (p.status !== "void" && p.status !== "draft") { alert("Please void this payment first before deleting."); return } if (confirm(`Delete payment ${p.payment_number ?? ""}? This cannot be undone.`)) api.delete(`/purchase-payments/${p.id}`).then(() => { queryClient.invalidateQueries({ queryKey: ["purchase-payments"] }); toast("Payment deleted", "success") }).catch((e: any) => toast(e?.response?.data?.detail ?? "Failed to delete payment", "warning")) }, danger: true, disabled: p.status !== "void" && p.status !== "draft" },
                       ]} />
                     </TableCell>
                   </TableRow>

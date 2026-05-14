@@ -7,6 +7,7 @@ import { Plus, BookOpen, FileText, XCircle, Pencil } from "lucide-react"
 import { useManualJournals } from "../../lib/hooks"
 import api from "../../lib/api"
 import { formatDate, formatCurrency } from "../../lib/utils"
+import { useToast } from "../../components/ui/toast"
 import { Card } from "../../components/ui/card"
 import { Button } from "../../components/ui/button"
 import { Badge } from "../../components/ui/badge"
@@ -23,6 +24,7 @@ const statusColors: Record<string, string> = {
 export default function ManualJournalsPage() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
+  const { toast } = useToast()
   const { data: journals = [], isLoading } = useManualJournals()
   const [viewItem, setViewItem] = useState<typeof journals[0] | null>(null)
 
@@ -87,7 +89,7 @@ export default function ManualJournalsPage() {
                       <RowActionsMenu actions={[
                         { label: "Edit", icon: <Pencil className="h-3.5 w-3.5" />, onClick: () => navigate(`/accounting/manual-journals/${j.id}/edit`) },
                         { label: "View", icon: <FileText className="h-4 w-4" />, onClick: () => { setViewItem(j) } },
-                        { label: "Void", icon: <XCircle className="h-4 w-4" />, onClick: () => { if (confirm("Void this journal entry?")) api.patch(`/accounting/journals/${j.id}`, { status: "void" }).then(() => queryClient.invalidateQueries({ queryKey: ["manual-journals"] })) }, danger: true, dividerBefore: true, disabled: j.status === "void" },
+                        { label: "Void", icon: <XCircle className="h-4 w-4" />, onClick: () => { if (confirm("Void this journal entry?")) api.patch(`/accounting/journals/${j.id}`, { status: "void" }).then(() => { queryClient.invalidateQueries({ queryKey: ["manual-journals"] }); toast("Journal entry voided", "success") }).catch((e: any) => toast(e?.response?.data?.detail ?? "Failed to void journal entry", "warning")) }, danger: true, dividerBefore: true, disabled: j.status === "void" },
                       ]} />
                     </TableCell>
                   </TableRow>

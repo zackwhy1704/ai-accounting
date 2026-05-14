@@ -7,6 +7,7 @@ import { useContacts } from "../../lib/hooks"
 import api from "../../lib/api"
 import { cn } from "../../lib/utils"
 import { useTheme } from "../../lib/theme"
+import { useToast } from "../../components/ui/toast"
 import { Card } from "../../components/ui/card"
 import { Button } from "../../components/ui/button"
 import { Input } from "../../components/ui/input"
@@ -18,6 +19,7 @@ import { RowActionsMenu } from "../../components/ui/row-actions"
 export default function ContactsPage() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
+  const { toast } = useToast()
   const [tab, setTab] = useState("all")
   const [query, setQuery] = useState("")
   const [page, setPage] = useState(1)
@@ -93,7 +95,7 @@ export default function ContactsPage() {
                         <TableCell className="text-right"><RowActionsMenu actions={[
                           { label: "View", icon: <Eye className="h-4 w-4" />, onClick: () => setViewItem(c) },
                           { label: "Edit", icon: <Pencil className="h-4 w-4" />, onClick: () => navigate(`/contacts/${c.id}/edit`) },
-                          { label: "Delete", icon: <Trash2 className="h-4 w-4" />, onClick: () => { if (confirm("Delete this contact?")) api.delete(`/contacts/${c.id}`).then(() => queryClient.invalidateQueries({ queryKey: ["contacts"] })) }, danger: true, dividerBefore: true },
+                          { label: "Delete", icon: <Trash2 className="h-4 w-4" />, onClick: () => { if (confirm("Delete this contact?")) api.delete(`/contacts/${c.id}`).then(() => { queryClient.invalidateQueries({ queryKey: ["contacts"] }); toast("Contact deleted", "success") }).catch((e: any) => toast(e?.response?.data?.detail ?? "Failed to delete contact", "warning")) }, danger: true, dividerBefore: true },
                         ]} /></TableCell>
                       </TableRow>
                     ))}

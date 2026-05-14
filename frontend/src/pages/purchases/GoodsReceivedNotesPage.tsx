@@ -6,6 +6,7 @@ import { Plus, ClipboardList, FileText, Pencil, Trash2, PackageCheck, Receipt } 
 import { useGoodsReceivedNotes, useContacts, useBills } from "../../lib/hooks"
 import api from "../../lib/api"
 import { formatDate, cn } from "../../lib/utils"
+import { useToast } from "../../components/ui/toast"
 import { Card } from "../../components/ui/card"
 import { Button } from "../../components/ui/button"
 import { Badge } from "../../components/ui/badge"
@@ -21,6 +22,7 @@ const statusColors: Record<string, string> = {
 export default function GoodsReceivedNotesPage() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
+  const { toast } = useToast()
   const { data: grns = [], isLoading } = useGoodsReceivedNotes()
   const { data: contacts = [] } = useContacts()
   const { data: bills = [] } = useBills()
@@ -119,9 +121,9 @@ export default function GoodsReceivedNotesPage() {
                       <RowActionsMenu actions={[
                         { label: "View", icon: <FileText className="h-3.5 w-3.5" />, onClick: () => setViewItem(grn) },
                         { label: "Edit", icon: <Pencil className="h-3.5 w-3.5" />, onClick: () => navigate(`/purchases/goods-received-notes/${grn.id}/edit`) },
-                        { label: "Mark as Received", icon: <PackageCheck className="h-3.5 w-3.5" />, onClick: () => api.patch(`/goods-received-notes/${grn.id}/status`, null, { params: { status: "received" } }).then(() => queryClient.invalidateQueries({ queryKey: ["goods-received-notes"] })), dividerBefore: true, disabled: grn.status !== "draft" },
-                        { label: "Mark as Billed", icon: <Receipt className="h-3.5 w-3.5" />, onClick: () => api.patch(`/goods-received-notes/${grn.id}/status`, null, { params: { status: "billed" } }).then(() => queryClient.invalidateQueries({ queryKey: ["goods-received-notes"] })), disabled: grn.status === "billed" || grn.status === "draft" },
-                        { label: "Delete", icon: <Trash2 className="h-3.5 w-3.5" />, onClick: () => { if (confirm("Delete this GRN?")) api.delete(`/goods-received-notes/${grn.id}`).then(() => queryClient.invalidateQueries({ queryKey: ["goods-received-notes"] })) }, danger: true, dividerBefore: true, disabled: grn.status === "billed" },
+                        { label: "Mark as Received", icon: <PackageCheck className="h-3.5 w-3.5" />, onClick: () => api.patch(`/goods-received-notes/${grn.id}/status`, null, { params: { status: "received" } }).then(() => { queryClient.invalidateQueries({ queryKey: ["goods-received-notes"] }); toast("GRN marked as received", "success") }).catch((e: any) => toast(e?.response?.data?.detail ?? "Failed to update status", "warning")), dividerBefore: true, disabled: grn.status !== "draft" },
+                        { label: "Mark as Billed", icon: <Receipt className="h-3.5 w-3.5" />, onClick: () => api.patch(`/goods-received-notes/${grn.id}/status`, null, { params: { status: "billed" } }).then(() => { queryClient.invalidateQueries({ queryKey: ["goods-received-notes"] }); toast("GRN marked as billed", "success") }).catch((e: any) => toast(e?.response?.data?.detail ?? "Failed to update status", "warning")), disabled: grn.status === "billed" || grn.status === "draft" },
+                        { label: "Delete", icon: <Trash2 className="h-3.5 w-3.5" />, onClick: () => { if (confirm("Delete this GRN?")) api.delete(`/goods-received-notes/${grn.id}`).then(() => { queryClient.invalidateQueries({ queryKey: ["goods-received-notes"] }); toast("GRN deleted", "success") }).catch((e: any) => toast(e?.response?.data?.detail ?? "Failed to delete GRN", "warning")) }, danger: true, dividerBefore: true, disabled: grn.status === "billed" },
                       ]} />
                     </TableCell>
                   </TableRow>

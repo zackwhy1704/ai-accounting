@@ -5,6 +5,7 @@ import { RowActionsMenu } from "../../../components/ui/row-actions"
 import { useSalesRefunds, useContacts, useCreditNotes, useUpdateSalesRefundStatus, useDeleteSalesRefund } from "../../../lib/hooks"
 import { formatCurrency, formatDate, cn } from "../../../lib/utils"
 import { useTheme } from "../../../lib/theme"
+import { useToast } from "../../../components/ui/toast"
 import { Card } from "../../../components/ui/card"
 import { Button } from "../../../components/ui/button"
 import { Input } from "../../../components/ui/input"
@@ -23,6 +24,7 @@ export default function RefundsPage() {
   const navigate = useNavigate()
   const updateRefundStatus = useUpdateSalesRefundStatus()
   const deleteRefund = useDeleteSalesRefund()
+  const { toast } = useToast()
   const [tab, setTab] = useState("all")
   const [search, setSearch] = useState("")
   const [contactFilter, setContactFilter] = useState("all")
@@ -161,9 +163,9 @@ export default function RefundsPage() {
                         <TableCell className="text-right">
                           <RowActionsMenu actions={[
                             { label: "Edit", icon: <Pencil className="h-3.5 w-3.5" />, onClick: () => navigate(`/sales/refunds/${r.id}/edit`), disabled: r.status === "void" },
-                            { label: "Mark as Completed", icon: <CheckCircle className="h-3.5 w-3.5" />, onClick: () => updateRefundStatus.mutate({ id: r.id, status: "completed" }), dividerBefore: true, disabled: r.status !== "draft" },
-                            { label: t("refunds.void"), icon: <XCircle className="h-3.5 w-3.5" />, onClick: () => { if (confirm("Void this refund? This reverses the GL entries and cannot be undone.")) updateRefundStatus.mutate({ id: r.id, status: "void" }) }, danger: true, disabled: r.status === "void" },
-                            { label: "Delete", icon: <Trash2 className="h-3.5 w-3.5" />, onClick: () => { if (r.status !== "void" && r.status !== "draft") { alert("Please void this refund first before deleting."); return } if (confirm(`Delete refund ${r.refund_number ?? ""}? This cannot be undone.`)) deleteRefund.mutate(r.id) }, danger: true, disabled: r.status !== "void" && r.status !== "draft" },
+                            { label: "Mark as Completed", icon: <CheckCircle className="h-3.5 w-3.5" />, onClick: () => updateRefundStatus.mutate({ id: r.id, status: "completed" }, { onSuccess: () => toast("Refund marked as completed", "success"), onError: (e: any) => toast(e?.response?.data?.detail ?? "Failed to mark as completed", "warning") }), dividerBefore: true, disabled: r.status !== "draft" },
+                            { label: t("refunds.void"), icon: <XCircle className="h-3.5 w-3.5" />, onClick: () => { if (confirm("Void this refund? This reverses the GL entries and cannot be undone.")) updateRefundStatus.mutate({ id: r.id, status: "void" }, { onSuccess: () => toast("Refund voided", "success"), onError: (e: any) => toast(e?.response?.data?.detail ?? "Failed to void refund", "warning") }) }, danger: true, disabled: r.status === "void" },
+                            { label: "Delete", icon: <Trash2 className="h-3.5 w-3.5" />, onClick: () => { if (r.status !== "void" && r.status !== "draft") { alert("Please void this refund first before deleting."); return } if (confirm(`Delete refund ${r.refund_number ?? ""}? This cannot be undone.`)) deleteRefund.mutate(r.id, { onSuccess: () => toast("Refund deleted", "success"), onError: (e: any) => toast(e?.response?.data?.detail ?? "Failed to delete refund", "warning") }) }, danger: true, disabled: r.status !== "void" && r.status !== "draft" },
                           ]} />
                         </TableCell>
                       </TableRow>

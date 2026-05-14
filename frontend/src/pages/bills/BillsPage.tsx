@@ -5,6 +5,7 @@ import { Plus, Search, CalendarDays, FileText, Copy, Printer, XCircle, CreditCar
 import { useBills, useContacts, useUpdateBillStatus, useDeleteBill } from "../../lib/hooks"
 import { formatCurrency, formatDate, cn } from "../../lib/utils"
 import { useTheme } from "../../lib/theme"
+import { useToast } from "../../components/ui/toast"
 import { Card } from "../../components/ui/card"
 import { Button } from "../../components/ui/button"
 import { Input } from "../../components/ui/input"
@@ -34,6 +35,7 @@ export default function BillsPage() {
   const navigate = useNavigate()
   const updateBillStatus = useUpdateBillStatus()
   const deleteBill = useDeleteBill()
+  const { toast } = useToast()
   const [tab, setTab] = useState("all")
   const [search, setSearch] = useState("")
   const [contactFilter, setContactFilter] = useState("all")
@@ -189,8 +191,8 @@ export default function BillsPage() {
                                   { label: "Convert to GRN", icon: <ArrowRightLeft className="h-3.5 w-3.5" />, onClick: () => navigate(`/purchases/goods-received-notes/new?from_bill=${bill.id}`), disabled: isDraft || isVoid },
                                   { label: t("invoices.duplicate"), icon: <Copy className="h-3.5 w-3.5" />, onClick: () => navigate(`/purchases/bills/new?copy=${bill.id}`) },
                                   { label: t("invoices.printPdf"), icon: <Printer className="h-3.5 w-3.5" />, onClick: () => window.print() },
-                                  { label: "Void Bill", icon: <XCircle className="h-3.5 w-3.5" />, onClick: () => { if (confirm("Void this bill? This will reverse any GL entries.")) updateBillStatus.mutate({ id: bill.id, status: "void" }) }, danger: true, dividerBefore: true, disabled: isVoid || isPaid },
-                                  { label: "Delete", icon: <Trash2 className="h-3.5 w-3.5" />, onClick: () => { if (confirm("Delete this bill?")) deleteBill.mutate(bill.id) }, danger: true, disabled: isPaid },
+                                  { label: "Void Bill", icon: <XCircle className="h-3.5 w-3.5" />, onClick: () => { if ((bill.amount_paid ?? 0) > 0) { alert("This bill has payments applied. Please void the payments first before voiding the bill."); return } if (confirm("Void this bill? This will reverse any GL entries.")) updateBillStatus.mutate({ id: bill.id, status: "void" }, { onSuccess: () => toast("Bill voided", "success"), onError: (e: any) => toast(e?.response?.data?.detail ?? "Failed to void bill", "warning") }) }, danger: true, dividerBefore: true, disabled: isVoid || isPaid },
+                                  { label: "Delete", icon: <Trash2 className="h-3.5 w-3.5" />, onClick: () => { if ((bill.amount_paid ?? 0) > 0) { alert("This bill has payments applied. Please void the payments first before deleting."); return } if (!isVoid && !isDraft) { alert("Please void this bill first before deleting."); return } if (confirm(`Delete bill ${bill.bill_number}? This cannot be undone.`)) deleteBill.mutate(bill.id, { onSuccess: () => toast("Bill deleted", "success"), onError: (e: any) => toast(e?.response?.data?.detail ?? "Failed to delete bill", "warning") }) }, danger: true, disabled: isPaid },
                                 ]} />
                               </TableCell>
                             </TableRow>

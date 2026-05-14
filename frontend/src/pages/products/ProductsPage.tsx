@@ -5,6 +5,7 @@ import { useQueryClient } from "@tanstack/react-query"
 import { Plus, Search, Package, Eye, Pencil, ArrowUpDown, Trash2 } from "lucide-react"
 import { useProducts } from "../../lib/hooks"
 import { formatCurrency } from "../../lib/utils"
+import { useToast } from "../../components/ui/toast"
 import { Card } from "../../components/ui/card"
 import { Button } from "../../components/ui/button"
 import { Input } from "../../components/ui/input"
@@ -21,6 +22,7 @@ const typeColors: Record<string, string> = {
 
 export default function ProductsPage() {
   const navigate = useNavigate()
+  const { toast } = useToast()
   const [search, setSearch] = useState("")
   const { data: products = [], isLoading } = useProducts()
   const [viewItem, setViewItem] = useState<typeof products[0] | null>(null)
@@ -107,7 +109,7 @@ export default function ProductsPage() {
                         { label: "View", icon: <Eye className="h-4 w-4" />, onClick: () => setViewItem(p) },
                         { label: "Edit", icon: <Pencil className="h-4 w-4" />, onClick: () => navigate(`/products/${p.id}/edit`) },
                         { label: "Adjust Stock", icon: <ArrowUpDown className="h-4 w-4" />, onClick: () => navigate(`/stock/adjustments/new?product_id=${p.id}`), dividerBefore: true },
-                        { label: "Delete", icon: <Trash2 className="h-4 w-4" />, onClick: () => { if (confirm("Are you sure you want to delete this product?")) api.delete(`/products/${p.id}`).then(() => queryClient.invalidateQueries({ queryKey: ["products"] })) }, danger: true, dividerBefore: true },
+                        { label: "Delete", icon: <Trash2 className="h-4 w-4" />, onClick: () => { if (confirm("Are you sure you want to delete this product?")) api.delete(`/products/${p.id}`).then(() => { queryClient.invalidateQueries({ queryKey: ["products"] }); toast("Product deleted", "success") }).catch((e: any) => toast(e?.response?.data?.detail ?? "Failed to delete product", "warning")) }, danger: true, dividerBefore: true },
                       ]} />
                     </TableCell>
                   </TableRow>

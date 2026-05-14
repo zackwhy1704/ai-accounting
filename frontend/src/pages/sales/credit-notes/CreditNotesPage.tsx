@@ -5,6 +5,7 @@ import { RowActionsMenu } from "../../../components/ui/row-actions"
 import { useCreditNotes, useContacts, useInvoices, useUpdateCreditNoteStatus, useDeleteCreditNote, useRemoveCreditApplications } from "../../../lib/hooks"
 import { formatCurrency, formatDate, cn } from "../../../lib/utils"
 import { useTheme } from "../../../lib/theme"
+import { useToast } from "../../../components/ui/toast"
 import { Card } from "../../../components/ui/card"
 import { Button } from "../../../components/ui/button"
 import { Input } from "../../../components/ui/input"
@@ -25,7 +26,8 @@ export default function CreditNotesPage() {
   const updateStatus = useUpdateCreditNoteStatus()
   const deleteCreditNote = useDeleteCreditNote()
   const removeApplications = useRemoveCreditApplications()
-  const patch = (id: string, status: string) => updateStatus.mutate({ id, status })
+  const { toast } = useToast()
+  const patch = (id: string, status: string, label?: string) => updateStatus.mutate({ id, status }, { onSuccess: () => label && toast(label, "success"), onError: (e: any) => toast(e?.response?.data?.detail ?? `Failed to update status`, "warning") })
   const [tab, setTab] = useState("all")
   const [search, setSearch] = useState("")
   const [contactFilter, setContactFilter] = useState("all")
@@ -165,13 +167,13 @@ export default function CreditNotesPage() {
                         <TableCell className="text-right">
                           <RowActionsMenu actions={[
                             { label: "Edit", icon: <Pencil className="h-3.5 w-3.5" />, onClick: () => navigate(`/sales/credit-notes/${row.id}/edit`), disabled: row.status === "void" },
-                            { label: "Mark as Issued", icon: <Send className="h-3.5 w-3.5" />, onClick: () => patch(row.id, "issued"), dividerBefore: true, disabled: row.status !== "draft" },
-                            { label: "Revert to Draft", icon: <Undo2 className="h-3.5 w-3.5" />, onClick: () => patch(row.id, "draft"), disabled: row.status !== "issued" || (row.credit_applied ?? 0) > 0 },
+                            { label: "Mark as Issued", icon: <Send className="h-3.5 w-3.5" />, onClick: () => patch(row.id, "issued", "Credit note marked as issued"), dividerBefore: true, disabled: row.status !== "draft" },
+                            { label: "Revert to Draft", icon: <Undo2 className="h-3.5 w-3.5" />, onClick: () => patch(row.id, "draft", "Credit note reverted to draft"), disabled: row.status !== "issued" || (row.credit_applied ?? 0) > 0 },
                             { label: t("creditNotes.applyToInvoice"), icon: <ArrowRightLeft className="h-3.5 w-3.5" />, onClick: () => navigate(`/sales/credit-notes/${row.id}/edit?tab=apply_credit`), disabled: row.status === "void" || row.status === "draft" },
                             { label: "Issue Refund", icon: <RotateCcw className="h-3.5 w-3.5" />, onClick: () => navigate(`/sales/refunds/new?credit_note_id=${row.id}&amount=${row.total}&contact_id=${row.contact_id}`), disabled: row.status === "void" || row.status === "applied" },
-                            { label: "Remove Applications", icon: <ArrowRightLeft className="h-3.5 w-3.5" />, onClick: () => { if (confirm("Remove all credit applications from this CN? The applied amounts will be removed from linked invoices and the CN will revert to Issued.")) removeApplications.mutate(row.id) }, danger: true, dividerBefore: true, disabled: (row.credit_applied ?? 0) <= 0 },
-                            { label: "Void", icon: <XCircle className="h-3.5 w-3.5" />, onClick: () => { if ((row.credit_applied ?? 0) > 0) { alert("This credit note has applied amounts. Please use \"Remove Applications\" first before voiding."); return } if (confirm("Void this credit note? This cannot be undone.")) patch(row.id, "void") }, danger: true, disabled: row.status === "void" },
-                            { label: "Delete", icon: <Trash2 className="h-3.5 w-3.5" />, onClick: () => { if ((row.credit_applied ?? 0) > 0) { alert("This credit note has applied amounts. Please use \"Remove Applications\" first to restore invoice balances before deleting."); return } if (row.status !== "draft" && row.status !== "void" && row.status !== "issued") { alert("Please void this credit note first before deleting."); return } if (confirm(`Delete credit note ${row.credit_note_number ?? ""}? This cannot be undone.`)) deleteCreditNote.mutate(row.id) }, danger: true, disabled: row.status === "applied" },
+                            { label: "Remove Applications", icon: <ArrowRightLeft className="h-3.5 w-3.5" />, onClick: () => { if (confirm("Remove all credit applications from this CN? The applied amounts will be removed from linked invoices and the CN will revert to Issued.")) removeApplications.mutate(row.id, { onSuccess: () => toast("Credit applications removed", "success"), onError: (e: any) => toast(e?.response?.data?.detail ?? "Failed to remove applications", "warning") }) }, danger: true, dividerBefore: true, disabled: (row.credit_applied ?? 0) <= 0 },
+                            { label: "Void", icon: <XCircle className="h-3.5 w-3.5" />, onClick: () => { if ((row.credit_applied ?? 0) > 0) { alert("This credit note has applied amounts. Please use \"Remove Applications\" first before voiding."); return } if (confirm("Void this credit note? This cannot be undone.")) patch(row.id, "void", "Credit note voided") }, danger: true, disabled: row.status === "void" },
+                            { label: "Delete", icon: <Trash2 className="h-3.5 w-3.5" />, onClick: () => { if ((row.credit_applied ?? 0) > 0) { alert("This credit note has applied amounts. Please use \"Remove Applications\" first to restore invoice balances before deleting."); return } if (row.status !== "draft" && row.status !== "void" && row.status !== "issued") { alert("Please void this credit note first before deleting."); return } if (confirm(`Delete credit note ${row.credit_note_number ?? ""}? This cannot be undone.`)) deleteCreditNote.mutate(row.id, { onSuccess: () => toast("Credit note deleted", "success"), onError: (e: any) => toast(e?.response?.data?.detail ?? "Failed to delete credit note", "warning") }) }, danger: true, disabled: row.status === "applied" },
                           ]} />
                         </TableCell>
                       </TableRow>

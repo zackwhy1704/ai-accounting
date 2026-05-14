@@ -7,6 +7,7 @@ import { useSalesPayments, useContacts, useSaleReceipts, useUpdateSalesPaymentSt
 import api from "../../../lib/api"
 import { formatCurrency, formatDate, cn } from "../../../lib/utils"
 import { useTheme } from "../../../lib/theme"
+import { useToast } from "../../../components/ui/toast"
 import { Card } from "../../../components/ui/card"
 import { Button } from "../../../components/ui/button"
 import { Input } from "../../../components/ui/input"
@@ -36,6 +37,7 @@ export default function PaymentsPage() {
   const queryClient = useQueryClient()
   const updatePaymentStatus = useUpdateSalesPaymentStatus()
   const deletePayment = useDeleteSalesPayment()
+  const { toast } = useToast()
   const [mainTab, setMainTab] = useState("payments")
   const [tab, setTab] = useState("all")
   const [search, setSearch] = useState("")
@@ -141,7 +143,7 @@ export default function PaymentsPage() {
                       <TableCell>
                         <RowActionsMenu actions={[
                           { label: "Edit", icon: <Pencil className="h-3.5 w-3.5" />, onClick: () => navigate(`/sales/receipts/${r.id}/edit`) },
-                          { label: "Void", icon: <XCircle className="h-3.5 w-3.5" />, onClick: () => { if (confirm("Void this receipt?")) api.patch(`/sale-receipts/${r.id}`, { status: "void" }).then(() => queryClient.invalidateQueries({ queryKey: ["sale-receipts"] })) }, danger: true, dividerBefore: true },
+                          { label: "Void", icon: <XCircle className="h-3.5 w-3.5" />, onClick: () => { if (confirm("Void this receipt?")) api.patch(`/sale-receipts/${r.id}`, { status: "void" }).then(() => { queryClient.invalidateQueries({ queryKey: ["sale-receipts"] }); toast("Receipt voided", "success") }).catch((e: any) => toast(e?.response?.data?.detail ?? "Failed to void receipt", "warning")) }, danger: true, dividerBefore: true },
                         ]} />
                       </TableCell>
                     </TableRow>
@@ -230,10 +232,10 @@ export default function PaymentsPage() {
                         <TableCell className="text-right">
                           <RowActionsMenu actions={[
                             { label: "Edit", icon: <Pencil className="h-3.5 w-3.5" />, onClick: () => navigate(`/sales/payments/${p.id}/edit`), disabled: p.status === "void" },
-                            { label: "Mark as Completed", icon: <Receipt className="h-3.5 w-3.5" />, onClick: () => updatePaymentStatus.mutate({ id: p.id, status: "completed" }), dividerBefore: true, disabled: p.status !== "draft" },
+                            { label: "Mark as Completed", icon: <Receipt className="h-3.5 w-3.5" />, onClick: () => updatePaymentStatus.mutate({ id: p.id, status: "completed" }, { onSuccess: () => toast("Payment marked as completed", "success"), onError: (e: any) => toast(e?.response?.data?.detail ?? "Failed to mark as completed", "warning") }), dividerBefore: true, disabled: p.status !== "draft" },
                             { label: "Download Receipt", icon: <FileText className="h-3.5 w-3.5" />, onClick: () => window.print() },
-                            { label: t("payments.void"), icon: <XCircle className="h-3.5 w-3.5" />, onClick: () => { if (confirm("Void this payment? The applied amounts will be removed from the linked invoices.")) updatePaymentStatus.mutate({ id: p.id, status: "void" }) }, danger: true, dividerBefore: true, disabled: p.status === "void" },
-                            { label: "Delete", icon: <Trash2 className="h-3.5 w-3.5" />, onClick: () => { if (p.status !== "void") { alert("Please void this payment first before deleting. Voiding will restore the invoice balances."); return } if (confirm(`Delete payment ${p.payment_number ?? ""}? This cannot be undone.`)) deletePayment.mutate(p.id) }, danger: true },
+                            { label: t("payments.void"), icon: <XCircle className="h-3.5 w-3.5" />, onClick: () => { if (confirm("Void this payment? The applied amounts will be removed from the linked invoices.")) updatePaymentStatus.mutate({ id: p.id, status: "void" }, { onSuccess: () => toast("Payment voided", "success"), onError: (e: any) => toast(e?.response?.data?.detail ?? "Failed to void payment", "warning") }) }, danger: true, dividerBefore: true, disabled: p.status === "void" },
+                            { label: "Delete", icon: <Trash2 className="h-3.5 w-3.5" />, onClick: () => { if (p.status !== "void") { alert("Please void this payment first before deleting. Voiding will restore the invoice balances."); return } if (confirm(`Delete payment ${p.payment_number ?? ""}? This cannot be undone.`)) deletePayment.mutate(p.id, { onSuccess: () => toast("Payment deleted", "success"), onError: (e: any) => toast(e?.response?.data?.detail ?? "Failed to delete payment", "warning") }) }, danger: true },
                           ]} />
                         </TableCell>
                       </TableRow>

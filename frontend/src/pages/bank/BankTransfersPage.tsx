@@ -5,6 +5,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { Plus, Search, ArrowLeftRight, FileText, Trash2, Pencil } from "lucide-react"
 import api from "../../lib/api"
 import { formatCurrency, formatDate, cn } from "../../lib/utils"
+import { useToast } from "../../components/ui/toast"
 import { Card } from "../../components/ui/card"
 import { Button } from "../../components/ui/button"
 import { Input } from "../../components/ui/input"
@@ -33,6 +34,7 @@ const statusColors: Record<string, string> = {
 export default function BankTransfersPage() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
+  const { toast } = useToast()
   const [search, setSearch] = useState("")
   const [viewItem, setViewItem] = useState<BankTransfer | null>(null)
 
@@ -131,7 +133,7 @@ export default function BankTransfersPage() {
                       <RowActionsMenu actions={[
                         { label: "Edit", icon: <Pencil className="h-3.5 w-3.5" />, onClick: () => navigate(`/bank/transfers/${t.id}/edit`) },
                         { label: "View", icon: <FileText className="h-4 w-4" />, onClick: () => setViewItem(t) },
-                        { label: "Delete", icon: <Trash2 className="h-4 w-4" />, onClick: () => { if (confirm("Delete this transfer?")) api.delete(`/bank-transfers/${t.id}`).then(() => queryClient.invalidateQueries({ queryKey: ["bank-transfers"] })) }, danger: true, dividerBefore: true },
+                        { label: "Delete", icon: <Trash2 className="h-4 w-4" />, onClick: () => { if (confirm("Delete this transfer?")) api.delete(`/bank-transfers/${t.id}`).then(() => { queryClient.invalidateQueries({ queryKey: ["bank-transfers"] }); toast("Transfer deleted", "success") }).catch((e: any) => toast(e?.response?.data?.detail ?? "Failed to delete transfer", "warning")) }, danger: true, dividerBefore: true },
                       ]} />
                     </TableCell>
                   </TableRow>

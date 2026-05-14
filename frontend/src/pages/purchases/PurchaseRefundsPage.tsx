@@ -6,6 +6,7 @@ import { Plus, Search, RotateCcw, FileText, Download, XCircle, Pencil, CheckCirc
 import api from "../../lib/api"
 import { useBills } from "../../lib/hooks"
 import { formatCurrency, formatDate, cn } from "../../lib/utils"
+import { useToast } from "../../components/ui/toast"
 import { Card } from "../../components/ui/card"
 import { Button } from "../../components/ui/button"
 import { Input } from "../../components/ui/input"
@@ -45,6 +46,7 @@ const methodLabel: Record<string, string> = {
 export default function PurchaseRefundsPage() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
+  const { toast } = useToast()
   const [search, setSearch] = useState("")
   const [viewItem, setViewItem] = useState<PurchaseRefund | null>(null)
 
@@ -141,10 +143,10 @@ export default function PurchaseRefundsPage() {
                       <RowActionsMenu actions={[
                         { label: "Edit", icon: <Pencil className="h-3.5 w-3.5" />, onClick: () => navigate(`/purchases/refunds/${r.id}/edit`), disabled: r.status === "void" },
                         { label: "View", icon: <FileText className="h-3.5 w-3.5" />, onClick: () => setViewItem(r) },
-                        { label: "Mark as Completed", icon: <CheckCircle className="h-3.5 w-3.5" />, onClick: () => api.patch(`/purchase-refunds/${r.id}/status`, null, { params: { status: "completed" } }).then(() => queryClient.invalidateQueries({ queryKey: ["purchase-refunds"] })), dividerBefore: true, disabled: r.status !== "draft" },
+                        { label: "Mark as Completed", icon: <CheckCircle className="h-3.5 w-3.5" />, onClick: () => api.patch(`/purchase-refunds/${r.id}/status`, null, { params: { status: "completed" } }).then(() => { queryClient.invalidateQueries({ queryKey: ["purchase-refunds"] }); toast("Refund marked as completed", "success") }).catch((e: any) => toast(e?.response?.data?.detail ?? "Failed to mark as completed", "warning")), dividerBefore: true, disabled: r.status !== "draft" },
                         { label: "Download Receipt", icon: <Download className="h-3.5 w-3.5" />, onClick: () => window.print() },
-                        { label: "Void", icon: <XCircle className="h-3.5 w-3.5" />, onClick: () => { if (confirm("Void this refund? This reverses the GL entries and cannot be undone.")) api.patch(`/purchase-refunds/${r.id}/status`, null, { params: { status: "void" } }).then(() => queryClient.invalidateQueries({ queryKey: ["purchase-refunds"] })) }, danger: true, dividerBefore: true, disabled: r.status === "void" },
-                        { label: "Delete", icon: <Trash2 className="h-3.5 w-3.5" />, onClick: () => { if (r.status !== "void" && r.status !== "draft") { alert("Please void this refund first before deleting."); return } if (confirm(`Delete refund ${r.refund_no ?? ""}? This cannot be undone.`)) api.delete(`/purchase-refunds/${r.id}`).then(() => queryClient.invalidateQueries({ queryKey: ["purchase-refunds"] })) }, danger: true, disabled: r.status !== "void" && r.status !== "draft" },
+                        { label: "Void", icon: <XCircle className="h-3.5 w-3.5" />, onClick: () => { if (confirm("Void this refund? This reverses the GL entries and cannot be undone.")) api.patch(`/purchase-refunds/${r.id}/status`, null, { params: { status: "void" } }).then(() => { queryClient.invalidateQueries({ queryKey: ["purchase-refunds"] }); toast("Refund voided", "success") }).catch((e: any) => toast(e?.response?.data?.detail ?? "Failed to void refund", "warning")) }, danger: true, dividerBefore: true, disabled: r.status === "void" },
+                        { label: "Delete", icon: <Trash2 className="h-3.5 w-3.5" />, onClick: () => { if (r.status !== "void" && r.status !== "draft") { alert("Please void this refund first before deleting."); return } if (confirm(`Delete refund ${r.refund_no ?? ""}? This cannot be undone.`)) api.delete(`/purchase-refunds/${r.id}`).then(() => { queryClient.invalidateQueries({ queryKey: ["purchase-refunds"] }); toast("Refund deleted", "success") }).catch((e: any) => toast(e?.response?.data?.detail ?? "Failed to delete refund", "warning")) }, danger: true, disabled: r.status !== "void" && r.status !== "draft" },
                       ]} />
                     </TableCell>
                   </TableRow>

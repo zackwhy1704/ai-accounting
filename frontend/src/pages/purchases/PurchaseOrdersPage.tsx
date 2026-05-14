@@ -6,6 +6,7 @@ import { Plus, ShoppingCart, FileText, Pencil, ArrowRightLeft, Copy, XCircle, Se
 import { usePurchaseOrders, useContacts } from "../../lib/hooks"
 import api from "../../lib/api"
 import { formatCurrency, formatDate, cn } from "../../lib/utils"
+import { useToast } from "../../components/ui/toast"
 import { Card } from "../../components/ui/card"
 import { Button } from "../../components/ui/button"
 import { Badge } from "../../components/ui/badge"
@@ -35,6 +36,7 @@ const STATUS_TABS = [
 export default function PurchaseOrdersPage() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
+  const { toast } = useToast()
   const [tab, setTab] = useState("all")
   const { data: purchaseOrders = [], isLoading } = usePurchaseOrders(tab === "all" ? undefined : tab)
   const { data: contacts = [] } = useContacts()
@@ -46,9 +48,10 @@ export default function PurchaseOrdersPage() {
     return m
   }, [contacts])
 
-  const updateStatus = (poId: string, status: string) =>
+  const updateStatus = (poId: string, status: string, label?: string) =>
     api.patch(`/purchase-orders/${poId}/status`, null, { params: { status } })
-      .then(() => queryClient.invalidateQueries({ queryKey: ["purchase-orders"] }))
+      .then(() => { queryClient.invalidateQueries({ queryKey: ["purchase-orders"] }); label && toast(label, "success") })
+      .catch((e: any) => toast(e?.response?.data?.detail ?? "Failed to update status", "warning"))
 
   return (
     <div className="flex flex-col gap-4">
@@ -145,13 +148,13 @@ export default function PurchaseOrdersPage() {
                       <RowActionsMenu actions={[
                         { label: "View", icon: <FileText className="h-3.5 w-3.5" />, onClick: () => setViewItem(po) },
                         { label: "Edit", icon: <Pencil className="h-3.5 w-3.5" />, onClick: () => navigate(`/purchases/purchase-orders/${po.id}/edit`), disabled: po.status === "cancelled" || po.status === "declined" || po.status === "billed" },
-                        { label: "Mark as Sent", icon: <Send className="h-3.5 w-3.5" />, onClick: () => updateStatus(po.id, "sent"), dividerBefore: true, disabled: po.status !== "draft" },
-                        { label: "Mark as Received", icon: <PackageCheck className="h-3.5 w-3.5" />, onClick: () => updateStatus(po.id, "received"), disabled: po.status !== "sent" },
-                        { label: "Mark as Declined", icon: <ThumbsDown className="h-3.5 w-3.5" />, onClick: () => { if (confirm("Mark this PO as declined?")) updateStatus(po.id, "declined") }, danger: true, disabled: po.status !== "sent" },
+                        { label: "Mark as Sent", icon: <Send className="h-3.5 w-3.5" />, onClick: () => updateStatus(po.id, "sent", "Purchase order marked as sent"), dividerBefore: true, disabled: po.status !== "draft" },
+                        { label: "Mark as Received", icon: <PackageCheck className="h-3.5 w-3.5" />, onClick: () => updateStatus(po.id, "received", "Purchase order marked as received"), disabled: po.status !== "sent" },
+                        { label: "Mark as Declined", icon: <ThumbsDown className="h-3.5 w-3.5" />, onClick: () => { if (confirm("Mark this PO as declined?")) updateStatus(po.id, "declined", "Purchase order marked as declined") }, danger: true, disabled: po.status !== "sent" },
                         { label: "Convert to Bill", icon: <ArrowRightLeft className="h-3.5 w-3.5" />, onClick: () => navigate(`/purchases/bills/new?from_po=${po.id}`), dividerBefore: true, disabled: po.status === "draft" || po.status === "cancelled" || po.status === "declined" || po.status === "billed" },
                         { label: "Duplicate", icon: <Copy className="h-3.5 w-3.5" />, onClick: () => navigate(`/purchases/purchase-orders/new?copy=${po.id}`) },
-                        { label: "Cancel", icon: <XCircle className="h-3.5 w-3.5" />, onClick: () => { if (confirm("Cancel this purchase order?")) updateStatus(po.id, "cancelled") }, danger: true, dividerBefore: true, disabled: po.status === "cancelled" || po.status === "billed" },
-                        { label: "Delete", icon: <Trash2 className="h-3.5 w-3.5" />, onClick: () => { if (confirm("Delete this purchase order?")) api.delete(`/purchase-orders/${po.id}`).then(() => queryClient.invalidateQueries({ queryKey: ["purchase-orders"] })) }, danger: true, disabled: po.status === "billed" },
+                        { label: "Cancel", icon: <XCircle className="h-3.5 w-3.5" />, onClick: () => { if (confirm("Cancel this purchase order?")) updateStatus(po.id, "cancelled", "Purchase order cancelled") }, danger: true, dividerBefore: true, disabled: po.status === "cancelled" || po.status === "billed" },
+                        { label: "Delete", icon: <Trash2 className="h-3.5 w-3.5" />, onClick: () => { if (confirm("Delete this purchase order?")) api.delete(`/purchase-orders/${po.id}`).then(() => { queryClient.invalidateQueries({ queryKey: ["purchase-orders"] }); toast("Purchase order deleted", "success") }).catch((e: any) => toast(e?.response?.data?.detail ?? "Failed to delete purchase order", "warning")) }, danger: true, disabled: po.status === "billed" },
                       ]} />
                     </TableCell>
                   </TableRow>

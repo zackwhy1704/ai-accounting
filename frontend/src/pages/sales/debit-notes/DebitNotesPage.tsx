@@ -5,6 +5,7 @@ import { RowActionsMenu } from "../../../components/ui/row-actions"
 import { useDebitNotes, useContacts, useInvoices, useUpdateDebitNoteStatus, useDeleteDebitNote } from "../../../lib/hooks"
 import { formatCurrency, formatDate, cn } from "../../../lib/utils"
 import { useTheme } from "../../../lib/theme"
+import { useToast } from "../../../components/ui/toast"
 import { Card } from "../../../components/ui/card"
 import { Button } from "../../../components/ui/button"
 import { Input } from "../../../components/ui/input"
@@ -24,7 +25,8 @@ export default function DebitNotesPage() {
   const navigate = useNavigate()
   const updateStatus = useUpdateDebitNoteStatus()
   const deleteDebitNote = useDeleteDebitNote()
-  const patch = (id: string, status: string) => updateStatus.mutate({ id, status })
+  const { toast } = useToast()
+  const patch = (id: string, status: string, label?: string) => updateStatus.mutate({ id, status }, { onSuccess: () => label && toast(label, "success"), onError: (e: any) => toast(e?.response?.data?.detail ?? "Failed to update status", "warning") })
   const [tab, setTab] = useState("all")
   const [search, setSearch] = useState("")
   const [contactFilter, setContactFilter] = useState("all")
@@ -163,9 +165,9 @@ export default function DebitNotesPage() {
                           <RowActionsMenu actions={[
                             { label: "Edit", icon: <Pencil className="h-3.5 w-3.5" />, onClick: () => navigate(`/sales/debit-notes/${dn.id}/edit`), disabled: dn.status === "void" },
                             { label: "Make Payment", icon: <CreditCard className="h-3.5 w-3.5" />, onClick: () => navigate(`/sales/payments/new?contact_id=${dn.contact_id}&amount=${dn.total}&debit_note_id=${dn.id}${dn.invoice_id ? `&invoice_id=${dn.invoice_id}` : ""}`), dividerBefore: true, disabled: dn.status === "void" || dn.status === "applied" },
-                            { label: "Mark as Issued", icon: <Send className="h-3.5 w-3.5" />, onClick: () => patch(dn.id, "issued"), disabled: dn.status !== "draft" },
-                            { label: "Void", icon: <XCircle className="h-3.5 w-3.5" />, onClick: () => { if (dn.status === "applied") { alert("This debit note has a payment applied. Please void the payment first before voiding the debit note."); return } if (confirm("Void this debit note?")) patch(dn.id, "void") }, danger: true, dividerBefore: true, disabled: dn.status === "void" },
-                            { label: "Delete", icon: <Trash2 className="h-3.5 w-3.5" />, onClick: () => { if (dn.status === "applied") { alert("This debit note has a payment applied. Please void the payment first, then void the debit note before deleting."); return } if (dn.status === "issued") { alert("Please void this debit note first before deleting."); return } if (confirm(`Delete debit note ${dn.debit_note_number}? This cannot be undone.`)) deleteDebitNote.mutate(dn.id) }, danger: true, disabled: dn.status === "applied" },
+                            { label: "Mark as Issued", icon: <Send className="h-3.5 w-3.5" />, onClick: () => patch(dn.id, "issued", "Debit note marked as issued"), disabled: dn.status !== "draft" },
+                            { label: "Void", icon: <XCircle className="h-3.5 w-3.5" />, onClick: () => { if (dn.status === "applied") { alert("This debit note has a payment applied. Please void the payment first before voiding the debit note."); return } if (confirm("Void this debit note?")) patch(dn.id, "void", "Debit note voided") }, danger: true, dividerBefore: true, disabled: dn.status === "void" },
+                            { label: "Delete", icon: <Trash2 className="h-3.5 w-3.5" />, onClick: () => { if (dn.status === "applied") { alert("This debit note has a payment applied. Please void the payment first, then void the debit note before deleting."); return } if (dn.status === "issued") { alert("Please void this debit note first before deleting."); return } if (confirm(`Delete debit note ${dn.debit_note_number}? This cannot be undone.`)) deleteDebitNote.mutate(dn.id, { onSuccess: () => toast("Debit note deleted", "success"), onError: (e: any) => toast(e?.response?.data?.detail ?? "Failed to delete debit note", "warning") }) }, danger: true, disabled: dn.status === "applied" },
                           ]} />
                         </TableCell>
                       </TableRow>

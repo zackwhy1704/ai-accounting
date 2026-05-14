@@ -5,6 +5,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { Plus, Search, ArrowDownCircle, ArrowUpCircle, FileText, Tag, ArrowRightLeft, Trash2, Pencil } from "lucide-react"
 import api from "../../lib/api"
 import { formatCurrency, formatDate, cn } from "../../lib/utils"
+import { useToast } from "../../components/ui/toast"
 import { Card } from "../../components/ui/card"
 import { Button } from "../../components/ui/button"
 import { Input } from "../../components/ui/input"
@@ -45,6 +46,7 @@ interface Props {
 export default function BankTransactionsPage({ type }: Props) {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
+  const { toast } = useToast()
   const [search, setSearch] = useState("")
   const [viewItem, setViewItem] = useState<BankTransaction | null>(null)
   const [dateFrom, setDateFrom] = useState("")
@@ -205,7 +207,7 @@ export default function BankTransactionsPage({ type }: Props) {
                         { label: "View", icon: <FileText className="h-4 w-4" />, onClick: () => setViewItem(t) },
                         { label: "Categorise", icon: <Tag className="h-4 w-4" />, onClick: () => navigate(`/bank/transactions/${t.id}/categorise`), dividerBefore: true },
                         { label: "Match to Invoice", icon: <ArrowRightLeft className="h-4 w-4" />, onClick: () => navigate(`/bank/transactions/${t.id}/match`) },
-                        { label: "Delete", icon: <Trash2 className="h-4 w-4" />, onClick: () => { if (confirm("Delete this transaction?")) api.delete(`/bank-transactions/${t.id}`).then(() => queryClient.invalidateQueries({ queryKey: ["bank-transactions", type] })) }, danger: true, dividerBefore: true },
+                        { label: "Delete", icon: <Trash2 className="h-4 w-4" />, onClick: () => { if (confirm("Delete this transaction?")) api.delete(`/bank-transactions/${t.id}`).then(() => { queryClient.invalidateQueries({ queryKey: ["bank-transactions", type] }); toast("Transaction deleted", "success") }).catch((e: any) => toast(e?.response?.data?.detail ?? "Failed to delete transaction", "warning")) }, danger: true, dividerBefore: true },
                       ]} />
                     </TableCell>
                   </TableRow>
