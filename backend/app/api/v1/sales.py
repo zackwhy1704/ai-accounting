@@ -1050,9 +1050,14 @@ async def update_sales_payment_status(sp_id: UUID, status: str, current_user: di
             inv = inv_result.scalar_one_or_none()
             if inv:
                 inv.amount_paid = max(0.0, float(inv.amount_paid or 0) - float(alloc.amount))
-                if inv.status == "paid":
+                if inv.status == "paid" and float(inv.amount_paid) < float(inv.total or 0):
                     inv.status = "sent"
-        await revert_gl(db, "payment", obj.id)
+        await revert_gl(
+            db, current_user["org_id"], obj.id, "payment",
+            obj.payment_date,
+            f"Reversal: Payment {obj.payment_number} voided",
+            obj.payment_number,
+        )
 
     obj.status = status
     await db.commit()
@@ -1237,9 +1242,14 @@ async def delete_sales_payment(sp_id: UUID, current_user: dict = Depends(get_cur
             inv = inv_result.scalar_one_or_none()
             if inv:
                 inv.amount_paid = max(0.0, float(inv.amount_paid or 0) - float(alloc.amount))
-                if inv.status == "paid":
+                if inv.status == "paid" and float(inv.amount_paid) < float(inv.total or 0):
                     inv.status = "sent"
-        await revert_gl(db, "payment", obj.id)
+        await revert_gl(
+            db, current_user["org_id"], obj.id, "payment",
+            obj.payment_date,
+            f"Reversal: Payment {obj.payment_number} deleted",
+            obj.payment_number,
+        )
     await db.delete(obj)
     await db.commit()
 

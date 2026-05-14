@@ -232,8 +232,8 @@ export default function PaymentsPage() {
                             { label: "Edit", icon: <Pencil className="h-3.5 w-3.5" />, onClick: () => navigate(`/sales/payments/${p.id}/edit`), disabled: p.status === "void" },
                             { label: "Mark as Completed", icon: <Receipt className="h-3.5 w-3.5" />, onClick: () => updatePaymentStatus.mutate({ id: p.id, status: "completed" }), dividerBefore: true, disabled: p.status !== "draft" },
                             { label: "Download Receipt", icon: <FileText className="h-3.5 w-3.5" />, onClick: () => window.print() },
-                            { label: t("payments.void"), icon: <XCircle className="h-3.5 w-3.5" />, onClick: () => { if (confirm("Void this payment?")) updatePaymentStatus.mutate({ id: p.id, status: "void" }) }, danger: true, dividerBefore: true, disabled: p.status === "void" },
-                            { label: "Delete", icon: <Trash2 className="h-3.5 w-3.5" />, onClick: () => { if (confirm("Delete this payment?")) deletePayment.mutate(p.id) }, danger: true, disabled: p.status === "void" },
+                            { label: t("payments.void"), icon: <XCircle className="h-3.5 w-3.5" />, onClick: () => { if (confirm("Void this payment? The applied amounts will be removed from the linked invoices.")) updatePaymentStatus.mutate({ id: p.id, status: "void" }) }, danger: true, dividerBefore: true, disabled: p.status === "void" },
+                            { label: "Delete", icon: <Trash2 className="h-3.5 w-3.5" />, onClick: () => { if (p.status !== "void") { alert("Please void this payment first before deleting. Voiding will restore the invoice balances."); return } if (confirm(`Delete payment ${p.payment_number ?? ""}? This cannot be undone.`)) deletePayment.mutate(p.id) }, danger: true },
                           ]} />
                         </TableCell>
                       </TableRow>

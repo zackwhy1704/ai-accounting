@@ -1207,14 +1207,20 @@ export function useUpdateSalesPaymentStatus() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: ({ id, status }: { id: string; status: string }) => api.patch(`/sales-payments/${id}/status`, null, { params: { status } }).then(r => r.data),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['sales-payments'] }) },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['sales-payments'] })
+      qc.invalidateQueries({ queryKey: ['invoices'] })
+    },
   })
 }
 export function useDeleteSalesPayment() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: (id: string) => api.delete(`/sales-payments/${id}`).then(r => r.data),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['sales-payments'] }) },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['sales-payments'] })
+      qc.invalidateQueries({ queryKey: ['invoices'] })
+    },
   })
 }
 export function useUpdateSalesRefundStatus() {
