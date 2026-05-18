@@ -157,11 +157,31 @@ async def update_purchase_payment(
     payment = result.scalar_one_or_none()
     if not payment:
         raise HTTPException(status_code=404, detail="Purchase payment not found")
+    if payment.status == "void":
+        raise HTTPException(status_code=400, detail="Voided payments cannot be edited")
+
     update_data = payload.model_dump(exclude_unset=True)
     if "payment_no" in update_data and update_data["payment_no"]:
         existing = (await db.execute(select(PurchasePayment.id).where(PurchasePayment.organization_id == current_user["org_id"], PurchasePayment.payment_no == update_data["payment_no"], PurchasePayment.id != payment.id))).first()
         if existing:
             raise HTTPException(status_code=400, detail="Payment number already in use")
+
+    # If amount changed and there's a linked bill, recalculate bill.amount_paid
+    new_amount = update_data.get("amount")
+    if new_amount is not None and payment.bill_id:
+        old_amount = float(payment.amount or 0)
+        bill_result = await db.execute(select(Bill).where(Bill.id == payment.bill_id))
+        bill = bill_result.scalar_one_or_none()
+        if bill:
+            bill.amount_paid = max(0.0, float(bill.amount_paid or 0) - old_amount + float(new_amount))
+            bill_total = float(bill.total or 0)
+            if float(bill.amount_paid) >= bill_total:
+                bill.status = "paid"
+            elif float(bill.amount_paid) > 0:
+                bill.status = "partially paid"
+            else:
+                bill.status = "outstanding"
+
     for key, val in update_data.items():
         setattr(payment, key, val)
     await db.commit()
