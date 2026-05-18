@@ -14,10 +14,10 @@ depends_on = None
 
 
 def upgrade():
-    op.add_column(
-        "purchase_payments",
-        sa.Column("bill_id", sa.dialects.postgresql.UUID(as_uuid=True), sa.ForeignKey("bills.id", ondelete="SET NULL"), nullable=True),
-    )
+    op.execute("""
+        ALTER TABLE purchase_payments
+            ADD COLUMN IF NOT EXISTS bill_id UUID REFERENCES bills(id) ON DELETE SET NULL
+    """)
 
 
 def downgrade():

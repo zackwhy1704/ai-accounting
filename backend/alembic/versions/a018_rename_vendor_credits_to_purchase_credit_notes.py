@@ -14,26 +14,90 @@ depends_on = None
 
 
 def upgrade():
-    # Rename table
-    op.rename_table("vendor_credits", "purchase_credit_notes")
+    # Only rename if vendor_credits still exists (idempotent)
+    op.execute("""
+        DO $$
+        BEGIN
+            IF EXISTS (SELECT 1 FROM pg_tables WHERE schemaname='public' AND tablename='vendor_credits') THEN
+                ALTER TABLE vendor_credits RENAME TO purchase_credit_notes;
+            END IF;
+        END$$
+    """)
 
-    # Rename column
-    op.alter_column("purchase_credit_notes", "vendor_credit_number", new_column_name="pcn_number")
+    # Rename column only if old name still exists
+    op.execute("""
+        DO $$
+        BEGIN
+            IF EXISTS (
+                SELECT 1 FROM information_schema.columns
+                WHERE table_name='purchase_credit_notes' AND column_name='vendor_credit_number'
+            ) THEN
+                ALTER TABLE purchase_credit_notes RENAME COLUMN vendor_credit_number TO pcn_number;
+            END IF;
+        END$$
+    """)
 
-    # Drop old constraints and recreate with new names
-    op.drop_constraint("uq_org_vendor_credit_number", "purchase_credit_notes", type_="unique")
-    op.create_unique_constraint("uq_org_pcn_number", "purchase_credit_notes", ["organization_id", "pcn_number"])
+    # Drop old unique constraint if it exists
+    op.execute("""
+        DO $$
+        BEGIN
+            IF EXISTS (
+                SELECT 1 FROM pg_constraint WHERE conname='uq_org_vendor_credit_number'
+            ) THEN
+                ALTER TABLE purchase_credit_notes DROP CONSTRAINT uq_org_vendor_credit_number;
+            END IF;
+        END$$
+    """)
 
-    op.drop_index("ix_vendor_credits_org_status", table_name="purchase_credit_notes")
-    op.create_index("ix_purchase_credit_notes_org_status", "purchase_credit_notes", ["organization_id", "status"])
+    # Create new unique constraint if it doesn't exist
+    op.execute("""
+        DO $$
+        BEGIN
+            IF NOT EXISTS (
+                SELECT 1 FROM pg_constraint WHERE conname='uq_org_pcn_number'
+            ) THEN
+                ALTER TABLE purchase_credit_notes ADD CONSTRAINT uq_org_pcn_number UNIQUE (organization_id, pcn_number);
+            END IF;
+        END$$
+    """)
+
+    # Drop old index if exists
+    op.execute("DROP INDEX IF EXISTS ix_vendor_credits_org_status")
+
+    # Create new index if not exists
+    op.execute("""
+        CREATE INDEX IF NOT EXISTS ix_purchase_credit_notes_org_status
+        ON purchase_credit_notes (organization_id, status)
+    """)
 
 
 def downgrade():
-    op.drop_index("ix_purchase_credit_notes_org_status", table_name="purchase_credit_notes")
-    op.create_index("ix_vendor_credits_org_status", "purchase_credit_notes", ["organization_id", "status"])
-
-    op.drop_constraint("uq_org_pcn_number", "purchase_credit_notes", type_="unique")
-    op.create_unique_constraint("uq_org_vendor_credit_number", "purchase_credit_notes", ["organization_id", "pcn_number"])
-
-    op.alter_column("purchase_credit_notes", "pcn_number", new_column_name="vendor_credit_number")
-    op.rename_table("purchase_credit_notes", "vendor_credits")
+    op.execute("DROP INDEX IF EXISTS ix_purchase_credit_notes_org_status")
+    op.execute("""
+        CREATE INDEX IF NOT EXISTS ix_vendor_credits_org_status
+        ON purchase_credit_notes (organization_id, status)
+    """)
+    op.execute("""
+        DO $$
+        BEGIN
+            IF EXISTS (SELECT 1 FROM pg_constraint WHERE conname='uq_org_pcn_number') THEN
+                ALTER TABLE purchase_credit_notes DROP CONSTRAINT uq_org_pcn_number;
+            END IF;
+        END$$
+    """)
+    op.execute("""
+        DO $$
+        BEGIN
+            IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='uq_org_vendor_credit_number') THEN
+                ALTER TABLE purchase_credit_notes ADD CONSTRAINT uq_org_vendor_credit_number UNIQUE (organization_id, pcn_number);
+            END IF;
+        END$$
+    """)
+    op.execute("""
+        DO $$
+        BEGIN
+            IF EXISTS (SELECT 1 FROM pg_tables WHERE schemaname='public' AND tablename='purchase_credit_notes') THEN
+                ALTER TABLE purchase_credit_notes RENAME TO vendor_credits;
+            END IF;
+        END$$
+    """)

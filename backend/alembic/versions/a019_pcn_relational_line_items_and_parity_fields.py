@@ -15,62 +15,106 @@ depends_on = None
 
 
 def upgrade():
-    # Add new columns to purchase_credit_notes
-    op.add_column("purchase_credit_notes", sa.Column("reference", sa.String(100), nullable=True))
-    op.add_column("purchase_credit_notes", sa.Column("discount_amount", sa.Numeric(15, 2), nullable=False, server_default="0"))
-    op.add_column("purchase_credit_notes", sa.Column("credit_applied", sa.Numeric(15, 2), nullable=False, server_default="0"))
-    op.add_column("purchase_credit_notes", sa.Column("updated_at", sa.DateTime(timezone=True), nullable=True))
-
-    # Migrate existing JSONB line_items → relational table, then drop JSONB column
-    op.create_table(
-        "purchase_credit_note_line_items",
-        sa.Column("id", postgresql.UUID(as_uuid=True), primary_key=True),
-        sa.Column("credit_note_id", postgresql.UUID(as_uuid=True), sa.ForeignKey("purchase_credit_notes.id", ondelete="CASCADE"), nullable=False),
-        sa.Column("line_type", sa.String(10), nullable=False, server_default="goods"),
-        sa.Column("description", sa.String(500), nullable=False),
-        sa.Column("quantity", sa.Numeric(10, 2), nullable=False, server_default="1"),
-        sa.Column("unit_price", sa.Numeric(15, 2), nullable=False, server_default="0"),
-        sa.Column("discount", sa.Numeric(15, 2), nullable=False, server_default="0"),
-        sa.Column("discount_mode", sa.String(10), nullable=False, server_default="percent"),
-        sa.Column("tax_rate", sa.Numeric(5, 2), nullable=False, server_default="0"),
-        sa.Column("tax_code_id", postgresql.UUID(as_uuid=True), sa.ForeignKey("tax_rates.id"), nullable=True),
-        sa.Column("amount", sa.Numeric(15, 2), nullable=False, server_default="0"),
-        sa.Column("account_id", postgresql.UUID(as_uuid=True), sa.ForeignKey("accounts.id"), nullable=True),
-        sa.Column("sort_order", sa.Integer, nullable=False, server_default="0"),
-    )
-
-    # Migrate JSONB data to relational table
+    # Add new columns (IF NOT EXISTS for idempotency)
     op.execute("""
-        INSERT INTO purchase_credit_note_line_items
-            (id, credit_note_id, line_type, description, quantity, unit_price, discount, discount_mode, tax_rate, amount, sort_order)
-        SELECT
-            gen_random_uuid(),
-            pcn.id,
-            COALESCE((li->>'line_type')::varchar, 'goods'),
-            COALESCE(li->>'description', ''),
-            COALESCE((li->>'quantity')::numeric, 1),
-            COALESCE((li->>'unit_price')::numeric, 0),
-            COALESCE((li->>'discount')::numeric, 0),
-            COALESCE(li->>'discount_mode', 'percent'),
-            COALESCE((li->>'tax_rate')::numeric, 0),
-            COALESCE((li->>'amount')::numeric, 0),
-            COALESCE((li->>'sort_order')::int, 0)
-        FROM purchase_credit_notes pcn,
-             jsonb_array_elements(pcn.line_items) WITH ORDINALITY arr(li, idx)
-        WHERE jsonb_typeof(pcn.line_items) = 'array'
+        ALTER TABLE purchase_credit_notes
+            ADD COLUMN IF NOT EXISTS reference VARCHAR(100) NULL,
+            ADD COLUMN IF NOT EXISTS discount_amount NUMERIC(15,2) NOT NULL DEFAULT 0,
+            ADD COLUMN IF NOT EXISTS credit_applied NUMERIC(15,2) NOT NULL DEFAULT 0,
+            ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NULL
     """)
 
-    # Also fix subtotal precision from Numeric(18,4) to Numeric(15,2) and rename amount_applied → credit_applied
-    op.alter_column("purchase_credit_notes", "subtotal",
-        existing_type=sa.Numeric(18, 4), type_=sa.Numeric(15, 2))
-    op.alter_column("purchase_credit_notes", "tax_amount",
-        existing_type=sa.Numeric(18, 4), type_=sa.Numeric(15, 2))
-    op.alter_column("purchase_credit_notes", "total",
-        existing_type=sa.Numeric(18, 4), type_=sa.Numeric(15, 2))
+    # Migrate credit_applied from amount_applied if amount_applied exists
+    op.execute("""
+        DO $$
+        BEGIN
+            IF EXISTS (
+                SELECT 1 FROM information_schema.columns
+                WHERE table_name='purchase_credit_notes' AND column_name='amount_applied'
+            ) THEN
+                UPDATE purchase_credit_notes SET credit_applied = COALESCE(amount_applied, 0);
+            END IF;
+        END$$
+    """)
 
-    # Drop old JSONB column and amount_applied (replaced by credit_applied)
-    op.drop_column("purchase_credit_notes", "line_items")
-    op.drop_column("purchase_credit_notes", "amount_applied")
+    # Create relational line items table if not exists
+    op.execute("""
+        CREATE TABLE IF NOT EXISTS purchase_credit_note_line_items (
+            id UUID PRIMARY KEY,
+            credit_note_id UUID NOT NULL REFERENCES purchase_credit_notes(id) ON DELETE CASCADE,
+            line_type VARCHAR(10) NOT NULL DEFAULT 'goods',
+            description VARCHAR(500) NOT NULL,
+            quantity NUMERIC(10,2) NOT NULL DEFAULT 1,
+            unit_price NUMERIC(15,2) NOT NULL DEFAULT 0,
+            discount NUMERIC(15,2) NOT NULL DEFAULT 0,
+            discount_mode VARCHAR(10) NOT NULL DEFAULT 'percent',
+            tax_rate NUMERIC(5,2) NOT NULL DEFAULT 0,
+            tax_code_id UUID REFERENCES tax_rates(id) NULL,
+            amount NUMERIC(15,2) NOT NULL DEFAULT 0,
+            account_id UUID REFERENCES accounts(id) NULL,
+            sort_order INTEGER NOT NULL DEFAULT 0
+        )
+    """)
+
+    # Migrate JSONB line_items → relational (only if line_items column still exists)
+    op.execute("""
+        DO $$
+        BEGIN
+            IF EXISTS (
+                SELECT 1 FROM information_schema.columns
+                WHERE table_name='purchase_credit_notes' AND column_name='line_items'
+            ) THEN
+                INSERT INTO purchase_credit_note_line_items
+                    (id, credit_note_id, line_type, description, quantity, unit_price,
+                     discount, discount_mode, tax_rate, amount, sort_order)
+                SELECT
+                    gen_random_uuid(),
+                    pcn.id,
+                    COALESCE((li->>'line_type')::varchar, 'goods'),
+                    COALESCE(li->>'description', ''),
+                    COALESCE((li->>'quantity')::numeric, 1),
+                    COALESCE((li->>'unit_price')::numeric, 0),
+                    COALESCE((li->>'discount')::numeric, 0),
+                    COALESCE(li->>'discount_mode', 'percent'),
+                    COALESCE((li->>'tax_rate')::numeric, 0),
+                    COALESCE((li->>'amount')::numeric, 0),
+                    COALESCE((li->>'sort_order')::int, 0)
+                FROM purchase_credit_notes pcn,
+                     jsonb_array_elements(pcn.line_items) WITH ORDINALITY arr(li, idx)
+                WHERE jsonb_typeof(pcn.line_items) = 'array'
+                  AND jsonb_array_length(pcn.line_items) > 0;
+            END IF;
+        END$$
+    """)
+
+    # Fix numeric precision
+    op.execute("ALTER TABLE purchase_credit_notes ALTER COLUMN subtotal TYPE NUMERIC(15,2)")
+    op.execute("ALTER TABLE purchase_credit_notes ALTER COLUMN tax_amount TYPE NUMERIC(15,2)")
+    op.execute("ALTER TABLE purchase_credit_notes ALTER COLUMN total TYPE NUMERIC(15,2)")
+
+    # Drop old columns if they exist
+    op.execute("""
+        DO $$
+        BEGIN
+            IF EXISTS (
+                SELECT 1 FROM information_schema.columns
+                WHERE table_name='purchase_credit_notes' AND column_name='line_items'
+            ) THEN
+                ALTER TABLE purchase_credit_notes DROP COLUMN line_items;
+            END IF;
+        END$$
+    """)
+    op.execute("""
+        DO $$
+        BEGIN
+            IF EXISTS (
+                SELECT 1 FROM information_schema.columns
+                WHERE table_name='purchase_credit_notes' AND column_name='amount_applied'
+            ) THEN
+                ALTER TABLE purchase_credit_notes DROP COLUMN amount_applied;
+            END IF;
+        END$$
+    """)
 
 
 def downgrade():

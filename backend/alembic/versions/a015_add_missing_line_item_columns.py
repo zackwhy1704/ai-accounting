@@ -15,17 +15,16 @@ depends_on = None
 
 
 def upgrade():
-    # bill_line_items — missing line_type, tax_code_id
-    op.add_column("bill_line_items",
-        sa.Column("line_type", sa.String(10), nullable=False, server_default="goods"))
-    op.add_column("bill_line_items",
-        sa.Column("tax_code_id", postgresql.UUID(as_uuid=True), nullable=True))
-
-    # purchase_order_line_items — missing line_type, tax_code_id
-    op.add_column("purchase_order_line_items",
-        sa.Column("line_type", sa.String(10), nullable=False, server_default="goods"))
-    op.add_column("purchase_order_line_items",
-        sa.Column("tax_code_id", postgresql.UUID(as_uuid=True), nullable=True))
+    op.execute("""
+        ALTER TABLE bill_line_items
+            ADD COLUMN IF NOT EXISTS line_type VARCHAR(10) NOT NULL DEFAULT 'goods',
+            ADD COLUMN IF NOT EXISTS tax_code_id UUID NULL
+    """)
+    op.execute("""
+        ALTER TABLE purchase_order_line_items
+            ADD COLUMN IF NOT EXISTS line_type VARCHAR(10) NOT NULL DEFAULT 'goods',
+            ADD COLUMN IF NOT EXISTS tax_code_id UUID NULL
+    """)
 
 
 def downgrade():

@@ -15,27 +15,36 @@ depends_on = None
 
 
 def upgrade():
-    op.create_table(
-        "purchase_credit_applications",
-        sa.Column("id", postgresql.UUID(as_uuid=True), primary_key=True),
-        sa.Column("credit_note_id", postgresql.UUID(as_uuid=True),
-                  sa.ForeignKey("purchase_credit_notes.id", ondelete="CASCADE"), nullable=False),
-        sa.Column("bill_id", postgresql.UUID(as_uuid=True),
-                  sa.ForeignKey("bills.id", ondelete="CASCADE"), nullable=False),
-        sa.Column("amount", sa.Numeric(15, 2), nullable=False),
-        sa.Column("applied_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False),
-    )
-    op.create_index("ix_pca_credit_note_id", "purchase_credit_applications", ["credit_note_id"])
-    op.create_index("ix_pca_bill_id", "purchase_credit_applications", ["bill_id"])
+    op.execute("""
+        CREATE TABLE IF NOT EXISTS purchase_credit_applications (
+            id UUID PRIMARY KEY,
+            credit_note_id UUID NOT NULL REFERENCES purchase_credit_notes(id) ON DELETE CASCADE,
+            bill_id UUID NOT NULL REFERENCES bills(id) ON DELETE CASCADE,
+            amount NUMERIC(15,2) NOT NULL,
+            applied_at TIMESTAMPTZ NOT NULL DEFAULT now()
+        )
+    """)
+    op.execute("CREATE INDEX IF NOT EXISTS ix_pca_credit_note_id ON purchase_credit_applications (credit_note_id)")
+    op.execute("CREATE INDEX IF NOT EXISTS ix_pca_bill_id ON purchase_credit_applications (bill_id)")
 
-    # Add pcn_id to purchase_refunds so a refund can reference which PCN it came from
-    op.add_column("purchase_refunds",
-        sa.Column("pcn_id", postgresql.UUID(as_uuid=True),
-                  sa.ForeignKey("purchase_credit_notes.id", ondelete="SET NULL"), nullable=True))
+    op.execute("""
+        ALTER TABLE purchase_refunds
+            ADD COLUMN IF NOT EXISTS pcn_id UUID REFERENCES purchase_credit_notes(id) ON DELETE SET NULL
+    """)
 
 
 def downgrade():
-    op.drop_column("purchase_refunds", "pcn_id")
-    op.drop_index("ix_pca_bill_id", "purchase_credit_applications")
-    op.drop_index("ix_pca_credit_note_id", "purchase_credit_applications")
-    op.drop_table("purchase_credit_applications")
+    op.execute("""
+        DO $$
+        BEGIN
+            IF EXISTS (
+                SELECT 1 FROM information_schema.columns
+                WHERE table_name='purchase_refunds' AND column_name='pcn_id'
+            ) THEN
+                ALTER TABLE purchase_refunds DROP COLUMN pcn_id;
+            END IF;
+        END$$
+    """)
+    op.execute("DROP INDEX IF EXISTS ix_pca_bill_id")
+    op.execute("DROP INDEX IF EXISTS ix_pca_credit_note_id")
+    op.execute("DROP TABLE IF EXISTS purchase_credit_applications")
