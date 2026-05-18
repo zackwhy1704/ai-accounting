@@ -1154,9 +1154,25 @@ class PurchaseCreditNoteCreate(BaseModel):
     pcn_number: str | None = None
     bill_id: UUID | None = None
     issue_date: datetime
+    reference: str | None = None
     currency: str = "MYR"
     notes: str | None = None
     line_items: list[PurchaseCreditNoteLineItem]
+
+class PurchaseCreditNoteLineItemResponse(BaseModel):
+    id: UUID
+    line_type: str
+    description: str
+    quantity: float
+    unit_price: float
+    discount: float
+    discount_mode: str
+    tax_rate: float
+    tax_code_id: UUID | None
+    amount: float
+    account_id: UUID | None
+    sort_order: int
+    model_config = {"from_attributes": True}
 
 class PurchaseCreditNoteResponse(BaseModel):
     id: UUID
@@ -1165,14 +1181,16 @@ class PurchaseCreditNoteResponse(BaseModel):
     contact_id: UUID
     bill_id: UUID | None
     issue_date: datetime
+    reference: str | None
     status: str
     currency: str
     subtotal: float
+    discount_amount: float
     tax_amount: float
     total: float
-    amount_applied: float
+    credit_applied: float
     notes: str | None
-    line_items: list[dict]
+    line_items: list[PurchaseCreditNoteLineItemResponse]
     created_at: datetime
     model_config = {"from_attributes": True}
 

@@ -1,16 +1,16 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func
+from sqlalchemy import select, func, delete as sa_delete
+from sqlalchemy.orm import selectinload
 from uuid import UUID
-
 from datetime import datetime
 from pydantic import BaseModel
 from typing import Optional
 
 from app.core.database import get_db
 from app.core.security import get_current_user
-from app.models.models import PurchaseCreditNote
-from app.schemas.schemas import PurchaseCreditNoteCreate, PurchaseCreditNoteResponse, PurchaseCreditNoteLineItem
+from app.models.models import PurchaseCreditNote, PurchaseCreditNoteLineItem
+from app.schemas.schemas import PurchaseCreditNoteCreate, PurchaseCreditNoteResponse, PurchaseCreditNoteLineItem as PCNLineItemSchema
 from .gl_helpers import post_gl, revert_gl
 
 router = APIRouter(prefix="/purchase-credit-notes", tags=["purchase-credit-notes"])
@@ -21,9 +21,10 @@ class PurchaseCreditNoteUpdate(BaseModel):
     pcn_number: Optional[str] = None
     bill_id: Optional[UUID] = None
     issue_date: Optional[datetime] = None
+    reference: Optional[str] = None
     currency: Optional[str] = None
     notes: Optional[str] = None
-    line_items: Optional[list[PurchaseCreditNoteLineItem]] = None
+    line_items: Optional[list[PCNLineItemSchema]] = None
 
 
 async def _next_pcn_number(org_id: UUID, db: AsyncSession) -> str:
@@ -34,18 +35,42 @@ async def _next_pcn_number(org_id: UUID, db: AsyncSession) -> str:
     return f"PCN-{count:05d}"
 
 
-def _line_discount(item) -> float:
+def _line_discount(item: PCNLineItemSchema) -> float:
     line_total = item.quantity * item.unit_price
     if item.discount_mode == "amount":
         return min(item.discount, line_total)
     return line_total * item.discount / 100
 
 
-def _calc_totals(line_items: list) -> tuple[float, float, float]:
+def _calc_totals(line_items: list[PCNLineItemSchema]) -> tuple[float, float, float, float]:
     subtotal = sum(item.quantity * item.unit_price for item in line_items)
     total_discount = sum(_line_discount(item) for item in line_items)
     tax_amount = sum((item.quantity * item.unit_price - _line_discount(item)) * item.tax_rate / 100 for item in line_items)
-    return subtotal, tax_amount, subtotal - total_discount + tax_amount
+    total = subtotal - total_discount + tax_amount
+    return subtotal, total_discount, tax_amount, total
+
+
+def _build_line_items(pcn_id: UUID, line_items: list[PCNLineItemSchema]) -> list[PurchaseCreditNoteLineItem]:
+    rows = []
+    for i, item in enumerate(line_items):
+        disc = _line_discount(item)
+        after_disc = item.quantity * item.unit_price - disc
+        amount = after_disc * (1 + item.tax_rate / 100)
+        rows.append(PurchaseCreditNoteLineItem(
+            credit_note_id=pcn_id,
+            line_type=item.line_type,
+            description=item.description,
+            quantity=item.quantity,
+            unit_price=item.unit_price,
+            discount=item.discount,
+            discount_mode=item.discount_mode,
+            tax_rate=item.tax_rate,
+            tax_code_id=UUID(item.tax_code_id) if item.tax_code_id else None,
+            amount=round(amount, 2),
+            account_id=UUID(item.account_id) if item.account_id else None,
+            sort_order=i,
+        ))
+    return rows
 
 
 @router.get("", response_model=list[PurchaseCreditNoteResponse])
@@ -54,7 +79,9 @@ async def list_purchase_credit_notes(
     db: AsyncSession = Depends(get_db),
     current_user: dict = Depends(get_current_user),
 ):
-    q = select(PurchaseCreditNote).where(PurchaseCreditNote.organization_id == current_user["org_id"])
+    q = select(PurchaseCreditNote).options(selectinload(PurchaseCreditNote.line_items)).where(
+        PurchaseCreditNote.organization_id == current_user["org_id"]
+    )
     if status:
         q = q.where(PurchaseCreditNote.status == status)
     q = q.order_by(PurchaseCreditNote.issue_date.desc())
@@ -68,8 +95,9 @@ async def create_purchase_credit_note(
     db: AsyncSession = Depends(get_db),
     current_user: dict = Depends(get_current_user),
 ):
-    subtotal, tax_amount, total = _calc_totals(payload.line_items)
     org_id = current_user["org_id"]
+    subtotal, discount_amount, tax_amount, total = _calc_totals(payload.line_items)
+
     if payload.pcn_number:
         existing = (await db.execute(select(PurchaseCreditNote.id).where(
             PurchaseCreditNote.organization_id == org_id,
@@ -80,16 +108,18 @@ async def create_purchase_credit_note(
         pcn_number = payload.pcn_number
     else:
         pcn_number = await _next_pcn_number(org_id, db)
+
     pcn = PurchaseCreditNote(
         organization_id=org_id,
         pcn_number=pcn_number,
         contact_id=payload.contact_id,
         bill_id=payload.bill_id,
         issue_date=payload.issue_date,
+        reference=payload.reference,
         currency=payload.currency,
         notes=payload.notes,
-        line_items=[item.model_dump() for item in payload.line_items],
         subtotal=subtotal,
+        discount_amount=discount_amount,
         tax_amount=tax_amount,
         total=total,
         status="draft",
@@ -97,7 +127,9 @@ async def create_purchase_credit_note(
     db.add(pcn)
     await db.flush()
 
-    # GL: Dr AP (2000) / Cr Purchase Credit Note Liability (2200)
+    for li in _build_line_items(pcn.id, payload.line_items):
+        db.add(li)
+
     await post_gl(
         db, org_id, payload.issue_date,
         f"Purchase Credit Note {pcn_number}",
@@ -107,7 +139,10 @@ async def create_purchase_credit_note(
 
     await db.commit()
     await db.refresh(pcn)
-    return pcn
+    result = await db.execute(
+        select(PurchaseCreditNote).options(selectinload(PurchaseCreditNote.line_items)).where(PurchaseCreditNote.id == pcn.id)
+    )
+    return result.scalar_one()
 
 
 @router.get("/{pcn_id}", response_model=PurchaseCreditNoteResponse)
@@ -117,7 +152,7 @@ async def get_purchase_credit_note(
     current_user: dict = Depends(get_current_user),
 ):
     result = await db.execute(
-        select(PurchaseCreditNote).where(
+        select(PurchaseCreditNote).options(selectinload(PurchaseCreditNote.line_items)).where(
             PurchaseCreditNote.id == pcn_id,
             PurchaseCreditNote.organization_id == current_user["org_id"],
         )
@@ -171,7 +206,7 @@ async def update_purchase_credit_note(
     current_user: dict = Depends(get_current_user),
 ):
     result = await db.execute(
-        select(PurchaseCreditNote).where(
+        select(PurchaseCreditNote).options(selectinload(PurchaseCreditNote.line_items)).where(
             PurchaseCreditNote.id == pcn_id,
             PurchaseCreditNote.organization_id == current_user["org_id"],
         )
@@ -193,11 +228,14 @@ async def update_purchase_credit_note(
         if existing:
             raise HTTPException(status_code=400, detail="PCN number already in use")
 
-    if "line_items" in update_data:
+    if "line_items" in update_data and data.line_items is not None:
         update_data.pop("line_items")
-        subtotal, tax_amount, total = _calc_totals(data.line_items)
-        pcn.line_items = [item.model_dump() for item in data.line_items]
+        subtotal, discount_amount, tax_amount, total = _calc_totals(data.line_items)
+        await db.execute(sa_delete(PurchaseCreditNoteLineItem).where(PurchaseCreditNoteLineItem.credit_note_id == pcn.id))
+        for li in _build_line_items(pcn.id, data.line_items):
+            db.add(li)
         pcn.subtotal = subtotal
+        pcn.discount_amount = discount_amount
         pcn.tax_amount = tax_amount
         pcn.total = total
 
@@ -205,8 +243,10 @@ async def update_purchase_credit_note(
         setattr(pcn, key, value)
 
     await db.commit()
-    await db.refresh(pcn)
-    return pcn
+    result2 = await db.execute(
+        select(PurchaseCreditNote).options(selectinload(PurchaseCreditNote.line_items)).where(PurchaseCreditNote.id == pcn.id)
+    )
+    return result2.scalar_one()
 
 
 @router.delete("/{pcn_id}", status_code=204)

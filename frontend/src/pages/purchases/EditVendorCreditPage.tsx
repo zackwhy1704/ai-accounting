@@ -57,6 +57,7 @@ export default function EditVendorCreditPage() {
   const [vendorId, setVendorId] = useState("")
   const [linkedBillId, setLinkedBillId] = useState("")
   const [date, setDate] = useState("")
+  const [reference, setReference] = useState("")
   const [currency, setCurrency] = useState("MYR")
   const [notes, setNotes] = useState("")
   const [lines, setLines] = useState<LineItem[]>([emptyLine()])
@@ -69,6 +70,7 @@ export default function EditVendorCreditPage() {
       setVendorId(data.contact_id || "")
       setLinkedBillId(data.bill_id || "")
       setDate(data.issue_date ? data.issue_date.slice(0, 10) : "")
+      setReference(data.reference || "")
       setCurrency(data.currency || "MYR")
       setNotes(data.notes || "")
       if (data.line_items && data.line_items.length > 0) {
@@ -135,6 +137,7 @@ export default function EditVendorCreditPage() {
         pcn_number: pcnNumber || undefined,
         bill_id: linkedBillId || null,
         issue_date: new Date(date).toISOString(),
+        reference: reference || null,
         currency,
         notes: notes || null,
         line_items: lines.map((l, i) => ({
@@ -209,6 +212,16 @@ export default function EditVendorCreditPage() {
                 type="date"
                 value={date}
                 onChange={e => setDate(e.target.value)}
+                disabled={isReadOnly}
+                className="mt-1.5 h-10 rounded-xl"
+              />
+            </div>
+            <div>
+              <label className="text-xs font-medium text-muted-foreground">Reference</label>
+              <Input
+                value={reference}
+                onChange={e => setReference(e.target.value)}
+                placeholder="e.g. Supplier CN ref"
                 disabled={isReadOnly}
                 className="mt-1.5 h-10 rounded-xl"
               />

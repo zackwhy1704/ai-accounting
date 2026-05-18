@@ -632,8 +632,8 @@ export function useCreateManualJournal() {
 export function usePurchaseCreditNotes(status?: string) {
   return useQuery<Array<{
     id: string; organization_id: string; pcn_number: string; contact_id: string;
-    bill_id: string | null; issue_date: string; status: string; currency: string;
-    subtotal: number; tax_amount: number; total: number; amount_applied: number;
+    bill_id: string | null; issue_date: string; reference: string | null; status: string; currency: string;
+    subtotal: number; discount_amount: number; tax_amount: number; total: number; credit_applied: number;
     notes: string | null; line_items: Array<Record<string, unknown>>; created_at: string;
   }>>({
     queryKey: ['purchase-credit-notes', status],

@@ -1176,22 +1176,45 @@ class PurchaseCreditNote(Base):
     contact_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("contacts.id"))
     bill_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("bills.id"))
     issue_date: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    reference: Mapped[str | None] = mapped_column(String(100))
     status: Mapped[str] = mapped_column(String(20), default="draft")  # draft | issued | applied | void
     currency: Mapped[str] = mapped_column(String(3), default="MYR")
-    subtotal: Mapped[float] = mapped_column(Numeric(18, 4), default=0)
-    tax_amount: Mapped[float] = mapped_column(Numeric(18, 4), default=0)
-    total: Mapped[float] = mapped_column(Numeric(18, 4), default=0)
-    amount_applied: Mapped[float] = mapped_column(Numeric(18, 4), default=0)
+    subtotal: Mapped[float] = mapped_column(Numeric(15, 2), default=0)
+    discount_amount: Mapped[float] = mapped_column(Numeric(15, 2), default=0)
+    tax_amount: Mapped[float] = mapped_column(Numeric(15, 2), default=0)
+    total: Mapped[float] = mapped_column(Numeric(15, 2), default=0)
+    credit_applied: Mapped[float] = mapped_column(Numeric(15, 2), default=0)
     notes: Mapped[str | None] = mapped_column(Text)
-    line_items: Mapped[dict] = mapped_column(JSONB, default=list)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
 
     contact: Mapped["Contact"] = relationship("Contact", foreign_keys=[contact_id])
+    line_items: Mapped[list["PurchaseCreditNoteLineItem"]] = relationship(back_populates="credit_note", cascade="all, delete-orphan")
 
     __table_args__ = (
         UniqueConstraint("organization_id", "pcn_number", name="uq_org_pcn_number"),
         Index("ix_purchase_credit_notes_org_status", "organization_id", "status"),
     )
+
+
+class PurchaseCreditNoteLineItem(Base):
+    __tablename__ = "purchase_credit_note_line_items"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=new_uuid)
+    credit_note_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("purchase_credit_notes.id", ondelete="CASCADE"))
+    line_type: Mapped[str] = mapped_column(String(10), default="goods")
+    description: Mapped[str] = mapped_column(String(500))
+    quantity: Mapped[float] = mapped_column(Numeric(10, 2), default=1)
+    unit_price: Mapped[float] = mapped_column(Numeric(15, 2))
+    tax_rate: Mapped[float] = mapped_column(Numeric(5, 2), default=0)
+    tax_code_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("tax_rates.id"))
+    discount: Mapped[float] = mapped_column(Numeric(15, 2), default=0)
+    discount_mode: Mapped[str] = mapped_column(String(10), default="percent")
+    amount: Mapped[float] = mapped_column(Numeric(15, 2))
+    account_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("accounts.id"))
+    sort_order: Mapped[int] = mapped_column(Integer, default=0)
+
+    credit_note: Mapped["PurchaseCreditNote"] = relationship(back_populates="line_items")
 
 
 # Backward-compat alias so document_router.py doesn't break during migration

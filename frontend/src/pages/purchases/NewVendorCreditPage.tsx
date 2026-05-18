@@ -58,6 +58,7 @@ export default function NewVendorCreditPage() {
   const [pcnNumber, setPcnNumber] = useState("")
   const [vendorId, setVendorId] = useState("")
   const [linkedBillId, setLinkedBillId] = useState(fromBillId)
+  const [reference, setReference] = useState("")
   const [currency, setCurrency] = useState("MYR")
   const [notes, setNotes] = useState("")
 
@@ -118,6 +119,7 @@ export default function NewVendorCreditPage() {
         pcn_number: pcnNumber || undefined,
         bill_id: linkedBillId || undefined,
         issue_date: new Date(date).toISOString(),
+        reference: reference || null,
         currency,
         notes: notes || null,
         line_items: lines.map((l, i) => ({
@@ -191,6 +193,15 @@ export default function NewVendorCreditPage() {
                 type="date"
                 value={date}
                 onChange={e => setDate(e.target.value)}
+                className="mt-1.5 h-10 rounded-xl"
+              />
+            </div>
+            <div>
+              <label className="text-xs font-medium text-muted-foreground">Reference</label>
+              <Input
+                value={reference}
+                onChange={e => setReference(e.target.value)}
+                placeholder="e.g. Supplier CN ref"
                 className="mt-1.5 h-10 rounded-xl"
               />
             </div>

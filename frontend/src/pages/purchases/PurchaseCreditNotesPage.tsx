@@ -162,7 +162,7 @@ export default function PurchaseCreditNotesPage() {
                         <TableCell className="text-foreground">{contactMap.get(cn.contact_id) ?? "—"}</TableCell>
                         <TableCell className="text-foreground">{cn.bill_id ? (billMap.get(cn.bill_id) ?? "—") : "—"}</TableCell>
                         <TableCell className="text-right text-foreground">{formatCurrency(cn.total, cn.currency)}</TableCell>
-                        <TableCell className="text-right text-muted-foreground">{formatCurrency(cn.amount_applied, cn.currency)}</TableCell>
+                        <TableCell className="text-right text-muted-foreground">{formatCurrency(cn.credit_applied, cn.currency)}</TableCell>
                         <TableCell>
                           <Badge variant="outline" className={cn("rounded-lg px-2 py-0.5 text-[11px] font-semibold", statusColors[cn.status] ?? "")}>
                             {cn.status.charAt(0).toUpperCase() + cn.status.slice(1)}
