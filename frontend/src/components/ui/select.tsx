@@ -49,9 +49,10 @@ interface SelectProps {
   defaultValue?: string
   onValueChange?: (value: string) => void
   children: React.ReactNode
+  disabled?: boolean
 }
 
-function Select({ value: controlledValue, defaultValue = "", onValueChange, children }: SelectProps) {
+function Select({ value: controlledValue, defaultValue = "", onValueChange, children, disabled }: SelectProps) {
   const [internalValue, setInternalValue] = React.useState(defaultValue)
   const [label, setLabel] = React.useState("")
   const [open, setOpen] = React.useState(false)
@@ -76,7 +77,7 @@ function Select({ value: controlledValue, defaultValue = "", onValueChange, chil
 
   return (
     <SelectContext.Provider value={{ value, label, onValueChange: handleChange, open, setOpen, triggerRef }}>
-      <div className="relative">{children}</div>
+      <fieldset disabled={disabled} className="relative min-w-0 border-none p-0 m-0">{children}</fieldset>
     </SelectContext.Provider>
   )
 }
@@ -89,7 +90,7 @@ function SelectTrigger({ className, children, ...props }: React.ComponentProps<"
       type="button"
       onClick={() => ctx.setOpen(!ctx.open)}
       className={cn(
-        "flex w-full items-center justify-between gap-1.5 rounded-lg border border-input bg-transparent py-2 pr-2 pl-2.5 text-sm whitespace-nowrap transition-colors outline-none select-none h-8",
+        "flex w-full items-center justify-between gap-1.5 rounded-lg border border-input bg-transparent py-2 pr-2 pl-2.5 text-sm whitespace-nowrap transition-colors outline-none select-none h-8 disabled:cursor-not-allowed disabled:opacity-50",
         className
       )}
       {...props}

@@ -4,7 +4,7 @@ import { useNavigate } from "react-router-dom"
 import { Plus, Search, FileText, Send, XCircle, Pencil, Trash2, Receipt } from "lucide-react"
 import { usePurchaseCreditNotes, useContacts, useDeletePurchaseCreditNote, useBills } from "../../lib/hooks"
 import api from "../../lib/api"
-import { formatCurrency, formatDate, cn } from "../../lib/utils"
+import { formatCurrency, formatDate, cn as clsx } from "../../lib/utils"
 import { useToast } from "../../components/ui/toast"
 import { Card } from "../../components/ui/card"
 import { Button } from "../../components/ui/button"
@@ -164,7 +164,7 @@ export default function PurchaseCreditNotesPage() {
                         <TableCell className="text-right text-foreground">{formatCurrency(cn.total, cn.currency)}</TableCell>
                         <TableCell className="text-right text-muted-foreground">{formatCurrency(cn.credit_applied, cn.currency)}</TableCell>
                         <TableCell>
-                          <Badge variant="outline" className={cn("rounded-lg px-2 py-0.5 text-[11px] font-semibold", statusColors[cn.status] ?? "")}>
+                          <Badge variant="outline" className={clsx("rounded-lg px-2 py-0.5 text-[11px] font-semibold", statusColors[cn.status] ?? "")}>
                             {cn.status.charAt(0).toUpperCase() + cn.status.slice(1)}
                           </Badge>
                         </TableCell>
