@@ -150,6 +150,33 @@ async def update_sale_receipt(
     return receipt
 
 
+@router.delete("/{receipt_id}", status_code=204)
+async def delete_sale_receipt(
+    receipt_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: dict = Depends(get_current_user),
+):
+    result = await db.execute(
+        select(SaleReceipt).where(
+            SaleReceipt.id == receipt_id,
+            SaleReceipt.organization_id == current_user["org_id"],
+        )
+    )
+    receipt = result.scalar_one_or_none()
+    if not receipt:
+        raise HTTPException(status_code=404, detail="Sale receipt not found")
+    if receipt.status not in ("void", "completed"):
+        raise HTTPException(status_code=409, detail="Only completed or voided receipts can be deleted")
+    await revert_gl(
+        db, current_user["org_id"], receipt_id, "sale_receipt",
+        receipt.receipt_date,
+        f"Deletion: Sale Receipt {receipt.receipt_number}",
+        receipt.receipt_number,
+    )
+    await db.delete(receipt)
+    await db.commit()
+
+
 @router.post("/{receipt_id}/void", response_model=SaleReceiptResponse)
 async def void_sale_receipt(
     receipt_id: UUID,

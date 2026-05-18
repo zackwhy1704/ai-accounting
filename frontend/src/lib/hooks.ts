@@ -1291,3 +1291,11 @@ export function useDeleteRecurringInvoice() {
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['recurring-invoices'] }) },
   })
 }
+
+export function useDeleteSaleReceipt() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) => api.delete(`/sale-receipts/${id}`).then(r => r.data),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['sale-receipts'] }) },
+  })
+}
