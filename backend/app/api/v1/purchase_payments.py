@@ -21,6 +21,7 @@ class PurchasePaymentCreate(BaseModel):
     amount: float
     currency: str = "MYR"
     contact_id: Optional[UUID] = None
+    bill_id: Optional[UUID] = None
     payment_method: str = "bank_transfer"
     bank_account_id: Optional[str] = None
     reference_no: Optional[str] = None
@@ -33,6 +34,7 @@ class PurchasePaymentUpdate(BaseModel):
     amount: Optional[float] = None
     currency: Optional[str] = None
     contact_id: Optional[UUID] = None
+    bill_id: Optional[UUID] = None
     payment_method: Optional[str] = None
     bank_account_id: Optional[str] = None
     reference_no: Optional[str] = None
@@ -110,6 +112,20 @@ async def create_purchase_payment(
     db.add(payment)
     await db.flush()
 
+    # Update linked bill balance
+    if payload.bill_id:
+        bill_result = await db.execute(select(Bill).where(Bill.id == payload.bill_id))
+        bill = bill_result.scalar_one_or_none()
+        if bill:
+            bill.amount_paid = float(bill.amount_paid or 0) + float(payload.amount)
+            bill_total = float(bill.total or 0)
+            if float(bill.amount_paid) >= bill_total:
+                bill.status = "paid"
+            elif float(bill.amount_paid) > 0:
+                bill.status = "partially paid"
+            else:
+                bill.status = "outstanding"
+
     # GL: Dr AP (2000) / Cr Cash/Bank (1000)
     await post_gl(
         db, org_id, payload.payment_date,
@@ -166,21 +182,40 @@ async def update_purchase_payment(
         if existing:
             raise HTTPException(status_code=400, detail="Payment number already in use")
 
-    # If amount changed and there's a linked bill, recalculate bill.amount_paid
-    new_amount = update_data.get("amount")
-    if new_amount is not None and payment.bill_id:
-        old_amount = float(payment.amount or 0)
-        bill_result = await db.execute(select(Bill).where(Bill.id == payment.bill_id))
-        bill = bill_result.scalar_one_or_none()
-        if bill:
-            bill.amount_paid = max(0.0, float(bill.amount_paid or 0) - old_amount + float(new_amount))
-            bill_total = float(bill.total or 0)
-            if float(bill.amount_paid) >= bill_total:
-                bill.status = "paid"
-            elif float(bill.amount_paid) > 0:
-                bill.status = "partially paid"
-            else:
-                bill.status = "outstanding"
+    # Recalculate bill balances when amount or bill_id changes
+    new_amount = float(update_data.get("amount", payment.amount) or 0)
+    new_bill_id = update_data.get("bill_id", payment.bill_id)
+    old_bill_id = payment.bill_id
+    old_amount = float(payment.amount or 0)
+    bill_changed = "bill_id" in update_data or "amount" in update_data
+
+    if bill_changed:
+        # Revert old bill
+        if old_bill_id:
+            bill_result = await db.execute(select(Bill).where(Bill.id == old_bill_id))
+            bill = bill_result.scalar_one_or_none()
+            if bill:
+                bill.amount_paid = max(0.0, float(bill.amount_paid or 0) - old_amount)
+                bill_total = float(bill.total or 0)
+                if float(bill.amount_paid) >= bill_total:
+                    bill.status = "paid"
+                elif float(bill.amount_paid) > 0:
+                    bill.status = "partially paid"
+                else:
+                    bill.status = "outstanding"
+        # Apply to new bill
+        if new_bill_id:
+            bill_result = await db.execute(select(Bill).where(Bill.id == new_bill_id))
+            bill = bill_result.scalar_one_or_none()
+            if bill:
+                bill.amount_paid = float(bill.amount_paid or 0) + new_amount
+                bill_total = float(bill.total or 0)
+                if float(bill.amount_paid) >= bill_total:
+                    bill.status = "paid"
+                elif float(bill.amount_paid) > 0:
+                    bill.status = "partially paid"
+                else:
+                    bill.status = "outstanding"
 
     for key, val in update_data.items():
         setattr(payment, key, val)

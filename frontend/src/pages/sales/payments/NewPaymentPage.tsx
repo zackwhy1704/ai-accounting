@@ -80,12 +80,13 @@ export default function NewPaymentPage() {
   }
 
   const handleSave = async () => {
+    if (!customerId || !paymentMethod) { alert("Please fill in all required fields"); return }
     const allocationsList = Object.entries(allocations)
       .filter(([id]) => selectedInvoices[id] && (Number(allocations[id]) || 0) > 0)
       .map(([invoice_id, amt]) => ({ invoice_id, amount: Number(amt) }))
 
-    // If user didn't type a top-level Amount, fall back to sum of allocations
     const effectiveAmount = parseFloat(amount) > 0 ? parseFloat(amount) : totalApplied
+    if (effectiveAmount <= 0) { alert("Please enter a payment amount"); return }
 
     const payload: any = {
       contact_id: customerId,

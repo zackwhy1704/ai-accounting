@@ -90,23 +90,26 @@ export default function EditPaymentPage() {
 
   const handleSave = async () => {
     const allocationsList = Object.entries(allocations)
-      .filter(([invId]) => selectedInvoices[invId])
+      .filter(([invId]) => selectedInvoices[invId] && (allocations[invId] || 0) > 0)
       .map(([invoice_id, amt]) => ({ invoice_id, amount: amt }))
 
-    await updatePayment.mutateAsync({
-      id,
-      contact_id: customerId,
-      payment_number: paymentNumber || undefined,
-      payment_date: paymentDate,
-      payment_method: paymentMethod,
-      reference,
-      bank_account_id: bankAccountId,
-      amount: parseFloat(amount) || 0,
-      currency,
-      allocations: allocationsList,
-    })
-
-    navigate("/sales/payments")
+    try {
+      await updatePayment.mutateAsync({
+        id,
+        contact_id: customerId,
+        payment_number: paymentNumber || undefined,
+        payment_date: paymentDate,
+        payment_method: paymentMethod,
+        reference,
+        bank_account_id: bankAccountId || undefined,
+        amount: parseFloat(amount) || totalApplied,
+        currency,
+        allocations: allocationsList,
+      })
+      navigate("/sales/payments")
+    } catch (err: any) {
+      alert(err?.response?.data?.detail || err?.message || "Failed to save payment")
+    }
   }
 
   if (isLoading) {

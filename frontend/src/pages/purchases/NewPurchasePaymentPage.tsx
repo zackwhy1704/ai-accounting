@@ -3,7 +3,6 @@ import { useNavigate, useSearchParams } from "react-router-dom"
 import { Loader2 } from "lucide-react"
 import { useContacts, useBankAccounts, useCreatePurchasePayment, useBills } from "../../lib/hooks"
 import { formatCurrency, formatDate } from "../../lib/utils"
-import api from "../../lib/api"
 import { getContactPrefs, saveContactPref } from "../../lib/contact-prefs"
 import { useToast } from "../../components/ui/toast"
 import { Card } from "../../components/ui/card"
@@ -89,36 +88,25 @@ export default function NewPurchasePaymentPage() {
   const handleSave = async () => {
     if (!isFormValid) { toast("Please fill in all required fields", "warning"); return }
     try {
-      const billAllocations = Object.entries(allocations)
-        .filter(([id]) => selectedBills[id] && (allocations[id] || 0) > 0)
+      const selectedBillIds = Object.entries(selectedBills)
+        .filter(([id, sel]) => sel && (allocations[id] || 0) > 0)
+        .map(([id]) => id)
 
-      if (billAllocations.length > 0) {
-        // Pay each selected bill directly via bill pay endpoint
-        for (const [billId, amt] of billAllocations) {
-          await api.post(`/bills/${billId}/pay`, {
-            payment_date: new Date(paymentDate).toISOString(),
-            amount: amt,
-            currency,
-            payment_method: paymentMethod,
-            reference_no: referenceNo || null,
-            payment_no: paymentNo || undefined,
-            notes: notes || null,
-            bank_account_id: bankAccountId || null,
-          })
-        }
-      } else {
-        // Standalone payment with no bill allocation
-        await createPayment.mutateAsync({
-          contact_id: contactId || null,
-          payment_no: paymentNo || undefined,
-          payment_date: new Date(paymentDate).toISOString(),
-          amount: effectiveAmount,
-          currency,
-          payment_method: paymentMethod,
-          reference_no: referenceNo || null,
-          notes: notes || null,
-        })
-      }
+      // Use the first selected bill as the linked bill_id (purchase payments are 1-to-1 with bills)
+      const linkedBillId = selectedBillIds[0] ?? null
+
+      await createPayment.mutateAsync({
+        contact_id: contactId || null,
+        bill_id: linkedBillId,
+        payment_no: paymentNo || undefined,
+        payment_date: new Date(paymentDate).toISOString(),
+        amount: linkedBillId ? (allocations[linkedBillId] ?? effectiveAmount) : effectiveAmount,
+        currency,
+        payment_method: paymentMethod,
+        reference_no: referenceNo || null,
+        notes: notes || null,
+        bank_account_id: bankAccountId || null,
+      })
 
       toast("Payment recorded", "success")
       navigate("/purchases/payments")

@@ -1,7 +1,7 @@
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect, useRef, useMemo } from "react"
 import { useNavigate, useParams } from "react-router-dom"
 import { Loader2 } from "lucide-react"
-import { useContacts, useBankAccounts, usePurchasePayment, useUpdatePurchasePayment } from "../../lib/hooks"
+import { useContacts, useBankAccounts, usePurchasePayment, useUpdatePurchasePayment, useBills } from "../../lib/hooks"
 import { getContactPrefs, saveContactPref } from "../../lib/contact-prefs"
 import { useToast } from "../../components/ui/toast"
 import { Card } from "../../components/ui/card"
@@ -16,11 +16,13 @@ export default function EditPurchasePaymentPage() {
   const { toast } = useToast()
   const { data: contacts = [] } = useContacts()
   const { data: bankAccounts = [] } = useBankAccounts()
+  const { data: bills = [] } = useBills()
   const { data } = usePurchasePayment(id!)
   const updatePayment = useUpdatePurchasePayment()
 
   const [paymentNo, setPaymentNo] = useState("")
   const [contactId, setContactId] = useState("")
+  const [billId, setBillId] = useState("")
   const [paymentDate, setPaymentDate] = useState("")
   const [amount, setAmount] = useState("")
   const [currency, setCurrency] = useState("MYR")
@@ -34,16 +36,22 @@ export default function EditPurchasePaymentPage() {
     if (data && !populated.current) {
       populated.current = true
       setPaymentNo(data.payment_no || "")
-      setContactId(data.contact_id || "")
+      setContactId(String(data.contact_id || ""))
+      setBillId(String((data as any).bill_id || ""))
       setPaymentDate(data.payment_date ? data.payment_date.slice(0, 10) : "")
       setAmount(data.amount != null ? String(data.amount) : "")
       setCurrency(data.currency || "MYR")
       setPaymentMethod(data.payment_method || "bank_transfer")
-      setBankAccountId((data as any).bank_account_id || "")
+      setBankAccountId(String((data as any).bank_account_id || ""))
       setReferenceNo(data.reference_no || "")
       setNotes(data.notes || "")
     }
   }, [data])
+
+  const filteredBills = useMemo(() => {
+    if (!contactId) return bills as any[]
+    return (bills as any[]).filter((b: any) => String(b.contact_id) === contactId && b.status !== "void" && b.status !== "draft")
+  }, [bills, contactId])
 
   const handleSave = async () => {
     if (!paymentDate) { toast("Please enter payment date", "warning"); return }
@@ -52,6 +60,7 @@ export default function EditPurchasePaymentPage() {
       await updatePayment.mutateAsync({
         id: id!,
         contact_id: contactId || null,
+        bill_id: billId || null,
         payment_no: paymentNo || undefined,
         payment_date: new Date(paymentDate).toISOString(),
         amount: Number(amount),
@@ -83,16 +92,23 @@ export default function EditPurchasePaymentPage() {
           </div>
           <div>
             <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Supplier</label>
-            <Select value={contactId} onValueChange={v => { if (v === "__add_new__") { navigate("/contacts/new"); return } setContactId(v); if (v) { const prefs = getContactPrefs(v); if (prefs.currency) setCurrency(prefs.currency) } }}>
-              <SelectTrigger className="h-10 rounded-xl">
-                <SelectValue placeholder="Select supplier (optional)" />
-              </SelectTrigger>
+            <SearchableSelect
+              value={contactId}
+              onChange={v => { if (v === "__add_new__") { navigate("/contacts/new"); return } setContactId(v); setBillId(""); if (v) { const prefs = getContactPrefs(v); if (prefs.currency) setCurrency(prefs.currency) } }}
+              placeholder="Select supplier (optional)"
+              options={(contacts as any[]).filter((c: any) => c.type === "supplier" || c.type === "vendor" || c.type === "both").map((c: any) => ({ value: c.id, label: c.name, hint: c.email ?? "" }))}
+              footerAction={{ label: "+ Add New Supplier", onClick: () => navigate("/contacts/new") }}
+            />
+          </div>
+          <div>
+            <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Linked Bill</label>
+            <Select value={billId || "__none__"} onValueChange={v => setBillId(v === "__none__" ? "" : v)}>
+              <SelectTrigger className="h-10 rounded-xl"><SelectValue placeholder="Select bill (optional)" /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="">None</SelectItem>
-                {contacts.map(c => (
-                  <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                <SelectItem value="__none__">No linked bill</SelectItem>
+                {filteredBills.map((b: any) => (
+                  <SelectItem key={b.id} value={b.id}>{b.bill_number} — bal {(parseFloat(b.total) - parseFloat(b.amount_paid || 0)).toFixed(2)}</SelectItem>
                 ))}
-                <SelectItem value="__add_new__" className="text-primary font-medium">+ Add New Supplier</SelectItem>
               </SelectContent>
             </Select>
           </div>
