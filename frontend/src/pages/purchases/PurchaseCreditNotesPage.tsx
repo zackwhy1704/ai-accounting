@@ -1,8 +1,8 @@
 import { useMemo, useState } from "react"
 import { useQueryClient } from "@tanstack/react-query"
 import { useNavigate } from "react-router-dom"
-import { Plus, Search, FileText, Send, XCircle, Pencil, Trash2, Receipt } from "lucide-react"
-import { usePurchaseCreditNotes, useContacts, useDeletePurchaseCreditNote, useBills } from "../../lib/hooks"
+import { Plus, Search, FileText, Send, XCircle, Pencil, Trash2, Receipt, ArrowRightLeft, RotateCcw } from "lucide-react"
+import { usePurchaseCreditNotes, useContacts, useDeletePurchaseCreditNote, useBills, useRemovePurchaseCreditApplications } from "../../lib/hooks"
 import api from "../../lib/api"
 import { formatCurrency, formatDate, cn as clsx } from "../../lib/utils"
 import { useToast } from "../../components/ui/toast"
@@ -35,6 +35,7 @@ export default function PurchaseCreditNotesPage() {
   const queryClient = useQueryClient()
   const { toast } = useToast()
   const deletePCN = useDeletePurchaseCreditNote()
+  const removeApplications = useRemovePurchaseCreditApplications()
   const [tab, setTab] = useState("all")
   const [search, setSearch] = useState("")
   const [contactFilter, setContactFilter] = useState("all")
@@ -173,8 +174,11 @@ export default function PurchaseCreditNotesPage() {
                             { label: "View", icon: <FileText className="h-3.5 w-3.5" />, onClick: () => navigate(`/purchases/credit-notes/${cn.id}/edit`) },
                             { label: "Edit", icon: <Pencil className="h-3.5 w-3.5" />, onClick: () => navigate(`/purchases/credit-notes/${cn.id}/edit`), disabled: cn.status !== "draft" },
                             { label: "Mark as Issued", icon: <Send className="h-3.5 w-3.5" />, onClick: () => patch(cn.id, "issued", "Credit note marked as issued"), dividerBefore: true, disabled: cn.status !== "draft" },
-                            { label: "Void", icon: <XCircle className="h-3.5 w-3.5" />, onClick: () => { if (cn.status === "applied") { alert("Applied credit notes cannot be voided directly."); return } if (confirm("Void this credit note? This reverses the GL entries and cannot be undone.")) patch(cn.id, "void", "Credit note voided") }, danger: true, dividerBefore: true, disabled: cn.status === "void" },
-                            { label: "Delete", icon: <Trash2 className="h-3.5 w-3.5" />, onClick: () => { if (cn.status === "applied") { alert("Applied credit notes cannot be deleted."); return } if (cn.status === "issued") { alert("Please void this credit note before deleting."); return } if (confirm(`Delete credit note ${cn.pcn_number}? This cannot be undone.`)) deletePCN.mutate(cn.id, { onSuccess: () => toast("Credit note deleted", "success"), onError: (e: any) => toast(e?.response?.data?.detail ?? "Failed to delete", "warning") }) }, danger: true, disabled: cn.status === "applied" },
+                            { label: "Apply to Bill", icon: <ArrowRightLeft className="h-3.5 w-3.5" />, onClick: () => navigate(`/purchases/credit-notes/${cn.id}/edit?tab=apply_credit`), disabled: cn.status === "void" || cn.status === "draft" },
+                            { label: "Issue Refund", icon: <RotateCcw className="h-3.5 w-3.5" />, onClick: () => navigate(`/purchases/refunds/new?pcn_id=${cn.id}&amount=${cn.total}&contact_id=${cn.contact_id}`), disabled: cn.status === "void" || cn.status === "draft" },
+                            { label: "Remove Applications", icon: <ArrowRightLeft className="h-3.5 w-3.5" />, onClick: () => { if (confirm("Remove all credit applications from this PCN? The applied amounts will be removed from linked bills and the PCN will revert to Issued.")) removeApplications.mutate(cn.id, { onSuccess: () => toast("Credit applications removed", "success"), onError: (e: any) => toast(e?.response?.data?.detail ?? "Failed to remove applications", "warning") }) }, danger: true, dividerBefore: true, disabled: (cn.credit_applied ?? 0) <= 0 && (cn.credit_applications?.length ?? 0) <= 0 },
+                            { label: "Void", icon: <XCircle className="h-3.5 w-3.5" />, onClick: () => { if ((cn.credit_applied ?? 0) > 0 || (cn.credit_applications?.length ?? 0) > 0) { alert("This credit note has applied amounts. Please use \"Remove Applications\" first before voiding."); return } if (confirm("Void this credit note? This reverses the GL entries and cannot be undone.")) patch(cn.id, "void", "Credit note voided") }, danger: true, dividerBefore: true, disabled: cn.status === "void" },
+                            { label: "Delete", icon: <Trash2 className="h-3.5 w-3.5" />, onClick: () => { if ((cn.credit_applied ?? 0) > 0 || (cn.credit_applications?.length ?? 0) > 0) { alert("This credit note has applied amounts. Please use \"Remove Applications\" first before deleting."); return } if (cn.status !== "draft" && cn.status !== "void" && cn.status !== "issued") { alert("Please void this credit note first before deleting."); return } if (confirm(`Delete credit note ${cn.pcn_number}? This cannot be undone.`)) deletePCN.mutate(cn.id, { onSuccess: () => toast("Credit note deleted", "success"), onError: (e: any) => toast(e?.response?.data?.detail ?? "Failed to delete", "warning") }) }, danger: true, disabled: cn.status === "applied" },
                           ]} />
                         </TableCell>
                       </TableRow>

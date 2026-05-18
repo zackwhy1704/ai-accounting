@@ -1284,6 +1284,51 @@ export function useDeletePurchaseCreditNote() {
   })
 }
 export const useDeleteVendorCredit = useDeletePurchaseCreditNote
+
+export function useApplyPurchaseCredit() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ pcnId, billId, amount }: { pcnId: string; billId: string; amount: number }) =>
+      api.post(`/purchase-credit-notes/${pcnId}/applications`, null, { params: { bill_id: billId, amount } }).then(r => r.data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['purchase-credit-notes'] })
+      qc.invalidateQueries({ queryKey: ['bills'] })
+    },
+  })
+}
+
+export function useRemovePurchaseCreditApplications() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (pcnId: string) => api.delete(`/purchase-credit-notes/${pcnId}/applications`).then(r => r.data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['purchase-credit-notes'] })
+      qc.invalidateQueries({ queryKey: ['bills'] })
+    },
+  })
+}
+
+export function useRemoveSinglePurchaseCreditApplication() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ pcnId, appId }: { pcnId: string; appId: string }) =>
+      api.delete(`/purchase-credit-notes/${pcnId}/applications/${appId}`).then(r => r.data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['purchase-credit-notes'] })
+      qc.invalidateQueries({ queryKey: ['bills'] })
+    },
+  })
+}
+
+export function useUpdatePurchaseCreditNoteStatus() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, status }: { id: string; status: string }) =>
+      api.patch(`/purchase-credit-notes/${id}/status`, null, { params: { status } }).then(r => r.data),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['purchase-credit-notes'] }) },
+  })
+}
+
 export function useDeleteRecurringInvoice() {
   const qc = useQueryClient()
   return useMutation({

@@ -1190,6 +1190,7 @@ class PurchaseCreditNote(Base):
 
     contact: Mapped["Contact"] = relationship("Contact", foreign_keys=[contact_id])
     line_items: Mapped[list["PurchaseCreditNoteLineItem"]] = relationship(back_populates="credit_note", cascade="all, delete-orphan")
+    credit_applications: Mapped[list["PurchaseCreditApplication"]] = relationship(back_populates="credit_note", cascade="all, delete-orphan")
 
     __table_args__ = (
         UniqueConstraint("organization_id", "pcn_number", name="uq_org_pcn_number"),
@@ -1215,6 +1216,19 @@ class PurchaseCreditNoteLineItem(Base):
     sort_order: Mapped[int] = mapped_column(Integer, default=0)
 
     credit_note: Mapped["PurchaseCreditNote"] = relationship(back_populates="line_items")
+
+
+class PurchaseCreditApplication(Base):
+    __tablename__ = "purchase_credit_applications"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=new_uuid)
+    credit_note_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("purchase_credit_notes.id", ondelete="CASCADE"), index=True)
+    bill_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("bills.id", ondelete="CASCADE"), index=True)
+    amount: Mapped[float] = mapped_column(Numeric(15, 2))
+    applied_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+    credit_note: Mapped["PurchaseCreditNote"] = relationship(back_populates="credit_applications")
+    bill: Mapped["Bill"] = relationship()
 
 
 # Backward-compat alias so document_router.py doesn't break during migration
@@ -1414,6 +1428,7 @@ class PurchaseRefund(Base):
     payment_method: Mapped[str] = mapped_column(String(30), default="bank_transfer")
     bank_account_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("bank_accounts.id", ondelete="SET NULL"))
     bill_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("bills.id", ondelete="SET NULL"), nullable=True)
+    pcn_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("purchase_credit_notes.id", ondelete="SET NULL"), nullable=True)
     reference_no: Mapped[str | None] = mapped_column(String(100))
     notes: Mapped[str | None] = mapped_column(Text)
     status: Mapped[str] = mapped_column(String(20), default="completed")

@@ -1141,13 +1141,17 @@ class PurchaseCreditNoteLineItem(BaseModel):
     quantity: float = 1.0
     unit_price: float
     tax_rate: float = 0.0
-    amount: float
+    amount: float | None = None  # optional — backend recalculates
     discount: float = 0.0
     discount_mode: str = "percent"
     tax_code_id: str | None = None
     account_id: str | None = None
     line_type: str = "goods"
     sort_order: int = 0
+
+class PurchaseCreditApplicationInput(BaseModel):
+    bill_id: UUID
+    amount: float
 
 class PurchaseCreditNoteCreate(BaseModel):
     contact_id: UUID
@@ -1158,6 +1162,7 @@ class PurchaseCreditNoteCreate(BaseModel):
     currency: str = "MYR"
     notes: str | None = None
     line_items: list[PurchaseCreditNoteLineItem]
+    credit_applications: list[PurchaseCreditApplicationInput] = []
 
 class PurchaseCreditNoteLineItemResponse(BaseModel):
     id: UUID
@@ -1172,6 +1177,14 @@ class PurchaseCreditNoteLineItemResponse(BaseModel):
     amount: float
     account_id: UUID | None
     sort_order: int
+    model_config = {"from_attributes": True}
+
+class PurchaseCreditApplicationResponse(BaseModel):
+    id: UUID
+    credit_note_id: UUID
+    bill_id: UUID
+    amount: float
+    applied_at: datetime
     model_config = {"from_attributes": True}
 
 class PurchaseCreditNoteResponse(BaseModel):
@@ -1191,6 +1204,7 @@ class PurchaseCreditNoteResponse(BaseModel):
     credit_applied: float
     notes: str | None
     line_items: list[PurchaseCreditNoteLineItemResponse]
+    credit_applications: list[PurchaseCreditApplicationResponse] = []
     created_at: datetime
     model_config = {"from_attributes": True}
 

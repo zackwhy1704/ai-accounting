@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react"
-import { useNavigate } from "react-router-dom"
+import { useNavigate, useSearchParams } from "react-router-dom"
 import { Loader2 } from "lucide-react"
 import { useContacts, useBankAccounts, useCreatePurchaseRefund, useBills } from "../../lib/hooks"
 import { getContactPrefs, saveContactPref } from "../../lib/contact-prefs"
@@ -12,17 +12,22 @@ import { SearchableSelect } from "../../components/ui/searchable-select"
 
 export default function NewPurchaseRefundPage() {
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
   const { toast } = useToast()
   const { data: contacts = [] } = useContacts()
   const { data: bankAccounts = [] } = useBankAccounts()
   const { data: bills = [] } = useBills()
   const createRefund = useCreatePurchaseRefund()
 
+  const pcnId = searchParams.get("pcn_id") ?? ""
+  const initialContactId = searchParams.get("contact_id") ?? ""
+  const initialAmount = searchParams.get("amount") ?? ""
+
   const [refundNo, setRefundNo] = useState(() => `PRF-${Date.now().toString().slice(-6)}`)
-  const [contactId, setContactId] = useState("")
+  const [contactId, setContactId] = useState(initialContactId)
   const [billId, setBillId] = useState("")
   const [paymentDate, setPaymentDate] = useState(() => new Date().toISOString().slice(0, 10))
-  const [amount, setAmount] = useState("")
+  const [amount, setAmount] = useState(initialAmount)
   const [currency, setCurrency] = useState("MYR")
   const [paymentMethod, setPaymentMethod] = useState("bank_transfer")
   const [bankAccountId, setBankAccountId] = useState("")
@@ -65,6 +70,7 @@ export default function NewPurchaseRefundPage() {
       await createRefund.mutateAsync({
         contact_id: contactId || null,
         bill_id: billId || null,
+        pcn_id: pcnId || null,
         refund_no: refundNo || undefined,
         refund_date: new Date(paymentDate).toISOString(),
         amount: Number(amount),
@@ -106,6 +112,12 @@ export default function NewPurchaseRefundPage() {
               footerAction={{ label: "+ Add New Supplier", onClick: () => navigate("/contacts/new") }}
             />
           </div>
+          {pcnId && (
+            <div>
+              <label className="mb-1.5 block text-xs font-medium text-muted-foreground">From Credit Note</label>
+              <div className="flex h-10 items-center rounded-xl border border-border bg-muted px-3 text-sm text-muted-foreground">PCN linked — refund amount pre-filled</div>
+            </div>
+          )}
           <div>
             <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Linked Bill</label>
             <Select value={billId || "__none__"} onValueChange={handleBillChange}>

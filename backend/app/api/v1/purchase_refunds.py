@@ -22,6 +22,7 @@ class PurchaseRefundCreate(BaseModel):
     currency: str = "MYR"
     contact_id: Optional[UUID] = None
     bill_id: Optional[UUID] = None
+    pcn_id: Optional[UUID] = None
     payment_method: str = "bank_transfer"
     bank_account_id: Optional[str] = None
     reference_no: Optional[str] = None
@@ -35,6 +36,7 @@ class PurchaseRefundUpdate(BaseModel):
     currency: Optional[str] = None
     contact_id: Optional[UUID] = None
     bill_id: Optional[UUID] = None
+    pcn_id: Optional[UUID] = None
     payment_method: Optional[str] = None
     bank_account_id: Optional[str] = None
     reference_no: Optional[str] = None
@@ -47,6 +49,7 @@ class PurchaseRefundResponse(BaseModel):
     refund_no: str
     contact_id: Optional[UUID]
     bill_id: Optional[UUID]
+    pcn_id: Optional[UUID] = None
     refund_date: datetime
     amount: float
     currency: str

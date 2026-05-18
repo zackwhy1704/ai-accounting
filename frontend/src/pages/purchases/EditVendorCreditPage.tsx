@@ -1,7 +1,8 @@
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect, useRef, useMemo } from "react"
 import { useNavigate, useParams } from "react-router-dom"
-import { Plus, Trash2, Loader2 } from "lucide-react"
-import { useContacts, useAccounts, useBills, usePurchaseCreditNote, useUpdatePurchaseCreditNote, useTaxRates } from "../../lib/hooks"
+import { Plus, Trash2, Loader2, X } from "lucide-react"
+import { useContacts, useAccounts, useBills, usePurchaseCreditNote, useUpdatePurchaseCreditNote, useTaxRates, useRemoveSinglePurchaseCreditApplication, useApplyPurchaseCredit } from "../../lib/hooks"
+import { formatCurrency, formatDate } from "../../lib/utils"
 import { getContactPrefs, saveContactPref } from "../../lib/contact-prefs"
 import { useToast } from "../../components/ui/toast"
 import { Card } from "../../components/ui/card"
@@ -22,6 +23,13 @@ interface LineItem {
   discount_mode: "percent" | "amount"
   taxRate: number
   taxCodeId: string
+}
+
+interface ApplyCreditLine {
+  bill_id: string
+  selected: boolean
+  apply_amount: number
+  app_id?: string
 }
 
 function lineDiscountAmount(item: LineItem): number {
@@ -52,6 +60,8 @@ export default function EditVendorCreditPage() {
   const { data: accounts = [] } = useAccounts()
   const { data } = usePurchaseCreditNote(id!)
   const updatePCN = useUpdatePurchaseCreditNote()
+  const removeSingleApp = useRemoveSinglePurchaseCreditApplication()
+  const applyCredit = useApplyPurchaseCredit()
 
   const [pcnNumber, setPcnNumber] = useState("")
   const [vendorId, setVendorId] = useState("")
@@ -61,6 +71,7 @@ export default function EditVendorCreditPage() {
   const [currency, setCurrency] = useState("MYR")
   const [notes, setNotes] = useState("")
   const [lines, setLines] = useState<LineItem[]>([emptyLine()])
+  const [applyCreditLines, setApplyCreditLines] = useState<ApplyCreditLine[]>([])
 
   const populated = useRef(false)
   useEffect(() => {
@@ -87,6 +98,14 @@ export default function EditVendorCreditPage() {
           taxCodeId: li.tax_code_id || "",
         })))
       }
+      if ((data as any).credit_applications?.length) {
+        setApplyCreditLines((data as any).credit_applications.map((a: any) => ({
+          bill_id: String(a.bill_id),
+          selected: true,
+          apply_amount: a.amount ?? 0,
+          app_id: a.id ? String(a.id) : undefined,
+        })))
+      }
     }
   }, [data])
 
@@ -94,6 +113,35 @@ export default function EditVendorCreditPage() {
   const filteredBills = vendorId
     ? (allBills as any[]).filter((b: any) => b.contact_id === vendorId && b.status !== "void")
     : (allBills as any[]).filter((b: any) => b.status !== "void")
+
+  const vendorBills = useMemo(() => {
+    if (!vendorId) return []
+    return (allBills as any[]).filter((b: any) => String(b.contact_id) === String(vendorId) && b.status !== "void")
+  }, [allBills, vendorId])
+
+  const toggleApplyCredit = (idx: number) => {
+    setApplyCreditLines(prev => {
+      const updated = [...prev]
+      updated[idx] = { ...updated[idx], selected: !updated[idx].selected }
+      if (!updated[idx].selected) updated[idx].apply_amount = 0
+      return updated
+    })
+  }
+
+  const updateApplyAmount = (idx: number, amount: number) => {
+    setApplyCreditLines(prev => {
+      const updated = [...prev]
+      updated[idx] = { ...updated[idx], apply_amount: amount }
+      return updated
+    })
+  }
+
+  const addBillToApply = (billId: string) => {
+    if (applyCreditLines.some(l => l.bill_id === billId)) return
+    setApplyCreditLines(prev => [...prev, { bill_id: billId, selected: true, apply_amount: 0 }])
+  }
+
+  const creditApplied = applyCreditLines.reduce((sum, l) => sum + (l.selected ? l.apply_amount : 0), 0)
 
   const handleVendorChange = (v: string) => {
     if (v === "__add_new__") { navigate("/contacts/new"); return }
@@ -160,6 +208,22 @@ export default function EditVendorCreditPage() {
       }
     )
   }
+
+  const handleApplyOnly = async () => {
+    const toApply = applyCreditLines.filter(l => l.selected && l.apply_amount > 0 && !l.app_id)
+    if (toApply.length === 0) { toast("No new credit applications to save", "warning"); return }
+    try {
+      for (const line of toApply) {
+        await applyCredit.mutateAsync({ pcnId: id!, billId: line.bill_id, amount: line.apply_amount })
+      }
+      toast("Credit applied to bill", "success")
+      navigate("/purchases/credit-notes")
+    } catch (err: any) {
+      toast(err?.response?.data?.detail ?? "Failed to apply credit", "warning")
+    }
+  }
+
+  const pcnTotal = data ? (data as any).total ?? total : total
 
   return (
     <div className="flex flex-col gap-4">
@@ -420,6 +484,98 @@ export default function EditVendorCreditPage() {
           </div>
         </div>
       </Card>
+
+      {/* Apply Credit Panel */}
+      {data?.status !== "void" && data?.status !== "draft" && (
+        <Card className="rounded-2xl border-border bg-card p-6 shadow-[0_0_0_1px_rgba(15,23,42,0.06),0_18px_55px_rgba(2,6,23,0.08)]">
+          <h3 className="mb-4 text-sm font-semibold text-foreground">Apply Credit to Bills</h3>
+          <p className="mb-3 text-xs text-muted-foreground">Select outstanding bills and specify the amount to apply from this credit note. Remaining credit: <span className="font-semibold text-foreground">{formatCurrency(Math.max(0, pcnTotal - (data ? (data as any).credit_applied ?? 0 : 0)))}</span></p>
+
+          {vendorBills.length > 0 && (
+            <div className="mb-3 flex flex-wrap gap-2">
+              {vendorBills.filter((b: any) => !applyCreditLines.some(l => l.bill_id === b.id)).map((b: any) => (
+                <button key={b.id} type="button" onClick={() => addBillToApply(b.id)} className="rounded-lg border border-blue-300 bg-blue-50 px-3 py-1 text-xs font-medium text-blue-700 hover:bg-blue-100">
+                  + {b.bill_number}
+                </button>
+              ))}
+            </div>
+          )}
+
+          <div className="overflow-x-auto rounded-2xl border border-border">
+            <Table>
+              <TableHeader>
+                <TableRow className="border-border hover:bg-transparent">
+                  <TableHead className="w-10 text-center text-muted-foreground" />
+                  <TableHead className="text-muted-foreground">Bill</TableHead>
+                  <TableHead className="text-muted-foreground">Date</TableHead>
+                  <TableHead className="text-right text-muted-foreground">Total</TableHead>
+                  <TableHead className="text-right text-muted-foreground">Balance</TableHead>
+                  <TableHead className="w-[140px] text-right text-muted-foreground">Apply Amount</TableHead>
+                  <TableHead className="w-10" />
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {applyCreditLines.length === 0 ? (
+                  <TableRow><TableCell colSpan={7} className="py-8 text-center text-sm text-muted-foreground">No bills selected. Click a bill above to add it.</TableCell></TableRow>
+                ) : (
+                  applyCreditLines.map((line, idx) => {
+                    const bill = (allBills as any[]).find((b: any) => b.id === line.bill_id)
+                    return (
+                      <TableRow key={idx} className="border-border">
+                        <TableCell className="text-center">
+                          <input type="checkbox" checked={line.selected} onChange={() => toggleApplyCredit(idx)} className="h-4 w-4 rounded border-border" />
+                        </TableCell>
+                        <TableCell className="text-sm font-medium text-foreground">{bill?.bill_number ?? line.bill_id}</TableCell>
+                        <TableCell className="text-sm text-muted-foreground">{bill ? formatDate(bill.bill_date ?? bill.issue_date) : "—"}</TableCell>
+                        <TableCell className="text-right text-sm text-foreground">{formatCurrency(bill?.total ?? 0)}</TableCell>
+                        <TableCell className="text-right text-sm text-foreground">{formatCurrency(bill ? parseFloat(bill.total) - parseFloat(bill.amount_paid || 0) : 0)}</TableCell>
+                        <TableCell>
+                          <Input type="number" min={0} step={0.01} value={line.apply_amount} onChange={e => updateApplyAmount(idx, Number(e.target.value))} disabled={!line.selected || !!line.app_id} className="h-9 rounded-lg text-right text-sm" />
+                        </TableCell>
+                        <TableCell>
+                          {line.app_id ? (
+                            <button
+                              type="button"
+                              title="Remove this credit application"
+                              disabled={removeSingleApp.isPending}
+                              onClick={() => {
+                                if (confirm("Remove this credit application? The bill balance will be restored.")) {
+                                  removeSingleApp.mutate(
+                                    { pcnId: id!, appId: line.app_id! },
+                                    { onSuccess: () => setApplyCreditLines(prev => prev.filter((_, i) => i !== idx)) }
+                                  )
+                                }
+                              }}
+                              className="text-muted-foreground hover:text-rose-500 disabled:opacity-40"
+                            >
+                              <X className="h-4 w-4" />
+                            </button>
+                          ) : (
+                            <button
+                              type="button"
+                              title="Remove row"
+                              onClick={() => setApplyCreditLines(prev => prev.filter((_, i) => i !== idx))}
+                              className="text-muted-foreground hover:text-rose-500"
+                            >
+                              <X className="h-4 w-4" />
+                            </button>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    )
+                  })
+                )}
+              </TableBody>
+            </Table>
+          </div>
+          <div className="mt-4 flex items-center justify-between border-t border-border pt-4">
+            <div className="text-sm text-muted-foreground">Credit Applied: <span className="font-semibold text-foreground">{formatCurrency(creditApplied)}</span></div>
+            <Button type="button" onClick={handleApplyOnly} disabled={applyCredit.isPending || applyCreditLines.filter(l => l.selected && l.apply_amount > 0 && !l.app_id).length === 0} className="h-9 rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-600 px-6 text-sm font-semibold text-white disabled:opacity-40 disabled:cursor-not-allowed">
+              {applyCredit.isPending ? "Saving..." : "Apply Credit"}
+            </Button>
+          </div>
+        </Card>
+      )}
 
       <div className="flex items-center justify-end">
         <div className="flex items-center gap-3">
