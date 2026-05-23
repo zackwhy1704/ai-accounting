@@ -86,6 +86,7 @@ export default function EditSaleReceiptPage() {
   const totalDiscount = lineItems.reduce((s, li) => s + lineDiscount(li), 0)
   const taxTotal = lineItems.reduce((s, li) => s + lineAfterDiscount(li) * (li.tax_rate / 100), 0)
   const total = subtotal - totalDiscount + taxTotal
+  const linesValid = lineItems.length > 0 && lineItems.every(li => li.tax_code_id)
 
   const handleSave = async () => {
     await updateSaleReceipt.mutateAsync({
@@ -276,7 +277,7 @@ export default function EditSaleReceiptPage() {
 
       <div className="flex justify-end gap-3">
         <Button type="button" variant="outline" onClick={() => navigate("/sales/payments")}>Cancel</Button>
-        <Button onClick={handleSave} disabled={updateSaleReceipt.isPending || !contactId || !lineItems.some((li: any) => li.description?.trim())} className="bg-gradient-to-r from-emerald-500 to-emerald-600 text-white hover:from-emerald-600 hover:to-emerald-700">
+        <Button onClick={handleSave} disabled={updateSaleReceipt.isPending || !contactId || !lineItems.some((li: any) => li.description?.trim()) || !linesValid} className="bg-gradient-to-r from-emerald-500 to-emerald-600 text-white hover:from-emerald-600 hover:to-emerald-700">
           {updateSaleReceipt.isPending ? "Saving..." : "Save Changes"}
         </Button>
       </div>

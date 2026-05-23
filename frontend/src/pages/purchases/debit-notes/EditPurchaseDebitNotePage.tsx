@@ -113,6 +113,7 @@ export default function EditPurchaseDebitNotePage() {
   const totalDiscount = lines.reduce((sum, l) => sum + lineDiscountAmount(l), 0)
   const totalTax = lines.reduce((sum, l) => sum + (l.quantity * l.unitPrice - lineDiscountAmount(l)) * (l.taxRate / 100), 0)
   const total = subTotal - totalDiscount + totalTax
+  const linesValid = lines.length > 0 && lines.every(l => l.accountId && l.taxCodeId)
 
   const handleSave = () => {
     updateDebitNote.mutate(
@@ -326,7 +327,7 @@ export default function EditPurchaseDebitNotePage() {
           <Button
             type="button"
             onClick={handleSave}
-            disabled={updateDebitNote.isPending || !vendorId || !lines.some(l => l.description?.trim())}
+            disabled={updateDebitNote.isPending || !vendorId || !lines.some(l => l.description?.trim()) || !linesValid}
             className="h-9 rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-600 px-6 text-xs font-semibold text-white shadow-sm hover:opacity-95"
           >
             {updateDebitNote.isPending ? "Saving..." : "Save Changes"}

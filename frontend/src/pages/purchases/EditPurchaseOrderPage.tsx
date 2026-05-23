@@ -114,6 +114,7 @@ export default function EditPurchaseOrderPage() {
     return sum + (lineTotal - lineDiscountAmount(item)) * (item.tax_rate / 100)
   }, 0)
   const total = subTotal - totalDiscount + totalTax
+  const linesValid = lineItems.length > 0 && lineItems.every(li => li.account_id && li.tax_code_id)
 
   const handleSave = async () => {
     if (!contactId) { toast("Please select a supplier", "warning"); return }
@@ -338,7 +339,7 @@ export default function EditPurchaseOrderPage() {
 
         <div className="mt-6 flex items-center justify-end gap-2">
           <Button type="button" variant="secondary" className="h-9 rounded-xl px-3 text-xs font-semibold" onClick={() => navigate("/purchases/purchase-orders")}>Cancel</Button>
-          <Button type="button" onClick={handleSave} disabled={updatePO.isPending || !contactId || !issueDate || !lineItems.some(li => li.description.trim())} className="h-9 rounded-xl bg-gradient-to-r from-[#7C9DFF] to-[#4D63FF] px-3 text-xs font-semibold text-white hover:opacity-95">
+          <Button type="button" onClick={handleSave} disabled={updatePO.isPending || !contactId || !issueDate || !lineItems.some(li => li.description.trim()) || !linesValid} className="h-9 rounded-xl bg-gradient-to-r from-[#7C9DFF] to-[#4D63FF] px-3 text-xs font-semibold text-white hover:opacity-95">
             {updatePO.isPending ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Saving...</> : "Save Changes"}
           </Button>
         </div>

@@ -102,7 +102,7 @@ export default function NewPurchaseDebitNotePage() {
   const totalTax = lines.reduce((sum, l) => sum + (l.quantity * l.unitPrice - lineDiscountAmount(l)) * (l.taxRate / 100), 0)
   const total = subTotal - totalDiscount + totalTax
 
-  const isFormValid = !!vendorId && lines.some(l => l.description.trim() !== "")
+  const isFormValid = !!vendorId && lines.some(l => l.description.trim() !== "") && lines.every(l => l.accountId && l.taxCodeId)
 
   const handleSave = () => {
     if (!isFormValid) return

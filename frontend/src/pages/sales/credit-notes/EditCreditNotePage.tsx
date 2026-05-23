@@ -172,6 +172,8 @@ export default function EditCreditNotePage() {
   }, 0)
   const total = subTotal - totalDiscount + totalTax
 
+  const linesValid = lineItems.length > 0 && lineItems.every(li => li.account_id && li.tax_code_id)
+
   const handleSave = async () => {
     if (!contactId) { toast("Please select a customer", "warning"); return }
     if (!lineItems.some(li => li.description.trim())) { toast("Please add at least one line item", "warning"); return }
@@ -537,7 +539,7 @@ export default function EditCreditNotePage() {
 
       <div className="flex items-center justify-end gap-3">
         <Button type="button" variant="outline" onClick={() => navigate("/sales/credit-notes")}>Cancel</Button>
-        <Button type="button" onClick={handleSave} disabled={updateCreditNote.isPending || !contactId || !lineItems.some(li => li.description.trim())} className="h-10 rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-600 px-6 text-sm font-semibold text-white shadow-sm hover:opacity-95">
+        <Button type="button" onClick={handleSave} disabled={updateCreditNote.isPending || !contactId || !lineItems.some(li => li.description.trim()) || !linesValid} className="h-10 rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-600 px-6 text-sm font-semibold text-white shadow-sm hover:opacity-95">
           {updateCreditNote.isPending ? "Saving..." : "Save Changes"}
         </Button>
       </div>

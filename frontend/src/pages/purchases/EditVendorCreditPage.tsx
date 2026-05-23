@@ -174,7 +174,7 @@ export default function EditVendorCreditPage() {
   const total = subTotal - totalDiscount + totalTax
 
   const isReadOnly = data?.status === "void" || data?.status === "applied"
-  const isFormValid = !!vendorId && lines.some(l => l.description.trim() !== "")
+  const isFormValid = !!vendorId && lines.some(l => l.description.trim() !== "") && lines.every(l => l.accountId && l.taxCodeId)
 
   const handleSave = () => {
     if (!isFormValid) { toast("Please select a supplier and add at least one line item", "warning"); return }

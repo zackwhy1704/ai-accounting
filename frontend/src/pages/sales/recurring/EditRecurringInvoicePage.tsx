@@ -90,6 +90,7 @@ export default function EditRecurringInvoicePage() {
   const subtotal = lineItems.reduce((s, li) => s + li.quantity * li.unit_price, 0)
   const taxTotal = lineItems.reduce((s, li) => s + li.quantity * li.unit_price * (li.tax_rate / 100), 0)
   const total = subtotal + taxTotal
+  const linesValid = lineItems.length > 0 && lineItems.every(li => li.account_id && li.tax_code_id)
 
   const handleSave = async () => {
     try {
@@ -296,7 +297,7 @@ export default function EditRecurringInvoicePage() {
 
       <div className="flex justify-end gap-3">
         <Button type="button" variant="outline" onClick={() => navigate("/sales/recurring")}>Cancel</Button>
-        <Button onClick={handleSave} disabled={updateRecurringInvoice.isPending || !contactId || !lineItems.some((li: any) => li.description?.trim())} className="bg-gradient-to-r from-emerald-500 to-emerald-600 text-white hover:from-emerald-600 hover:to-emerald-700">
+        <Button onClick={handleSave} disabled={updateRecurringInvoice.isPending || !contactId || !lineItems.some((li: any) => li.description?.trim()) || !linesValid} className="bg-gradient-to-r from-emerald-500 to-emerald-600 text-white hover:from-emerald-600 hover:to-emerald-700">
           {updateRecurringInvoice.isPending ? "Saving..." : "Save Changes"}
         </Button>
       </div>

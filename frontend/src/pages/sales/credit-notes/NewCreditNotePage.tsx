@@ -135,6 +135,8 @@ export default function NewCreditNotePage() {
 
   const creditApplied = applyCreditLines.reduce((sum, line) => sum + (line.selected ? line.apply_amount : 0), 0)
 
+  const linesValid = lineItems.length > 0 && lineItems.every(li => li.account_id && li.tax_code_id)
+
   const handleSave = async () => {
     if (!contactId) { toast("Please select a customer", "warning"); return }
     if (!lineItems.some(li => li.description.trim())) { toast("Please add at least one line item", "warning"); return }
@@ -526,7 +528,7 @@ export default function NewCreditNotePage() {
         <Button
           type="button"
           onClick={handleSave}
-          disabled={createCreditNote.isPending || !contactId || !lineItems.some(li => li.description.trim())}
+          disabled={createCreditNote.isPending || !contactId || !lineItems.some(li => li.description.trim()) || !linesValid}
           className="h-10 rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-600 px-6 text-sm font-semibold text-white shadow-sm hover:opacity-95 disabled:opacity-40 disabled:cursor-not-allowed"
         >
           {createCreditNote.isPending ? "Saving..." : "Save"}
