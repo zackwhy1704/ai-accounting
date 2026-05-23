@@ -1,7 +1,7 @@
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect, useRef, useMemo } from "react"
 import { useNavigate, useSearchParams } from "react-router-dom"
 import { Loader2 } from "lucide-react"
-import { useContacts, useBankAccounts, useCreatePurchaseRefund, useBills } from "../../lib/hooks"
+import { useContacts, useBankAccounts, useCreatePurchaseRefund, useBills, usePurchaseCreditNotes } from "../../lib/hooks"
 import { getContactPrefs, saveContactPref } from "../../lib/contact-prefs"
 import { useToast } from "../../components/ui/toast"
 import { Card } from "../../components/ui/card"
@@ -17,14 +17,16 @@ export default function NewPurchaseRefundPage() {
   const { data: contacts = [] } = useContacts()
   const { data: bankAccounts = [] } = useBankAccounts()
   const { data: bills = [] } = useBills()
+  const { data: pcns = [] } = usePurchaseCreditNotes()
   const createRefund = useCreatePurchaseRefund()
 
-  const pcnId = searchParams.get("pcn_id") ?? ""
+  const initialPcnId = searchParams.get("pcn_id") ?? ""
   const initialContactId = searchParams.get("contact_id") ?? ""
   const initialAmount = searchParams.get("amount") ?? ""
 
   const [refundNo, setRefundNo] = useState(() => `PRF-${Date.now().toString().slice(-6)}`)
   const [contactId, setContactId] = useState(initialContactId)
+  const [pcnId, setPcnId] = useState(initialPcnId)
   const [billId, setBillId] = useState("")
   const [paymentDate, setPaymentDate] = useState(() => new Date().toISOString().slice(0, 10))
   const [amount, setAmount] = useState(initialAmount)
@@ -34,32 +36,52 @@ export default function NewPurchaseRefundPage() {
   const [referenceNo, setReferenceNo] = useState("")
   const [notes, setNotes] = useState("")
 
-  // When a bill is selected, prefill amount with remaining balance
+  // When a bill or PCN is selected, prefill amount with remaining balance
   const amountPrefilled = useRef(false)
   useEffect(() => {
-    if (!billId || amountPrefilled.current) return
-    const bill = (bills as any[]).find((b: any) => String(b.id) === billId)
-    if (bill) {
-      const balance = parseFloat(bill.total) - parseFloat(bill.amount_paid || 0)
-      if (balance > 0) setAmount(balance.toFixed(2))
-      amountPrefilled.current = true
+    if (amountPrefilled.current) return
+    if (pcnId) {
+      const pcn = (pcns as any[]).find((p: any) => String(p.id) === pcnId)
+      if (pcn) {
+        const balance = parseFloat(pcn.total) - parseFloat(pcn.credit_applied || 0)
+        if (balance > 0) { setAmount(balance.toFixed(2)); amountPrefilled.current = true }
+      }
+    } else if (billId) {
+      const bill = (bills as any[]).find((b: any) => String(b.id) === billId)
+      if (bill) {
+        const balance = parseFloat(bill.total) - parseFloat(bill.amount_paid || 0)
+        if (balance > 0) { setAmount(balance.toFixed(2)); amountPrefilled.current = true }
+      }
     }
-  }, [billId, bills])
+  }, [billId, pcnId, bills, pcns])
 
   const filteredBills = contactId
     ? (bills as any[]).filter((b: any) => String(b.contact_id) === contactId && b.status !== "void" && b.status !== "draft")
     : (bills as any[]).filter((b: any) => b.status !== "void" && b.status !== "draft")
 
+  const filteredPcns = useMemo(() => {
+    const all = (pcns as any[]).filter((p: any) => p.status !== "void" && p.status !== "applied")
+    return contactId ? all.filter((p: any) => String(p.contact_id) === contactId) : all
+  }, [pcns, contactId])
+
   const handleContactChange = (v: string) => {
     if (v === "__add_new__") { navigate("/contacts/new"); return }
     setContactId(v)
     setBillId("")
+    setPcnId("")
     amountPrefilled.current = false
     if (v) { const prefs = getContactPrefs(v); if (prefs.currency) setCurrency(prefs.currency) }
   }
 
   const handleBillChange = (v: string) => {
     setBillId(v === "__none__" ? "" : v)
+    setPcnId("")
+    amountPrefilled.current = false
+  }
+
+  const handlePcnChange = (v: string) => {
+    setPcnId(v === "__none__" ? "" : v)
+    setBillId("")
     amountPrefilled.current = false
   }
 
@@ -71,6 +93,7 @@ export default function NewPurchaseRefundPage() {
         contact_id: contactId || null,
         bill_id: billId || null,
         pcn_id: pcnId || null,
+
         refund_no: refundNo || undefined,
         refund_date: new Date(paymentDate).toISOString(),
         amount: Number(amount),
@@ -112,12 +135,25 @@ export default function NewPurchaseRefundPage() {
               footerAction={{ label: "+ Add New Supplier", onClick: () => navigate("/contacts/new") }}
             />
           </div>
-          {pcnId && (
-            <div>
-              <label className="mb-1.5 block text-xs font-medium text-muted-foreground">From Credit Note</label>
-              <div className="flex h-10 items-center rounded-xl border border-border bg-muted px-3 text-sm text-muted-foreground">PCN linked — refund amount pre-filled</div>
-            </div>
-          )}
+          <div>
+            <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Linked Credit Note</label>
+            <Select value={pcnId || "__none__"} onValueChange={handlePcnChange}>
+              <SelectTrigger className="h-10 rounded-xl">
+                <SelectValue placeholder="Select credit note (optional)" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__none__">No linked credit note</SelectItem>
+                {filteredPcns.map((p: any) => {
+                  const balance = (parseFloat(p.total) - parseFloat(p.credit_applied || 0)).toFixed(2)
+                  return (
+                    <SelectItem key={p.id} value={String(p.id)}>
+                      {p.pcn_number} — balance {balance}
+                    </SelectItem>
+                  )
+                })}
+              </SelectContent>
+            </Select>
+          </div>
           <div>
             <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Linked Bill</label>
             <Select value={billId || "__none__"} onValueChange={handleBillChange}>

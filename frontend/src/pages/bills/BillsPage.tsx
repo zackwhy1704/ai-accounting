@@ -166,12 +166,11 @@ export default function BillsPage() {
                       </TableRow></TableHeader>
                       <TableBody>
                         {rows.map(bill => {
-                          const isPaid = bill.status === "paid"
                           const isVoid = bill.status === "void"
                           const isDraft = bill.status === "draft"
                           const isReceived = bill.status === "received"
-                          const isApproved = bill.status === "outstanding" || bill.status === "approved"
-                          const canPay = isApproved || bill.status === "overdue"
+                          const balance = (bill.total ?? 0) - (bill.amount_paid ?? 0)
+                          const canPay = !isDraft && !isVoid && balance > 0
                           return (
                             <TableRow key={bill.id} className="border-border hover:bg-muted/50">
                               <TableCell className="font-medium text-foreground">{bill.bill_number}</TableCell>
@@ -182,7 +181,7 @@ export default function BillsPage() {
                               <TableCell><Badge variant="outline" className={cn("rounded-lg px-2 py-0.5 text-[11px] font-semibold", statusColors[bill.status] ?? "")}>{statusLabel(bill.status)}</Badge></TableCell>
                               <TableCell className="text-right">
                                 <RowActionsMenu actions={[
-                                  { label: "Edit", icon: <Pencil className="h-3.5 w-3.5" />, onClick: () => navigate(`/purchases/bills/${bill.id}/edit`), disabled: isVoid || isPaid },
+                                  { label: "Edit", icon: <Pencil className="h-3.5 w-3.5" />, onClick: () => navigate(`/purchases/bills/${bill.id}/edit`), disabled: isVoid },
                                   { label: "View", icon: <FileText className="h-3.5 w-3.5" />, onClick: () => setViewItem(bill) },
                                   { label: "Mark as Received", icon: <PackageCheck className="h-3.5 w-3.5" />, onClick: () => updateBillStatus.mutate({ id: bill.id, status: "received" }), dividerBefore: true, disabled: !isDraft },
                                   { label: "Approve Bill", icon: <PackageCheck className="h-3.5 w-3.5" />, onClick: () => updateBillStatus.mutate({ id: bill.id, status: "outstanding" }), disabled: !isReceived },
@@ -191,8 +190,8 @@ export default function BillsPage() {
                                   { label: "Convert to GRN", icon: <ArrowRightLeft className="h-3.5 w-3.5" />, onClick: () => navigate(`/purchases/goods-received-notes/new?from_bill=${bill.id}`), disabled: isDraft || isVoid },
                                   { label: t("invoices.duplicate"), icon: <Copy className="h-3.5 w-3.5" />, onClick: () => navigate(`/purchases/bills/new?copy=${bill.id}`) },
                                   { label: t("invoices.printPdf"), icon: <Printer className="h-3.5 w-3.5" />, onClick: () => window.print() },
-                                  { label: "Void Bill", icon: <XCircle className="h-3.5 w-3.5" />, onClick: () => { if ((bill.amount_paid ?? 0) > 0) { alert("This bill has payments applied. Please void the payments first before voiding the bill."); return } if (confirm("Void this bill? This will reverse any GL entries.")) updateBillStatus.mutate({ id: bill.id, status: "void" }, { onSuccess: () => toast("Bill voided", "success"), onError: (e: any) => toast(e?.response?.data?.detail ?? "Failed to void bill", "warning") }) }, danger: true, dividerBefore: true, disabled: isVoid || isPaid },
-                                  { label: "Delete", icon: <Trash2 className="h-3.5 w-3.5" />, onClick: () => { if ((bill.amount_paid ?? 0) > 0) { alert("This bill has payments applied. Please void the payments first before deleting."); return } if (!isVoid && !isDraft) { alert("Please void this bill first before deleting."); return } if (confirm(`Delete bill ${bill.bill_number}? This cannot be undone.`)) deleteBill.mutate(bill.id, { onSuccess: () => toast("Bill deleted", "success"), onError: (e: any) => toast(e?.response?.data?.detail ?? "Failed to delete bill", "warning") }) }, danger: true, disabled: isPaid },
+                                  { label: "Void Bill", icon: <XCircle className="h-3.5 w-3.5" />, onClick: () => { if ((bill.amount_paid ?? 0) > 0) { alert("This bill has payments applied. Please void the payments first before voiding the bill."); return } if (confirm("Void this bill? This will reverse any GL entries.")) updateBillStatus.mutate({ id: bill.id, status: "void" }, { onSuccess: () => toast("Bill voided", "success"), onError: (e: any) => toast(e?.response?.data?.detail ?? "Failed to void bill", "warning") }) }, danger: true, dividerBefore: true, disabled: isVoid },
+                                  { label: "Delete", icon: <Trash2 className="h-3.5 w-3.5" />, onClick: () => { if ((bill.amount_paid ?? 0) > 0) { alert("This bill has payments applied. Please void the payments first before deleting."); return } if (!isVoid && !isDraft) { alert("Please void this bill first before deleting."); return } if (confirm(`Delete bill ${bill.bill_number}? This cannot be undone.`)) deleteBill.mutate(bill.id, { onSuccess: () => toast("Bill deleted", "success"), onError: (e: any) => toast(e?.response?.data?.detail ?? "Failed to delete bill", "warning") }) }, danger: true },
                                 ]} />
                               </TableCell>
                             </TableRow>

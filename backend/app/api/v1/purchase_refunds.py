@@ -9,7 +9,7 @@ from pydantic import BaseModel
 
 from app.core.database import get_db
 from app.core.security import get_current_user
-from app.models.models import PurchaseRefund, Bill
+from app.models.models import PurchaseRefund, Bill, PurchaseCreditNote
 from .gl_helpers import post_gl, revert_gl
 
 router = APIRouter(prefix="/purchase-refunds", tags=["purchase-refunds"])
@@ -88,6 +88,26 @@ async def _restore_bill(db: AsyncSession, bill_id: UUID, amount: float):
             bill.status = "paid"
 
 
+async def _deduct_pcn(db: AsyncSession, pcn_id: UUID, amount: float):
+    """Increase PCN credit_applied by amount (tracking how much has been refunded)."""
+    result = await db.execute(select(PurchaseCreditNote).where(PurchaseCreditNote.id == pcn_id))
+    pcn = result.scalar_one_or_none()
+    if pcn:
+        pcn.credit_applied = float(pcn.credit_applied or 0) + amount
+        if float(pcn.credit_applied) >= float(pcn.total or 0):
+            pcn.status = "applied"
+
+
+async def _restore_pcn(db: AsyncSession, pcn_id: UUID, amount: float):
+    """Restore PCN balance by reducing credit_applied."""
+    result = await db.execute(select(PurchaseCreditNote).where(PurchaseCreditNote.id == pcn_id))
+    pcn = result.scalar_one_or_none()
+    if pcn:
+        pcn.credit_applied = max(0.0, float(pcn.credit_applied or 0) - amount)
+        if float(pcn.credit_applied) < float(pcn.total or 0) and pcn.status == "applied":
+            pcn.status = "issued"
+
+
 @router.get("", response_model=list[PurchaseRefundResponse])
 async def list_purchase_refunds(
     contact_id: Optional[UUID] = Query(None),
@@ -138,6 +158,10 @@ async def create_purchase_refund(
     # Deduct refund amount from linked bill's amount_paid
     if payload.bill_id:
         await _deduct_bill(db, payload.bill_id, float(payload.amount))
+
+    # Deduct refund amount from linked PCN balance
+    if payload.pcn_id:
+        await _deduct_pcn(db, payload.pcn_id, float(payload.amount))
 
     # GL: Dr Cash/Bank (1000) / Cr AP (2000)
     await post_gl(
@@ -194,18 +218,24 @@ async def update_purchase_refund(
         if existing:
             raise HTTPException(status_code=400, detail="Refund number already in use")
 
-    # If bill_id or amount changed, reverse old bill effect and apply new one
+    # If bill_id/pcn_id/amount changed, reverse old effects and apply new ones
     new_bill_id = update_data.get("bill_id", refund.bill_id)
+    new_pcn_id = update_data.get("pcn_id", refund.pcn_id)
     new_amount = float(update_data.get("amount", refund.amount) or 0)
     old_bill_id = refund.bill_id
+    old_pcn_id = refund.pcn_id
     old_amount = float(refund.amount or 0)
 
-    bill_changed = "bill_id" in update_data or "amount" in update_data
-    if bill_changed and refund.status != "void":
+    link_changed = "bill_id" in update_data or "pcn_id" in update_data or "amount" in update_data
+    if link_changed and refund.status != "void":
         if old_bill_id:
             await _restore_bill(db, old_bill_id, old_amount)
         if new_bill_id:
             await _deduct_bill(db, new_bill_id, new_amount)
+        if old_pcn_id:
+            await _restore_pcn(db, old_pcn_id, old_amount)
+        if new_pcn_id:
+            await _deduct_pcn(db, new_pcn_id, new_amount)
 
     for key, val in update_data.items():
         setattr(refund, key, val)
@@ -257,6 +287,8 @@ async def update_purchase_refund_status(
     if status == "void" and refund.status != "void":
         if refund.bill_id:
             await _restore_bill(db, refund.bill_id, float(refund.amount or 0))
+        if refund.pcn_id:
+            await _restore_pcn(db, refund.pcn_id, float(refund.amount or 0))
         await revert_gl(
             db, current_user["org_id"], refund_id, "purchase_refund",
             refund.refund_date,

@@ -82,9 +82,28 @@ export default function NewBillPage() {
   useEffect(() => {
     if (!sourcePO || populated.current) return
     populated.current = true
-    setContactId(String(sourcePO.contact_id ?? ""))
+    const poContactId = String(sourcePO.contact_id ?? "")
+    setContactId(poContactId)
     setCurrency(sourcePO.currency ?? "MYR")
     setNotes(sourcePO.notes ?? "")
+    // Auto-fill billing/shipping address from contact
+    const contact = contacts.find((c: any) => c.id === poContactId) as any
+    if (contact) {
+      setBillingLine1(contact.billing_address_line1 ?? "")
+      setBillingLine2(contact.billing_address_line2 ?? "")
+      setBillingCity(contact.billing_city ?? "")
+      setBillingState(contact.billing_state ?? "")
+      setBillingPostcode(contact.billing_postcode ?? "")
+      setBillingCountry(contact.billing_country ?? "")
+      setShippingLine1(contact.shipping_address_line1 ?? "")
+      setShippingLine2(contact.shipping_address_line2 ?? "")
+      setShippingCity(contact.shipping_city ?? "")
+      setShippingState(contact.shipping_state ?? "")
+      setShippingPostcode(contact.shipping_postcode ?? "")
+      setShippingCountry(contact.shipping_country ?? "")
+    }
+    const prefs = getContactPrefs(poContactId)
+    if (prefs.currency) setCurrency(prefs.currency)
     if (sourcePO.line_items?.length) {
       setLineItems(sourcePO.line_items.map((li: any) => ({
         line_type: "goods" as const,

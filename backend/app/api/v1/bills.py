@@ -8,7 +8,7 @@ from typing import Optional
 from pydantic import BaseModel
 from app.core.database import get_db
 from app.core.security import get_current_user
-from app.models.models import Bill, BillLineItem, PurchasePayment, Transaction, JournalEntry, Account
+from app.models.models import Bill, BillLineItem, PurchasePayment, PurchaseCreditApplication, PurchaseCreditNote, Transaction, JournalEntry, Account
 from app.schemas.schemas import BillCreate, BillUpdate, BillResponse
 from .gl_helpers import post_gl, revert_gl
 
@@ -193,9 +193,19 @@ async def update_bill(
             subtotal += after_disc
             tax_amount += after_disc * (item.tax_rate / 100)
 
+        new_total = subtotal + tax_amount
         bill.subtotal = subtotal
         bill.tax_amount = tax_amount
-        bill.total = subtotal + tax_amount
+        bill.total = new_total
+
+        # Recalculate payment status when total changes
+        amount_paid = float(bill.amount_paid or 0)
+        if amount_paid >= new_total and amount_paid > 0:
+            bill.status = "paid"
+        elif amount_paid > 0:
+            bill.status = "partially paid"
+        elif bill.status in ("paid", "partially paid"):
+            bill.status = "outstanding"
 
         for i, item in enumerate(data.line_items):
             after_disc = item.quantity * item.unit_price - _disc_upd(item)
@@ -343,6 +353,23 @@ async def bill_activity(
             "status": pmt.status,
         })
 
+    # Credit note applications
+    cn_result = await db.execute(
+        select(PurchaseCreditApplication, PurchaseCreditNote)
+        .join(PurchaseCreditNote, PurchaseCreditNote.id == PurchaseCreditApplication.credit_note_id)
+        .where(PurchaseCreditApplication.bill_id == bill_id)
+    )
+    for app, pcn in cn_result.all():
+        events.append({
+            "ts": app.applied_at.isoformat() if app.applied_at else None,
+            "type": "credit_note",
+            "ref": pcn.pcn_number,
+            "ref_id": str(pcn.id),
+            "delta": -float(app.amount or 0),
+            "note": f"Credit note applied",
+            "status": pcn.status,
+        })
+
     txn_result = await db.execute(
         select(Transaction)
         .where(Transaction.organization_id == org_id, Transaction.source_id == bill_id)
@@ -410,12 +437,13 @@ async def pay_bill(
     bill = result.scalar_one_or_none()
     if not bill:
         raise HTTPException(status_code=404, detail="Bill not found")
-    if bill.status in ("draft", "void", "paid"):
+    if bill.status in ("draft", "void"):
         raise HTTPException(status_code=400, detail=f"Cannot pay a bill with status '{bill.status}'")
 
-    apply_amount = min(payload.amount, float(bill.total) - float(bill.amount_paid))
-    if apply_amount <= 0:
+    remaining = float(bill.total) - float(bill.amount_paid)
+    if remaining <= 0:
         raise HTTPException(status_code=400, detail="Bill is already fully paid")
+    apply_amount = min(payload.amount, remaining)
 
     # Sequential payment number
     from .sales import next_sequence_number
