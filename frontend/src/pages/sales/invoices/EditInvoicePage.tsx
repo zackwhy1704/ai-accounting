@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react"
 import { useNavigate, useParams } from "react-router-dom"
 import { Plus, Trash2, Loader2 } from "lucide-react"
-import { useInvoice, useUpdateInvoice, useUpdateInvoiceStatus, useContacts, useAccounts, useTaxRates, useInvoiceActivity, useCreateAdjustment, useDeleteAdjustment, type InvoiceActivityEvent, type AdjustmentLine } from "../../../lib/hooks"
+import { useInvoice, useUpdateInvoice, useContacts, useAccounts, useTaxRates, useInvoiceActivity, useCreateAdjustment, useDeleteAdjustment, type InvoiceActivityEvent, type AdjustmentLine } from "../../../lib/hooks"
 import { useToast } from "../../../components/ui/toast"
 import { Card } from "../../../components/ui/card"
 import { Button } from "../../../components/ui/button"
@@ -36,7 +36,6 @@ export default function EditInvoicePage() {
   const { data: accounts = [] } = useAccounts()
   const { data: taxRates = [] } = useTaxRates()
   const updateInvoice = useUpdateInvoice()
-  const updateStatus = useUpdateInvoiceStatus()
   const { toast } = useToast()
   const { data: activity } = useInvoiceActivity(id)
   const populated = useRef(false)
@@ -59,18 +58,8 @@ export default function EditInvoicePage() {
   ])
   const [lineItemErrors, setLineItemErrors] = useState<Record<number, { account?: boolean; tax?: boolean }>>({})
 
-  const validateForFinalization = () => {
-    const errors: Record<number, { account?: boolean; tax?: boolean }> = {}
-    lineItems.forEach((li, idx) => {
-      if (!li.description.trim()) return
-      const err: { account?: boolean; tax?: boolean } = {}
-      if (!li.account_id) err.account = true
-      if (!li.tax_code_id) err.tax = true
-      if (Object.keys(err).length > 0) errors[idx] = err
-    })
-    setLineItemErrors(errors)
-    return Object.keys(errors).length === 0
-  }
+  const linesValid = lineItems.length > 0 && lineItems.every(li => li.account_id && li.tax_code_id)
+
 
   useEffect(() => {
     if (!invoice || populated.current) return
@@ -198,20 +187,7 @@ export default function EditInvoicePage() {
     }
   }
 
-  const handleSaveAndSend = async () => {
-    if (!validateForFinalization()) {
-      toast("Please fill in Account Code and Tax Code for all line items before finalizing.", "warning")
-      return
-    }
-    try {
-      await updateInvoice.mutateAsync(buildPayload())
-      await updateStatus.mutateAsync({ id: id!, status: "sent" })
-      toast("Invoice saved and marked as sent", "success")
-      navigate("/sales/invoices")
-    } catch (e: any) {
-      toast(e?.response?.data?.detail ?? "Failed to finalize invoice", "warning")
-    }
-  }
+
 
   if (isLoading) {
     return (
@@ -528,14 +504,9 @@ export default function EditInvoicePage() {
       {/* Save/Cancel Footer */}
       <div className="flex items-center justify-end gap-3">
         <Button type="button" variant="outline" onClick={() => navigate("/sales/invoices")}>Cancel</Button>
-        <Button type="button" onClick={handleSave} disabled={updateInvoice.isPending || !contactId || !lineItems.some(li => li.description.trim())} className="h-10 rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-600 px-6 text-sm font-semibold text-white shadow-sm hover:opacity-95">
+        <Button type="button" onClick={handleSave} disabled={updateInvoice.isPending || !contactId || !lineItems.some(li => li.description.trim()) || !linesValid} className="h-10 rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-600 px-6 text-sm font-semibold text-white shadow-sm hover:opacity-95">
           {updateInvoice.isPending ? "Saving..." : "Save Changes"}
         </Button>
-        {invoice?.status === "draft" && (
-          <Button type="button" onClick={handleSaveAndSend} disabled={updateInvoice.isPending || updateStatus.isPending || !contactId} className="h-10 rounded-xl bg-gradient-to-r from-[#7C9DFF] to-[#4D63FF] px-6 text-sm font-semibold text-white shadow-sm hover:opacity-95">
-            {(updateInvoice.isPending || updateStatus.isPending) ? "Sending..." : "Save & Send"}
-          </Button>
-        )}
       </div>
     </div>
   )
