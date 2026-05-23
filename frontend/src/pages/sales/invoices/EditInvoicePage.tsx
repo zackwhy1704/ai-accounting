@@ -2,7 +2,6 @@ import { useState, useEffect, useRef } from "react"
 import { useNavigate, useParams } from "react-router-dom"
 import { Plus, Trash2, Loader2 } from "lucide-react"
 import { useInvoice, useUpdateInvoice, useContacts, useAccounts, useTaxRates, useInvoiceActivity, useCreateAdjustment, useDeleteAdjustment, type InvoiceActivityEvent, type AdjustmentLine } from "../../../lib/hooks"
-import { useToast } from "../../../components/ui/toast"
 import { Card } from "../../../components/ui/card"
 import { Button } from "../../../components/ui/button"
 import { Input } from "../../../components/ui/input"
@@ -36,7 +35,6 @@ export default function EditInvoicePage() {
   const { data: accounts = [] } = useAccounts()
   const { data: taxRates = [] } = useTaxRates()
   const updateInvoice = useUpdateInvoice()
-  const { toast } = useToast()
   const { data: activity } = useInvoiceActivity(id)
   const populated = useRef(false)
 
