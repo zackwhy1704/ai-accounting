@@ -139,6 +139,7 @@ export default function EditQuotationPage() {
     return sum + (afterLineDiscount * item.tax_rate) / 100
   }, 0)
   const total = subTotal - totalDiscount + totalTax
+  const linesValid = lineItems.length > 0 && lineItems.every(li => li.account_id)
 
   const handleSave = async () => {
     try {
@@ -429,7 +430,7 @@ export default function EditQuotationPage() {
         <Button type="button" variant="outline" onClick={() => navigate("/sales/quotations")} className="h-10 rounded-xl px-4 text-sm">
           Cancel
         </Button>
-        <Button type="button" onClick={handleSave} disabled={updateQuotation.isPending} className="h-10 rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-600 px-6 text-sm font-semibold text-white shadow-sm hover:opacity-95">
+        <Button type="button" onClick={handleSave} disabled={updateQuotation.isPending || !linesValid} className="h-10 rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-600 px-6 text-sm font-semibold text-white shadow-sm hover:opacity-95">
           {updateQuotation.isPending ? "Saving..." : "Save Changes"}
         </Button>
       </div>

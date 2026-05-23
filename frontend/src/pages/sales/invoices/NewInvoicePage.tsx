@@ -117,6 +117,8 @@ export default function NewInvoicePage() {
   const appliedToDate = 0
   const balanceDue = total - appliedToDate
 
+  const linesValid = lineItems.length > 0 && lineItems.every(li => li.account_id)
+
   const handleSave = async () => {
     try {
       await createInvoice.mutateAsync({
@@ -518,7 +520,7 @@ export default function NewInvoicePage() {
         <Button
           type="button"
           onClick={handleSave}
-          disabled={createInvoice.isPending || !contactId || !lineItems.some(li => li.description.trim())}
+          disabled={createInvoice.isPending || !contactId || !lineItems.some(li => li.description.trim()) || !linesValid}
           className="h-10 rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-600 px-6 text-sm font-semibold text-white shadow-sm hover:opacity-95"
         >
           {createInvoice.isPending ? "Saving..." : t("form.save") || "Save"}

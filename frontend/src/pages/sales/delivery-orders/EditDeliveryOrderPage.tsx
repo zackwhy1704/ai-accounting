@@ -121,7 +121,6 @@ export default function EditDeliveryOrderPage() {
   const totalDiscount = lineItems.reduce((sum, item) => sum + lineDiscountAmount(item), 0)
   const totalTax = lineItems.reduce((s, l) => s + (l.quantity * l.unit_price - lineDiscountAmount(l)) * (l.tax_rate / 100), 0)
   const total = subTotal - totalDiscount + totalTax
-  const linesValid = lineItems.length > 0 && lineItems.every(li => li.tax_code_id)
 
   const handleSave = async () => {
     try {
@@ -354,7 +353,7 @@ export default function EditDeliveryOrderPage() {
       {/* Save/Cancel Footer */}
       <div className="flex items-center justify-end gap-3">
         <Button type="button" variant="outline" onClick={() => navigate("/sales/delivery-orders")}>Cancel</Button>
-        <Button type="button" onClick={handleSave} disabled={updateDeliveryOrder.isPending || !contactId || !deliveryDate || !lineItems.some(li => li.description.trim()) || !linesValid} className="h-10 rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-600 px-6 text-sm font-semibold text-white shadow-sm hover:opacity-95">
+        <Button type="button" onClick={handleSave} disabled={updateDeliveryOrder.isPending || !contactId || !deliveryDate || !lineItems.some(li => li.description.trim())} className="h-10 rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-600 px-6 text-sm font-semibold text-white shadow-sm hover:opacity-95">
           {updateDeliveryOrder.isPending ? "Saving..." : "Save Changes"}
         </Button>
       </div>

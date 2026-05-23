@@ -56,7 +56,7 @@ export default function EditInvoicePage() {
   ])
   const [lineItemErrors, setLineItemErrors] = useState<Record<number, { account?: boolean; tax?: boolean }>>({})
 
-  const linesValid = lineItems.length > 0 && lineItems.every(li => li.account_id && li.tax_code_id)
+  const linesValid = lineItems.length > 0 && lineItems.every(li => li.account_id)
 
 
   useEffect(() => {

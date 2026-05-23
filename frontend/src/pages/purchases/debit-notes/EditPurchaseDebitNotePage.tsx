@@ -113,7 +113,7 @@ export default function EditPurchaseDebitNotePage() {
   const totalDiscount = lines.reduce((sum, l) => sum + lineDiscountAmount(l), 0)
   const totalTax = lines.reduce((sum, l) => sum + (l.quantity * l.unitPrice - lineDiscountAmount(l)) * (l.taxRate / 100), 0)
   const total = subTotal - totalDiscount + totalTax
-  const linesValid = lines.length > 0 && lines.every(l => l.accountId && l.taxCodeId)
+  const linesValid = lines.length > 0 && lines.every(l => l.accountId)
 
   const handleSave = () => {
     updateDebitNote.mutate(

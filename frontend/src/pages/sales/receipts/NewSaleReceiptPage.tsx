@@ -61,7 +61,6 @@ export default function NewSaleReceiptPage() {
   const totalDiscount = lineItems.reduce((s, li) => s + lineDiscount(li), 0)
   const taxTotal = lineItems.reduce((s, li) => s + lineAfterDiscount(li) * (li.tax_rate / 100), 0)
   const total = subtotal - totalDiscount + taxTotal
-  const linesValid = lineItems.length > 0 && lineItems.every(li => li.tax_code_id)
 
   const handleSave = async () => {
     await createReceipt.mutateAsync({
@@ -241,7 +240,7 @@ export default function NewSaleReceiptPage() {
 
       <div className="flex justify-end gap-3">
         <Button type="button" variant="outline" onClick={() => navigate("/sales/payments")}>Cancel</Button>
-        <Button onClick={handleSave} disabled={createReceipt.isPending || !contactId || !lineItems.some(li => li.description.trim()) || !linesValid} className="bg-gradient-to-r from-emerald-500 to-emerald-600 text-white hover:from-emerald-600 hover:to-emerald-700 disabled:opacity-40 disabled:cursor-not-allowed">
+        <Button onClick={handleSave} disabled={createReceipt.isPending || !contactId || !lineItems.some(li => li.description.trim())} className="bg-gradient-to-r from-emerald-500 to-emerald-600 text-white hover:from-emerald-600 hover:to-emerald-700 disabled:opacity-40 disabled:cursor-not-allowed">
           {createReceipt.isPending ? "Saving..." : "Save Receipt"}
         </Button>
       </div>

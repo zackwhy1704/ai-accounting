@@ -147,6 +147,7 @@ export default function NewQuotationPage() {
     return sum + (afterLineDiscount * item.tax_rate) / 100
   }, 0)
   const total = subTotal - totalDiscount + totalTax
+  const linesValid = lineItems.length > 0 && lineItems.every(li => li.account_id)
 
   const handleSave = async () => {
     if (!contactId) return
@@ -591,7 +592,7 @@ export default function NewQuotationPage() {
         <Button
           type="button"
           onClick={handleSave}
-          disabled={!contactId || createQuotation.isPending}
+          disabled={!contactId || createQuotation.isPending || !linesValid}
           className="h-10 rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-600 px-6 text-sm font-semibold text-white shadow-sm hover:opacity-95"
         >
           {createQuotation.isPending ? "Saving..." : t("form.save") || "Save"}

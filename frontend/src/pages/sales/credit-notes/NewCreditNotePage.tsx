@@ -135,7 +135,7 @@ export default function NewCreditNotePage() {
 
   const creditApplied = applyCreditLines.reduce((sum, line) => sum + (line.selected ? line.apply_amount : 0), 0)
 
-  const linesValid = lineItems.length > 0 && lineItems.every(li => li.account_id && li.tax_code_id)
+  const linesValid = lineItems.length > 0 && lineItems.every(li => li.account_id)
 
   const handleSave = async () => {
     if (!contactId) { toast("Please select a customer", "warning"); return }

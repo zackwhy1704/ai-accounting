@@ -90,7 +90,7 @@ export default function EditRecurringInvoicePage() {
   const subtotal = lineItems.reduce((s, li) => s + li.quantity * li.unit_price, 0)
   const taxTotal = lineItems.reduce((s, li) => s + li.quantity * li.unit_price * (li.tax_rate / 100), 0)
   const total = subtotal + taxTotal
-  const linesValid = lineItems.length > 0 && lineItems.every(li => li.account_id && li.tax_code_id)
+  const linesValid = lineItems.length > 0 && lineItems.every(li => li.account_id)
 
   const handleSave = async () => {
     try {
