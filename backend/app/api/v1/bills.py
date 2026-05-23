@@ -366,7 +366,7 @@ async def bill_activity(
             "ref": pcn.pcn_number,
             "ref_id": str(pcn.id),
             "delta": -float(app.amount or 0),
-            "note": f"Credit note applied",
+            "note": "Credit note applied",
             "status": pcn.status,
         })
 

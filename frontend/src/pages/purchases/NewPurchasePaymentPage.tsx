@@ -60,7 +60,7 @@ export default function NewPurchasePaymentPage() {
     if (!contactId) return []
     return bills.filter((b: any) =>
       b.contact_id === contactId &&
-      (b.status === "outstanding" || b.status === "overdue") &&
+      (b.status === "outstanding" || b.status === "overdue" || b.status === "partially paid") &&
       (b.total - (b.amount_paid ?? 0)) > 0
     )
   }, [bills, contactId])

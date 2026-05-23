@@ -118,7 +118,7 @@ export default function NewBillPage() {
         amount: li.amount ?? 0,
       })))
     }
-  }, [sourcePO])
+  }, [sourcePO, contacts])
 
   useEffect(() => {
     if (!productDropdownOpen) return
