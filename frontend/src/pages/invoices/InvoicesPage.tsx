@@ -235,7 +235,7 @@ export default function InvoicesPage() {
                           <RowActionsMenu actions={[
                             { label: "Edit", icon: <Pencil className="h-3.5 w-3.5" />, onClick: () => navigate(`/sales/invoices/${inv.id}/edit`), disabled: inv.status === "void" },
                             { label: "Mark as Sent", icon: <Send className="h-3.5 w-3.5" />, onClick: () => updateInvoiceStatus.mutate({ id: inv.id, status: "sent" }), dividerBefore: true, disabled: inv.status !== "draft" },
-                            { label: t("invoices.addPayment"), icon: <CreditCard className="h-3.5 w-3.5" />, onClick: () => navigate(`/sales/payments/new?invoice_id=${inv.id}`), disabled: inv.status === "void" || inv.status === "draft" },
+                            { label: t("invoices.addPayment"), icon: <CreditCard className="h-3.5 w-3.5" />, onClick: () => navigate(`/sales/payments/new?invoice_id=${inv.id}`), disabled: inv.status === "void" || inv.status === "draft" || inv.status === "paid" || balance <= 0 },
                             { label: t("invoices.creditNote"), icon: <FileText className="h-3.5 w-3.5" />, onClick: () => navigate(`/sales/credit-notes/new?invoice_id=${inv.id}`) },
                             ...(overpaid > 0 ? [
                               { label: "Apply to Another Invoice", icon: <ArrowRightLeft className="h-3.5 w-3.5" />, onClick: () => { setApplyDialog({ open: true, inv: inv as any }); setApplyAmount(overpaid.toFixed(2)); setApplyTargetId("") }, dividerBefore: true },

@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useMemo } from "react"
 import { useNavigate, useParams } from "react-router-dom"
 import { Plus, Trash2, Loader2 } from "lucide-react"
-import { useContacts, useAccounts, useBill, useUpdateBill, useTaxRates } from "../../lib/hooks"
+import { useContacts, useAccounts, useBill, useUpdateBill, useTaxRates, useBillActivity, type InvoiceActivityEvent } from "../../lib/hooks"
 import { getContactPrefs, saveContactPref } from "../../lib/contact-prefs"
 import { useToast } from "../../components/ui/toast"
 import { Card } from "../../components/ui/card"
@@ -42,6 +42,7 @@ export default function EditBillPage() {
   const { data: taxRates = [] } = useTaxRates()
   const { data } = useBill(id!)
   const updateBill = useUpdateBill()
+  const { data: activity } = useBillActivity(id)
 
   const [contactId, setContactId] = useState("")
   const [billNumber, setBillNumber] = useState("")
@@ -417,6 +418,32 @@ export default function EditBillPage() {
           </Button>
         </div>
       </Card>
+
+      {activity && activity.events.length > 0 && (
+        <Card className="rounded-2xl border-border bg-card p-6 shadow-sm">
+          <div className="mb-3 text-sm font-semibold text-foreground">Transaction History</div>
+          <div className="space-y-2">
+            {activity.events.map((ev: InvoiceActivityEvent, idx: number) => (
+              <div key={idx} className="flex items-start justify-between gap-3 border-b border-border py-2 last:border-0">
+                <div className="flex flex-col gap-0.5">
+                  <span className="text-xs font-medium text-foreground capitalize">{ev.type.replace(/_/g, " ")}</span>
+                  <span className="text-xs text-muted-foreground">{ev.ref} {ev.note ? `— ${ev.note}` : ""}</span>
+                  {ev.ts && <span className="text-[11px] text-muted-foreground">{new Date(ev.ts).toLocaleDateString()}</span>}
+                </div>
+                <div className="text-right">
+                  {ev.delta !== 0 && <div className={`text-xs font-semibold ${ev.delta < 0 ? "text-emerald-600" : "text-foreground"}`}>{ev.delta < 0 ? `-${Math.abs(ev.delta).toFixed(2)}` : `+${ev.delta.toFixed(2)}`}</div>}
+                  <div className="text-[11px] text-muted-foreground">Bal: {ev.balance.toFixed(2)}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+          {activity.outstanding !== undefined && (
+            <div className="mt-3 flex justify-end border-t border-border pt-3">
+              <div className="text-sm font-semibold text-foreground">Outstanding: {activity.outstanding.toFixed(2)}</div>
+            </div>
+          )}
+        </Card>
+      )}
     </div>
   )
 }

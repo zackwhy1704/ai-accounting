@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef } from "react"
 import { useNavigate, useParams } from "react-router-dom"
 import { Plus, Trash2, Loader2 } from "lucide-react"
-import { useInvoice, useUpdateInvoice, useContacts, useAccounts, useTaxRates, useInvoiceActivity, useCreateAdjustment, useDeleteAdjustment, type InvoiceActivityEvent, type AdjustmentLine } from "../../../lib/hooks"
+import { useInvoice, useUpdateInvoice, useUpdateInvoiceStatus, useContacts, useAccounts, useTaxRates, useInvoiceActivity, useCreateAdjustment, useDeleteAdjustment, type InvoiceActivityEvent, type AdjustmentLine } from "../../../lib/hooks"
+import { useToast } from "../../../components/ui/toast"
 import { Card } from "../../../components/ui/card"
 import { Button } from "../../../components/ui/button"
 import { Input } from "../../../components/ui/input"
@@ -35,6 +36,8 @@ export default function EditInvoicePage() {
   const { data: accounts = [] } = useAccounts()
   const { data: taxRates = [] } = useTaxRates()
   const updateInvoice = useUpdateInvoice()
+  const updateStatus = useUpdateInvoiceStatus()
+  const { toast } = useToast()
   const { data: activity } = useInvoiceActivity(id)
   const populated = useRef(false)
 
@@ -54,6 +57,20 @@ export default function EditInvoicePage() {
   const [lineItems, setLineItems] = useState<LineItem[]>([
     { description: "", account_id: "", quantity: 1, unit_price: 0, amount: 0, discount: 0, discount_mode: "percent", tax_rate: 0, line_type: "goods", tax_code_id: "" },
   ])
+  const [lineItemErrors, setLineItemErrors] = useState<Record<number, { account?: boolean; tax?: boolean }>>({})
+
+  const validateForFinalization = () => {
+    const errors: Record<number, { account?: boolean; tax?: boolean }> = {}
+    lineItems.forEach((li, idx) => {
+      if (!li.description.trim()) return
+      const err: { account?: boolean; tax?: boolean } = {}
+      if (!li.account_id) err.account = true
+      if (!li.tax_code_id) err.tax = true
+      if (Object.keys(err).length > 0) errors[idx] = err
+    })
+    setLineItemErrors(errors)
+    return Object.keys(errors).length === 0
+  }
 
   useEffect(() => {
     if (!invoice || populated.current) return
@@ -143,38 +160,56 @@ export default function EditInvoicePage() {
   const appliedToDate = 0
   const balanceDue = total - appliedToDate
 
+  const buildPayload = () => ({
+    id,
+    invoice_number: invoiceNumber,
+    contact_id: contactId,
+    issue_date: invoiceDate,
+    due_date: invoiceDate,
+    currency,
+    notes: journalMemo || null,
+    terms: terms || null,
+    billing_address_line1: billingLine1 || null,
+    billing_address_line2: billingLine2 || null,
+    billing_city: billingCity || null,
+    billing_state: billingState || null,
+    billing_postcode: billingPostcode || null,
+    billing_country: billingCountry || null,
+    line_items: lineItems.map(li => ({
+      description: li.description,
+      account_id: li.account_id || undefined,
+      quantity: li.quantity,
+      unit_price: li.unit_price,
+      tax_rate: li.tax_rate,
+      tax_code_id: li.tax_code_id || undefined,
+      line_type: li.line_type,
+      discount: li.discount,
+      discount_mode: li.discount_mode,
+    })),
+  })
+
   const handleSave = async () => {
+    setLineItemErrors({})
     try {
-      await updateInvoice.mutateAsync({
-        id,
-        invoice_number: invoiceNumber,
-        contact_id: contactId,
-        issue_date: invoiceDate,
-        due_date: invoiceDate,
-        currency,
-        notes: journalMemo || null,
-        terms: terms || null,
-        billing_address_line1: billingLine1 || null,
-        billing_address_line2: billingLine2 || null,
-        billing_city: billingCity || null,
-        billing_state: billingState || null,
-        billing_postcode: billingPostcode || null,
-        billing_country: billingCountry || null,
-        line_items: lineItems.map(li => ({
-          description: li.description,
-          account_id: li.account_id || undefined,
-          quantity: li.quantity,
-          unit_price: li.unit_price,
-          tax_rate: li.tax_rate,
-          tax_code_id: li.tax_code_id || undefined,
-          line_type: li.line_type,
-          discount: li.discount,
-          discount_mode: li.discount_mode,
-        })),
-      })
+      await updateInvoice.mutateAsync(buildPayload())
       navigate("/sales/invoices")
     } catch {
       // error handled by mutation
+    }
+  }
+
+  const handleSaveAndSend = async () => {
+    if (!validateForFinalization()) {
+      toast("Please fill in Account Code and Tax Code for all line items before finalizing.", "warning")
+      return
+    }
+    try {
+      await updateInvoice.mutateAsync(buildPayload())
+      await updateStatus.mutateAsync({ id: id!, status: "sent" })
+      toast("Invoice saved and marked as sent", "success")
+      navigate("/sales/invoices")
+    } catch (e: any) {
+      toast(e?.response?.data?.detail ?? "Failed to finalize invoice", "warning")
     }
   }
 
@@ -281,10 +316,10 @@ export default function EditInvoicePage() {
                   <TableCell>
                     <Input value={item.description} onChange={e => updateLineItem(idx, "description", e.target.value)} placeholder="Description" className="h-9 rounded-lg border-0 bg-transparent px-1 text-sm shadow-none focus-visible:ring-1" />
                   </TableCell>
-                  <TableCell>
+                  <TableCell className={lineItemErrors[idx]?.account ? "ring-1 ring-rose-400 rounded-lg" : ""}>
                     <SearchableSelect
                       value={item.account_id}
-                      onChange={v => updateLineItem(idx, "account_id", v)}
+                      onChange={v => { updateLineItem(idx, "account_id", v); setLineItemErrors(e => { const n = { ...e }; if (n[idx]) { delete n[idx].account; if (!Object.keys(n[idx]).length) delete n[idx] } return n }) }}
                       placeholder="Account"
                       triggerClassName="h-9 rounded-lg border-0 bg-transparent shadow-none text-xs"
                       options={accounts.map((a: any) => ({ value: a.id, label: `${a.code} – ${a.name}`, hint: a.code }))}
@@ -318,8 +353,8 @@ export default function EditInvoicePage() {
                       </button>
                     </div>
                   </TableCell>
-                  <TableCell className="w-[160px]">
-                    <Select value={item.tax_code_id} onValueChange={v => updateLineItem(idx, "tax_code_id", v === "__none__" ? "" : v)}>
+                  <TableCell className={`w-[160px]${lineItemErrors[idx]?.tax ? " ring-1 ring-rose-400 rounded-lg" : ""}`}>
+                    <Select value={item.tax_code_id} onValueChange={v => { updateLineItem(idx, "tax_code_id", v === "__none__" ? "" : v); setLineItemErrors(e => { const n = { ...e }; if (n[idx]) { delete n[idx].tax; if (!Object.keys(n[idx]).length) delete n[idx] } return n }) }}>
                       <SelectTrigger className="h-9 rounded-lg border-0 bg-transparent shadow-none focus:ring-1 text-xs"><SelectValue placeholder="Tax Code" /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="__none__">No Tax</SelectItem>
@@ -496,6 +531,11 @@ export default function EditInvoicePage() {
         <Button type="button" onClick={handleSave} disabled={updateInvoice.isPending || !contactId || !lineItems.some(li => li.description.trim())} className="h-10 rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-600 px-6 text-sm font-semibold text-white shadow-sm hover:opacity-95">
           {updateInvoice.isPending ? "Saving..." : "Save Changes"}
         </Button>
+        {invoice?.status === "draft" && (
+          <Button type="button" onClick={handleSaveAndSend} disabled={updateInvoice.isPending || updateStatus.isPending || !contactId} className="h-10 rounded-xl bg-gradient-to-r from-[#7C9DFF] to-[#4D63FF] px-6 text-sm font-semibold text-white shadow-sm hover:opacity-95">
+            {(updateInvoice.isPending || updateStatus.isPending) ? "Sending..." : "Save & Send"}
+          </Button>
+        )}
       </div>
     </div>
   )

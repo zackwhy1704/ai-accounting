@@ -17,6 +17,7 @@ import { Badge } from "../../../components/ui/badge"
 const statusColors: Record<string, string> = {
   draft: "bg-slate-500/10 text-slate-600 border-slate-300/20",
   issued: "bg-sky-500/10 text-sky-700 border-sky-400/20",
+  "partially paid": "bg-amber-500/10 text-amber-700 border-amber-400/20",
   applied: "bg-emerald-500/10 text-emerald-700 border-emerald-400/20",
   void: "bg-rose-500/10 text-rose-700 border-rose-400/20",
 }
@@ -145,33 +146,38 @@ export default function DebitNotesPage() {
                       <TableHead className="w-[140px] text-muted-foreground">{t("common.date")}</TableHead>
                       <TableHead className="text-muted-foreground">{t("debitNotes.customer")}</TableHead>
                       <TableHead className="w-[150px] text-muted-foreground">{t("debitNotes.linkedInvoice")}</TableHead>
-                      <TableHead className="w-[160px] text-right text-muted-foreground">{t("common.amount")}</TableHead>
+                      <TableHead className="w-[140px] text-right text-muted-foreground">{t("common.amount")}</TableHead>
+                      <TableHead className="w-[140px] text-right text-muted-foreground">{t("common.balance")}</TableHead>
                       <TableHead className="w-[150px] text-muted-foreground">{t("common.status")}</TableHead>
                       <TableHead className="w-[90px] text-right text-muted-foreground">{t("common.action")}</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {rows.map(dn => (
+                    {rows.map(dn => {
+                      const balance = dn.total - ((dn as any).amount_paid ?? 0)
+                      return (
                       <TableRow key={dn.id} className="border-border hover:bg-muted/50">
                         <TableCell className="font-medium text-foreground">{dn.debit_note_number}</TableCell>
                         <TableCell className="text-muted-foreground">{formatDate(dn.issue_date)}</TableCell>
                         <TableCell className="text-foreground">{contactMap.get(dn.contact_id) ?? "\u2014"}</TableCell>
                         <TableCell className="text-foreground">{dn.invoice_id ? (invoiceMap.get(dn.invoice_id) ?? dn.invoice_id) : "\u2014"}</TableCell>
                         <TableCell className="text-right text-foreground">{formatCurrency(dn.total)}</TableCell>
+                        <TableCell className="text-right text-muted-foreground">{formatCurrency(balance)}</TableCell>
                         <TableCell>
                           <Badge variant="outline" className={cn("rounded-lg px-2 py-0.5 text-[11px] font-semibold", statusColors[dn.status] ?? "")}>{dn.status.charAt(0).toUpperCase() + dn.status.slice(1)}</Badge>
                         </TableCell>
                         <TableCell className="text-right">
                           <RowActionsMenu actions={[
                             { label: "Edit", icon: <Pencil className="h-3.5 w-3.5" />, onClick: () => navigate(`/sales/debit-notes/${dn.id}/edit`), disabled: dn.status === "void" },
-                            { label: "Make Payment", icon: <CreditCard className="h-3.5 w-3.5" />, onClick: () => navigate(`/sales/payments/new?contact_id=${dn.contact_id}&amount=${dn.total}&debit_note_id=${dn.id}${dn.invoice_id ? `&invoice_id=${dn.invoice_id}` : ""}`), dividerBefore: true, disabled: dn.status === "void" || dn.status === "applied" },
+                            { label: "Add Payment", icon: <CreditCard className="h-3.5 w-3.5" />, onClick: () => navigate(`/sales/payments/new?debit_note_id=${dn.id}&contact_id=${dn.contact_id}&amount=${balance.toFixed(2)}`), dividerBefore: true, disabled: dn.status === "void" || dn.status === "draft" || dn.status === "applied" || balance <= 0 },
                             { label: "Mark as Issued", icon: <Send className="h-3.5 w-3.5" />, onClick: () => patch(dn.id, "issued", "Debit note marked as issued"), disabled: dn.status !== "draft" },
-                            { label: "Void", icon: <XCircle className="h-3.5 w-3.5" />, onClick: () => { if (dn.status === "applied") { alert("This debit note has a payment applied. Please void the payment first before voiding the debit note."); return } if (confirm("Void this debit note?")) patch(dn.id, "void", "Debit note voided") }, danger: true, dividerBefore: true, disabled: dn.status === "void" },
-                            { label: "Delete", icon: <Trash2 className="h-3.5 w-3.5" />, onClick: () => { if (dn.status === "applied") { alert("This debit note has a payment applied. Please void the payment first, then void the debit note before deleting."); return } if (dn.status === "issued") { alert("Please void this debit note first before deleting."); return } if (confirm(`Delete debit note ${dn.debit_note_number}? This cannot be undone.`)) deleteDebitNote.mutate(dn.id, { onSuccess: () => toast("Debit note deleted", "success"), onError: (e: any) => toast(e?.response?.data?.detail ?? "Failed to delete debit note", "warning") }) }, danger: true, disabled: dn.status === "applied" },
+                            { label: "Void", icon: <XCircle className="h-3.5 w-3.5" />, onClick: () => { if ((dn as any).amount_paid > 0) { alert("This debit note has payments applied. Please void the payments first before voiding the debit note."); return } if (confirm("Void this debit note?")) patch(dn.id, "void", "Debit note voided") }, danger: true, dividerBefore: true, disabled: dn.status === "void" },
+                            { label: "Delete", icon: <Trash2 className="h-3.5 w-3.5" />, onClick: () => { if ((dn as any).amount_paid > 0) { alert("This debit note has payments applied. Please void the payments first, then void the debit note before deleting."); return } if (dn.status === "issued") { alert("Please void this debit note first before deleting."); return } if (confirm(`Delete debit note ${dn.debit_note_number}? This cannot be undone.`)) deleteDebitNote.mutate(dn.id, { onSuccess: () => toast("Debit note deleted", "success"), onError: (e: any) => toast(e?.response?.data?.detail ?? "Failed to delete debit note", "warning") }) }, danger: true, disabled: (dn as any).amount_paid > 0 },
                           ]} />
                         </TableCell>
                       </TableRow>
-                    ))}
+                      )
+                    })}
                   </TableBody>
                 </Table>
               </div>

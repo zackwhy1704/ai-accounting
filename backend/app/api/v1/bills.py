@@ -8,7 +8,7 @@ from typing import Optional
 from pydantic import BaseModel
 from app.core.database import get_db
 from app.core.security import get_current_user
-from app.models.models import Bill, BillLineItem, PurchasePayment
+from app.models.models import Bill, BillLineItem, PurchasePayment, Transaction, JournalEntry, Account
 from app.schemas.schemas import BillCreate, BillUpdate, BillResponse
 from .gl_helpers import post_gl, revert_gl
 
@@ -299,6 +299,90 @@ async def delete_bill(
     )
     await db.delete(bill)
     await db.commit()
+
+
+@router.get("/{bill_id}/activity")
+async def bill_activity(
+    bill_id: UUID,
+    current_user: dict = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    org_id = current_user["org_id"]
+    result = await db.execute(
+        select(Bill).where(Bill.id == bill_id, Bill.organization_id == org_id)
+    )
+    bill = result.scalar_one_or_none()
+    if not bill:
+        raise HTTPException(status_code=404, detail="Bill not found")
+
+    events: list[dict] = []
+    events.append({
+        "ts": bill.issue_date.isoformat() if bill.issue_date else None,
+        "type": "issued",
+        "ref": bill.bill_number,
+        "ref_id": str(bill.id),
+        "delta": float(bill.total or 0),
+        "note": bill.notes or "",
+        "status": bill.status,
+    })
+
+    pay_result = await db.execute(
+        select(PurchasePayment).where(
+            PurchasePayment.bill_id == bill_id,
+            PurchasePayment.status != "void",
+        )
+    )
+    for pmt in pay_result.scalars().all():
+        events.append({
+            "ts": pmt.payment_date.isoformat() if pmt.payment_date else None,
+            "type": "payment",
+            "ref": pmt.payment_no,
+            "ref_id": str(pmt.id),
+            "delta": -float(pmt.amount or 0),
+            "note": pmt.notes or "",
+            "status": pmt.status,
+        })
+
+    txn_result = await db.execute(
+        select(Transaction)
+        .where(Transaction.organization_id == org_id, Transaction.source_id == bill_id)
+        .order_by(Transaction.date)
+    )
+    for txn in txn_result.scalars().all():
+        je_result = await db.execute(
+            select(JournalEntry, Account)
+            .join(Account, Account.id == JournalEntry.account_id)
+            .where(JournalEntry.transaction_id == txn.id)
+        )
+        lines = [
+            {"account_code": acct.code, "account_name": acct.name, "debit": float(je.debit or 0), "credit": float(je.credit or 0)}
+            for je, acct in je_result.all()
+        ]
+        events.append({
+            "ts": txn.date.isoformat() if txn.date else None,
+            "type": "journal",
+            "subtype": txn.source,
+            "ref": txn.reference,
+            "ref_id": str(txn.id),
+            "delta": 0.0,
+            "note": txn.description or "",
+            "lines": lines,
+        })
+
+    events.sort(key=lambda e: (e.get("ts") or "", 0 if e["type"] == "issued" else 1))
+    running = 0.0
+    for ev in events:
+        if ev["type"] != "journal":
+            running += ev["delta"]
+        ev["balance"] = round(running, 2)
+
+    return {
+        "bill_id": str(bill_id),
+        "bill_number": bill.bill_number,
+        "total": float(bill.total or 0),
+        "outstanding": round(running, 2),
+        "events": events,
+    }
 
 
 class BillPaymentCreate(BaseModel):

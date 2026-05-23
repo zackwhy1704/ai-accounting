@@ -647,6 +647,7 @@ class DebitNoteResponse(BaseModel):
     discount_amount: float
     tax_amount: float
     total: float
+    amount_paid: float = 0
     currency: str
     notes: str | None
     created_at: datetime
@@ -711,7 +712,8 @@ class PurchaseDebitNoteResponse(BaseModel):
 
 # ── Sales Payment ──
 class PaymentAllocationCreate(BaseModel):
-    invoice_id: UUID
+    invoice_id: UUID | None = None
+    debit_note_id: UUID | None = None
     amount: float
 
 class SalesPaymentCreate(BaseModel):

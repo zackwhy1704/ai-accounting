@@ -843,6 +843,20 @@ export function useInvoiceActivity(id: string | undefined) {
     enabled: !!id,
   })
 }
+
+export function useBillActivity(id: string | undefined) {
+  return useQuery<{
+    bill_id: string
+    bill_number: string
+    total: number
+    outstanding: number
+    events: InvoiceActivityEvent[]
+  }>({
+    queryKey: ['bill-activity', id],
+    queryFn: () => api.get(`/bills/${id}/activity`).then(r => r.data),
+    enabled: !!id,
+  })
+}
 export function useUpdateInvoice() {
   const qc = useQueryClient()
   return useMutation({

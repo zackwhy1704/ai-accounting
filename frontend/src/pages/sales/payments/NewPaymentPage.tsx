@@ -1,7 +1,6 @@
 import { useState, useMemo, useEffect } from "react"
 import { useNavigate, useSearchParams } from "react-router-dom"
 import { useContacts, useBankAccounts, useInvoices, useCreateSalesPayment } from "../../../lib/hooks"
-import api from "../../../lib/api"
 import { formatCurrency, formatDate } from "../../../lib/utils"
 import { Card } from "../../../components/ui/card"
 import { Button } from "../../../components/ui/button"
@@ -81,12 +80,19 @@ export default function NewPaymentPage() {
 
   const handleSave = async () => {
     if (!customerId || !paymentMethod) { alert("Please fill in all required fields"); return }
-    const allocationsList = Object.entries(allocations)
+    const debitNoteId = searchParams.get("debit_note_id")
+
+    const invoiceAllocs = Object.entries(allocations)
       .filter(([id]) => selectedInvoices[id] && (Number(allocations[id]) || 0) > 0)
       .map(([invoice_id, amt]) => ({ invoice_id, amount: Number(amt) }))
 
     const effectiveAmount = parseFloat(amount) > 0 ? parseFloat(amount) : totalApplied
     if (effectiveAmount <= 0) { alert("Please enter a payment amount"); return }
+
+    // When coming from a debit note, allocate to the debit note
+    const allocationsList: any[] = debitNoteId
+      ? [{ debit_note_id: debitNoteId, amount: effectiveAmount }]
+      : invoiceAllocs
 
     const payload: any = {
       contact_id: customerId,
@@ -101,12 +107,7 @@ export default function NewPaymentPage() {
     }
 
     try {
-      const debitNoteId = searchParams.get("debit_note_id")
-      if (debitNoteId) {
-        await api.post(`/debit-notes/${debitNoteId}/pay`, payload)
-      } else {
-        await createPayment.mutateAsync(payload)
-      }
+      await createPayment.mutateAsync(payload)
       navigate("/sales/payments")
     } catch (err: any) {
       alert(err?.response?.data?.detail || err?.message || "Failed to save payment")

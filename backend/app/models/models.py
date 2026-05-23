@@ -577,6 +577,7 @@ class DebitNote(Base):
     discount_amount: Mapped[float] = mapped_column(Numeric(15, 2), default=0)
     tax_amount: Mapped[float] = mapped_column(Numeric(15, 2), default=0)
     total: Mapped[float] = mapped_column(Numeric(15, 2), default=0)
+    amount_paid: Mapped[float] = mapped_column(Numeric(15, 2), default=0)
     currency: Mapped[str] = mapped_column(String(3), default="MYR")
     notes: Mapped[str | None] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
@@ -701,11 +702,13 @@ class PaymentAllocation(Base):
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=new_uuid)
     payment_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("sales_payments.id", ondelete="CASCADE"))
-    invoice_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("invoices.id"))
+    invoice_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("invoices.id"), nullable=True)
+    debit_note_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("debit_notes.id"), nullable=True)
     amount: Mapped[float] = mapped_column(Numeric(15, 2))
 
     payment: Mapped["SalesPayment"] = relationship(back_populates="allocations")
-    invoice: Mapped["Invoice"] = relationship()
+    invoice: Mapped["Invoice | None"] = relationship(foreign_keys=[invoice_id])
+    debit_note: Mapped["DebitNote | None"] = relationship(foreign_keys=[debit_note_id])
 
 
 # ──────────────────────────────────────────────
