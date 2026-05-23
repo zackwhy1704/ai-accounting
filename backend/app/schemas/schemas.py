@@ -1222,7 +1222,7 @@ class SaleReceiptLineItem(BaseModel):
     quantity: float = 1.0
     unit_price: float
     tax_rate: float = 0.0
-    amount: float
+    amount: float | None = None
 
 class SaleReceiptCreate(BaseModel):
     contact_id: UUID | None = None
