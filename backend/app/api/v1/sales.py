@@ -106,12 +106,15 @@ async def create_quotation(data: QuotationCreate, current_user: dict = Depends(g
     db.add(obj)
     await db.flush()
     for i, item in enumerate(data.line_items):
-        amount = item.quantity * item.unit_price
+        line_total = item.quantity * item.unit_price
+        disc_mode = getattr(item, 'discount_mode', 'percent') or 'percent'
+        disc_val = min(item.discount, line_total) if disc_mode == 'amount' else line_total * item.discount / 100
+        after_disc = line_total - disc_val
         db.add(QuotationLineItem(
             quotation_id=obj.id, line_type=item.line_type, description=item.description,
             quantity=item.quantity, unit_price=item.unit_price, tax_rate=item.tax_rate,
-            tax_code_id=item.tax_code_id, discount=item.discount,
-            amount=amount, account_id=item.account_id, sort_order=i,
+            tax_code_id=item.tax_code_id, discount=item.discount, discount_mode=disc_mode,
+            amount=after_disc, account_id=item.account_id, sort_order=i,
         ))
     await db.commit()
     result = await db.execute(
@@ -177,12 +180,15 @@ async def update_quotation(qid: UUID, data: QuotationUpdate, current_user: dict 
         await db.execute(delete(QuotationLineItem).where(QuotationLineItem.quotation_id == obj.id))
         subtotal, discount_total, tax_amount = calc_totals(data.line_items)
         for i, item in enumerate(data.line_items):
-            amount = item.quantity * item.unit_price
+            line_total = item.quantity * item.unit_price
+            disc_mode = getattr(item, 'discount_mode', 'percent') or 'percent'
+            disc_val = min(item.discount, line_total) if disc_mode == 'amount' else line_total * item.discount / 100
+            after_disc = line_total - disc_val
             db.add(QuotationLineItem(
                 quotation_id=obj.id, line_type=item.line_type, description=item.description,
                 quantity=item.quantity, unit_price=item.unit_price, tax_rate=item.tax_rate,
-                tax_code_id=item.tax_code_id, discount=item.discount,
-                account_id=item.account_id, amount=amount, sort_order=i,
+                tax_code_id=item.tax_code_id, discount=item.discount, discount_mode=disc_mode,
+                account_id=item.account_id, amount=after_disc, sort_order=i,
             ))
         obj.subtotal = subtotal
         obj.discount_amount = discount_total
@@ -316,12 +322,14 @@ async def create_delivery_order(data: DeliveryOrderCreate, current_user: dict = 
     await db.flush()
     for i, item in enumerate(data.line_items):
         line_total = item.quantity * item.unit_price
-        line_disc = line_total * (item.discount / 100)
+        disc_mode = getattr(item, 'discount_mode', 'percent') or 'percent'
+        line_disc = min(item.discount, line_total) if disc_mode == 'amount' else line_total * item.discount / 100
+        after_disc = line_total - line_disc
         db.add(DeliveryOrderLineItem(
             delivery_order_id=obj.id, description=item.description, quantity=item.quantity,
-            unit_price=item.unit_price, discount=item.discount, tax_rate=item.tax_rate,
-            tax_code_id=item.tax_code_id,
-            amount=line_total - line_disc + (line_total - line_disc) * (item.tax_rate / 100),
+            unit_price=item.unit_price, discount=item.discount, discount_mode=disc_mode,
+            tax_rate=item.tax_rate, tax_code_id=item.tax_code_id,
+            amount=after_disc + after_disc * (item.tax_rate / 100),
             sort_order=i,
         ))
     await db.commit()
@@ -361,17 +369,24 @@ async def update_delivery_order(do_id: UUID, data: DeliveryOrderUpdate, current_
     if "line_items" in update_data:
         line_items_data = update_data.pop("line_items")
         await db.execute(delete(DeliveryOrderLineItem).where(DeliveryOrderLineItem.delivery_order_id == obj.id))
-        subtotal = sum(li["quantity"] * li["unit_price"] for li in line_items_data)
-        discount_total = sum((li["quantity"] * li["unit_price"]) * ((li.get("discount", 0) or 0) / 100) for li in line_items_data)
-        tax_amount = sum(((li["quantity"] * li["unit_price"]) - (li["quantity"] * li["unit_price"]) * ((li.get("discount", 0) or 0) / 100)) * (li["tax_rate"] / 100) for li in line_items_data)
+        subtotal = 0.0
+        discount_total = 0.0
+        tax_amount = 0.0
         for i, item in enumerate(line_items_data):
             line_total = item["quantity"] * item["unit_price"]
-            line_disc = line_total * ((item.get("discount", 0) or 0) / 100)
+            disc_mode = item.get("discount_mode", "percent") or "percent"
+            disc_raw = item.get("discount", 0) or 0
+            line_disc = min(disc_raw, line_total) if disc_mode == "amount" else line_total * disc_raw / 100
+            after_disc = line_total - line_disc
+            line_tax = after_disc * (item["tax_rate"] / 100)
+            subtotal += after_disc
+            discount_total += line_disc
+            tax_amount += line_tax
             db.add(DeliveryOrderLineItem(
                 delivery_order_id=obj.id, description=item["description"], quantity=item["quantity"],
-                unit_price=item["unit_price"], discount=item.get("discount", 0) or 0,
+                unit_price=item["unit_price"], discount=disc_raw, discount_mode=disc_mode,
                 tax_rate=item["tax_rate"], tax_code_id=item.get("tax_code_id"),
-                amount=line_total - line_disc + (line_total - line_disc) * (item["tax_rate"] / 100),
+                amount=after_disc + line_tax,
                 sort_order=i,
             ))
         obj.subtotal = subtotal

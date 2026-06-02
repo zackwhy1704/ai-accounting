@@ -76,7 +76,7 @@ export default function EditQuotationPage() {
         unit_price: l.unit_price ?? 0,
         amount: l.amount ?? 0,
         discount: l.discount ?? 0,
-        discount_mode: "percent",
+        discount_mode: (l.discount_mode === "amount" ? "amount" : "percent") as "percent" | "amount",
         tax_rate: l.tax_rate ?? 0,
         tax_code_id: l.tax_code_id ? String(l.tax_code_id) : "",
       })))
@@ -158,22 +158,17 @@ export default function EditQuotationPage() {
         billing_state: billingState || null,
         billing_postcode: billingPostcode || null,
         billing_country: billingCountry || null,
-        line_items: lineItems.map(li => {
-          const lineTotal = li.quantity * li.unit_price
-          const discountPct = li.discount_mode === "amount"
-            ? (lineTotal > 0 ? Math.min(li.discount, lineTotal) / lineTotal * 100 : 0)
-            : li.discount
-          return {
-            line_type: li.line_type ?? "goods",
-            description: li.description,
-            quantity: li.quantity,
-            unit_price: li.unit_price,
-            tax_rate: li.tax_rate,
-            tax_code_id: li.tax_code_id || undefined,
-            discount: discountPct,
-            account_id: li.account_id || undefined,
-          }
-        }),
+        line_items: lineItems.map(li => ({
+          line_type: li.line_type ?? "goods",
+          description: li.description,
+          quantity: li.quantity,
+          unit_price: li.unit_price,
+          tax_rate: li.tax_rate,
+          tax_code_id: li.tax_code_id || undefined,
+          discount: li.discount,
+          discount_mode: li.discount_mode,
+          account_id: li.account_id || undefined,
+        })),
       })
       toast("Quotation updated", "success")
       navigate("/sales/quotations")

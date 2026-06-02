@@ -71,7 +71,7 @@ export default function EditPurchaseOrderPage() {
           quantity: li.quantity || 1,
           unit_price: li.unit_price || 0,
           discount: li.discount || 0,
-          discount_mode: "percent" as const,
+          discount_mode: (li.discount_mode === "amount" ? "amount" : "percent") as "percent" | "amount",
           tax_rate: li.tax_rate || 0,
           tax_code_id: li.tax_code_id ? String(li.tax_code_id) : "",
           amount: li.amount || 0,
@@ -130,23 +130,17 @@ export default function EditPurchaseOrderPage() {
         currency,
         delivery_address: deliveryAddress || null,
         notes: notes || null,
-        line_items: lineItems.map((item, i) => {
-          const qty = item.line_type === "services" ? 1 : item.quantity
-          const lineTotal = qty * item.unit_price
-          const discPct = item.discount_mode === "amount"
-            ? (lineTotal > 0 ? Math.min(item.discount, lineTotal) / lineTotal * 100 : 0)
-            : item.discount
-          return {
-            description: item.description,
-            account_id: item.account_id || undefined,
-            quantity: qty,
-            unit_price: item.unit_price,
-            tax_rate: item.tax_rate,
-            tax_code_id: item.tax_code_id || undefined,
-            discount: discPct,
-            sort_order: i,
-          }
-        }),
+        line_items: lineItems.map((item, i) => ({
+          description: item.description,
+          account_id: item.account_id || undefined,
+          quantity: item.line_type === "services" ? 1 : item.quantity,
+          unit_price: item.unit_price,
+          tax_rate: item.tax_rate,
+          tax_code_id: item.tax_code_id || undefined,
+          discount: item.discount,
+          discount_mode: item.discount_mode,
+          sort_order: i,
+        })),
       } as any)
       toast("Purchase order updated", "success")
       navigate("/purchases/purchase-orders")

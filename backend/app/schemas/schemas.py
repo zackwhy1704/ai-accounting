@@ -251,6 +251,7 @@ class QuotationLineItemCreate(BaseModel):
     tax_rate: float = 0.0
     tax_code_id: UUID | None = None
     discount: float = 0.0
+    discount_mode: str = "percent"
     account_id: UUID | None = None
 
 class QuotationLineItemResponse(BaseModel):
@@ -262,6 +263,7 @@ class QuotationLineItemResponse(BaseModel):
     tax_rate: float
     tax_code_id: UUID | None
     discount: float
+    discount_mode: str = "percent"
     account_id: UUID | None
     amount: float
     model_config = {"from_attributes": True}
@@ -381,6 +383,7 @@ class DeliveryOrderLineItemCreate(BaseModel):
     quantity: float = 1.0
     unit_price: float
     discount: float = 0.0
+    discount_mode: str = "percent"
     tax_rate: float = 0.0
     tax_code_id: UUID | None = None
 
@@ -418,6 +421,7 @@ class DeliveryOrderLineItemResponse(BaseModel):
     quantity: float
     unit_price: float
     discount: float = 0.0
+    discount_mode: str = "percent"
     tax_rate: float
     tax_code_id: UUID | None = None
     amount: float

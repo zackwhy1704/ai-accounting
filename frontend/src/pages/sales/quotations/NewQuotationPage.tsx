@@ -169,10 +169,6 @@ export default function NewQuotationPage() {
         billing_country: billingCountry || null,
         line_items: lineItems.map(li => {
           const qty = li.line_type === "services" ? 1 : li.quantity
-          const lineTotal = qty * li.unit_price
-          const discountPct = li.discount_mode === "amount"
-            ? (lineTotal > 0 ? Math.min(li.discount, lineTotal) / lineTotal * 100 : 0)
-            : li.discount
           return {
             line_type: li.line_type,
             description: li.description,
@@ -180,7 +176,8 @@ export default function NewQuotationPage() {
             unit_price: li.unit_price,
             tax_rate: li.tax_rate,
             tax_code_id: li.tax_code_id || undefined,
-            discount: discountPct,
+            discount: li.discount,
+            discount_mode: li.discount_mode,
             account_id: li.account_id || undefined,
           }
         }),
