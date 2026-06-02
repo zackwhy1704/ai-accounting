@@ -112,7 +112,7 @@ export default function NewBillPage() {
         quantity: li.quantity ?? 1,
         unit_price: li.unit_price ?? 0,
         discount: li.discount ?? 0,
-        discount_mode: "percent" as const,
+        discount_mode: (li.discount_mode ?? "percent") as "percent" | "amount",
         tax_rate: li.tax_rate ?? 0,
         tax_code_id: li.tax_code_id ? String(li.tax_code_id) : "",
         amount: li.amount ?? 0,

@@ -1,7 +1,7 @@
 import { useMemo, useState, useRef } from "react"
 import { useNavigate } from "react-router-dom"
 import { ViewDetailSheet } from "../../components/ui/view-detail-sheet"
-import { Plus, Search, CalendarDays, FileText, Copy, Printer, XCircle, CreditCard, Pencil, PackageCheck, Trash2, ArrowRightLeft } from "lucide-react"
+import { Plus, Search, CalendarDays, FileText, Copy, Printer, XCircle, CreditCard, Pencil, PackageCheck, Trash2, ArrowRightLeft, RotateCcw } from "lucide-react"
 import { useBills, useContacts, useUpdateBillStatus, useDeleteBill } from "../../lib/hooks"
 import { formatCurrency, formatDate, cn } from "../../lib/utils"
 import { useTheme } from "../../lib/theme"
@@ -171,6 +171,8 @@ export default function BillsPage() {
                           const isReceived = bill.status === "received"
                           const balance = (bill.total ?? 0) - (bill.amount_paid ?? 0)
                           const canPay = !isDraft && !isVoid && balance > 0
+                          const overpaid = (bill.amount_paid ?? 0) - (bill.total ?? 0)
+                          const canRefund = !isVoid && overpaid > 0
                           return (
                             <TableRow key={bill.id} className="border-border hover:bg-muted/50">
                               <TableCell className="font-medium text-foreground">{bill.bill_number}</TableCell>
@@ -186,6 +188,7 @@ export default function BillsPage() {
                                   { label: "Mark as Received", icon: <PackageCheck className="h-3.5 w-3.5" />, onClick: () => updateBillStatus.mutate({ id: bill.id, status: "received" }), dividerBefore: true, disabled: !isDraft },
                                   { label: "Approve Bill", icon: <PackageCheck className="h-3.5 w-3.5" />, onClick: () => updateBillStatus.mutate({ id: bill.id, status: "outstanding" }), disabled: !isReceived },
                                   { label: "Add Payment", icon: <CreditCard className="h-3.5 w-3.5" />, onClick: () => navigate(`/purchases/payments/new?bill_id=${bill.id}&contact_id=${bill.contact_id}&amount=${bill.total - (bill.amount_paid ?? 0)}`), disabled: !canPay },
+                                  { label: "Issue Refund", icon: <RotateCcw className="h-3.5 w-3.5" />, onClick: () => navigate(`/purchases/refunds/new?bill_id=${bill.id}&contact_id=${bill.contact_id}&amount=${overpaid.toFixed(2)}`), disabled: !canRefund },
                                   { label: "Convert to Debit Note", icon: <ArrowRightLeft className="h-3.5 w-3.5" />, onClick: () => navigate(`/purchases/debit-notes/new?from_bill=${bill.id}`), disabled: isDraft || isVoid },
                                   { label: "Convert to GRN", icon: <ArrowRightLeft className="h-3.5 w-3.5" />, onClick: () => navigate(`/purchases/goods-received-notes/new?from_bill=${bill.id}`), disabled: isDraft || isVoid },
                                   { label: t("invoices.duplicate"), icon: <Copy className="h-3.5 w-3.5" />, onClick: () => navigate(`/purchases/bills/new?copy=${bill.id}`) },

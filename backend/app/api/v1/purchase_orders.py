@@ -18,7 +18,10 @@ class POLineItemCreate(BaseModel):
     description: str
     quantity: float = 1.0
     unit_price: float
+    discount: float = 0.0
+    discount_mode: str = "percent"
     tax_rate: float = 0.0
+    tax_code_id: Optional[UUID] = None
     account_id: Optional[UUID] = None
 
 
@@ -49,7 +52,10 @@ class POLineItemResponse(BaseModel):
     description: str
     quantity: float
     unit_price: float
+    discount: float = 0.0
+    discount_mode: str = "percent"
     tax_rate: float
+    tax_code_id: Optional[UUID] = None
     amount: float
     account_id: Optional[UUID]
     sort_order: int
@@ -132,14 +138,20 @@ async def create_purchase_order(
     await db.flush()
 
     for i, item in enumerate(payload.line_items):
-        amount = item.quantity * item.unit_price
+        disc = item.discount or 0.0
+        line_total = item.quantity * item.unit_price
+        disc_amt = min(disc, line_total) if item.discount_mode == "amount" else line_total * disc / 100
+        after_disc = line_total - disc_amt
         line = PurchaseOrderLineItem(
             purchase_order_id=po.id,
             description=item.description,
             quantity=item.quantity,
             unit_price=item.unit_price,
+            discount=disc,
+            discount_mode=item.discount_mode,
             tax_rate=item.tax_rate,
-            amount=amount * (1 + item.tax_rate / 100),
+            tax_code_id=item.tax_code_id,
+            amount=after_disc * (1 + item.tax_rate / 100),
             account_id=item.account_id,
             sort_order=i,
         )
@@ -202,17 +214,23 @@ async def update_purchase_order(
         subtotal = 0.0
         tax_amount = 0.0
         for i, item in enumerate(data.line_items):
-            amount = item.quantity * item.unit_price
-            tax = amount * (item.tax_rate / 100)
-            subtotal += amount
+            disc = item.discount or 0.0
+            line_total = item.quantity * item.unit_price
+            disc_amt = min(disc, line_total) if item.discount_mode == "amount" else line_total * disc / 100
+            after_disc = line_total - disc_amt
+            tax = after_disc * (item.tax_rate / 100)
+            subtotal += after_disc
             tax_amount += tax
             line = PurchaseOrderLineItem(
                 purchase_order_id=po.id,
                 description=item.description,
                 quantity=item.quantity,
                 unit_price=item.unit_price,
+                discount=disc,
+                discount_mode=item.discount_mode,
                 tax_rate=item.tax_rate,
-                amount=amount * (1 + item.tax_rate / 100),
+                tax_code_id=item.tax_code_id,
+                amount=after_disc + tax,
                 account_id=item.account_id,
                 sort_order=i,
             )

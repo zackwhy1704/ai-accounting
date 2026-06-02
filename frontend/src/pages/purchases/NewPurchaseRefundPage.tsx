@@ -21,13 +21,14 @@ export default function NewPurchaseRefundPage() {
   const createRefund = useCreatePurchaseRefund()
 
   const initialPcnId = searchParams.get("pcn_id") ?? ""
+  const initialBillId = searchParams.get("bill_id") ?? ""
   const initialContactId = searchParams.get("contact_id") ?? ""
   const initialAmount = searchParams.get("amount") ?? ""
 
   const [refundNo, setRefundNo] = useState(() => `PRF-${Date.now().toString().slice(-6)}`)
   const [contactId, setContactId] = useState(initialContactId)
   const [pcnId, setPcnId] = useState(initialPcnId)
-  const [billId, setBillId] = useState("")
+  const [billId, setBillId] = useState(initialBillId)
   const [paymentDate, setPaymentDate] = useState(() => new Date().toISOString().slice(0, 10))
   const [amount, setAmount] = useState(initialAmount)
   const [currency, setCurrency] = useState("MYR")
