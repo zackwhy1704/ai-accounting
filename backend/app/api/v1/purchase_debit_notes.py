@@ -260,3 +260,19 @@ async def delete_purchase_debit_note(
         raise HTTPException(status_code=400, detail="Only draft, issued, or void debit notes can be deleted.")
     await db.delete(obj)
     await db.commit()
+
+
+@router.get("/{dn_id}/activity")
+async def purchase_debit_note_activity(dn_id: UUID, current_user: dict = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    org_id = current_user["org_id"]
+    result = await db.execute(select(PurchaseDebitNote).where(PurchaseDebitNote.id == dn_id, PurchaseDebitNote.organization_id == org_id))
+    obj = result.scalar_one_or_none()
+    if not obj:
+        raise HTTPException(status_code=404, detail="Purchase debit note not found")
+    events: list[dict] = [{
+        "ts": obj.issue_date.isoformat() if obj.issue_date else None,
+        "type": "issued", "ref": obj.debit_note_number, "ref_id": str(obj.id),
+        "delta": float(obj.total or 0), "note": obj.notes or "", "status": obj.status,
+        "balance": float(obj.total or 0),
+    }]
+    return {"total": float(obj.total or 0), "events": events}

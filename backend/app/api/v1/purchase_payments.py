@@ -298,3 +298,29 @@ async def update_purchase_payment_status(
     payment.status = status
     await db.commit()
     return {"id": str(payment_id), "status": status}
+
+
+@router.get("/{payment_id}/activity")
+async def purchase_payment_activity(payment_id: UUID, current_user: dict = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    org_id = current_user["org_id"]
+    result = await db.execute(select(PurchasePayment).where(PurchasePayment.id == payment_id, PurchasePayment.organization_id == org_id))
+    obj = result.scalar_one_or_none()
+    if not obj:
+        raise HTTPException(status_code=404, detail="Purchase payment not found")
+    events: list[dict] = [{
+        "ts": obj.payment_date.isoformat() if obj.payment_date else None,
+        "type": "issued", "ref": obj.payment_no, "ref_id": str(obj.id),
+        "delta": float(obj.amount or 0), "note": obj.notes or "", "status": obj.status,
+        "balance": float(obj.amount or 0),
+    }]
+    if obj.bill_id:
+        bill_result = await db.execute(select(Bill).where(Bill.id == obj.bill_id))
+        bill = bill_result.scalar_one_or_none()
+        if bill:
+            events.append({
+                "ts": obj.payment_date.isoformat() if obj.payment_date else None,
+                "type": "payment", "ref": bill.bill_number, "ref_id": str(bill.id),
+                "delta": -float(obj.amount or 0), "note": f"Applied to bill {bill.bill_number}", "status": bill.status,
+                "balance": 0.0,
+            })
+    return {"total": float(obj.amount or 0), "events": events}

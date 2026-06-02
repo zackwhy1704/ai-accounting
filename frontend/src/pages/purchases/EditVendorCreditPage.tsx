@@ -173,7 +173,7 @@ export default function EditVendorCreditPage() {
   const totalTax = lines.reduce((sum, l) => sum + (l.quantity * l.unitPrice - lineDiscountAmount(l)) * (l.taxRate / 100), 0)
   const total = subTotal - totalDiscount + totalTax
 
-  const isReadOnly = data?.status === "void" || data?.status === "applied"
+  const isReadOnly = false
   const isFormValid = !!vendorId && lines.some(l => l.description.trim() !== "") && lines.every(l => l.accountId)
 
   const handleSave = () => {

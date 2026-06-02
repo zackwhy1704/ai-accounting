@@ -242,3 +242,19 @@ async def delete_grn(
     await db.execute(delete(GRNLineItem).where(GRNLineItem.grn_id == grn_id))
     await db.delete(grn)
     await db.commit()
+
+
+@router.get("/{grn_id}/activity")
+async def grn_activity(grn_id: UUID, current_user: dict = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    org_id = current_user["org_id"]
+    result = await db.execute(select(GoodsReceivedNote).where(GoodsReceivedNote.id == grn_id, GoodsReceivedNote.organization_id == org_id))
+    obj = result.scalar_one_or_none()
+    if not obj:
+        raise HTTPException(status_code=404, detail="GRN not found")
+    events: list[dict] = [{
+        "ts": obj.received_date.isoformat() if obj.received_date else None,
+        "type": "issued", "ref": obj.grn_number, "ref_id": str(obj.id),
+        "delta": 0.0, "note": obj.notes or "", "status": obj.status,
+        "balance": 0.0,
+    }]
+    return {"total": 0.0, "events": events}

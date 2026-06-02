@@ -204,3 +204,19 @@ async def void_sale_receipt(
     await db.commit()
     await db.refresh(receipt)
     return receipt
+
+
+@router.get("/{receipt_id}/activity")
+async def sale_receipt_activity(receipt_id: UUID, current_user: dict = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    org_id = current_user["org_id"]
+    result = await db.execute(select(SaleReceipt).where(SaleReceipt.id == receipt_id, SaleReceipt.organization_id == org_id))
+    obj = result.scalar_one_or_none()
+    if not obj:
+        raise HTTPException(status_code=404, detail="Sale receipt not found")
+    events: list[dict] = [{
+        "ts": obj.receipt_date.isoformat() if obj.receipt_date else None,
+        "type": "issued", "ref": obj.receipt_number, "ref_id": str(obj.id),
+        "delta": float(obj.total or 0), "note": "", "status": obj.status,
+        "balance": float(obj.total or 0),
+    }]
+    return {"total": float(obj.total or 0), "events": events}

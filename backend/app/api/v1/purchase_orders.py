@@ -276,3 +276,19 @@ async def delete_purchase_order(
         raise HTTPException(status_code=400, detail="Only draft or cancelled purchase orders can be deleted")
     await db.delete(po)
     await db.commit()
+
+
+@router.get("/{po_id}/activity")
+async def purchase_order_activity(po_id: UUID, current_user: dict = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    org_id = current_user["org_id"]
+    result = await db.execute(select(PurchaseOrder).where(PurchaseOrder.id == po_id, PurchaseOrder.organization_id == org_id))
+    obj = result.scalar_one_or_none()
+    if not obj:
+        raise HTTPException(status_code=404, detail="Purchase order not found")
+    events = [{
+        "ts": obj.issue_date.isoformat() if obj.issue_date else None,
+        "type": "issued", "ref": obj.po_number, "ref_id": str(obj.id),
+        "delta": float(obj.total or 0), "note": obj.notes or "", "status": obj.status,
+        "balance": float(obj.total or 0),
+    }]
+    return {"total": float(obj.total or 0), "events": events}

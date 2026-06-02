@@ -857,6 +857,30 @@ export function useBillActivity(id: string | undefined) {
     enabled: !!id,
   })
 }
+function makeActivityHook(endpoint: string, key: string) {
+  return function useActivity(id: string | undefined) {
+    return useQuery<{ total: number; events: InvoiceActivityEvent[] }>({
+      queryKey: [key, id],
+      queryFn: () => api.get(`/${endpoint}/${id}/activity`).then(r => r.data),
+      enabled: !!id,
+    })
+  }
+}
+
+export const useQuotationActivity = makeActivityHook('quotations', 'quotation-activity')
+export const useDeliveryOrderActivity = makeActivityHook('delivery-orders', 'delivery-order-activity')
+export const useCreditNoteActivity = makeActivityHook('credit-notes', 'credit-note-activity')
+export const useDebitNoteActivity = makeActivityHook('debit-notes', 'debit-note-activity')
+export const useSalesPaymentActivity = makeActivityHook('sales-payments', 'sales-payment-activity')
+export const useSalesRefundActivity = makeActivityHook('sales-refunds', 'sales-refund-activity')
+export const usePurchaseOrderActivity = makeActivityHook('purchase-orders', 'purchase-order-activity')
+export const usePurchasePaymentActivity = makeActivityHook('purchase-payments', 'purchase-payment-activity')
+export const usePurchaseRefundActivity = makeActivityHook('purchase-refunds', 'purchase-refund-activity')
+export const usePurchaseDebitNoteActivity = makeActivityHook('purchase-debit-notes', 'purchase-debit-note-activity')
+export const useGRNActivity = makeActivityHook('goods-received-notes', 'grn-activity')
+export const useRecurringInvoiceActivity = makeActivityHook('recurring-invoices', 'recurring-invoice-activity')
+export const useSaleReceiptActivity = makeActivityHook('sale-receipts', 'sale-receipt-activity')
+
 export function useUpdateInvoice() {
   const qc = useQueryClient()
   return useMutation({

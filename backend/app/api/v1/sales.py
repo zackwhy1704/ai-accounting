@@ -1449,3 +1449,140 @@ async def pay_debit_note(
 
     await db.commit()
     return {"id": str(payment.id), "payment_number": payment_number, "status": "completed"}
+
+
+# ─────────────────────────────────────────────────────────────
+# Activity endpoints
+# ─────────────────────────────────────────────────────────────
+
+def _build_events(events: list[dict]) -> dict:
+    events.sort(key=lambda e: (e.get("ts") or ""))
+    running = 0.0
+    for ev in events:
+        running += ev.get("delta", 0.0)
+        ev["balance"] = round(running, 2)
+    return {"total": round(running, 2), "events": events}
+
+
+@router.get("/quotations/{qid}/activity")
+async def quotation_activity(qid: UUID, current_user: dict = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    org_id = current_user["org_id"]
+    result = await db.execute(select(Quotation).where(Quotation.id == qid, Quotation.organization_id == org_id))
+    obj = result.scalar_one_or_none()
+    if not obj:
+        raise HTTPException(status_code=404, detail="Quotation not found")
+    events: list[dict] = [{
+        "ts": obj.issue_date.isoformat() if obj.issue_date else None,
+        "type": "issued", "ref": obj.quotation_number, "ref_id": str(obj.id),
+        "delta": float(obj.total or 0), "note": obj.notes or "", "status": obj.status,
+    }]
+    return _build_events(events)
+
+
+@router.get("/delivery-orders/{do_id}/activity")
+async def delivery_order_activity(do_id: UUID, current_user: dict = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    org_id = current_user["org_id"]
+    result = await db.execute(select(DeliveryOrder).where(DeliveryOrder.id == do_id, DeliveryOrder.organization_id == org_id))
+    obj = result.scalar_one_or_none()
+    if not obj:
+        raise HTTPException(status_code=404, detail="Delivery order not found")
+    events: list[dict] = [{
+        "ts": obj.delivery_date.isoformat() if obj.delivery_date else None,
+        "type": "issued", "ref": obj.delivery_number, "ref_id": str(obj.id),
+        "delta": float(obj.total or 0), "note": obj.notes or "", "status": obj.status,
+    }]
+    return _build_events(events)
+
+
+@router.get("/credit-notes/{cn_id}/activity")
+async def credit_note_activity(cn_id: UUID, current_user: dict = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    org_id = current_user["org_id"]
+    result = await db.execute(select(CreditNote).where(CreditNote.id == cn_id, CreditNote.organization_id == org_id))
+    obj = result.scalar_one_or_none()
+    if not obj:
+        raise HTTPException(status_code=404, detail="Credit note not found")
+    events: list[dict] = [{
+        "ts": obj.issue_date.isoformat() if obj.issue_date else None,
+        "type": "issued", "ref": obj.credit_note_number, "ref_id": str(obj.id),
+        "delta": float(obj.total or 0), "note": obj.notes or "", "status": obj.status,
+    }]
+    apps_result = await db.execute(
+        select(CreditApplicationModel, Invoice)
+        .join(Invoice, Invoice.id == CreditApplicationModel.invoice_id)
+        .where(CreditApplicationModel.credit_note_id == cn_id)
+    )
+    for app, inv in apps_result.all():
+        events.append({
+            "ts": app.applied_at.isoformat() if app.applied_at else None,
+            "type": "payment", "ref": inv.invoice_number, "ref_id": str(inv.id),
+            "delta": -float(app.amount or 0), "note": f"Applied to invoice {inv.invoice_number}", "status": inv.status,
+        })
+    return _build_events(events)
+
+
+@router.get("/debit-notes/{dn_id}/activity")
+async def debit_note_activity(dn_id: UUID, current_user: dict = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    org_id = current_user["org_id"]
+    result = await db.execute(select(DebitNote).where(DebitNote.id == dn_id, DebitNote.organization_id == org_id))
+    obj = result.scalar_one_or_none()
+    if not obj:
+        raise HTTPException(status_code=404, detail="Debit note not found")
+    events: list[dict] = [{
+        "ts": obj.issue_date.isoformat() if obj.issue_date else None,
+        "type": "issued", "ref": obj.debit_note_number, "ref_id": str(obj.id),
+        "delta": float(obj.total or 0), "note": obj.notes or "", "status": obj.status,
+    }]
+    pay_result = await db.execute(
+        select(SalesPayment, PaymentAllocation)
+        .join(PaymentAllocation, PaymentAllocation.payment_id == SalesPayment.id)
+        .where(PaymentAllocation.debit_note_id == dn_id)
+    )
+    for pmt, alloc in pay_result.all():
+        events.append({
+            "ts": pmt.payment_date.isoformat() if pmt.payment_date else None,
+            "type": "payment", "ref": pmt.payment_number, "ref_id": str(pmt.id),
+            "delta": -float(alloc.amount or 0), "note": pmt.notes or "", "status": pmt.status,
+        })
+    return _build_events(events)
+
+
+@router.get("/sales-payments/{sp_id}/activity")
+async def sales_payment_activity(sp_id: UUID, current_user: dict = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    org_id = current_user["org_id"]
+    result = await db.execute(select(SalesPayment).where(SalesPayment.id == sp_id, SalesPayment.organization_id == org_id))
+    obj = result.scalar_one_or_none()
+    if not obj:
+        raise HTTPException(status_code=404, detail="Sales payment not found")
+    events: list[dict] = [{
+        "ts": obj.payment_date.isoformat() if obj.payment_date else None,
+        "type": "issued", "ref": obj.payment_number, "ref_id": str(obj.id),
+        "delta": float(obj.amount or 0), "note": obj.notes or "", "status": obj.status,
+    }]
+    alloc_result = await db.execute(
+        select(PaymentAllocation, Invoice)
+        .join(Invoice, Invoice.id == PaymentAllocation.invoice_id)
+        .where(PaymentAllocation.payment_id == sp_id)
+    )
+    for alloc, inv in alloc_result.all():
+        events.append({
+            "ts": obj.payment_date.isoformat() if obj.payment_date else None,
+            "type": "payment", "ref": inv.invoice_number, "ref_id": str(inv.id),
+            "delta": -float(alloc.amount or 0), "note": f"Allocated to {inv.invoice_number}", "status": inv.status,
+        })
+    return _build_events(events)
+
+
+@router.get("/sales-refunds/{sr_id}/activity")
+async def sales_refund_activity(sr_id: UUID, current_user: dict = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    from app.models.models import SalesRefund
+    org_id = current_user["org_id"]
+    result = await db.execute(select(SalesRefund).where(SalesRefund.id == sr_id, SalesRefund.organization_id == org_id))
+    obj = result.scalar_one_or_none()
+    if not obj:
+        raise HTTPException(status_code=404, detail="Sales refund not found")
+    events: list[dict] = [{
+        "ts": obj.refund_date.isoformat() if obj.refund_date else None,
+        "type": "issued", "ref": getattr(obj, "refund_number", str(obj.id)), "ref_id": str(obj.id),
+        "delta": float(obj.amount or 0), "note": obj.notes or "", "status": obj.status,
+    }]
+    return _build_events(events)

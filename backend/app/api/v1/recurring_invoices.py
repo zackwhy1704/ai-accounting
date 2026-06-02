@@ -237,3 +237,19 @@ async def cancel_recurring(
         raise HTTPException(status_code=404, detail="Not found")
     await db.delete(ri)
     await db.commit()
+
+
+@router.get("/{ri_id}/activity")
+async def recurring_invoice_activity(ri_id: UUID, current_user: dict = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    org_id = current_user["org_id"]
+    result = await db.execute(select(RecurringInvoice).where(RecurringInvoice.id == ri_id, RecurringInvoice.organization_id == org_id))
+    obj = result.scalar_one_or_none()
+    if not obj:
+        raise HTTPException(status_code=404, detail="Not found")
+    events: list[dict] = [{
+        "ts": obj.start_date.isoformat() if obj.start_date else None,
+        "type": "issued", "ref": getattr(obj, "template_name", str(obj.id)), "ref_id": str(obj.id),
+        "delta": float(obj.total or 0), "note": "", "status": obj.status,
+        "balance": float(obj.total or 0),
+    }]
+    return {"total": float(obj.total or 0), "events": events}

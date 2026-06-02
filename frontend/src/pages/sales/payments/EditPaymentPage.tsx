@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useMemo } from "react"
 import { useNavigate, useParams } from "react-router-dom"
 import { Loader2 } from "lucide-react"
-import { useSalesPayment, useUpdateSalesPayment, useContacts, useBankAccounts, useInvoices } from "../../../lib/hooks"
+import { useSalesPayment, useUpdateSalesPayment, useContacts, useBankAccounts, useInvoices, useSalesPaymentActivity, type InvoiceActivityEvent } from "../../../lib/hooks"
 import { formatCurrency, formatDate } from "../../../lib/utils"
 import { Card } from "../../../components/ui/card"
 import { Button } from "../../../components/ui/button"
@@ -21,6 +21,7 @@ export default function EditPaymentPage() {
   const { data: bankAccounts = [] } = useBankAccounts()
   const { data: invoices } = useInvoices()
   const updatePayment = useUpdateSalesPayment()
+  const { data: activity } = useSalesPaymentActivity(id)
   const populated = useRef(false)
 
   const [paymentNumber, setPaymentNumber] = useState("")
@@ -253,11 +254,47 @@ export default function EditPaymentPage() {
         </Card>
       )}
 
+      {activity && (
+        <Card className="rounded-2xl border-border bg-card p-6 shadow-[0_0_0_1px_rgba(15,23,42,0.06),0_18px_55px_rgba(2,6,23,0.08)]">
+          <div className="mb-4 flex items-baseline justify-between">
+            <h3 className="text-sm font-semibold text-foreground">Activity</h3>
+            <div className="text-xs text-muted-foreground">Total {activity.total.toFixed(2)}</div>
+          </div>
+          {activity.events.length === 0 ? <div className="text-sm text-muted-foreground">No activity yet.</div> : (
+            <div className="space-y-3">{activity.events.map((ev: InvoiceActivityEvent, idx: number) => <SimpleActivityRow key={`${ev.type}-${ev.ref_id}-${idx}`} event={ev} />)}</div>
+          )}
+        </Card>
+      )}
+
       <div className="flex justify-end gap-3">
         <Button type="button" variant="outline" onClick={() => navigate("/sales/payments")}>Cancel</Button>
         <Button onClick={handleSave} disabled={updatePayment.isPending || !customerId || !paymentMethod || !amount || parseFloat(amount) <= 0} className="bg-gradient-to-r from-emerald-500 to-emerald-600 text-white hover:from-emerald-600 hover:to-emerald-700">
           {updatePayment.isPending ? "Saving..." : "Save Changes"}
         </Button>
+      </div>
+    </div>
+  )
+}
+
+const ACTIVITY_TYPE_LABELS: Record<string, string> = { issued: "Issued", credit_note: "Credit Note", debit_note: "Debit Note", payment: "Payment", refund: "Refund", journal: "Journal" }
+const ACTIVITY_TYPE_COLORS: Record<string, string> = { issued: "bg-blue-100 text-blue-700", credit_note: "bg-rose-100 text-rose-700", debit_note: "bg-amber-100 text-amber-700", payment: "bg-emerald-100 text-emerald-700", refund: "bg-orange-100 text-orange-700", journal: "bg-slate-100 text-slate-700" }
+function SimpleActivityRow({ event }: { event: InvoiceActivityEvent }) {
+  const date = event.ts ? new Date(event.ts).toLocaleDateString() : "—"
+  const sign = event.delta > 0 ? "+" : event.delta < 0 ? "−" : ""
+  const amount = Math.abs(event.delta).toFixed(2)
+  return (
+    <div className="flex items-start gap-3 rounded-xl border border-border bg-background/50 p-3">
+      <div className={`shrink-0 rounded-md px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${ACTIVITY_TYPE_COLORS[event.type] ?? "bg-slate-100 text-slate-700"}`}>{ACTIVITY_TYPE_LABELS[event.type] ?? event.type}</div>
+      <div className="flex-1 min-w-0">
+        <div className="flex items-baseline justify-between gap-2">
+          <div className="text-sm font-medium text-foreground truncate">{event.ref}</div>
+          <div className="text-xs text-muted-foreground shrink-0">{date}</div>
+        </div>
+        {event.note && <div className="mt-0.5 text-xs text-muted-foreground line-clamp-2">{event.note}</div>}
+      </div>
+      <div className="text-right shrink-0">
+        {event.delta !== 0 && <div className={`text-sm font-semibold ${event.delta > 0 ? "text-amber-600" : "text-emerald-600"}`}>{sign}{amount}</div>}
+        <div className="text-[11px] text-muted-foreground">Bal {event.balance.toFixed(2)}</div>
       </div>
     </div>
   )
