@@ -193,6 +193,7 @@ export interface DebitNote {
   discount_amount: number
   tax_amount: number
   total: number
+  amount_paid: number
   currency: string
   notes: string | null
   line_items: LineItem[]

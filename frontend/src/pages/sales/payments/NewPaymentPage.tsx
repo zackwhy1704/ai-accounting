@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect } from "react"
 import { useNavigate, useSearchParams } from "react-router-dom"
-import { useContacts, useBankAccounts, useInvoices, useCreateSalesPayment } from "../../../lib/hooks"
+import { useContacts, useBankAccounts, useInvoices, useDebitNotes, useCreateSalesPayment } from "../../../lib/hooks"
 import { formatCurrency, formatDate } from "../../../lib/utils"
 import { Card } from "../../../components/ui/card"
 import { Button } from "../../../components/ui/button"
@@ -18,6 +18,7 @@ export default function NewPaymentPage() {
   const { data: contacts } = useContacts()
   const { data: bankAccounts = [] } = useBankAccounts()
   const { data: invoices } = useInvoices()
+  const { data: debitNotes } = useDebitNotes()
   const createPayment = useCreateSalesPayment()
 
   const [paymentNumber, setPaymentNumber] = useState("")
@@ -30,6 +31,8 @@ export default function NewPaymentPage() {
   const [currency, setCurrency] = useState("MYR")
   const [allocations, setAllocations] = useState<Record<string, number>>({})
   const [selectedInvoices, setSelectedInvoices] = useState<Record<string, boolean>>({})
+  const [selectedDebitNotes, setSelectedDebitNotes] = useState<Record<string, boolean>>({})
+  const [dnAllocations, setDnAllocations] = useState<Record<string, number>>({})
 
   // Pre-fill from invoice link or direct contact/amount
   useEffect(() => {
@@ -39,36 +42,54 @@ export default function NewPaymentPage() {
     const debitNoteId = searchParams.get("debit_note_id")
     if (directContactId) setCustomerId(directContactId)
     if (directAmount) setAmount(directAmount)
+    if (debitNoteId && debitNotes) {
+      const dn = (debitNotes as any[]).find((d: any) => d.id === debitNoteId)
+      if (dn) {
+        if (!directContactId && dn.contact_id) setCustomerId(String(dn.contact_id))
+        const bal = dn.total - (dn.amount_paid || 0)
+        setSelectedDebitNotes((prev) => ({ ...prev, [debitNoteId]: true }))
+        setDnAllocations((prev) => ({ ...prev, [debitNoteId]: directAmount ? parseFloat(directAmount) : bal }))
+        if (!directAmount) setAmount(String(bal))
+      }
+    }
     if (!invoices) return
     if (invoiceId) {
       const inv = invoices.find((i) => i.id === invoiceId)
       if (inv) {
         if (!directContactId && inv.contact_id) setCustomerId(inv.contact_id)
         setSelectedInvoices((prev) => ({ ...prev, [invoiceId]: true }))
-        // When from debit note use the debit note amount, otherwise use balance
-        const applyAmt = debitNoteId && directAmount ? parseFloat(directAmount) : (inv.total - (inv.amount_paid || 0))
+        const applyAmt = inv.total - (inv.amount_paid || 0)
         setAllocations((prev) => ({ ...prev, [invoiceId]: applyAmt }))
         if (!directAmount) setAmount(String(applyAmt))
       }
     }
-  }, [searchParams, invoices])
+  }, [searchParams, invoices, debitNotes])
 
   const outstandingInvoices = useMemo(() => {
     if (!invoices || !customerId) return []
     return invoices.filter(
       (inv: any) =>
         (inv.customer_id === customerId || inv.contact_id === customerId) &&
-        (inv.status === "draft" || inv.status === "sent" || inv.status === "viewed" || inv.status === "outstanding" || inv.status === "partial" || inv.status === "overdue") &&
+        (inv.status === "draft" || inv.status === "sent" || inv.status === "viewed" || inv.status === "outstanding" || inv.status === "partially paid" || inv.status === "overdue") &&
         (inv.balance ?? inv.amount_due ?? (inv.total - (inv.amount_paid || 0))) > 0
     )
   }, [invoices, customerId])
 
+  const outstandingDebitNotes = useMemo(() => {
+    if (!debitNotes || !customerId) return []
+    return (debitNotes as any[]).filter(
+      (dn: any) =>
+        String(dn.contact_id) === String(customerId) &&
+        (dn.status === "issued" || dn.status === "partially paid") &&
+        (dn.total - (dn.amount_paid || 0)) > 0
+    )
+  }, [debitNotes, customerId])
+
   const totalApplied = useMemo(() => {
-    return Object.entries(allocations).reduce((sum, [id, val]) => {
-      if (selectedInvoices[id]) return sum + (val || 0)
-      return sum
-    }, 0)
-  }, [allocations, selectedInvoices])
+    const invTotal = Object.entries(allocations).reduce((sum, [id, val]) => selectedInvoices[id] ? sum + (val || 0) : sum, 0)
+    const dnTotal = Object.entries(dnAllocations).reduce((sum, [id, val]) => selectedDebitNotes[id] ? sum + (val || 0) : sum, 0)
+    return invTotal + dnTotal
+  }, [allocations, selectedInvoices, dnAllocations, selectedDebitNotes])
 
   const toggleInvoice = (id: string) => {
     setSelectedInvoices((prev) => ({ ...prev, [id]: !prev[id] }))
@@ -78,21 +99,31 @@ export default function NewPaymentPage() {
     setAllocations((prev) => ({ ...prev, [id]: parseFloat(value) || 0 }))
   }
 
+  const toggleDebitNote = (id: string) => {
+    setSelectedDebitNotes((prev) => ({ ...prev, [id]: !prev[id] }))
+  }
+
+  const updateDnAllocation = (id: string, value: string) => {
+    setDnAllocations((prev) => ({ ...prev, [id]: parseFloat(value) || 0 }))
+  }
+
+  const getDnBalance = (dn: any) => dn.total - (dn.amount_paid || 0)
+
   const handleSave = async () => {
     if (!customerId || !paymentMethod) { alert("Please fill in all required fields"); return }
-    const debitNoteId = searchParams.get("debit_note_id")
 
     const invoiceAllocs = Object.entries(allocations)
       .filter(([id]) => selectedInvoices[id] && (Number(allocations[id]) || 0) > 0)
       .map(([invoice_id, amt]) => ({ invoice_id, amount: Number(amt) }))
 
+    const dnAllocs = Object.entries(dnAllocations)
+      .filter(([id]) => selectedDebitNotes[id] && (Number(dnAllocations[id]) || 0) > 0)
+      .map(([debit_note_id, amt]) => ({ debit_note_id, amount: Number(amt) }))
+
     const effectiveAmount = parseFloat(amount) > 0 ? parseFloat(amount) : totalApplied
     if (effectiveAmount <= 0) { alert("Please enter a payment amount"); return }
 
-    // When coming from a debit note, allocate to the debit note
-    const allocationsList: any[] = debitNoteId
-      ? [{ debit_note_id: debitNoteId, amount: effectiveAmount }]
-      : invoiceAllocs
+    const allocationsList = [...invoiceAllocs, ...dnAllocs]
 
     const payload: any = {
       contact_id: customerId,
@@ -246,11 +277,10 @@ export default function NewPaymentPage() {
       {customerId && (
         <Card className={cardClass}>
           <h2 className="mb-4 text-lg font-semibold text-foreground">Allocate to Invoices</h2>
-
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead className="w-10">Invoice</TableHead>
+                <TableHead className="w-10" />
                 <TableHead>Invoice Number</TableHead>
                 <TableHead>Date</TableHead>
                 <TableHead className="text-right">Total</TableHead>
@@ -261,47 +291,64 @@ export default function NewPaymentPage() {
             <TableBody>
               {outstandingInvoices.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center text-muted-foreground">
-                    No outstanding invoices for this customer.
-                  </TableCell>
+                  <TableCell colSpan={6} className="text-center text-muted-foreground">No outstanding invoices for this customer.</TableCell>
                 </TableRow>
               ) : (
                 outstandingInvoices.map((inv: any) => (
                   <TableRow key={inv.id}>
                     <TableCell>
-                      <input
-                        type="checkbox"
-                        checked={!!selectedInvoices[inv.id]}
-                        onChange={() => toggleInvoice(inv.id)}
-                        className="h-4 w-4 rounded border-border"
-                      />
+                      <input type="checkbox" checked={!!selectedInvoices[inv.id]} onChange={() => toggleInvoice(inv.id)} className="h-4 w-4 rounded border-border" />
                     </TableCell>
                     <TableCell>{inv.invoice_number || inv.number}</TableCell>
                     <TableCell>{formatDate(inv.issue_date || inv.invoice_date || inv.date)}</TableCell>
                     <TableCell className="text-right">{formatCurrency(inv.total, currency)}</TableCell>
                     <TableCell className="text-right">{formatCurrency(getBalance(inv), currency)}</TableCell>
                     <TableCell className="text-right">
-                      <Input
-                        type="number"
-                        step="0.01"
-                        className="ml-auto w-32 text-right"
-                        value={allocations[inv.id] ?? ""}
-                        onChange={(e) => updateAllocation(inv.id, e.target.value)}
-                        disabled={!selectedInvoices[inv.id]}
-                        placeholder="0.00"
-                      />
+                      <Input type="number" step="0.01" className="ml-auto w-32 text-right" value={allocations[inv.id] ?? ""} onChange={(e) => updateAllocation(inv.id, e.target.value)} disabled={!selectedInvoices[inv.id]} placeholder="0.00" />
                     </TableCell>
                   </TableRow>
                 ))
               )}
             </TableBody>
           </Table>
-
           <div className="mt-4 flex justify-end border-t border-border pt-4">
-            <div className="text-sm font-semibold text-foreground">
-              Total Applied: {formatCurrency(totalApplied, currency)}
-            </div>
+            <div className="text-sm font-semibold text-foreground">Total Applied: {formatCurrency(totalApplied, currency)}</div>
           </div>
+        </Card>
+      )}
+
+      {/* Allocate to Debit Notes */}
+      {customerId && outstandingDebitNotes.length > 0 && (
+        <Card className={cardClass}>
+          <h2 className="mb-4 text-lg font-semibold text-foreground">Allocate to Debit Notes</h2>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="w-10" />
+                <TableHead>Debit Note Number</TableHead>
+                <TableHead>Date</TableHead>
+                <TableHead className="text-right">Total</TableHead>
+                <TableHead className="text-right">Balance</TableHead>
+                <TableHead className="text-right">Amount Applied</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {outstandingDebitNotes.map((dn: any) => (
+                <TableRow key={dn.id}>
+                  <TableCell>
+                    <input type="checkbox" checked={!!selectedDebitNotes[dn.id]} onChange={() => toggleDebitNote(dn.id)} className="h-4 w-4 rounded border-border" />
+                  </TableCell>
+                  <TableCell>{dn.debit_note_number}</TableCell>
+                  <TableCell>{formatDate(dn.issue_date)}</TableCell>
+                  <TableCell className="text-right">{formatCurrency(dn.total, currency)}</TableCell>
+                  <TableCell className="text-right">{formatCurrency(getDnBalance(dn), currency)}</TableCell>
+                  <TableCell className="text-right">
+                    <Input type="number" step="0.01" className="ml-auto w-32 text-right" value={dnAllocations[dn.id] ?? ""} onChange={(e) => updateDnAllocation(dn.id, e.target.value)} disabled={!selectedDebitNotes[dn.id]} placeholder="0.00" />
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
         </Card>
       )}
 
