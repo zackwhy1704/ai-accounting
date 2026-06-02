@@ -1,7 +1,7 @@
 from datetime import datetime, timedelta, timezone
 from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func, cast, Date
+from sqlalchemy import select, func, cast, Date, and_, or_
 from app.core.database import get_db
 from app.core.security import get_current_user
 from app.models.models import Invoice, Bill, Document, JournalEntry, Account, Transaction
@@ -16,6 +16,7 @@ async def get_dashboard(
     db: AsyncSession = Depends(get_db),
 ):
     org_id = current_user["org_id"]
+    now = datetime.now(timezone.utc)
 
     # Revenue (sum of all revenue account credits)
     revenue_result = await db.execute(
@@ -33,25 +34,27 @@ async def get_dashboard(
     )
     total_expenses = float(expense_result.scalar() or 0)
 
-    # Accounts Receivable
+    # Accounts Receivable — all unpaid/partially-paid invoices that are not draft/void/cancelled
     ar_result = await db.execute(
         select(func.coalesce(func.sum(Invoice.total - Invoice.amount_paid), 0)).where(
             Invoice.organization_id == org_id,
-            Invoice.status.in_(["sent", "viewed", "overdue"]),
+            Invoice.status.in_(["sent", "viewed", "outstanding", "overdue", "partially paid"]),
+            Invoice.total > Invoice.amount_paid,
         )
     )
     accounts_receivable = float(ar_result.scalar() or 0)
 
-    # Accounts Payable
+    # Accounts Payable — all unpaid/partially-paid bills that are not draft/void
     ap_result = await db.execute(
         select(func.coalesce(func.sum(Bill.total - Bill.amount_paid), 0)).where(
             Bill.organization_id == org_id,
-            Bill.status.in_(["received", "approved", "overdue"]),
+            Bill.status.in_(["received", "approved", "outstanding", "overdue", "partially paid"]),
+            Bill.total > Bill.amount_paid,
         )
     )
     accounts_payable = float(ap_result.scalar() or 0)
 
-    # Cash balance (bank account)
+    # Cash balance (bank account 1000)
     cash_result = await db.execute(
         select(
             func.coalesce(func.sum(JournalEntry.debit), 0) - func.coalesce(func.sum(JournalEntry.credit), 0)
@@ -59,22 +62,30 @@ async def get_dashboard(
     )
     cash_balance = float(cash_result.scalar() or 0)
 
-    # Overdue invoices count
+    # Overdue invoices: status == "overdue" OR (outstanding/sent/partially paid AND past due date)
     overdue_result = await db.execute(
         select(func.count(Invoice.id)).where(
-            Invoice.organization_id == org_id, Invoice.status == "overdue"
+            Invoice.organization_id == org_id,
+            or_(
+                Invoice.status == "overdue",
+                and_(
+                    Invoice.status.in_(["sent", "viewed", "outstanding", "partially paid"]),
+                    Invoice.due_date < now,
+                )
+            )
         )
     )
     overdue_invoices = overdue_result.scalar() or 0
 
-    # Pending documents
-    pending_docs = await db.execute(
-        select(func.count(Document.id)).where(
-            Document.organization_id == org_id,
-            Document.status.in_(["uploaded", "processing"]),
+    # Overdue bills count (for "pending" label on bills card)
+    overdue_bills_result = await db.execute(
+        select(func.count(Bill.id)).where(
+            Bill.organization_id == org_id,
+            Bill.status.in_(["received", "approved", "outstanding", "partially paid"]),
+            Bill.total > Bill.amount_paid,
         )
     )
-    pending_documents = pending_docs.scalar() or 0
+    pending_documents = overdue_bills_result.scalar() or 0
 
     return DashboardResponse(
         total_revenue=total_revenue,

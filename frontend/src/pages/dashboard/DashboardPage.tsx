@@ -82,7 +82,7 @@ export default function DashboardPage() {
               </div>
               <div>
                 <div className="text-sm font-semibold text-foreground">{t("dashboard.outstandingInvoices")}</div>
-                <div className="mt-0.5 text-xs text-muted-foreground">{data?.overdue_invoices ?? 0} overdue</div>
+                <div className="mt-0.5 text-xs text-muted-foreground">{data?.overdue_invoices ?? 0} overdue / past due</div>
               </div>
             </div>
             <div className="flex items-center gap-3">
@@ -105,7 +105,7 @@ export default function DashboardPage() {
               </div>
               <div>
                 <div className="text-sm font-semibold text-foreground">{t("dashboard.outstandingBills")}</div>
-                <div className="mt-0.5 text-xs text-muted-foreground">{data?.pending_documents ?? 0} pending</div>
+                <div className="mt-0.5 text-xs text-muted-foreground">{data?.pending_documents ?? 0} unpaid bills</div>
               </div>
             </div>
             <div className="flex items-center gap-3">
