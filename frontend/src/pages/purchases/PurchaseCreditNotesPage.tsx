@@ -172,7 +172,7 @@ export default function PurchaseCreditNotesPage() {
                         <TableCell className="text-right">
                           <RowActionsMenu actions={[
                             { label: "View", icon: <FileText className="h-3.5 w-3.5" />, onClick: () => navigate(`/purchases/credit-notes/${cn.id}/edit`) },
-                            { label: "Edit", icon: <Pencil className="h-3.5 w-3.5" />, onClick: () => navigate(`/purchases/credit-notes/${cn.id}/edit`), disabled: cn.status !== "draft" },
+                            { label: "Edit", icon: <Pencil className="h-3.5 w-3.5" />, onClick: () => navigate(`/purchases/credit-notes/${cn.id}/edit`), disabled: cn.status === "void" },
                             { label: "Mark as Issued", icon: <Send className="h-3.5 w-3.5" />, onClick: () => patch(cn.id, "issued", "Credit note marked as issued"), dividerBefore: true, disabled: cn.status !== "draft" },
                             { label: "Apply to Bill", icon: <ArrowRightLeft className="h-3.5 w-3.5" />, onClick: () => navigate(`/purchases/credit-notes/${cn.id}/edit?tab=apply_credit`), disabled: cn.status === "void" || cn.status === "draft" },
                             { label: "Issue Refund", icon: <RotateCcw className="h-3.5 w-3.5" />, onClick: () => navigate(`/purchases/refunds/new?pcn_id=${cn.id}&amount=${cn.total}&contact_id=${cn.contact_id}`), disabled: cn.status === "void" || cn.status === "draft" },
