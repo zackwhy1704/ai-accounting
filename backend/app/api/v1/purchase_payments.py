@@ -9,7 +9,7 @@ from pydantic import BaseModel
 
 from app.core.database import get_db
 from app.core.security import get_current_user
-from app.models.models import PurchasePayment, Bill
+from app.models.models import PurchasePayment, Bill, PurchaseDebitNote
 from .gl_helpers import post_gl, revert_gl
 
 router = APIRouter(prefix="/purchase-payments", tags=["purchase-payments"])
@@ -22,6 +22,7 @@ class PurchasePaymentCreate(BaseModel):
     currency: str = "MYR"
     contact_id: Optional[UUID] = None
     bill_id: Optional[UUID] = None
+    debit_note_id: Optional[UUID] = None
     payment_method: str = "bank_transfer"
     bank_account_id: Optional[str] = None
     reference_no: Optional[str] = None
@@ -35,6 +36,7 @@ class PurchasePaymentUpdate(BaseModel):
     currency: Optional[str] = None
     contact_id: Optional[UUID] = None
     bill_id: Optional[UUID] = None
+    debit_note_id: Optional[UUID] = None
     payment_method: Optional[str] = None
     bank_account_id: Optional[str] = None
     reference_no: Optional[str] = None
@@ -47,6 +49,7 @@ class PurchasePaymentResponse(BaseModel):
     payment_no: str
     contact_id: Optional[UUID]
     bill_id: Optional[UUID] = None
+    debit_note_id: Optional[UUID] = None
     payment_date: datetime
     amount: float
     currency: str
@@ -125,6 +128,18 @@ async def create_purchase_payment(
                 bill.status = "partially paid"
             else:
                 bill.status = "outstanding"
+
+    # Update linked debit note balance
+    if payload.debit_note_id:
+        dn_result = await db.execute(select(PurchaseDebitNote).where(PurchaseDebitNote.id == payload.debit_note_id))
+        dn = dn_result.scalar_one_or_none()
+        if dn:
+            dn.amount_paid = float(dn.amount_paid or 0) + float(payload.amount)
+            dn_total = float(dn.total or 0)
+            if float(dn.amount_paid) >= dn_total:
+                dn.status = "applied"
+            elif float(dn.amount_paid) > 0:
+                dn.status = "partially paid"
 
     # GL: Dr AP (2000) / Cr Cash/Bank (1000)
     await post_gl(

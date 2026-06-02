@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect } from "react"
 import { useNavigate, useSearchParams } from "react-router-dom"
 import { Loader2 } from "lucide-react"
-import { useContacts, useBankAccounts, useCreatePurchasePayment, useBills } from "../../lib/hooks"
+import { useContacts, useBankAccounts, useCreatePurchasePayment, useBills, usePurchaseDebitNotes } from "../../lib/hooks"
 import { formatCurrency, formatDate } from "../../lib/utils"
 import { getContactPrefs, saveContactPref } from "../../lib/contact-prefs"
 import { useToast } from "../../components/ui/toast"
@@ -21,9 +21,11 @@ export default function NewPurchasePaymentPage() {
   const { data: contacts = [] } = useContacts()
   const { data: bankAccounts = [] } = useBankAccounts()
   const { data: bills = [] } = useBills()
+  const { data: purchaseDebitNotes = [] } = usePurchaseDebitNotes()
   const createPayment = useCreatePurchasePayment()
 
   const fromBillId = searchParams.get("bill_id")
+  const fromDebitNoteId = searchParams.get("debit_note_id")
   const fromContactId = searchParams.get("contact_id")
   const fromAmount = searchParams.get("amount")
 
@@ -38,18 +40,24 @@ export default function NewPurchasePaymentPage() {
   const [notes, setNotes] = useState("")
   const [allocations, setAllocations] = useState<Record<string, number>>({})
   const [selectedBills, setSelectedBills] = useState<Record<string, boolean>>({})
+  const [selectedDNs, setSelectedDNs] = useState<Record<string, boolean>>({})
+  const [dnAllocations, setDnAllocations] = useState<Record<string, number>>({})
 
-  // Pre-select the bill from URL param
+  // Pre-select the bill or debit note from URL param
   useEffect(() => {
     if (fromBillId) {
       setSelectedBills(prev => ({ ...prev, [fromBillId]: true }))
       if (fromAmount) setAllocations(prev => ({ ...prev, [fromBillId]: parseFloat(fromAmount) }))
     }
+    if (fromDebitNoteId) {
+      setSelectedDNs(prev => ({ ...prev, [fromDebitNoteId]: true }))
+      if (fromAmount) setDnAllocations(prev => ({ ...prev, [fromDebitNoteId]: parseFloat(fromAmount) }))
+    }
     if (fromContactId) {
       const prefs = getContactPrefs(fromContactId)
       if (prefs.currency) setCurrency(prefs.currency)
     }
-  }, [fromBillId, fromContactId, fromAmount])
+  }, [fromBillId, fromDebitNoteId, fromContactId, fromAmount])
 
   const suppliers = useMemo(
     () => contacts.filter((c: any) => c.type === "vendor" || c.type === "supplier" || c.type === "both"),
@@ -65,12 +73,20 @@ export default function NewPurchasePaymentPage() {
     )
   }, [bills, contactId])
 
+  const outstandingDebitNotes = useMemo(() => {
+    if (!contactId) return []
+    return (purchaseDebitNotes as any[]).filter((dn: any) =>
+      String(dn.contact_id) === String(contactId) &&
+      (dn.status === "issued" || dn.status === "partially paid") &&
+      (dn.total - (dn.amount_paid ?? 0)) > 0
+    )
+  }, [purchaseDebitNotes, contactId])
+
   const totalApplied = useMemo(() => {
-    return Object.entries(allocations).reduce((sum, [id, val]) => {
-      if (selectedBills[id]) return sum + (val || 0)
-      return sum
-    }, 0)
-  }, [allocations, selectedBills])
+    const billTotal = Object.entries(allocations).reduce((sum, [id, val]) => selectedBills[id] ? sum + (val || 0) : sum, 0)
+    const dnTotal = Object.entries(dnAllocations).reduce((sum, [id, val]) => selectedDNs[id] ? sum + (val || 0) : sum, 0)
+    return billTotal + dnTotal
+  }, [allocations, selectedBills, dnAllocations, selectedDNs])
 
   const toggleBill = (billId: string) => {
     setSelectedBills(prev => ({ ...prev, [billId]: !prev[billId] }))
@@ -78,6 +94,14 @@ export default function NewPurchasePaymentPage() {
 
   const updateAllocation = (billId: string, value: string) => {
     setAllocations(prev => ({ ...prev, [billId]: parseFloat(value) || 0 }))
+  }
+
+  const toggleDN = (dnId: string) => {
+    setSelectedDNs(prev => ({ ...prev, [dnId]: !prev[dnId] }))
+  }
+
+  const updateDnAllocation = (dnId: string, value: string) => {
+    setDnAllocations(prev => ({ ...prev, [dnId]: parseFloat(value) || 0 }))
   }
 
   const getBalance = (b: any) => b.total - (b.amount_paid ?? 0)
@@ -88,19 +112,22 @@ export default function NewPurchasePaymentPage() {
   const handleSave = async () => {
     if (!isFormValid) { toast("Please fill in all required fields", "warning"); return }
     try {
-      const selectedBillIds = Object.entries(selectedBills)
-        .filter(([id, sel]) => sel && (allocations[id] || 0) > 0)
-        .map(([id]) => id)
-
-      // Use the first selected bill as the linked bill_id (purchase payments are 1-to-1 with bills)
+      const selectedBillIds = Object.entries(selectedBills).filter(([id, sel]) => sel && (allocations[id] || 0) > 0).map(([id]) => id)
+      const selectedDnIds = Object.entries(selectedDNs).filter(([id, sel]) => sel && (dnAllocations[id] || 0) > 0).map(([id]) => id)
       const linkedBillId = selectedBillIds[0] ?? null
+      const linkedDnId = selectedDnIds[0] ?? null
+
+      const payAmt = linkedBillId ? (allocations[linkedBillId] ?? effectiveAmount)
+        : linkedDnId ? (dnAllocations[linkedDnId] ?? effectiveAmount)
+        : effectiveAmount
 
       await createPayment.mutateAsync({
         contact_id: contactId || null,
         bill_id: linkedBillId,
+        debit_note_id: linkedDnId,
         payment_no: paymentNo || undefined,
         payment_date: new Date(paymentDate).toISOString(),
-        amount: linkedBillId ? (allocations[linkedBillId] ?? effectiveAmount) : effectiveAmount,
+        amount: payAmt,
         currency,
         payment_method: paymentMethod,
         reference_no: referenceNo || null,
@@ -259,6 +286,41 @@ export default function NewPurchasePaymentPage() {
           <div className="mt-4 flex justify-end border-t border-border pt-4">
             <div className="text-sm font-semibold text-foreground">Total Applied: {formatCurrency(totalApplied, currency)}</div>
           </div>
+        </Card>
+      )}
+
+      {/* Allocate to Purchase Debit Notes */}
+      {contactId && outstandingDebitNotes.length > 0 && (
+        <Card className={cardClass}>
+          <h2 className="mb-4 text-lg font-semibold text-foreground">Allocate to Debit Notes</h2>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="w-10"></TableHead>
+                <TableHead>Debit Note Number</TableHead>
+                <TableHead>Date</TableHead>
+                <TableHead className="text-right">Total</TableHead>
+                <TableHead className="text-right">Balance</TableHead>
+                <TableHead className="text-right">Amount Applied</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {outstandingDebitNotes.map((dn: any) => (
+                <TableRow key={dn.id}>
+                  <TableCell>
+                    <input type="checkbox" checked={!!selectedDNs[dn.id]} onChange={() => toggleDN(dn.id)} className="h-4 w-4 rounded border-border" />
+                  </TableCell>
+                  <TableCell>{dn.debit_note_number}</TableCell>
+                  <TableCell>{formatDate(dn.issue_date)}</TableCell>
+                  <TableCell className="text-right">{formatCurrency(dn.total, currency)}</TableCell>
+                  <TableCell className="text-right">{formatCurrency(dn.total - (dn.amount_paid ?? 0), currency)}</TableCell>
+                  <TableCell className="text-right">
+                    <Input type="number" step="0.01" className="ml-auto w-32 text-right" value={dnAllocations[dn.id] ?? ""} onChange={e => updateDnAllocation(dn.id, e.target.value)} disabled={!selectedDNs[dn.id]} placeholder="0.00" />
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
         </Card>
       )}
 

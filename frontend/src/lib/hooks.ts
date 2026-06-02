@@ -764,7 +764,11 @@ export function useCreatePurchasePayment() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: (data: Record<string, unknown>) => api.post('/purchase-payments', data).then(r => r.data),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['purchase-payments'] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['purchase-payments'] })
+      qc.invalidateQueries({ queryKey: ['bills'] })
+      qc.invalidateQueries({ queryKey: ['purchase-debit-notes'] })
+    },
   })
 }
 
@@ -780,7 +784,11 @@ export function useCreatePurchaseRefund() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: (data: Record<string, unknown>) => api.post('/purchase-refunds', data).then(r => r.data),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['purchase-refunds'] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['purchase-refunds'] })
+      qc.invalidateQueries({ queryKey: ['purchase-credit-notes'] })
+      qc.invalidateQueries({ queryKey: ['bills'] })
+    },
   })
 }
 

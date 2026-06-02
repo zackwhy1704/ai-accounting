@@ -707,6 +707,7 @@ class PurchaseDebitNoteResponse(BaseModel):
     discount_amount: float
     tax_amount: float
     total: float
+    amount_paid: float = 0.0
     currency: str
     notes: str | None
     created_at: datetime
