@@ -146,8 +146,8 @@ async def update_quotation(qid: UUID, data: QuotationUpdate, current_user: dict 
     obj = result.scalar_one_or_none()
     if not obj:
         raise HTTPException(status_code=404, detail="Quotation not found")
-    if obj.status not in ("draft",):
-        raise HTTPException(status_code=400, detail="Only draft quotations can be edited")
+    if obj.status == "void":
+        raise HTTPException(status_code=400, detail="Voided quotations cannot be edited")
 
     if data.contact_id is not None:
         obj.contact_id = data.contact_id
@@ -361,8 +361,8 @@ async def update_delivery_order(do_id: UUID, data: DeliveryOrderUpdate, current_
     obj = result.scalar_one_or_none()
     if not obj:
         raise HTTPException(status_code=404, detail="Delivery order not found")
-    if obj.status not in ("draft",):
-        raise HTTPException(status_code=400, detail="Only draft delivery orders can be edited")
+    if obj.status in ("void", "cancelled"):
+        raise HTTPException(status_code=400, detail="Voided or cancelled delivery orders cannot be edited")
 
     update_data = data.model_dump(exclude_unset=True)
 
@@ -700,8 +700,8 @@ async def update_debit_note(dn_id: UUID, data: DebitNoteUpdate, current_user: di
     obj = result.scalar_one_or_none()
     if not obj:
         raise HTTPException(status_code=404, detail="Debit note not found")
-    if obj.status not in ("draft",):
-        raise HTTPException(status_code=400, detail="Only draft debit notes can be edited")
+    if obj.status == "void":
+        raise HTTPException(status_code=400, detail="Voided debit notes cannot be edited")
 
     update_data = data.model_dump(exclude_unset=True)
 
