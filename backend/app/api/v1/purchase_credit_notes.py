@@ -247,8 +247,8 @@ async def update_purchase_credit_note(
     pcn = result.scalar_one_or_none()
     if not pcn:
         raise HTTPException(status_code=404, detail="Purchase credit note not found")
-    if pcn.status in ("void", "applied"):
-        raise HTTPException(status_code=400, detail=f"Cannot edit a {pcn.status} purchase credit note")
+    if pcn.status == "void":
+        raise HTTPException(status_code=400, detail="Cannot edit a voided purchase credit note")
 
     update_data = data.model_dump(exclude_unset=True)
 
