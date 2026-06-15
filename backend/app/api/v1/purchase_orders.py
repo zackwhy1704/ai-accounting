@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, delete
+from sqlalchemy import select, delete, func, or_
 from sqlalchemy.orm import selectinload
 from uuid import UUID
 from datetime import datetime
@@ -9,7 +9,8 @@ from pydantic import BaseModel
 
 from app.core.database import get_db
 from app.core.security import get_current_user
-from app.models.models import PurchaseOrder, PurchaseOrderLineItem
+from app.core.pagination import PaginationParams, paginated_result, apply_sort
+from app.models.models import PurchaseOrder, PurchaseOrderLineItem, Contact
 
 router = APIRouter(prefix="/purchase-orders", tags=["purchase-orders"])
 
@@ -81,19 +82,39 @@ class PurchaseOrderResponse(BaseModel):
     model_config = {"from_attributes": True}
 
 
-@router.get("", response_model=list[PurchaseOrderResponse])
+@router.get("")
 async def list_purchase_orders(
     status: Optional[str] = None,
+    contact_id: UUID | None = None,
+    p: PaginationParams = Depends(),
     db: AsyncSession = Depends(get_db),
     current_user: dict = Depends(get_current_user),
 ):
-    q = select(PurchaseOrder).options(selectinload(PurchaseOrder.line_items)).where(
-        PurchaseOrder.organization_id == current_user["org_id"]
-    ).order_by(PurchaseOrder.created_at.desc())
+    org_id = current_user["org_id"]
+    base = select(PurchaseOrder).where(PurchaseOrder.organization_id == org_id)
     if status:
-        q = q.where(PurchaseOrder.status == status)
-    result = await db.execute(q)
-    return result.scalars().all()
+        base = base.where(PurchaseOrder.status == status)
+    if contact_id:
+        base = base.where(PurchaseOrder.contact_id == contact_id)
+    if p.search:
+        like = f"%{p.search}%"
+        contact_match = select(Contact.id).where(
+            Contact.organization_id == org_id, Contact.name.ilike(like)
+        )
+        base = base.where(or_(
+            PurchaseOrder.po_number.ilike(like),
+            PurchaseOrder.contact_id.in_(contact_match),
+        ))
+    if p.date_from:
+        base = base.where(PurchaseOrder.issue_date >= p.date_from)
+    if p.date_to:
+        base = base.where(PurchaseOrder.issue_date <= p.date_to)
+
+    total = (await db.execute(select(func.count()).select_from(base.subquery()))).scalar() or 0
+    query = apply_sort(base, PurchaseOrder, p).options(selectinload(PurchaseOrder.line_items)).offset(p.offset).limit(p.limit)
+    items = (await db.execute(query)).scalars().all()
+    items = [PurchaseOrderResponse.model_validate(i) for i in items]
+    return paginated_result(items, total, p)
 
 
 @router.post("", response_model=PurchaseOrderResponse, status_code=201)

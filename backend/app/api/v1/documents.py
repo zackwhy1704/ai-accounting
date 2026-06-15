@@ -5,11 +5,12 @@ from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Backgro
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, func
 from uuid import UUID
 from datetime import datetime, timezone, timedelta
 from app.core.database import get_db, async_session
 from app.core.security import get_current_user
+from app.core.pagination import PaginationParams, paginated_result, apply_sort
 from app.models.models import Document, Organization, Bill, BillLineItem, Contact, Account, Transaction, JournalEntry, GoodsReceivedNote, GRNLineItem
 from .gl_helpers import post_gl as do_post_gl
 from .document_router import route_document_to_module, CONFIRM_LABELS
@@ -27,19 +28,30 @@ ALLOWED_TYPES = {
 MAX_FILE_SIZE = 10 * 1024 * 1024  # 10MB
 
 
-@router.get("", response_model=list[DocumentResponse])
+@router.get("")
 async def list_documents(
     status: str | None = None,
+    p: PaginationParams = Depends(),
     current_user: dict = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    query = select(Document).where(
-        Document.organization_id == current_user["org_id"]
-    ).order_by(Document.uploaded_at.desc())
+    org_id = current_user["org_id"]
+    base = select(Document).where(Document.organization_id == org_id)
     if status:
-        query = query.where(Document.status == status)
-    result = await db.execute(query)
-    return result.scalars().all()
+        base = base.where(Document.status == status)
+    if p.search:
+        like = f"%{p.search}%"
+        base = base.where(Document.filename.ilike(like))
+    if p.date_from:
+        base = base.where(Document.uploaded_at >= p.date_from)
+    if p.date_to:
+        base = base.where(Document.uploaded_at <= p.date_to)
+
+    total = (await db.execute(select(func.count()).select_from(base.subquery()))).scalar() or 0
+    query = apply_sort(base, Document, p, "uploaded_at").offset(p.offset).limit(p.limit)
+    items = (await db.execute(query)).scalars().all()
+    items = [DocumentResponse.model_validate(i) for i in items]
+    return paginated_result(items, total, p)
 
 
 async def _process_document_background(doc_id: UUID, org_id: UUID, file_content: bytes, content_type: str):

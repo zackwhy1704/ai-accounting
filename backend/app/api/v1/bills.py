@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, delete, update as sql_update
+from sqlalchemy import select, delete, update as sql_update, func, or_
 from sqlalchemy.orm import selectinload
 from uuid import UUID
 from datetime import datetime, timezone
@@ -8,7 +8,8 @@ from typing import Optional
 from pydantic import BaseModel
 from app.core.database import get_db
 from app.core.security import get_current_user
-from app.models.models import Bill, BillLineItem, PurchasePayment, PurchaseCreditApplication, PurchaseCreditNote, Transaction, JournalEntry, Account
+from app.core.pagination import PaginationParams, paginated_result, apply_sort
+from app.models.models import Bill, BillLineItem, PurchasePayment, PurchaseCreditApplication, PurchaseCreditNote, Transaction, JournalEntry, Account, Contact
 from app.schemas.schemas import BillCreate, BillUpdate, BillResponse
 from app.services.pricing import line_after_discount, line_tax
 from .gl_helpers import post_gl, revert_gl
@@ -16,9 +17,11 @@ from .gl_helpers import post_gl, revert_gl
 router = APIRouter(prefix="/bills", tags=["Bills"])
 
 
-@router.get("", response_model=list[BillResponse])
+@router.get("")
 async def list_bills(
     status: str | None = None,
+    contact_id: UUID | None = None,
+    p: PaginationParams = Depends(),
     current_user: dict = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
@@ -37,15 +40,34 @@ async def list_bills(
     )
     await db.commit()
 
-    query = select(Bill).options(selectinload(Bill.line_items)).where(Bill.organization_id == org_id).order_by(Bill.created_at.desc())
+    base = select(Bill).where(Bill.organization_id == org_id)
     if status:
         # treat "outstanding" tab to also include "approved" and vice-versa
         if status == "outstanding":
-            query = query.where(Bill.status.in_(["outstanding", "approved"]))
+            base = base.where(Bill.status.in_(["outstanding", "approved"]))
         else:
-            query = query.where(Bill.status == status)
-    result = await db.execute(query)
-    return result.scalars().all()
+            base = base.where(Bill.status == status)
+    if contact_id:
+        base = base.where(Bill.contact_id == contact_id)
+    if p.search:
+        like = f"%{p.search}%"
+        contact_match = select(Contact.id).where(
+            Contact.organization_id == org_id, Contact.name.ilike(like)
+        )
+        base = base.where(or_(
+            Bill.bill_number.ilike(like),
+            Bill.contact_id.in_(contact_match),
+        ))
+    if p.date_from:
+        base = base.where(Bill.issue_date >= p.date_from)
+    if p.date_to:
+        base = base.where(Bill.issue_date <= p.date_to)
+
+    total = (await db.execute(select(func.count()).select_from(base.subquery()))).scalar() or 0
+    query = apply_sort(base, Bill, p).options(selectinload(Bill.line_items)).offset(p.offset).limit(p.limit)
+    items = (await db.execute(query)).scalars().all()
+    items = [BillResponse.model_validate(i) for i in items]
+    return paginated_result(items, total, p)
 
 
 @router.post("", response_model=BillResponse, status_code=201)

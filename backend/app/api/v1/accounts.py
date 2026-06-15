@@ -3,10 +3,11 @@ import base64
 import logging
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, func, or_
 from uuid import UUID
 from app.core.database import get_db
 from app.core.security import get_current_user
+from app.core.pagination import PaginationParams, paginated_result, apply_sort
 from app.models.models import Account
 from app.schemas.schemas import AccountCreate, AccountUpdate, AccountResponse
 
@@ -16,20 +17,32 @@ logger = logging.getLogger(__name__)
 ALLOWED_PDF_TYPE = "application/pdf"
 
 
-@router.get("", response_model=list[AccountResponse])
+@router.get("")
 async def list_accounts(
     type: str | None = None,
+    p: PaginationParams = Depends(),
     current_user: dict = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    query = select(Account).where(
-        Account.organization_id == current_user["org_id"],
+    org_id = current_user["org_id"]
+    base = select(Account).where(
+        Account.organization_id == org_id,
         Account.is_active.is_(True),
-    ).order_by(Account.code)
+    )
     if type:
-        query = query.where(Account.type == type)
-    result = await db.execute(query)
-    return result.scalars().all()
+        base = base.where(Account.type == type)
+    if p.search:
+        like = f"%{p.search}%"
+        base = base.where(or_(
+            Account.code.ilike(like),
+            Account.name.ilike(like),
+        ))
+
+    total = (await db.execute(select(func.count()).select_from(base.subquery()))).scalar() or 0
+    query = apply_sort(base, Account, p, "code").offset(p.offset).limit(p.limit)
+    items = (await db.execute(query)).scalars().all()
+    items = [AccountResponse.model_validate(i) for i in items]
+    return paginated_result(items, total, p)
 
 
 @router.get("/{account_id}", response_model=AccountResponse)

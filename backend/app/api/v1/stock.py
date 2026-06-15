@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, func, or_
 from uuid import UUID
 from datetime import datetime, timezone
 from typing import Optional, Any
@@ -8,6 +8,7 @@ from pydantic import BaseModel
 
 from app.core.database import get_db
 from app.core.security import get_current_user
+from app.core.pagination import PaginationParams, paginated_result, apply_sort
 from app.core.sequences import next_sequence_number
 from app.models.models import StockAdjustment, StockTransfer, Product
 from .gl_helpers import post_gl, revert_gl
@@ -100,17 +101,30 @@ class StockTransferResponse(BaseModel):
 adjustments_router = APIRouter(prefix="/stock-adjustments", tags=["stock-adjustments"])
 
 
-@adjustments_router.get("", response_model=list[StockAdjustmentResponse])
+@adjustments_router.get("")
 async def list_adjustments(
+    p: PaginationParams = Depends(),
     db: AsyncSession = Depends(get_db),
     current_user: dict = Depends(get_current_user),
 ):
-    result = await db.execute(
-        select(StockAdjustment)
-        .where(StockAdjustment.organization_id == current_user["org_id"])
-        .order_by(StockAdjustment.adjustment_date.desc())
-    )
-    return result.scalars().all()
+    org_id = current_user["org_id"]
+    base = select(StockAdjustment).where(StockAdjustment.organization_id == org_id)
+    if p.search:
+        like = f"%{p.search}%"
+        base = base.where(or_(
+            StockAdjustment.adjustment_no.ilike(like),
+            StockAdjustment.reference_no.ilike(like),
+        ))
+    if p.date_from:
+        base = base.where(StockAdjustment.adjustment_date >= p.date_from)
+    if p.date_to:
+        base = base.where(StockAdjustment.adjustment_date <= p.date_to)
+
+    total = (await db.execute(select(func.count()).select_from(base.subquery()))).scalar() or 0
+    query = apply_sort(base, StockAdjustment, p, "adjustment_date").offset(p.offset).limit(p.limit)
+    items = (await db.execute(query)).scalars().all()
+    items = [StockAdjustmentResponse.model_validate(i) for i in items]
+    return paginated_result(items, total, p)
 
 
 @adjustments_router.post("", response_model=StockAdjustmentResponse, status_code=201)
@@ -263,17 +277,27 @@ async def confirm_adjustment(
 transfers_router = APIRouter(prefix="/stock-transfers", tags=["stock-transfers"])
 
 
-@transfers_router.get("", response_model=list[StockTransferResponse])
+@transfers_router.get("")
 async def list_transfers(
+    p: PaginationParams = Depends(),
     db: AsyncSession = Depends(get_db),
     current_user: dict = Depends(get_current_user),
 ):
-    result = await db.execute(
-        select(StockTransfer)
-        .where(StockTransfer.organization_id == current_user["org_id"])
-        .order_by(StockTransfer.transfer_date.desc())
-    )
-    return result.scalars().all()
+    org_id = current_user["org_id"]
+    base = select(StockTransfer).where(StockTransfer.organization_id == org_id)
+    if p.search:
+        like = f"%{p.search}%"
+        base = base.where(StockTransfer.transfer_no.ilike(like))
+    if p.date_from:
+        base = base.where(StockTransfer.transfer_date >= p.date_from)
+    if p.date_to:
+        base = base.where(StockTransfer.transfer_date <= p.date_to)
+
+    total = (await db.execute(select(func.count()).select_from(base.subquery()))).scalar() or 0
+    query = apply_sort(base, StockTransfer, p, "transfer_date").offset(p.offset).limit(p.limit)
+    items = (await db.execute(query)).scalars().all()
+    items = [StockTransferResponse.model_validate(i) for i in items]
+    return paginated_result(items, total, p)
 
 
 @transfers_router.post("", response_model=StockTransferResponse, status_code=201)

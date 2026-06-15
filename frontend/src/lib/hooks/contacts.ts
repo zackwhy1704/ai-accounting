@@ -1,12 +1,27 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query'
 import api from '../api'
 import type { Contact } from '../../types'
+import type { Paginated, ListParams } from './_shared'
 
-// Contacts
+// Contacts — paginated. Existing signature filters by `type` (not status),
+// so a custom wrapper preserves that semantics. data stays Contact[].
 export function useContacts(type?: string) {
-  return useQuery<Contact[]>({
+  return useQuery<Paginated<Contact>, Error, Contact[]>({
     queryKey: ['contacts', type],
     queryFn: () => api.get('/contacts', { params: type ? { type } : {} }).then(r => r.data),
+    select: (d: any) => (Array.isArray(d) ? d : d.items),
+    placeholderData: keepPreviousData,
+  })
+}
+export function useContactsPage(params?: ListParams & { type?: string }) {
+  const p = params ?? {}
+  return useQuery<Paginated<Contact>>({
+    queryKey: ['contacts', 'page', p],
+    queryFn: () => api.get('/contacts', { params: p }).then(r => {
+      const d = r.data
+      return Array.isArray(d) ? { items: d, total: d.length, page: 1, limit: d.length || 1, pages: 1 } : d
+    }),
+    placeholderData: keepPreviousData,
   })
 }
 

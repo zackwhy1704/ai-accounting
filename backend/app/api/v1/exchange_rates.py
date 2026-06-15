@@ -3,11 +3,12 @@ import httpx
 from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, desc
+from sqlalchemy import select, desc, func, or_
 from uuid import UUID
 
 from app.core.database import get_db
 from app.core.security import get_current_user
+from app.core.pagination import PaginationParams, paginated_result, apply_sort
 from app.models.models import ExchangeRate, Organization
 from app.schemas.schemas import ExchangeRateCreate, ExchangeRateUpdate, ExchangeRateResponse
 
@@ -76,18 +77,30 @@ async def _fetch_mas_rates(org_id: UUID, db: AsyncSession) -> list[ExchangeRate]
         return []
 
 
-@router.get("", response_model=list[ExchangeRateResponse])
+@router.get("")
 async def list_exchange_rates(
+    p: PaginationParams = Depends(),
     db: AsyncSession = Depends(get_db),
     current_user: dict = Depends(get_current_user),
 ):
-    result = await db.execute(
-        select(ExchangeRate)
-        .where(ExchangeRate.organization_id == current_user["org_id"])
-        .order_by(desc(ExchangeRate.rate_date))
-        .limit(200)
-    )
-    return result.scalars().all()
+    org_id = current_user["org_id"]
+    base = select(ExchangeRate).where(ExchangeRate.organization_id == org_id)
+    if p.search:
+        like = f"%{p.search}%"
+        base = base.where(or_(
+            ExchangeRate.from_currency.ilike(like),
+            ExchangeRate.to_currency.ilike(like),
+        ))
+    if p.date_from:
+        base = base.where(ExchangeRate.rate_date >= p.date_from)
+    if p.date_to:
+        base = base.where(ExchangeRate.rate_date <= p.date_to)
+
+    total = (await db.execute(select(func.count()).select_from(base.subquery()))).scalar() or 0
+    query = apply_sort(base, ExchangeRate, p, "rate_date").offset(p.offset).limit(p.limit)
+    items = (await db.execute(query)).scalars().all()
+    items = [ExchangeRateResponse.model_validate(i) for i in items]
+    return paginated_result(items, total, p)
 
 
 @router.post("", response_model=ExchangeRateResponse, status_code=201)

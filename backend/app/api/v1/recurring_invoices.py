@@ -8,7 +8,8 @@ from typing import Any
 
 from app.core.database import get_db
 from app.core.security import get_current_user
-from app.models.models import RecurringInvoice
+from app.core.pagination import PaginationParams, paginated_result, apply_sort
+from app.models.models import RecurringInvoice, Contact
 
 router = APIRouter(prefix="/recurring-invoices", tags=["recurring-invoices"])
 
@@ -80,18 +81,37 @@ def _calc_next_run(start: datetime, frequency: str, interval: int, from_date: da
     return base
 
 
-@router.get("", response_model=list[RecurringInvoiceResponse])
+@router.get("")
 async def list_recurring(
     status: str | None = None,
+    contact_id: UUID | None = None,
+    p: PaginationParams = Depends(),
     db: AsyncSession = Depends(get_db),
     current_user: dict = Depends(get_current_user),
 ):
-    q = select(RecurringInvoice).where(RecurringInvoice.organization_id == current_user["org_id"])
+    org_id = current_user["org_id"]
+    base = select(RecurringInvoice).where(RecurringInvoice.organization_id == org_id)
     if status:
-        q = q.where(RecurringInvoice.status == status)
-    q = q.order_by(RecurringInvoice.next_run_date)
-    result = await db.execute(q)
-    return result.scalars().all()
+        base = base.where(RecurringInvoice.status == status)
+    if contact_id:
+        base = base.where(RecurringInvoice.contact_id == contact_id)
+    if p.search:
+        # RecurringInvoice has no number/name field — search by linked contact name.
+        like = f"%{p.search}%"
+        contact_match = select(Contact.id).where(
+            Contact.organization_id == org_id, Contact.name.ilike(like)
+        )
+        base = base.where(RecurringInvoice.contact_id.in_(contact_match))
+    if p.date_from:
+        base = base.where(RecurringInvoice.start_date >= p.date_from)
+    if p.date_to:
+        base = base.where(RecurringInvoice.start_date <= p.date_to)
+
+    total = (await db.execute(select(func.count()).select_from(base.subquery()))).scalar() or 0
+    query = apply_sort(base, RecurringInvoice, p, "next_run_date").offset(p.offset).limit(p.limit)
+    items = (await db.execute(query)).scalars().all()
+    items = [RecurringInvoiceResponse.model_validate(i) for i in items]
+    return paginated_result(items, total, p)
 
 
 @router.post("", response_model=RecurringInvoiceResponse, status_code=201)

@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, func
 from uuid import UUID
 from datetime import datetime
 from typing import Optional
@@ -8,6 +8,7 @@ from pydantic import BaseModel
 
 from app.core.database import get_db
 from app.core.security import get_current_user
+from app.core.pagination import PaginationParams, paginated_result, apply_sort
 from app.models.models import ContactGroup
 
 router = APIRouter(prefix="/contact-groups", tags=["contact-groups"])
@@ -33,17 +34,23 @@ class ContactGroupResponse(BaseModel):
     model_config = {"from_attributes": True}
 
 
-@router.get("", response_model=list[ContactGroupResponse])
+@router.get("")
 async def list_contact_groups(
+    p: PaginationParams = Depends(),
     db: AsyncSession = Depends(get_db),
     current_user: dict = Depends(get_current_user),
 ):
-    result = await db.execute(
-        select(ContactGroup)
-        .where(ContactGroup.organization_id == current_user["org_id"])
-        .order_by(ContactGroup.name)
-    )
-    return result.scalars().all()
+    org_id = current_user["org_id"]
+    base = select(ContactGroup).where(ContactGroup.organization_id == org_id)
+    if p.search:
+        like = f"%{p.search}%"
+        base = base.where(ContactGroup.name.ilike(like))
+
+    total = (await db.execute(select(func.count()).select_from(base.subquery()))).scalar() or 0
+    query = apply_sort(base, ContactGroup, p, "name").offset(p.offset).limit(p.limit)
+    items = (await db.execute(query)).scalars().all()
+    items = [ContactGroupResponse.model_validate(i) for i in items]
+    return paginated_result(items, total, p)
 
 
 @router.post("", response_model=ContactGroupResponse, status_code=201)

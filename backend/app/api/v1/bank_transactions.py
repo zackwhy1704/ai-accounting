@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, func, or_
 from uuid import UUID
 from datetime import datetime
 from typing import Optional
@@ -8,7 +8,8 @@ from pydantic import BaseModel
 
 from app.core.database import get_db
 from app.core.security import get_current_user
-from app.models.models import BankTransaction
+from app.core.pagination import PaginationParams, paginated_result, apply_sort
+from app.models.models import BankTransaction, Contact
 
 router = APIRouter(prefix="/bank-transactions", tags=["bank-transactions"])
 
@@ -61,27 +62,49 @@ class BankTransactionResponse(BaseModel):
     model_config = {"from_attributes": True}
 
 
-@router.get("", response_model=list[BankTransactionResponse])
+@router.get("")
 async def list_bank_transactions(
     transaction_type: Optional[str] = Query(None),
     from_date: Optional[datetime] = Query(None),
     to_date: Optional[datetime] = Query(None),
+    contact_id: UUID | None = None,
+    p: PaginationParams = Depends(),
     db: AsyncSession = Depends(get_db),
     current_user: dict = Depends(get_current_user),
 ):
-    q = select(BankTransaction).where(
-        BankTransaction.organization_id == current_user["org_id"],
+    org_id = current_user["org_id"]
+    base = select(BankTransaction).where(
+        BankTransaction.organization_id == org_id,
         BankTransaction.status != "void",
     )
     if transaction_type:
-        q = q.where(BankTransaction.transaction_type == transaction_type)
+        base = base.where(BankTransaction.transaction_type == transaction_type)
     if from_date:
-        q = q.where(BankTransaction.transaction_date >= from_date)
+        base = base.where(BankTransaction.transaction_date >= from_date)
     if to_date:
-        q = q.where(BankTransaction.transaction_date <= to_date)
-    q = q.order_by(BankTransaction.transaction_date.desc())
-    result = await db.execute(q)
-    return result.scalars().all()
+        base = base.where(BankTransaction.transaction_date <= to_date)
+    if contact_id:
+        base = base.where(BankTransaction.contact_id == contact_id)
+    if p.search:
+        like = f"%{p.search}%"
+        contact_match = select(Contact.id).where(
+            Contact.organization_id == org_id, Contact.name.ilike(like)
+        )
+        base = base.where(or_(
+            BankTransaction.description.ilike(like),
+            BankTransaction.reference_no.ilike(like),
+            BankTransaction.contact_id.in_(contact_match),
+        ))
+    if p.date_from:
+        base = base.where(BankTransaction.transaction_date >= p.date_from)
+    if p.date_to:
+        base = base.where(BankTransaction.transaction_date <= p.date_to)
+
+    total = (await db.execute(select(func.count()).select_from(base.subquery()))).scalar() or 0
+    query = apply_sort(base, BankTransaction, p, "transaction_date").offset(p.offset).limit(p.limit)
+    items = (await db.execute(query)).scalars().all()
+    items = [BankTransactionResponse.model_validate(i) for i in items]
+    return paginated_result(items, total, p)
 
 
 @router.post("", response_model=BankTransactionResponse, status_code=201)

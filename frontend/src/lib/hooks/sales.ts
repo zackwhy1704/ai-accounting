@@ -19,12 +19,9 @@ export function useCreateInvoice() {
 }
 
 // Quotations
-export function useQuotations(status?: string) {
-  return useQuery<Quotation[]>({
-    queryKey: ['quotations', status],
-    queryFn: () => api.get('/quotations', { params: status ? { status } : {} }).then(r => r.data),
-  })
-}
+const _quotations = makeListHook<Quotation>('/quotations', 'quotations')
+export function useQuotations(arg?: string | ListParams) { return _quotations.useList(arg) }
+export function useQuotationsPage(params?: ListParams) { return _quotations.usePage(params) }
 
 export function useQuotation(id: string | undefined) {
   return useQuery({
@@ -66,12 +63,9 @@ export function useConvertQuotation() {
 }
 
 // Delivery Orders
-export function useDeliveryOrders(status?: string) {
-  return useQuery<DeliveryOrder[]>({
-    queryKey: ['delivery-orders', status],
-    queryFn: () => api.get('/delivery-orders', { params: status ? { status } : {} }).then(r => r.data),
-  })
-}
+const _deliveryOrders = makeListHook<DeliveryOrder>('/delivery-orders', 'delivery-orders')
+export function useDeliveryOrders(arg?: string | ListParams) { return _deliveryOrders.useList(arg) }
+export function useDeliveryOrdersPage(params?: ListParams) { return _deliveryOrders.usePage(params) }
 
 export function useCreateDeliveryOrder() {
   const qc = useQueryClient()
@@ -82,12 +76,9 @@ export function useCreateDeliveryOrder() {
 }
 
 // Credit Notes
-export function useCreditNotes(status?: string) {
-  return useQuery<CreditNote[]>({
-    queryKey: ['credit-notes', status],
-    queryFn: () => api.get('/credit-notes', { params: status ? { status } : {} }).then(r => r.data),
-  })
-}
+const _creditNotes = makeListHook<CreditNote>('/credit-notes', 'credit-notes')
+export function useCreditNotes(arg?: string | ListParams) { return _creditNotes.useList(arg) }
+export function useCreditNotesPage(params?: ListParams) { return _creditNotes.usePage(params) }
 
 export function useCreateCreditNote() {
   const qc = useQueryClient()
@@ -101,12 +92,9 @@ export function useCreateCreditNote() {
 }
 
 // Debit Notes
-export function useDebitNotes(status?: string) {
-  return useQuery<DebitNote[]>({
-    queryKey: ['debit-notes', status],
-    queryFn: () => api.get('/debit-notes', { params: status ? { status } : {} }).then(r => r.data),
-  })
-}
+const _debitNotes = makeListHook<DebitNote>('/debit-notes', 'debit-notes')
+export function useDebitNotes(arg?: string | ListParams) { return _debitNotes.useList(arg) }
+export function useDebitNotesPage(params?: ListParams) { return _debitNotes.usePage(params) }
 
 export function useCreateDebitNote() {
   const qc = useQueryClient()
@@ -120,12 +108,9 @@ export function useCreateDebitNote() {
 }
 
 // Sales Payments
-export function useSalesPayments(status?: string) {
-  return useQuery<SalesPayment[]>({
-    queryKey: ['sales-payments', status],
-    queryFn: () => api.get('/sales-payments', { params: status ? { status } : {} }).then(r => r.data),
-  })
-}
+const _salesPayments = makeListHook<SalesPayment>('/sales-payments', 'sales-payments')
+export function useSalesPayments(arg?: string | ListParams) { return _salesPayments.useList(arg) }
+export function useSalesPaymentsPage(params?: ListParams) { return _salesPayments.usePage(params) }
 
 export function useCreateSalesPayment() {
   const qc = useQueryClient()
@@ -139,12 +124,9 @@ export function useCreateSalesPayment() {
 }
 
 // Sales Refunds
-export function useSalesRefunds(status?: string) {
-  return useQuery<SalesRefund[]>({
-    queryKey: ['sales-refunds', status],
-    queryFn: () => api.get('/sales-refunds', { params: status ? { status } : {} }).then(r => r.data),
-  })
-}
+const _salesRefunds = makeListHook<SalesRefund>('/sales-refunds', 'sales-refunds')
+export function useSalesRefunds(arg?: string | ListParams) { return _salesRefunds.useList(arg) }
+export function useSalesRefundsPage(params?: ListParams) { return _salesRefunds.usePage(params) }
 
 export function useCreateSalesRefund() {
   const qc = useQueryClient()
@@ -158,18 +140,16 @@ export function useCreateSalesRefund() {
 }
 
 // ── Sale Receipts ──
-export function useSaleReceipts(status?: string) {
-  return useQuery<Array<{
-    id: string; organization_id: string; receipt_number: string; contact_id: string | null;
-    receipt_date: string; status: string; currency: string; subtotal: number;
-    tax_amount: number; total: number; notes: string | null;
-    line_items: Array<Record<string, unknown>>; payment_method: string;
-    bank_account_id: string | null; created_at: string;
-  }>>({
-    queryKey: ['sale-receipts', status],
-    queryFn: () => api.get('/sale-receipts', { params: status ? { status } : {} }).then(r => r.data),
-  })
+type SaleReceipt = {
+  id: string; organization_id: string; receipt_number: string; contact_id: string | null;
+  receipt_date: string; status: string; currency: string; subtotal: number;
+  tax_amount: number; total: number; notes: string | null;
+  line_items: Array<Record<string, unknown>>; payment_method: string;
+  bank_account_id: string | null; created_at: string;
 }
+const _saleReceipts = makeListHook<SaleReceipt>('/sale-receipts', 'sale-receipts')
+export function useSaleReceipts(arg?: string | ListParams) { return _saleReceipts.useList(arg) }
+export function useSaleReceiptsPage(params?: ListParams) { return _saleReceipts.usePage(params) }
 
 export function useCreateSaleReceipt() {
   const qc = useQueryClient()
@@ -180,19 +160,17 @@ export function useCreateSaleReceipt() {
 }
 
 // ── Recurring Invoices ──
-export function useRecurringInvoices(status?: string) {
-  return useQuery<Array<{
-    id: string; organization_id: string; contact_id: string; status: string;
-    frequency: string; frequency_interval: number; start_date: string;
-    end_date: string | null; next_run_date: string; last_run_date: string | null;
-    run_count: number; max_runs: number | null; currency: string; due_days: number;
-    notes: string | null; line_items: Array<Record<string, unknown>>;
-    tax_inclusive: boolean; auto_send: boolean; created_at: string;
-  }>>({
-    queryKey: ['recurring-invoices', status],
-    queryFn: () => api.get('/recurring-invoices', { params: status ? { status } : {} }).then(r => r.data),
-  })
+type RecurringInvoice = {
+  id: string; organization_id: string; contact_id: string; status: string;
+  frequency: string; frequency_interval: number; start_date: string;
+  end_date: string | null; next_run_date: string; last_run_date: string | null;
+  run_count: number; max_runs: number | null; currency: string; due_days: number;
+  notes: string | null; line_items: Array<Record<string, unknown>>;
+  tax_inclusive: boolean; auto_send: boolean; created_at: string;
 }
+const _recurringInvoices = makeListHook<RecurringInvoice>('/recurring-invoices', 'recurring-invoices')
+export function useRecurringInvoices(arg?: string | ListParams) { return _recurringInvoices.useList(arg) }
+export function useRecurringInvoicesPage(params?: ListParams) { return _recurringInvoices.usePage(params) }
 
 export function useCreateRecurringInvoice() {
   const qc = useQueryClient()

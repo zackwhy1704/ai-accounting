@@ -1,11 +1,12 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, func, or_
 from uuid import UUID
 from app.core.database import get_db
 from app.core.security import get_current_user
+from app.core.pagination import PaginationParams, paginated_result, apply_sort
 from app.models.models import (
-    CreditNote, SalesRefund,
+    CreditNote, SalesRefund, Contact,
 )
 from .gl_helpers import post_gl
 from app.schemas.schemas import (
@@ -19,13 +20,39 @@ router = APIRouter(tags=["Sales"])
 # ═══════════════════════════════════════════════
 # SALES REFUNDS
 # ═══════════════════════════════════════════════
-@router.get("/sales-refunds", response_model=list[SalesRefundResponse])
-async def list_sales_refunds(status: str | None = None, current_user: dict = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+@router.get("/sales-refunds")
+async def list_sales_refunds(
+    status: str | None = None,
+    contact_id: UUID | None = None,
+    p: PaginationParams = Depends(),
+    current_user: dict = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
     org_id = current_user["org_id"]
-    q = select(SalesRefund).where(SalesRefund.organization_id == org_id).order_by(SalesRefund.created_at.desc())
+    base = select(SalesRefund).where(SalesRefund.organization_id == org_id)
     if status:
-        q = q.where(SalesRefund.status == status)
-    return (await db.execute(q)).scalars().all()
+        base = base.where(SalesRefund.status == status)
+    if contact_id:
+        base = base.where(SalesRefund.contact_id == contact_id)
+    if p.search:
+        like = f"%{p.search}%"
+        contact_match = select(Contact.id).where(
+            Contact.organization_id == org_id, Contact.name.ilike(like)
+        )
+        base = base.where(or_(
+            SalesRefund.refund_number.ilike(like),
+            SalesRefund.contact_id.in_(contact_match),
+        ))
+    if p.date_from:
+        base = base.where(SalesRefund.refund_date >= p.date_from)
+    if p.date_to:
+        base = base.where(SalesRefund.refund_date <= p.date_to)
+
+    total = (await db.execute(select(func.count()).select_from(base.subquery()))).scalar() or 0
+    query = apply_sort(base, SalesRefund, p).offset(p.offset).limit(p.limit)
+    items = (await db.execute(query)).scalars().all()
+    items = [SalesRefundResponse.model_validate(i) for i in items]
+    return paginated_result(items, total, p)
 
 
 @router.get("/sales-refunds/{sr_id}", response_model=SalesRefundResponse)

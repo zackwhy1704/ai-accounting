@@ -1,9 +1,10 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import api from '../api'
+import { makeListHook, type ListParams } from './_shared'
 
-export function useBankAccounts() {
-  return useQuery({ queryKey: ['bank-accounts'], queryFn: () => api.get('/bank-accounts').then(r => r.data) })
-}
+const _bankAccounts = makeListHook<any>('/bank-accounts', 'bank-accounts')
+export function useBankAccounts(arg?: string | ListParams) { return _bankAccounts.useList(arg) }
+export function useBankAccountsPage(params?: ListParams) { return _bankAccounts.usePage(params) }
 export function useBankAccount(id: string | undefined) {
   return useQuery({ queryKey: ['bank-account', id], queryFn: () => api.get(`/bank-accounts/${id}`).then(r => r.data), enabled: !!id })
 }

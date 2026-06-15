@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, delete
+from sqlalchemy import select, delete, func, or_
 from sqlalchemy.orm import selectinload
 from uuid import UUID
 from datetime import datetime
@@ -9,7 +9,8 @@ from pydantic import BaseModel
 
 from app.core.database import get_db
 from app.core.security import get_current_user
-from app.models.models import GoodsReceivedNote, GRNLineItem
+from app.core.pagination import PaginationParams, paginated_result, apply_sort
+from app.models.models import GoodsReceivedNote, GRNLineItem, Contact
 
 router = APIRouter(prefix="/goods-received-notes", tags=["goods-received-notes"])
 
@@ -66,19 +67,39 @@ class GRNResponse(BaseModel):
     model_config = {"from_attributes": True}
 
 
-@router.get("", response_model=list[GRNResponse])
+@router.get("")
 async def list_grns(
     status: Optional[str] = None,
+    contact_id: UUID | None = None,
+    p: PaginationParams = Depends(),
     db: AsyncSession = Depends(get_db),
     current_user: dict = Depends(get_current_user),
 ):
-    q = select(GoodsReceivedNote).options(selectinload(GoodsReceivedNote.line_items)).where(
-        GoodsReceivedNote.organization_id == current_user["org_id"]
-    ).order_by(GoodsReceivedNote.created_at.desc())
+    org_id = current_user["org_id"]
+    base = select(GoodsReceivedNote).where(GoodsReceivedNote.organization_id == org_id)
     if status:
-        q = q.where(GoodsReceivedNote.status == status)
-    result = await db.execute(q)
-    return result.scalars().all()
+        base = base.where(GoodsReceivedNote.status == status)
+    if contact_id:
+        base = base.where(GoodsReceivedNote.contact_id == contact_id)
+    if p.search:
+        like = f"%{p.search}%"
+        contact_match = select(Contact.id).where(
+            Contact.organization_id == org_id, Contact.name.ilike(like)
+        )
+        base = base.where(or_(
+            GoodsReceivedNote.grn_number.ilike(like),
+            GoodsReceivedNote.contact_id.in_(contact_match),
+        ))
+    if p.date_from:
+        base = base.where(GoodsReceivedNote.received_date >= p.date_from)
+    if p.date_to:
+        base = base.where(GoodsReceivedNote.received_date <= p.date_to)
+
+    total = (await db.execute(select(func.count()).select_from(base.subquery()))).scalar() or 0
+    query = apply_sort(base, GoodsReceivedNote, p).options(selectinload(GoodsReceivedNote.line_items)).offset(p.offset).limit(p.limit)
+    items = (await db.execute(query)).scalars().all()
+    items = [GRNResponse.model_validate(i) for i in items]
+    return paginated_result(items, total, p)
 
 
 @router.post("", response_model=GRNResponse, status_code=201)

@@ -6,9 +6,10 @@ from datetime import datetime
 from typing import Optional
 from pydantic import BaseModel
 
-from sqlalchemy import func
+from sqlalchemy import func, or_
 from app.core.database import get_db
 from app.core.security import get_current_user
+from app.core.pagination import PaginationParams, paginated_result, apply_sort
 from app.models.models import BankAccount, BankTransaction
 
 router = APIRouter(prefix="/bank-accounts", tags=["bank-accounts"])
@@ -50,17 +51,26 @@ class BankAccountResponse(BaseModel):
     model_config = {"from_attributes": True}
 
 
-@router.get("", response_model=list[BankAccountResponse])
+@router.get("")
 async def list_bank_accounts(
+    p: PaginationParams = Depends(),
     db: AsyncSession = Depends(get_db),
     current_user: dict = Depends(get_current_user),
 ):
-    result = await db.execute(
-        select(BankAccount)
-        .where(BankAccount.organization_id == current_user["org_id"])
-        .order_by(BankAccount.name)
-    )
-    return result.scalars().all()
+    org_id = current_user["org_id"]
+    base = select(BankAccount).where(BankAccount.organization_id == org_id)
+    if p.search:
+        like = f"%{p.search}%"
+        base = base.where(or_(
+            BankAccount.name.ilike(like),
+            BankAccount.bank_name.ilike(like),
+        ))
+
+    total = (await db.execute(select(func.count()).select_from(base.subquery()))).scalar() or 0
+    query = apply_sort(base, BankAccount, p, "name").offset(p.offset).limit(p.limit)
+    items = (await db.execute(query)).scalars().all()
+    items = [BankAccountResponse.model_validate(i) for i in items]
+    return paginated_result(items, total, p)
 
 
 @router.post("", response_model=BankAccountResponse, status_code=201)

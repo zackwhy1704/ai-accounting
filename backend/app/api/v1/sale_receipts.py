@@ -7,9 +7,11 @@ from datetime import datetime
 from pydantic import BaseModel
 from typing import Optional
 
+from sqlalchemy import or_
 from app.core.database import get_db
 from app.core.security import get_current_user
-from app.models.models import SaleReceipt
+from app.core.pagination import PaginationParams, paginated_result, apply_sort
+from app.models.models import SaleReceipt, Contact
 from app.schemas.schemas import SaleReceiptCreate, SaleReceiptResponse, SaleReceiptLineItem
 from .gl_helpers import post_gl, revert_gl
 
@@ -40,18 +42,39 @@ def _calc_totals(line_items: list) -> tuple[float, float, float]:
     return subtotal, tax_amount, subtotal + tax_amount
 
 
-@router.get("", response_model=list[SaleReceiptResponse])
+@router.get("")
 async def list_sale_receipts(
     status: str | None = None,
+    contact_id: UUID | None = None,
+    p: PaginationParams = Depends(),
     db: AsyncSession = Depends(get_db),
     current_user: dict = Depends(get_current_user),
 ):
-    q = select(SaleReceipt).where(SaleReceipt.organization_id == current_user["org_id"])
+    org_id = current_user["org_id"]
+    base = select(SaleReceipt).where(SaleReceipt.organization_id == org_id)
     if status:
-        q = q.where(SaleReceipt.status == status)
-    q = q.order_by(SaleReceipt.receipt_date.desc())
-    result = await db.execute(q)
-    return result.scalars().all()
+        base = base.where(SaleReceipt.status == status)
+    if contact_id:
+        base = base.where(SaleReceipt.contact_id == contact_id)
+    if p.search:
+        like = f"%{p.search}%"
+        contact_match = select(Contact.id).where(
+            Contact.organization_id == org_id, Contact.name.ilike(like)
+        )
+        base = base.where(or_(
+            SaleReceipt.receipt_number.ilike(like),
+            SaleReceipt.contact_id.in_(contact_match),
+        ))
+    if p.date_from:
+        base = base.where(SaleReceipt.receipt_date >= p.date_from)
+    if p.date_to:
+        base = base.where(SaleReceipt.receipt_date <= p.date_to)
+
+    total = (await db.execute(select(func.count()).select_from(base.subquery()))).scalar() or 0
+    query = apply_sort(base, SaleReceipt, p, "receipt_date").offset(p.offset).limit(p.limit)
+    items = (await db.execute(query)).scalars().all()
+    items = [SaleReceiptResponse.model_validate(i) for i in items]
+    return paginated_result(items, total, p)
 
 
 @router.post("", response_model=SaleReceiptResponse, status_code=201)

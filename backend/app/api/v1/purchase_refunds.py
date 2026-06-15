@@ -1,7 +1,7 @@
 import random
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, func, or_
 from uuid import UUID
 from datetime import datetime, timezone
 from typing import Optional
@@ -9,7 +9,8 @@ from pydantic import BaseModel
 
 from app.core.database import get_db
 from app.core.security import get_current_user
-from app.models.models import PurchaseRefund, Bill, PurchaseCreditNote
+from app.core.pagination import PaginationParams, paginated_result, apply_sort
+from app.models.models import PurchaseRefund, Bill, PurchaseCreditNote, Contact
 from .gl_helpers import post_gl, revert_gl
 
 router = APIRouter(prefix="/purchase-refunds", tags=["purchase-refunds"])
@@ -108,27 +109,45 @@ async def _restore_pcn(db: AsyncSession, pcn_id: UUID, amount: float):
             pcn.status = "issued"
 
 
-@router.get("", response_model=list[PurchaseRefundResponse])
+@router.get("")
 async def list_purchase_refunds(
     contact_id: Optional[UUID] = Query(None),
     from_date: Optional[datetime] = Query(None),
     to_date: Optional[datetime] = Query(None),
+    p: PaginationParams = Depends(),
     db: AsyncSession = Depends(get_db),
     current_user: dict = Depends(get_current_user),
 ):
-    q = select(PurchaseRefund).where(
-        PurchaseRefund.organization_id == current_user["org_id"],
+    org_id = current_user["org_id"]
+    base = select(PurchaseRefund).where(
+        PurchaseRefund.organization_id == org_id,
         PurchaseRefund.status != "void",
     )
     if contact_id:
-        q = q.where(PurchaseRefund.contact_id == contact_id)
+        base = base.where(PurchaseRefund.contact_id == contact_id)
     if from_date:
-        q = q.where(PurchaseRefund.refund_date >= from_date)
+        base = base.where(PurchaseRefund.refund_date >= from_date)
     if to_date:
-        q = q.where(PurchaseRefund.refund_date <= to_date)
-    q = q.order_by(PurchaseRefund.refund_date.desc())
-    result = await db.execute(q)
-    return result.scalars().all()
+        base = base.where(PurchaseRefund.refund_date <= to_date)
+    if p.search:
+        like = f"%{p.search}%"
+        contact_match = select(Contact.id).where(
+            Contact.organization_id == org_id, Contact.name.ilike(like)
+        )
+        base = base.where(or_(
+            PurchaseRefund.refund_no.ilike(like),
+            PurchaseRefund.contact_id.in_(contact_match),
+        ))
+    if p.date_from:
+        base = base.where(PurchaseRefund.refund_date >= p.date_from)
+    if p.date_to:
+        base = base.where(PurchaseRefund.refund_date <= p.date_to)
+
+    total = (await db.execute(select(func.count()).select_from(base.subquery()))).scalar() or 0
+    query = apply_sort(base, PurchaseRefund, p).offset(p.offset).limit(p.limit)
+    items = (await db.execute(query)).scalars().all()
+    items = [PurchaseRefundResponse.model_validate(i) for i in items]
+    return paginated_result(items, total, p)
 
 
 @router.post("", response_model=PurchaseRefundResponse, status_code=201)

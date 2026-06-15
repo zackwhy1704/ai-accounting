@@ -1,12 +1,13 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, func, or_
 from pydantic import BaseModel
 from uuid import UUID
 from typing import Any
 
 from app.core.database import get_db
 from app.core.security import get_current_user
+from app.core.pagination import PaginationParams, paginated_result, apply_sort
 from app.models.models import CustomField
 
 router = APIRouter(prefix="/custom-fields", tags=["custom-fields"])
@@ -48,18 +49,32 @@ class CustomFieldResponse(BaseModel):
     model_config = {"from_attributes": True}
 
 
-@router.get("", response_model=list[CustomFieldResponse])
+@router.get("")
 async def list_custom_fields(
     entity_type: str | None = None,
+    p: PaginationParams = Depends(),
     db: AsyncSession = Depends(get_db),
     current_user: dict = Depends(get_current_user),
 ):
-    q = select(CustomField).where(CustomField.organization_id == current_user["org_id"])
+    org_id = current_user["org_id"]
+    base = select(CustomField).where(
+        CustomField.organization_id == org_id,
+        CustomField.is_active == True,
+    )
     if entity_type:
-        q = q.where(CustomField.entity_type == entity_type)
-    q = q.where(CustomField.is_active == True).order_by(CustomField.entity_type, CustomField.sort_order)
-    result = await db.execute(q)
-    return result.scalars().all()
+        base = base.where(CustomField.entity_type == entity_type)
+    if p.search:
+        like = f"%{p.search}%"
+        base = base.where(or_(
+            CustomField.field_name.ilike(like),
+            CustomField.field_label.ilike(like),
+        ))
+
+    total = (await db.execute(select(func.count()).select_from(base.subquery()))).scalar() or 0
+    query = apply_sort(base, CustomField, p, "sort_order").offset(p.offset).limit(p.limit)
+    items = (await db.execute(query)).scalars().all()
+    items = [CustomFieldResponse.model_validate(i) for i in items]
+    return paginated_result(items, total, p)
 
 
 @router.post("", response_model=CustomFieldResponse, status_code=201)

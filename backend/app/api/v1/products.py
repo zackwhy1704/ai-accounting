@@ -1,28 +1,45 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, func, or_
 from uuid import UUID
 
 from app.core.database import get_db
 from app.core.security import get_current_user
+from app.core.pagination import PaginationParams, paginated_result, apply_sort
 from app.models.models import Product
 from app.schemas.schemas import ProductCreate, ProductUpdate, ProductResponse
 
 router = APIRouter(prefix="/products", tags=["products"])
 
 
-@router.get("", response_model=list[ProductResponse])
+@router.get("")
 async def list_products(
     active_only: bool = True,
+    p: PaginationParams = Depends(),
     db: AsyncSession = Depends(get_db),
     current_user: dict = Depends(get_current_user),
 ):
-    q = select(Product).where(Product.organization_id == current_user["org_id"])
+    org_id = current_user["org_id"]
+    base = select(Product).where(Product.organization_id == org_id)
     if active_only:
-        q = q.where(Product.is_active == True)
-    q = q.order_by(Product.name)
-    result = await db.execute(q)
-    return result.scalars().all()
+        base = base.where(Product.is_active == True)
+    if p.search:
+        like = f"%{p.search}%"
+        base = base.where(or_(
+            Product.name.ilike(like),
+            Product.code.ilike(like),
+            Product.description.ilike(like),
+        ))
+    if p.date_from:
+        base = base.where(Product.created_at >= p.date_from)
+    if p.date_to:
+        base = base.where(Product.created_at <= p.date_to)
+
+    total = (await db.execute(select(func.count()).select_from(base.subquery()))).scalar() or 0
+    query = apply_sort(base, Product, p).offset(p.offset).limit(p.limit)
+    items = (await db.execute(query)).scalars().all()
+    items = [ProductResponse.model_validate(i) for i in items]
+    return paginated_result(items, total, p)
 
 
 @router.post("", response_model=ProductResponse, status_code=201)

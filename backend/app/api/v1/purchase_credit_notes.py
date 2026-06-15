@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func, delete as sa_delete
+from sqlalchemy import select, func, or_, delete as sa_delete
 from sqlalchemy.orm import selectinload
 from uuid import UUID
 from datetime import datetime
@@ -9,7 +9,8 @@ from typing import Optional
 
 from app.core.database import get_db
 from app.core.security import get_current_user
-from app.models.models import PurchaseCreditNote, PurchaseCreditNoteLineItem, PurchaseCreditApplication, Bill
+from app.core.pagination import PaginationParams, paginated_result, apply_sort
+from app.models.models import PurchaseCreditNote, PurchaseCreditNoteLineItem, PurchaseCreditApplication, Bill, Contact
 from app.schemas.schemas import (
     PurchaseCreditNoteCreate, PurchaseCreditNoteResponse,
     PurchaseCreditNoteLineItem as PCNLineItemSchema,
@@ -93,20 +94,39 @@ async def _recalc_bill_status(bill: Bill) -> None:
         bill.status = "outstanding"
 
 
-@router.get("", response_model=list[PurchaseCreditNoteResponse])
+@router.get("")
 async def list_purchase_credit_notes(
     status: str | None = None,
+    contact_id: UUID | None = None,
+    p: PaginationParams = Depends(),
     db: AsyncSession = Depends(get_db),
     current_user: dict = Depends(get_current_user),
 ):
-    q = _with_pcn(select(PurchaseCreditNote).where(
-        PurchaseCreditNote.organization_id == current_user["org_id"]
-    ))
+    org_id = current_user["org_id"]
+    base = select(PurchaseCreditNote).where(PurchaseCreditNote.organization_id == org_id)
     if status:
-        q = q.where(PurchaseCreditNote.status == status)
-    q = q.order_by(PurchaseCreditNote.issue_date.desc())
-    result = await db.execute(q)
-    return result.scalars().all()
+        base = base.where(PurchaseCreditNote.status == status)
+    if contact_id:
+        base = base.where(PurchaseCreditNote.contact_id == contact_id)
+    if p.search:
+        like = f"%{p.search}%"
+        contact_match = select(Contact.id).where(
+            Contact.organization_id == org_id, Contact.name.ilike(like)
+        )
+        base = base.where(or_(
+            PurchaseCreditNote.pcn_number.ilike(like),
+            PurchaseCreditNote.contact_id.in_(contact_match),
+        ))
+    if p.date_from:
+        base = base.where(PurchaseCreditNote.issue_date >= p.date_from)
+    if p.date_to:
+        base = base.where(PurchaseCreditNote.issue_date <= p.date_to)
+
+    total = (await db.execute(select(func.count()).select_from(base.subquery()))).scalar() or 0
+    query = _with_pcn(apply_sort(base, PurchaseCreditNote, p)).offset(p.offset).limit(p.limit)
+    items = (await db.execute(query)).scalars().all()
+    items = [PurchaseCreditNoteResponse.model_validate(i) for i in items]
+    return paginated_result(items, total, p)
 
 
 @router.post("", response_model=PurchaseCreditNoteResponse, status_code=201)

@@ -1,18 +1,35 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query'
 import api from '../api'
 import type { Document } from '../../types'
+import type { Paginated, ListParams } from './_shared'
 
-// Documents
-export function useDocuments() {
-  return useQuery<Document[]>({
-    queryKey: ['documents'],
-    queryFn: () => api.get('/documents').then(r => r.data),
+// Documents — paginated. Custom wrapper because of the auto-poll refetchInterval.
+// data stays Document[] (via select); refetchInterval inspects the raw envelope.
+export function useDocuments(params?: ListParams) {
+  const p = params ?? {}
+  return useQuery<Paginated<Document>, Error, Document[]>({
+    queryKey: ['documents', p],
+    queryFn: () => api.get('/documents', { params: p }).then(r => r.data),
+    select: (d: any) => (Array.isArray(d) ? d : d.items),
+    placeholderData: keepPreviousData,
     // Auto-poll every 3s while any document is still processing
     refetchInterval: (query) => {
-      const docs = query.state.data
-      if (docs?.some(d => d.status === 'processing')) return 3000
+      const d: any = query.state.data
+      const docs: Document[] | undefined = Array.isArray(d) ? d : d?.items
+      if (docs?.some(doc => doc.status === 'processing')) return 3000
       return false
     },
+  })
+}
+export function useDocumentsPage(params?: ListParams) {
+  const p = params ?? {}
+  return useQuery<Paginated<Document>>({
+    queryKey: ['documents', 'page', p],
+    queryFn: () => api.get('/documents', { params: p }).then(r => {
+      const d = r.data
+      return Array.isArray(d) ? { items: d, total: d.length, page: 1, limit: d.length || 1, pages: 1 } : d
+    }),
+    placeholderData: keepPreviousData,
   })
 }
 

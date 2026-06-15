@@ -1,12 +1,13 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, delete
+from sqlalchemy import select, delete, func, or_
 from sqlalchemy.orm import selectinload
 from uuid import UUID
 from app.core.database import get_db
 from app.core.security import get_current_user
+from app.core.pagination import PaginationParams, paginated_result, apply_sort
 from app.models.models import (
-    DeliveryOrder, DeliveryOrderLineItem,
+    DeliveryOrder, DeliveryOrderLineItem, Contact,
 )
 from app.schemas.schemas import (
     DeliveryOrderCreate, DeliveryOrderUpdate, DeliveryOrderResponse,
@@ -20,13 +21,39 @@ router = APIRouter(tags=["Sales"])
 # ═══════════════════════════════════════════════
 # DELIVERY ORDERS
 # ═══════════════════════════════════════════════
-@router.get("/delivery-orders", response_model=list[DeliveryOrderResponse])
-async def list_delivery_orders(status: str | None = None, current_user: dict = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+@router.get("/delivery-orders")
+async def list_delivery_orders(
+    status: str | None = None,
+    contact_id: UUID | None = None,
+    p: PaginationParams = Depends(),
+    current_user: dict = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
     org_id = current_user["org_id"]
-    q = select(DeliveryOrder).options(selectinload(DeliveryOrder.line_items)).where(DeliveryOrder.organization_id == org_id).order_by(DeliveryOrder.created_at.desc())
+    base = select(DeliveryOrder).where(DeliveryOrder.organization_id == org_id)
     if status:
-        q = q.where(DeliveryOrder.status == status)
-    return (await db.execute(q)).scalars().all()
+        base = base.where(DeliveryOrder.status == status)
+    if contact_id:
+        base = base.where(DeliveryOrder.contact_id == contact_id)
+    if p.search:
+        like = f"%{p.search}%"
+        contact_match = select(Contact.id).where(
+            Contact.organization_id == org_id, Contact.name.ilike(like)
+        )
+        base = base.where(or_(
+            DeliveryOrder.delivery_number.ilike(like),
+            DeliveryOrder.contact_id.in_(contact_match),
+        ))
+    if p.date_from:
+        base = base.where(DeliveryOrder.delivery_date >= p.date_from)
+    if p.date_to:
+        base = base.where(DeliveryOrder.delivery_date <= p.date_to)
+
+    total = (await db.execute(select(func.count()).select_from(base.subquery()))).scalar() or 0
+    query = apply_sort(base, DeliveryOrder, p).options(selectinload(DeliveryOrder.line_items)).offset(p.offset).limit(p.limit)
+    items = (await db.execute(query)).scalars().all()
+    items = [DeliveryOrderResponse.model_validate(i) for i in items]
+    return paginated_result(items, total, p)
 
 
 @router.post("/delivery-orders", response_model=DeliveryOrderResponse, status_code=201)

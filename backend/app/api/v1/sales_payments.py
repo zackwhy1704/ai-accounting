@@ -1,12 +1,13 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, delete
+from sqlalchemy import select, delete, func, or_
 from sqlalchemy.orm import selectinload
 from uuid import UUID
 from app.core.database import get_db
 from app.core.security import get_current_user
+from app.core.pagination import PaginationParams, paginated_result, apply_sort
 from app.models.models import (
-    DebitNote, SalesPayment, PaymentAllocation, Invoice,
+    DebitNote, SalesPayment, PaymentAllocation, Invoice, Contact,
 )
 from .gl_helpers import post_gl, revert_gl
 from app.schemas.schemas import (
@@ -20,13 +21,39 @@ router = APIRouter(tags=["Sales"])
 # ═══════════════════════════════════════════════
 # SALES PAYMENTS
 # ═══════════════════════════════════════════════
-@router.get("/sales-payments", response_model=list[SalesPaymentResponse])
-async def list_sales_payments(status: str | None = None, current_user: dict = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+@router.get("/sales-payments")
+async def list_sales_payments(
+    status: str | None = None,
+    contact_id: UUID | None = None,
+    p: PaginationParams = Depends(),
+    current_user: dict = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
     org_id = current_user["org_id"]
-    q = select(SalesPayment).where(SalesPayment.organization_id == org_id).order_by(SalesPayment.created_at.desc())
+    base = select(SalesPayment).where(SalesPayment.organization_id == org_id)
     if status:
-        q = q.where(SalesPayment.status == status)
-    return (await db.execute(q)).scalars().all()
+        base = base.where(SalesPayment.status == status)
+    if contact_id:
+        base = base.where(SalesPayment.contact_id == contact_id)
+    if p.search:
+        like = f"%{p.search}%"
+        contact_match = select(Contact.id).where(
+            Contact.organization_id == org_id, Contact.name.ilike(like)
+        )
+        base = base.where(or_(
+            SalesPayment.payment_number.ilike(like),
+            SalesPayment.contact_id.in_(contact_match),
+        ))
+    if p.date_from:
+        base = base.where(SalesPayment.payment_date >= p.date_from)
+    if p.date_to:
+        base = base.where(SalesPayment.payment_date <= p.date_to)
+
+    total = (await db.execute(select(func.count()).select_from(base.subquery()))).scalar() or 0
+    query = apply_sort(base, SalesPayment, p).offset(p.offset).limit(p.limit)
+    items = (await db.execute(query)).scalars().all()
+    items = [SalesPaymentResponse.model_validate(i) for i in items]
+    return paginated_result(items, total, p)
 
 
 @router.get("/sales-payments/{sp_id}", response_model=SalesPaymentResponse)

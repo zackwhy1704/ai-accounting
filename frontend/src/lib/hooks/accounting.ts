@@ -1,26 +1,39 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query'
 import api from '../api'
 import type { Account } from '../../types'
+import { makeListHook, type Paginated, type ListParams } from './_shared'
 
-// Accounts
+// Accounts — paginated. Note: the existing call signature filters by `type`
+// (not status), so a custom wrapper preserves that semantics. data is Account[].
 export function useAccounts(type?: string) {
-  return useQuery<Account[]>({
+  return useQuery<Paginated<Account>, Error, Account[]>({
     queryKey: ['accounts', type],
     queryFn: () => api.get('/accounts', { params: type ? { type } : {} }).then(r => r.data),
+    select: (d: any) => (Array.isArray(d) ? d : d.items),
+    placeholderData: keepPreviousData,
+  })
+}
+export function useAccountsPage(params?: ListParams & { type?: string }) {
+  const p = params ?? {}
+  return useQuery<Paginated<Account>>({
+    queryKey: ['accounts', 'page', p],
+    queryFn: () => api.get('/accounts', { params: p }).then(r => {
+      const d = r.data
+      return Array.isArray(d) ? { items: d, total: d.length, page: 1, limit: d.length || 1, pages: 1 } : d
+    }),
+    placeholderData: keepPreviousData,
   })
 }
 
 // ── Tax Rates ──
-export function useTaxRates() {
-  return useQuery<Array<{
-    id: string; organization_id: string; name: string; code: string; rate: number;
-    tax_type: string; is_default: boolean; is_active: boolean;
-    sst_category: string | null; created_at: string;
-  }>>({
-    queryKey: ['tax-rates'],
-    queryFn: () => api.get('/tax-rates').then(r => r.data),
-  })
+type TaxRate = {
+  id: string; organization_id: string; name: string; code: string; rate: number;
+  tax_type: string; is_default: boolean; is_active: boolean;
+  sst_category: string | null; created_at: string;
 }
+const _taxRates = makeListHook<TaxRate>('/tax-rates', 'tax-rates')
+export function useTaxRates(arg?: string | ListParams) { return _taxRates.useList(arg) }
+export function useTaxRatesPage(params?: ListParams) { return _taxRates.usePage(params) }
 
 export function useCreateTaxRate() {
   const qc = useQueryClient()
@@ -47,15 +60,13 @@ export function useDeleteTaxRate() {
 }
 
 // ── Exchange Rates ──
-export function useExchangeRates() {
-  return useQuery<Array<{
-    id: string; organization_id: string; from_currency: string; to_currency: string;
-    rate: number; rate_date: string; source: string; created_at: string;
-  }>>({
-    queryKey: ['exchange-rates'],
-    queryFn: () => api.get('/exchange-rates').then(r => r.data),
-  })
+type ExchangeRate = {
+  id: string; organization_id: string; from_currency: string; to_currency: string;
+  rate: number; rate_date: string; source: string; created_at: string;
 }
+const _exchangeRates = makeListHook<ExchangeRate>('/exchange-rates', 'exchange-rates')
+export function useExchangeRates(arg?: string | ListParams) { return _exchangeRates.useList(arg) }
+export function useExchangeRatesPage(params?: ListParams) { return _exchangeRates.usePage(params) }
 
 export function useSyncExchangeRates() {
   const qc = useQueryClient()
@@ -74,17 +85,15 @@ export function useCreateExchangeRate() {
 }
 
 // ── Manual Journals ──
-export function useManualJournals(status?: string) {
-  return useQuery<Array<{
-    id: string; organization_id: string; journal_number: string; date: string;
-    reference: string | null; description: string | null; status: string;
-    currency: string; created_at: string;
-    lines: Array<{ id: string; account_id: string; description: string | null; debit: number; credit: number; contact_id: string | null }>;
-  }>>({
-    queryKey: ['manual-journals', status],
-    queryFn: () => api.get('/manual-journals', { params: status ? { status } : {} }).then(r => r.data),
-  })
+type ManualJournal = {
+  id: string; organization_id: string; journal_number: string; date: string;
+  reference: string | null; description: string | null; status: string;
+  currency: string; created_at: string;
+  lines: Array<{ id: string; account_id: string; description: string | null; debit: number; credit: number; contact_id: string | null }>;
 }
+const _manualJournals = makeListHook<ManualJournal>('/manual-journals', 'manual-journals')
+export function useManualJournals(arg?: string | ListParams) { return _manualJournals.useList(arg) }
+export function useManualJournalsPage(params?: ListParams) { return _manualJournals.usePage(params) }
 
 export function useCreateManualJournal() {
   const qc = useQueryClient()

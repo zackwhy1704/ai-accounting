@@ -1,29 +1,48 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, func, or_
 from uuid import UUID
 from app.core.database import get_db
 from app.core.security import get_current_user
+from app.core.pagination import PaginationParams, paginated_result, apply_sort
 from app.models.models import Contact
 from app.schemas.schemas import ContactCreate, ContactUpdate, ContactResponse
 
 router = APIRouter(prefix="/contacts", tags=["Contacts"])
 
 
-@router.get("", response_model=list[ContactResponse])
+@router.get("")
 async def list_contacts(
     type: str | None = None,
+    p: PaginationParams = Depends(),
     current_user: dict = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    query = select(Contact).where(
-        Contact.organization_id == current_user["org_id"],
+    org_id = current_user["org_id"]
+    base = select(Contact).where(
+        Contact.organization_id == org_id,
         Contact.is_active.is_(True),
-    ).order_by(Contact.name)
+    )
     if type:
-        query = query.where(Contact.type == type)
-    result = await db.execute(query)
-    return result.scalars().all()
+        base = base.where(Contact.type == type)
+    if p.search:
+        like = f"%{p.search}%"
+        base = base.where(or_(
+            Contact.name.ilike(like),
+            Contact.email.ilike(like),
+            Contact.company.ilike(like),
+            Contact.phone.ilike(like),
+        ))
+    if p.date_from:
+        base = base.where(Contact.created_at >= p.date_from)
+    if p.date_to:
+        base = base.where(Contact.created_at <= p.date_to)
+
+    total = (await db.execute(select(func.count()).select_from(base.subquery()))).scalar() or 0
+    query = apply_sort(base, Contact, p).offset(p.offset).limit(p.limit)
+    items = (await db.execute(query)).scalars().all()
+    items = [ContactResponse.model_validate(i) for i in items]
+    return paginated_result(items, total, p)
 
 
 @router.post("", response_model=ContactResponse, status_code=201)

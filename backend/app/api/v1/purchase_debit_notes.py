@@ -1,12 +1,13 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, delete
+from sqlalchemy import select, delete, func, or_
 from sqlalchemy.orm import selectinload
 from uuid import UUID
 
 from app.core.database import get_db
 from app.core.security import get_current_user
-from app.models.models import PurchaseDebitNote, PurchaseDebitNoteLineItem
+from app.core.pagination import PaginationParams, paginated_result, apply_sort
+from app.models.models import PurchaseDebitNote, PurchaseDebitNoteLineItem, Contact
 from app.schemas.schemas import (
     PurchaseDebitNoteCreate, PurchaseDebitNoteUpdate, PurchaseDebitNoteResponse,
 )
@@ -16,22 +17,39 @@ from .gl_helpers import post_gl
 router = APIRouter(prefix="/purchase-debit-notes", tags=["purchase-debit-notes"])
 
 
-@router.get("", response_model=list[PurchaseDebitNoteResponse])
+@router.get("")
 async def list_purchase_debit_notes(
     status: str | None = None,
+    contact_id: UUID | None = None,
+    p: PaginationParams = Depends(),
     db: AsyncSession = Depends(get_db),
     current_user: dict = Depends(get_current_user),
 ):
     org_id = current_user["org_id"]
-    q = (
-        select(PurchaseDebitNote)
-        .options(selectinload(PurchaseDebitNote.line_items))
-        .where(PurchaseDebitNote.organization_id == org_id)
-        .order_by(PurchaseDebitNote.created_at.desc())
-    )
+    base = select(PurchaseDebitNote).where(PurchaseDebitNote.organization_id == org_id)
     if status:
-        q = q.where(PurchaseDebitNote.status == status)
-    return (await db.execute(q)).scalars().all()
+        base = base.where(PurchaseDebitNote.status == status)
+    if contact_id:
+        base = base.where(PurchaseDebitNote.contact_id == contact_id)
+    if p.search:
+        like = f"%{p.search}%"
+        contact_match = select(Contact.id).where(
+            Contact.organization_id == org_id, Contact.name.ilike(like)
+        )
+        base = base.where(or_(
+            PurchaseDebitNote.debit_note_number.ilike(like),
+            PurchaseDebitNote.contact_id.in_(contact_match),
+        ))
+    if p.date_from:
+        base = base.where(PurchaseDebitNote.issue_date >= p.date_from)
+    if p.date_to:
+        base = base.where(PurchaseDebitNote.issue_date <= p.date_to)
+
+    total = (await db.execute(select(func.count()).select_from(base.subquery()))).scalar() or 0
+    query = apply_sort(base, PurchaseDebitNote, p).options(selectinload(PurchaseDebitNote.line_items)).offset(p.offset).limit(p.limit)
+    items = (await db.execute(query)).scalars().all()
+    items = [PurchaseDebitNoteResponse.model_validate(i) for i in items]
+    return paginated_result(items, total, p)
 
 
 @router.get("/{dn_id}", response_model=PurchaseDebitNoteResponse)

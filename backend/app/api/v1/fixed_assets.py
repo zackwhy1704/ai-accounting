@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, func, or_
 from uuid import UUID
 from datetime import datetime
 from typing import Optional
@@ -8,6 +8,7 @@ from pydantic import BaseModel
 
 from app.core.database import get_db
 from app.core.security import get_current_user
+from app.core.pagination import PaginationParams, paginated_result, apply_sort
 from app.models.models import FixedAsset
 from .gl_helpers import post_gl_by_id, revert_gl
 
@@ -86,18 +87,29 @@ class DisposeRequest(BaseModel):
     notes: Optional[str] = None
 
 
-@router.get("", response_model=list[FixedAssetResponse])
+@router.get("")
 async def list_fixed_assets(
     status: Optional[str] = Query(None),
+    p: PaginationParams = Depends(),
     db: AsyncSession = Depends(get_db),
     current_user: dict = Depends(get_current_user),
 ):
-    q = select(FixedAsset).where(FixedAsset.organization_id == current_user["org_id"])
+    org_id = current_user["org_id"]
+    base = select(FixedAsset).where(FixedAsset.organization_id == org_id)
     if status:
-        q = q.where(FixedAsset.status == status)
-    q = q.order_by(FixedAsset.name)
-    result = await db.execute(q)
-    return result.scalars().all()
+        base = base.where(FixedAsset.status == status)
+    if p.search:
+        like = f"%{p.search}%"
+        base = base.where(or_(
+            FixedAsset.name.ilike(like),
+            FixedAsset.code.ilike(like),
+        ))
+
+    total = (await db.execute(select(func.count()).select_from(base.subquery()))).scalar() or 0
+    query = apply_sort(base, FixedAsset, p, "name").offset(p.offset).limit(p.limit)
+    items = (await db.execute(query)).scalars().all()
+    items = [FixedAssetResponse.model_validate(i) for i in items]
+    return paginated_result(items, total, p)
 
 
 @router.post("", response_model=FixedAssetResponse, status_code=201)

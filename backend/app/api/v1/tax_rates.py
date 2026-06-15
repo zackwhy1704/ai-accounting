@@ -5,11 +5,12 @@ import base64
 import logging
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, func, or_
 from uuid import UUID
 
 from app.core.database import get_db
 from app.core.security import get_current_user
+from app.core.pagination import PaginationParams, paginated_result, apply_sort
 from app.models.models import TaxRate
 from app.schemas.schemas import TaxRateCreate, TaxRateUpdate, TaxRateResponse
 
@@ -19,17 +20,26 @@ ALLOWED_PDF_TYPE = "application/pdf"
 router = APIRouter(prefix="/tax-rates", tags=["tax-rates"])
 
 
-@router.get("", response_model=list[TaxRateResponse])
+@router.get("")
 async def list_tax_rates(
+    p: PaginationParams = Depends(),
     db: AsyncSession = Depends(get_db),
     current_user: dict = Depends(get_current_user),
 ):
-    result = await db.execute(
-        select(TaxRate)
-        .where(TaxRate.organization_id == current_user["org_id"])
-        .order_by(TaxRate.rate)
-    )
-    return result.scalars().all()
+    org_id = current_user["org_id"]
+    base = select(TaxRate).where(TaxRate.organization_id == org_id)
+    if p.search:
+        like = f"%{p.search}%"
+        base = base.where(or_(
+            TaxRate.code.ilike(like),
+            TaxRate.name.ilike(like),
+        ))
+
+    total = (await db.execute(select(func.count()).select_from(base.subquery()))).scalar() or 0
+    query = apply_sort(base, TaxRate, p, "rate").offset(p.offset).limit(p.limit)
+    items = (await db.execute(query)).scalars().all()
+    items = [TaxRateResponse.model_validate(i) for i in items]
+    return paginated_result(items, total, p)
 
 
 @router.get("/{tax_rate_id}", response_model=TaxRateResponse)

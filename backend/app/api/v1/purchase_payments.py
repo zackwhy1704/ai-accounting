@@ -1,7 +1,7 @@
 import random
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, func, or_
 from uuid import UUID
 from datetime import datetime, timezone
 from typing import Optional
@@ -9,7 +9,8 @@ from pydantic import BaseModel
 
 from app.core.database import get_db
 from app.core.security import get_current_user
-from app.models.models import PurchasePayment, Bill, PurchaseDebitNote
+from app.core.pagination import PaginationParams, paginated_result, apply_sort
+from app.models.models import PurchasePayment, Bill, PurchaseDebitNote, Contact
 from .gl_helpers import post_gl, revert_gl
 
 router = APIRouter(prefix="/purchase-payments", tags=["purchase-payments"])
@@ -68,27 +69,45 @@ def _gen_payment_no() -> str:
     return f"PPY-{now.strftime('%Y%m')}-{random.randint(1000, 9999)}"
 
 
-@router.get("", response_model=list[PurchasePaymentResponse])
+@router.get("")
 async def list_purchase_payments(
     contact_id: Optional[UUID] = Query(None),
     from_date: Optional[datetime] = Query(None),
     to_date: Optional[datetime] = Query(None),
+    p: PaginationParams = Depends(),
     db: AsyncSession = Depends(get_db),
     current_user: dict = Depends(get_current_user),
 ):
-    q = select(PurchasePayment).where(
-        PurchasePayment.organization_id == current_user["org_id"],
+    org_id = current_user["org_id"]
+    base = select(PurchasePayment).where(
+        PurchasePayment.organization_id == org_id,
         PurchasePayment.status != "void",
     )
     if contact_id:
-        q = q.where(PurchasePayment.contact_id == contact_id)
+        base = base.where(PurchasePayment.contact_id == contact_id)
     if from_date:
-        q = q.where(PurchasePayment.payment_date >= from_date)
+        base = base.where(PurchasePayment.payment_date >= from_date)
     if to_date:
-        q = q.where(PurchasePayment.payment_date <= to_date)
-    q = q.order_by(PurchasePayment.payment_date.desc())
-    result = await db.execute(q)
-    return result.scalars().all()
+        base = base.where(PurchasePayment.payment_date <= to_date)
+    if p.search:
+        like = f"%{p.search}%"
+        contact_match = select(Contact.id).where(
+            Contact.organization_id == org_id, Contact.name.ilike(like)
+        )
+        base = base.where(or_(
+            PurchasePayment.payment_no.ilike(like),
+            PurchasePayment.contact_id.in_(contact_match),
+        ))
+    if p.date_from:
+        base = base.where(PurchasePayment.payment_date >= p.date_from)
+    if p.date_to:
+        base = base.where(PurchasePayment.payment_date <= p.date_to)
+
+    total = (await db.execute(select(func.count()).select_from(base.subquery()))).scalar() or 0
+    query = apply_sort(base, PurchasePayment, p).offset(p.offset).limit(p.limit)
+    items = (await db.execute(query)).scalars().all()
+    items = [PurchasePaymentResponse.model_validate(i) for i in items]
+    return paginated_result(items, total, p)
 
 
 @router.post("", response_model=PurchasePaymentResponse, status_code=201)

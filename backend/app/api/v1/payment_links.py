@@ -6,12 +6,13 @@ import secrets
 from datetime import datetime, timezone, timedelta
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, func
 from pydantic import BaseModel
 from uuid import UUID
 
 from app.core.database import get_db
 from app.core.security import get_current_user
+from app.core.pagination import PaginationParams, paginated_result, apply_sort
 from app.models.models import PaymentLink, Invoice, Organization
 
 router = APIRouter(prefix="/payment-links", tags=["payment-links"])
@@ -55,18 +56,27 @@ def _make_token() -> str:
     return secrets.token_urlsafe(32)
 
 
-@router.get("", response_model=list[PaymentLinkResponse])
+@router.get("")
 async def list_payment_links(
+    p: PaginationParams = Depends(),
     db: AsyncSession = Depends(get_db),
     current_user: dict = Depends(get_current_user),
 ):
-    result = await db.execute(
-        select(PaymentLink)
-        .where(PaymentLink.organization_id == current_user["org_id"])
-        .order_by(PaymentLink.created_at.desc())
-    )
-    links = result.scalars().all()
-    return [_enrich(l) for l in links]
+    org_id = current_user["org_id"]
+    base = select(PaymentLink).where(PaymentLink.organization_id == org_id)
+    if p.search:
+        like = f"%{p.search}%"
+        base = base.where(PaymentLink.description.ilike(like))
+    if p.date_from:
+        base = base.where(PaymentLink.created_at >= p.date_from)
+    if p.date_to:
+        base = base.where(PaymentLink.created_at <= p.date_to)
+
+    total = (await db.execute(select(func.count()).select_from(base.subquery()))).scalar() or 0
+    query = apply_sort(base, PaymentLink, p).offset(p.offset).limit(p.limit)
+    links = (await db.execute(query)).scalars().all()
+    items = [_enrich(l) for l in links]
+    return paginated_result(items, total, p)
 
 
 @router.post("", response_model=PaymentLinkResponse, status_code=201)

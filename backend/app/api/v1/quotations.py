@@ -1,16 +1,17 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, delete
+from sqlalchemy import select, delete, func, or_
 from sqlalchemy.orm import selectinload
 from uuid import UUID
 from app.core.database import get_db
 from app.core.security import get_current_user
+from app.core.pagination import PaginationParams, paginated_result, apply_sort
 from datetime import datetime, timezone, timedelta
 from pydantic import BaseModel as PydanticBaseModel
 from app.models.models import (
     Quotation, QuotationLineItem,
     DeliveryOrder, DeliveryOrderLineItem,
-    Invoice, InvoiceLineItem,
+    Invoice, InvoiceLineItem, Contact,
 )
 from app.schemas.schemas import (
     QuotationCreate, QuotationUpdate, QuotationResponse,
@@ -24,13 +25,39 @@ router = APIRouter(tags=["Sales"])
 # ═══════════════════════════════════════════════
 # QUOTATIONS
 # ═══════════════════════════════════════════════
-@router.get("/quotations", response_model=list[QuotationResponse])
-async def list_quotations(status: str | None = None, current_user: dict = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+@router.get("/quotations")
+async def list_quotations(
+    status: str | None = None,
+    contact_id: UUID | None = None,
+    p: PaginationParams = Depends(),
+    current_user: dict = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
     org_id = current_user["org_id"]
-    q = select(Quotation).options(selectinload(Quotation.line_items)).where(Quotation.organization_id == org_id).order_by(Quotation.created_at.desc())
+    base = select(Quotation).where(Quotation.organization_id == org_id)
     if status:
-        q = q.where(Quotation.status == status)
-    return (await db.execute(q)).scalars().all()
+        base = base.where(Quotation.status == status)
+    if contact_id:
+        base = base.where(Quotation.contact_id == contact_id)
+    if p.search:
+        like = f"%{p.search}%"
+        contact_match = select(Contact.id).where(
+            Contact.organization_id == org_id, Contact.name.ilike(like)
+        )
+        base = base.where(or_(
+            Quotation.quotation_number.ilike(like),
+            Quotation.contact_id.in_(contact_match),
+        ))
+    if p.date_from:
+        base = base.where(Quotation.issue_date >= p.date_from)
+    if p.date_to:
+        base = base.where(Quotation.issue_date <= p.date_to)
+
+    total = (await db.execute(select(func.count()).select_from(base.subquery()))).scalar() or 0
+    query = apply_sort(base, Quotation, p).options(selectinload(Quotation.line_items)).offset(p.offset).limit(p.limit)
+    items = (await db.execute(query)).scalars().all()
+    items = [QuotationResponse.model_validate(i) for i in items]
+    return paginated_result(items, total, p)
 
 
 @router.post("/quotations", response_model=QuotationResponse, status_code=201)

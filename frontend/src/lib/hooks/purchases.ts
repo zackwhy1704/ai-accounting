@@ -1,15 +1,12 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import api from '../api'
 import type { Bill, PurchaseOrder, GoodsReceivedNote, PurchasePayment, PurchaseRefund } from '../../types'
-import { makeActivityHook, type InvoiceActivityEvent } from './_shared'
+import { makeActivityHook, makeListHook, type InvoiceActivityEvent, type ListParams } from './_shared'
 
 // Bills
-export function useBills(status?: string) {
-  return useQuery<Bill[]>({
-    queryKey: ['bills', status],
-    queryFn: () => api.get('/bills', { params: status ? { status } : {} }).then(r => r.data),
-  })
-}
+const _bills = makeListHook<Bill>('/bills', 'bills')
+export function useBills(arg?: string | ListParams) { return _bills.useList(arg) }
+export function useBillsPage(params?: ListParams) { return _bills.usePage(params) }
 
 export function useCreateBill() {
   const qc = useQueryClient()
@@ -20,17 +17,15 @@ export function useCreateBill() {
 }
 
 // ── Purchase Credit Notes ──
-export function usePurchaseCreditNotes(status?: string) {
-  return useQuery<Array<{
-    id: string; organization_id: string; pcn_number: string; contact_id: string;
-    bill_id: string | null; issue_date: string; reference: string | null; status: string; currency: string;
-    subtotal: number; discount_amount: number; tax_amount: number; total: number; credit_applied: number;
-    notes: string | null; line_items: Array<Record<string, unknown>>; created_at: string;
-  }>>({
-    queryKey: ['purchase-credit-notes', status],
-    queryFn: () => api.get('/purchase-credit-notes', { params: status ? { status } : {} }).then(r => r.data),
-  })
+type PurchaseCreditNote = {
+  id: string; organization_id: string; pcn_number: string; contact_id: string;
+  bill_id: string | null; issue_date: string; reference: string | null; status: string; currency: string;
+  subtotal: number; discount_amount: number; tax_amount: number; total: number; credit_applied: number;
+  notes: string | null; line_items: Array<Record<string, unknown>>; created_at: string;
 }
+const _purchaseCreditNotes = makeListHook<PurchaseCreditNote>('/purchase-credit-notes', 'purchase-credit-notes')
+export function usePurchaseCreditNotes(arg?: string | ListParams) { return _purchaseCreditNotes.useList(arg) }
+export function usePurchaseCreditNotesPage(params?: ListParams) { return _purchaseCreditNotes.usePage(params) }
 export const useVendorCredits = usePurchaseCreditNotes
 
 export function useCreatePurchaseCreditNote() {
@@ -42,12 +37,9 @@ export function useCreatePurchaseCreditNote() {
 }
 
 // Purchase Orders
-export function usePurchaseOrders(status?: string) {
-  return useQuery<PurchaseOrder[]>({
-    queryKey: ['purchase-orders', status],
-    queryFn: () => api.get('/purchase-orders', { params: status ? { status } : {} }).then(r => r.data),
-  })
-}
+const _purchaseOrders = makeListHook<PurchaseOrder>('/purchase-orders', 'purchase-orders')
+export function usePurchaseOrders(arg?: string | ListParams) { return _purchaseOrders.useList(arg) }
+export function usePurchaseOrdersPage(params?: ListParams) { return _purchaseOrders.usePage(params) }
 
 export function useCreatePurchaseOrder() {
   const qc = useQueryClient()
@@ -58,12 +50,9 @@ export function useCreatePurchaseOrder() {
 }
 
 // GRN
-export function useGoodsReceivedNotes(status?: string) {
-  return useQuery<GoodsReceivedNote[]>({
-    queryKey: ['goods-received-notes', status],
-    queryFn: () => api.get('/goods-received-notes', { params: status ? { status } : {} }).then(r => r.data),
-  })
-}
+const _goodsReceivedNotes = makeListHook<GoodsReceivedNote>('/goods-received-notes', 'goods-received-notes')
+export function useGoodsReceivedNotes(arg?: string | ListParams) { return _goodsReceivedNotes.useList(arg) }
+export function useGoodsReceivedNotesPage(params?: ListParams) { return _goodsReceivedNotes.usePage(params) }
 
 export function useCreateGoodsReceivedNote() {
   const qc = useQueryClient()
@@ -74,12 +63,9 @@ export function useCreateGoodsReceivedNote() {
 }
 
 // Purchase Payments
-export function usePurchasePayments() {
-  return useQuery<PurchasePayment[]>({
-    queryKey: ['purchase-payments'],
-    queryFn: () => api.get('/purchase-payments').then(r => r.data),
-  })
-}
+const _purchasePayments = makeListHook<PurchasePayment>('/purchase-payments', 'purchase-payments')
+export function usePurchasePayments(arg?: string | ListParams) { return _purchasePayments.useList(arg) }
+export function usePurchasePaymentsPage(params?: ListParams) { return _purchasePayments.usePage(params) }
 
 export function useCreatePurchasePayment() {
   const qc = useQueryClient()
@@ -94,12 +80,9 @@ export function useCreatePurchasePayment() {
 }
 
 // Purchase Refunds
-export function usePurchaseRefunds() {
-  return useQuery<PurchaseRefund[]>({
-    queryKey: ['purchase-refunds'],
-    queryFn: () => api.get('/purchase-refunds').then(r => r.data),
-  })
-}
+const _purchaseRefunds = makeListHook<PurchaseRefund>('/purchase-refunds', 'purchase-refunds')
+export function usePurchaseRefunds(arg?: string | ListParams) { return _purchaseRefunds.useList(arg) }
+export function usePurchaseRefundsPage(params?: ListParams) { return _purchaseRefunds.usePage(params) }
 
 export function useCreatePurchaseRefund() {
   const qc = useQueryClient()
@@ -205,12 +188,9 @@ export function useUpdatePurchaseRefund() {
 }
 
 // Purchase Debit Notes
-export function usePurchaseDebitNotes(status?: string) {
-  return useQuery<any[]>({
-    queryKey: ['purchase-debit-notes', status],
-    queryFn: () => api.get('/purchase-debit-notes', { params: status ? { status } : {} }).then(r => r.data),
-  })
-}
+const _purchaseDebitNotes = makeListHook<any>('/purchase-debit-notes', 'purchase-debit-notes')
+export function usePurchaseDebitNotes(arg?: string | ListParams) { return _purchaseDebitNotes.useList(arg) }
+export function usePurchaseDebitNotesPage(params?: ListParams) { return _purchaseDebitNotes.usePage(params) }
 export function usePurchaseDebitNote(id: string | undefined) {
   return useQuery({ queryKey: ['purchase-debit-note', id], queryFn: () => api.get(`/purchase-debit-notes/${id}`).then(r => r.data), enabled: !!id })
 }
