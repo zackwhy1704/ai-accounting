@@ -37,7 +37,7 @@ async def profit_loss_report(
             Invoice.organization_id == org_id,
             Invoice.issue_date >= start,
             Invoice.issue_date <= end,
-            Invoice.status.in_(["paid", "partial", "sent", "overdue"]),
+            Invoice.status.in_(["outstanding", "partially_paid", "paid"]),
         )
     )
     inv_row = inv_result.one()
@@ -51,7 +51,7 @@ async def profit_loss_report(
             Bill.organization_id == org_id,
             Bill.bill_date >= start,
             Bill.bill_date <= end,
-            Bill.status.in_(["paid", "partial", "pending"]),
+            Bill.status.in_(["outstanding", "partially_paid", "paid"]),
         )
     )
     bill_row = bill_result.one()
@@ -95,7 +95,7 @@ async def ar_aging_report(
         .join(Contact, Invoice.contact_id == Contact.id, isouter=True)
         .where(
             Invoice.organization_id == org_id,
-            Invoice.status.in_(["sent", "partial", "overdue"]),
+            Invoice.status.in_(["outstanding", "partially_paid"]),
             (Invoice.total - Invoice.amount_paid) > 0,
         )
     )
@@ -161,7 +161,7 @@ async def ap_aging_report(
         .join(Contact, Bill.contact_id == Contact.id, isouter=True)
         .where(
             Bill.organization_id == org_id,
-            Bill.status.in_(["pending", "partial", "overdue"]),
+            Bill.status.in_(["outstanding", "partially_paid"]),
             (Bill.total - Bill.amount_paid) > 0,
         )
     )
@@ -391,7 +391,7 @@ async def sst02_report(
             Invoice.organization_id == org_id,
             Invoice.issue_date >= start,
             Invoice.issue_date <= end,
-            Invoice.status.in_(["paid", "partial", "sent", "overdue"]),
+            Invoice.status.in_(["outstanding", "partially_paid", "paid"]),
         )
     )
     inv_row = inv_result.one()
@@ -408,7 +408,7 @@ async def sst02_report(
             Bill.organization_id == org_id,
             Bill.bill_date >= start,
             Bill.bill_date <= end,
-            Bill.status.in_(["paid", "partial", "pending"]),
+            Bill.status.in_(["outstanding", "partially_paid", "paid"]),
         )
     )
     bill_row = bill_result.one()

@@ -8,6 +8,7 @@ from app.core.database import get_db
 from app.core.security import get_current_user
 from app.core.permissions import require_write
 from app.core.pagination import PaginationParams, paginated_result, apply_sort
+from app.core.audit import log_audit
 from app.models.models import PurchaseDebitNote, PurchaseDebitNoteLineItem, Contact
 from app.schemas.schemas import (
     PurchaseDebitNoteCreate, PurchaseDebitNoteUpdate, PurchaseDebitNoteResponse,
@@ -146,6 +147,7 @@ async def create_purchase_debit_note(
     )
 
     await db.commit()
+    await log_audit(db, org_id, current_user["sub"], "create", "purchase_debit_note", obj.id)
     result2 = await db.execute(
         select(PurchaseDebitNote)
         .options(selectinload(PurchaseDebitNote.line_items))
@@ -214,6 +216,7 @@ async def update_purchase_debit_note(
         setattr(obj, key, value)
 
     await db.commit()
+    await log_audit(db, current_user["org_id"], current_user["sub"], "update", "purchase_debit_note", dn_id)
     result2 = await db.execute(
         select(PurchaseDebitNote)
         .options(selectinload(PurchaseDebitNote.line_items))
@@ -242,6 +245,7 @@ async def update_purchase_debit_note_status(
         raise HTTPException(status_code=404, detail="Purchase debit note not found")
     obj.status = status
     await db.commit()
+    await log_audit(db, current_user["org_id"], current_user["sub"], "status_change", "purchase_debit_note", dn_id, {"status": status})
     return {"id": str(obj.id), "status": obj.status}
 
 
@@ -265,6 +269,7 @@ async def delete_purchase_debit_note(
         raise HTTPException(status_code=400, detail="Only draft, issued, or void debit notes can be deleted.")
     await db.delete(obj)
     await db.commit()
+    await log_audit(db, current_user["org_id"], current_user["sub"], "delete", "purchase_debit_note", dn_id)
 
 
 @router.get("/{dn_id}/activity")

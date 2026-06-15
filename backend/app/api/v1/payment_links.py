@@ -14,6 +14,7 @@ from app.core.database import get_db
 from app.core.security import get_current_user
 from app.core.permissions import require_write
 from app.core.pagination import PaginationParams, paginated_result, apply_sort
+from app.core.audit import log_audit
 from app.models.models import PaymentLink, Invoice, Organization
 
 router = APIRouter(prefix="/payment-links", tags=["payment-links"])
@@ -103,6 +104,7 @@ async def create_payment_link(
     )
     db.add(link)
     await db.commit()
+    await log_audit(db, current_user["org_id"], current_user["sub"], "create", "payment_link", link.id)
     await db.refresh(link)
     return _enrich(link)
 
@@ -131,6 +133,7 @@ async def update_payment_link(
     for key, value in payload.model_dump(exclude_unset=True).items():
         setattr(link, key, value)
     await db.commit()
+    await log_audit(db, current_user["org_id"], current_user["sub"], "update", "payment_link", link_id)
     await db.refresh(link)
     return _enrich(link)
 
@@ -144,6 +147,7 @@ async def delete_payment_link(
     link = await _get_owned_link(link_id, current_user["org_id"], db)
     await db.delete(link)
     await db.commit()
+    await log_audit(db, current_user["org_id"], current_user["sub"], "delete", "payment_link", link_id)
 
 
 @router.get("/{token}/public")

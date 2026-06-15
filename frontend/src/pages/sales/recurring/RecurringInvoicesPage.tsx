@@ -2,7 +2,7 @@ import { useMemo, useState } from "react"
 import { useNavigate } from "react-router-dom"
 import { Plus, Search, RefreshCw, Pause, Play, Pencil, Trash2 } from "lucide-react"
 import { RowActionsMenu } from "../../../components/ui/row-actions"
-import { useRecurringInvoices, useContacts, usePauseRecurringInvoice, useResumeRecurringInvoice, useDeleteRecurringInvoice } from "../../../lib/hooks"
+import { useRecurringInvoices, useContacts, usePauseRecurringInvoice, useResumeRecurringInvoice, useDeleteRecurringInvoice, useRunRecurringInvoiceNow } from "../../../lib/hooks"
 import { formatDate, cn } from "../../../lib/utils"
 import { Card } from "../../../components/ui/card"
 import { Button } from "../../../components/ui/button"
@@ -44,6 +44,7 @@ export default function RecurringInvoicesPage() {
   const { data: contacts = [] } = useContacts()
   const pause = usePauseRecurringInvoice()
   const resume = useResumeRecurringInvoice()
+  const runNow = useRunRecurringInvoiceNow()
   const deleteRecurring = useDeleteRecurringInvoice()
 
   const customers = useMemo(() => contacts.filter((c: any) => c.type === "customer" || c.type === "both"), [contacts])
@@ -167,7 +168,8 @@ export default function RecurringInvoicesPage() {
                         <TableCell className="text-right">
                           <RowActionsMenu actions={[
                             { label: "Edit", icon: <Pencil className="h-3.5 w-3.5" />, onClick: () => navigate(`/sales/recurring/${r.id}/edit`) },
-                            ...(r.status === "active" ? [{ label: "Pause", icon: <Pause className="h-3.5 w-3.5" />, onClick: () => pause.mutate(r.id, { onSuccess: () => toast("Recurring invoice paused", "success"), onError: (e: any) => toast(e?.response?.data?.detail ?? "Failed to pause", "warning") }), dividerBefore: true }] : []),
+                            ...(r.status === "active" ? [{ label: "Run Now", icon: <RefreshCw className="h-3.5 w-3.5" />, onClick: () => { if (confirm("Generate an invoice now from this recurring template?")) runNow.mutate(r.id, { onSuccess: (d: any) => toast(`Invoice created: ${d.invoice_number ?? ""}`, "success"), onError: (e: any) => toast(e?.response?.data?.detail ?? "Failed to run", "warning") }) }, dividerBefore: true }] : []),
+                            ...(r.status === "active" ? [{ label: "Pause", icon: <Pause className="h-3.5 w-3.5" />, onClick: () => pause.mutate(r.id, { onSuccess: () => toast("Recurring invoice paused", "success"), onError: (e: any) => toast(e?.response?.data?.detail ?? "Failed to pause", "warning") }) }] : []),
                             ...(r.status === "paused" ? [{ label: "Resume", icon: <Play className="h-3.5 w-3.5" />, onClick: () => resume.mutate(r.id, { onSuccess: () => toast("Recurring invoice resumed", "success"), onError: (e: any) => toast(e?.response?.data?.detail ?? "Failed to resume", "warning") }), dividerBefore: true }] : []),
                             { label: "Delete", icon: <Trash2 className="h-3.5 w-3.5" />, onClick: () => { if (confirm("Delete this recurring invoice? All future scheduled runs will be cancelled.")) deleteRecurring.mutate(r.id, { onSuccess: () => toast("Recurring invoice deleted", "success"), onError: (e: any) => toast(e?.response?.data?.detail ?? "Failed to delete", "warning") }) }, danger: true, dividerBefore: true },
                           ]} />

@@ -11,6 +11,7 @@ from app.core.security import get_current_user
 from app.core.permissions import require_write
 from app.core.pagination import PaginationParams, paginated_result, apply_sort
 from app.core.audit import log_audit
+from app.core.line_items import calculate_line_items
 from app.models.models import RecurringInvoice, Contact
 from app.models.sales import Invoice, InvoiceLineItem
 from app.core.sequences import next_sequence_number
@@ -143,7 +144,7 @@ async def create_recurring(
     )
     db.add(ri)
     await db.commit()
-    await log_audit(db, current_user["org_id"], current_user["sub"], "create", "recurring_invoice", rec.id)
+    await log_audit(db, current_user["org_id"], current_user["sub"], "create", "recurring_invoice", ri.id)
     await db.refresh(ri)
     return ri
 
@@ -199,7 +200,7 @@ async def update_recurring(
         setattr(ri, key, value)
 
     await db.commit()
-    await log_audit(db, current_user["org_id"], current_user["sub"], "update", "recurring_invoice", rec_id)
+    await log_audit(db, current_user["org_id"], current_user["sub"], "update", "recurring_invoice", ri_id)
     await db.refresh(ri)
     return ri
 
@@ -221,7 +222,7 @@ async def pause_recurring(
         raise HTTPException(status_code=404, detail="Not found")
     ri.status = "paused"
     await db.commit()
-    await log_audit(db, current_user["org_id"], current_user["sub"], "pause", "recurring_invoice", rec_id)
+    await log_audit(db, current_user["org_id"], current_user["sub"], "pause", "recurring_invoice", ri_id)
     await db.refresh(ri)
     return ri
 
@@ -243,7 +244,7 @@ async def resume_recurring(
         raise HTTPException(status_code=404, detail="Not found")
     ri.status = "active"
     await db.commit()
-    await log_audit(db, current_user["org_id"], current_user["sub"], "resume", "recurring_invoice", rec_id)
+    await log_audit(db, current_user["org_id"], current_user["sub"], "resume", "recurring_invoice", ri_id)
     await db.refresh(ri)
     return ri
 
@@ -265,7 +266,7 @@ async def cancel_recurring(
         raise HTTPException(status_code=404, detail="Not found")
     await db.delete(ri)
     await db.commit()
-    await log_audit(db, current_user["org_id"], current_user["sub"], "cancel", "recurring_invoice", rec_id)
+    await log_audit(db, current_user["org_id"], current_user["sub"], "cancel", "recurring_invoice", ri_id)
 
 
 @router.get("/{ri_id}/activity")
@@ -319,36 +320,25 @@ async def run_recurring_now(
     db.add(invoice)
     await db.flush()
 
-    subtotal = 0.0
-    tax_total = 0.0
-    for idx, li in enumerate(ri.line_items or []):
-        qty = float(li.get("quantity", 1) or 1)
-        price = float(li.get("unit_price", 0) or 0)
-        discount = float(li.get("discount", 0) or 0)
-        mode = li.get("discount_mode", "percent")
-        tax_rate = float(li.get("tax_rate", 0) or 0)
-        gross = qty * price
-        disc = gross * discount / 100 if mode == "percent" else min(discount, gross)
-        after_disc = gross - disc
-        tax = after_disc * tax_rate / 100
-        subtotal += after_disc
-        tax_total += tax
+    line_items_data = list(ri.line_items or [])
+    subtotal, tax_total, _, total = calculate_line_items(line_items_data)
+    for idx, li in enumerate(line_items_data):
         line = InvoiceLineItem(
             invoice_id=invoice.id,
             description=li.get("description", ""),
-            quantity=qty,
-            unit_price=price,
-            discount=discount,
-            discount_mode=mode,
-            tax_rate=tax_rate,
-            amount=round(after_disc, 2),
+            quantity=float(li.get("quantity", 1) or 1),
+            unit_price=float(li.get("unit_price", 0) or 0),
+            discount=float(li.get("discount", 0) or 0),
+            discount_mode=li.get("discount_mode", "percent"),
+            tax_rate=float(li.get("tax_rate", 0) or 0),
+            amount=li["amount"],
             sort_order=idx,
         )
         db.add(line)
 
-    invoice.subtotal = round(subtotal, 2)
-    invoice.tax_amount = round(tax_total, 2)
-    invoice.total = round(subtotal + tax_total, 2)
+    invoice.subtotal = subtotal
+    invoice.tax_amount = tax_total
+    invoice.total = total
 
     ri.last_run_date = now
     ri.run_count = (ri.run_count or 0) + 1

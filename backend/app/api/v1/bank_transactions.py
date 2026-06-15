@@ -1,5 +1,8 @@
+import logging
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
+
+logger = logging.getLogger(__name__)
 from sqlalchemy import select, func, or_
 from uuid import UUID
 from datetime import datetime
@@ -150,8 +153,10 @@ async def create_bank_transaction(
                     txn.id,
                     entries_by_id,
                 )
-            except Exception:
-                pass  # GL post failures must not break the transaction
+            except HTTPException:
+                raise
+            except Exception as e:
+                logger.error(f"GL posting failed for bank_transaction {txn.id}: {e}", exc_info=True)
 
     await db.commit()
     await log_audit(db, org_id, current_user["sub"], "create", "bank_transaction", txn.id)
@@ -225,7 +230,9 @@ async def void_bank_transaction(
             f"Reversal: Bank transaction {txn.reference_no or txn_id} voided",
             txn.reference_no or str(txn_id),
         )
-    except Exception:
-        pass  # GL revert failures must not block the void
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"GL revert failed for bank_transaction {txn_id}: {e}", exc_info=True)
     await db.commit()
     await log_audit(db, current_user["org_id"], current_user["sub"], "void", "bank_transaction", txn_id)

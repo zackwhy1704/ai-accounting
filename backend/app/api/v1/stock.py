@@ -11,6 +11,7 @@ from app.core.security import get_current_user
 from app.core.permissions import require_write
 from app.core.pagination import PaginationParams, paginated_result, apply_sort
 from app.core.sequences import next_sequence_number
+from app.core.audit import log_audit
 from app.models.models import StockAdjustment, StockTransfer, Product
 from .gl_helpers import post_gl, revert_gl
 
@@ -157,6 +158,7 @@ async def create_adjustment(
     )
     db.add(adj)
     await db.commit()
+    await log_audit(db, current_user["org_id"], current_user["sub"], "create", "stock_adjustment", adj.id)
     await db.refresh(adj)
     return adj
 
@@ -198,6 +200,7 @@ async def update_adjustment(
     for key, val in payload.model_dump(exclude_unset=True).items():
         setattr(adj, key, val)
     await db.commit()
+    await log_audit(db, current_user["org_id"], current_user["sub"], "update", "stock_adjustment", adj_id)
     await db.refresh(adj)
     return adj
 
@@ -219,6 +222,7 @@ async def delete_adjustment(
         raise HTTPException(status_code=404, detail="Stock adjustment not found")
     await db.delete(adj)
     await db.commit()
+    await log_audit(db, current_user["org_id"], current_user["sub"], "delete", "stock_adjustment", adj_id)
 
 
 @adjustments_router.post("/{adj_id}/confirm", response_model=StockAdjustmentResponse)
@@ -278,6 +282,7 @@ async def confirm_adjustment(
 
     adj.status = "confirmed"
     await db.commit()
+    await log_audit(db, current_user["org_id"], current_user["sub"], "confirm", "stock_adjustment", adj_id)
     await db.refresh(adj)
     return adj
 
@@ -323,6 +328,7 @@ async def create_transfer(
     )
     db.add(trf)
     await db.commit()
+    await log_audit(db, current_user["org_id"], current_user["sub"], "create", "stock_transfer", trf.id)
     await db.refresh(trf)
     return trf
 
@@ -364,6 +370,7 @@ async def update_transfer(
     for key, val in payload.model_dump(exclude_unset=True).items():
         setattr(trf, key, val)
     await db.commit()
+    await log_audit(db, current_user["org_id"], current_user["sub"], "update", "stock_transfer", trf_id)
     await db.refresh(trf)
     return trf
 
@@ -385,6 +392,7 @@ async def delete_transfer(
         raise HTTPException(status_code=404, detail="Stock transfer not found")
     await db.delete(trf)
     await db.commit()
+    await log_audit(db, current_user["org_id"], current_user["sub"], "delete", "stock_transfer", trf_id)
 
 
 @transfers_router.post("/{trf_id}/complete", response_model=StockTransferResponse)
@@ -406,5 +414,6 @@ async def complete_transfer(
         raise HTTPException(status_code=400, detail="Only draft transfers can be completed")
     trf.status = "completed"
     await db.commit()
+    await log_audit(db, current_user["org_id"], current_user["sub"], "complete", "stock_transfer", trf_id)
     await db.refresh(trf)
     return trf

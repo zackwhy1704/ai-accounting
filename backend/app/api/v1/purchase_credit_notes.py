@@ -12,6 +12,7 @@ from app.core.security import get_current_user
 from app.core.permissions import require_write
 from app.core.pagination import PaginationParams, paginated_result, apply_sort
 from app.core.audit import log_audit
+from app.core.line_items import calculate_line_items
 from app.models.models import PurchaseCreditNote, PurchaseCreditNoteLineItem, PurchaseCreditApplication, Bill, Contact
 from app.schemas.schemas import (
     PurchaseCreditNoteCreate, PurchaseCreditNoteResponse,
@@ -41,27 +42,14 @@ async def _next_pcn_number(org_id: UUID, db: AsyncSession) -> str:
     return f"PCN-{count:05d}"
 
 
-def _line_discount(item: PCNLineItemSchema) -> float:
-    line_total = item.quantity * item.unit_price
-    if item.discount_mode == "amount":
-        return min(item.discount, line_total)
-    return line_total * item.discount / 100
+def _pcn_items_to_dicts(line_items: list[PCNLineItemSchema]) -> list[dict]:
+    return [item.model_dump() for item in line_items]
 
 
-def _calc_totals(line_items: list[PCNLineItemSchema]) -> tuple[float, float, float, float]:
-    subtotal = sum(item.quantity * item.unit_price for item in line_items)
-    total_discount = sum(_line_discount(item) for item in line_items)
-    tax_amount = sum((item.quantity * item.unit_price - _line_discount(item)) * item.tax_rate / 100 for item in line_items)
-    total = subtotal - total_discount + tax_amount
-    return subtotal, total_discount, tax_amount, total
-
-
-def _build_line_items(pcn_id: UUID, line_items: list[PCNLineItemSchema]) -> list[PurchaseCreditNoteLineItem]:
+def _build_line_items(pcn_id: UUID, line_items: list[PCNLineItemSchema], items_dicts: list[dict]) -> list[PurchaseCreditNoteLineItem]:
+    """Build ORM rows; items_dicts must already be processed by calculate_line_items (amount set in-place)."""
     rows = []
-    for i, item in enumerate(line_items):
-        disc = _line_discount(item)
-        after_disc = item.quantity * item.unit_price - disc
-        amount = after_disc * (1 + item.tax_rate / 100)
+    for i, (item, d) in enumerate(zip(line_items, items_dicts)):
         rows.append(PurchaseCreditNoteLineItem(
             credit_note_id=pcn_id,
             line_type=item.line_type,
@@ -72,7 +60,7 @@ def _build_line_items(pcn_id: UUID, line_items: list[PCNLineItemSchema]) -> list
             discount_mode=item.discount_mode,
             tax_rate=item.tax_rate,
             tax_code_id=UUID(item.tax_code_id) if item.tax_code_id else None,
-            amount=round(amount, 2),
+            amount=d["amount"],
             account_id=UUID(item.account_id) if item.account_id else None,
             sort_order=i,
         ))
@@ -138,7 +126,8 @@ async def create_purchase_credit_note(
     current_user: dict = Depends(require_write()),
 ):
     org_id = current_user["org_id"]
-    subtotal, discount_amount, tax_amount, total = _calc_totals(payload.line_items)
+    items_dicts = _pcn_items_to_dicts(payload.line_items)
+    subtotal, tax_amount, discount_amount, total = calculate_line_items(items_dicts)
 
     if payload.pcn_number:
         existing = (await db.execute(select(PurchaseCreditNote.id).where(
@@ -170,7 +159,7 @@ async def create_purchase_credit_note(
     db.add(pcn)
     await db.flush()
 
-    for li in _build_line_items(pcn.id, payload.line_items):
+    for li in _build_line_items(pcn.id, payload.line_items, items_dicts):
         db.add(li)
 
     # Process credit_applications if provided at create time
@@ -286,9 +275,10 @@ async def update_purchase_credit_note(
 
     if "line_items" in update_data and data.line_items is not None:
         update_data.pop("line_items")
-        subtotal, discount_amount, tax_amount, total = _calc_totals(data.line_items)
+        items_dicts = _pcn_items_to_dicts(data.line_items)
+        subtotal, tax_amount, discount_amount, total = calculate_line_items(items_dicts)
         await db.execute(sa_delete(PurchaseCreditNoteLineItem).where(PurchaseCreditNoteLineItem.credit_note_id == pcn.id))
-        for li in _build_line_items(pcn.id, data.line_items):
+        for li in _build_line_items(pcn.id, data.line_items, items_dicts):
             db.add(li)
         pcn.subtotal = subtotal
         pcn.discount_amount = discount_amount

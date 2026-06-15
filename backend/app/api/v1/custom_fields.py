@@ -9,6 +9,7 @@ from app.core.database import get_db
 from app.core.security import get_current_user
 from app.core.permissions import require_write
 from app.core.pagination import PaginationParams, paginated_result, apply_sort
+from app.core.audit import log_audit
 from app.models.models import CustomField
 
 router = APIRouter(prefix="/custom-fields", tags=["custom-fields"])
@@ -87,6 +88,7 @@ async def create_custom_field(
     cf = CustomField(organization_id=current_user["org_id"], **payload.model_dump())
     db.add(cf)
     await db.commit()
+    await log_audit(db, current_user["org_id"], current_user["sub"], "create", "custom_field", cf.id)
     await db.refresh(cf)
     return cf
 
@@ -110,6 +112,7 @@ async def update_custom_field(
     for k, v in payload.model_dump(exclude_unset=True).items():
         setattr(cf, k, v)
     await db.commit()
+    await log_audit(db, current_user["org_id"], current_user["sub"], "update", "custom_field", field_id)
     await db.refresh(cf)
     return cf
 
@@ -131,3 +134,4 @@ async def delete_custom_field(
         raise HTTPException(status_code=404, detail="Custom field not found")
     cf.is_active = False
     await db.commit()
+    await log_audit(db, current_user["org_id"], current_user["sub"], "delete", "custom_field", field_id)
