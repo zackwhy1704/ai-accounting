@@ -13,6 +13,7 @@ from app.schemas.schemas import (
     PurchaseDebitNoteCreate, PurchaseDebitNoteUpdate, PurchaseDebitNoteResponse,
 )
 from .sales import next_sequence_number, calc_totals
+from app.core.line_items import calculate_line_items
 from .gl_helpers import post_gl
 
 router = APIRouter(prefix="/purchase-debit-notes", tags=["purchase-debit-notes"])
@@ -177,40 +178,25 @@ async def update_purchase_debit_note(
         line_items_data = update_data.pop("line_items")
         await db.execute(delete(PurchaseDebitNoteLineItem).where(PurchaseDebitNoteLineItem.debit_note_id == obj.id))
         await db.flush()
-        subtotal = 0.0
-        discount_total = 0.0
-        tax_amount = 0.0
-        for li in line_items_data:
-            line_total = li["quantity"] * li["unit_price"]
-            disc_mode = li.get("discount_mode", "percent") or "percent"
-            raw_disc = li.get("discount", 0) or 0
-            disc_val = min(raw_disc, line_total) if disc_mode == "amount" else line_total * raw_disc / 100
-            after_disc = line_total - disc_val
-            subtotal += line_total
-            discount_total += disc_val
-            tax_amount += after_disc * (li["tax_rate"] / 100)
+        subtotal, tax_amount, discount_total, total = calculate_line_items(line_items_data)
         for i, item in enumerate(line_items_data):
-            line_total = item["quantity"] * item["unit_price"]
-            disc_mode = item.get("discount_mode", "percent") or "percent"
-            raw_disc = item.get("discount", 0) or 0
-            disc_val = min(raw_disc, line_total) if disc_mode == "amount" else line_total * raw_disc / 100
             db.add(PurchaseDebitNoteLineItem(
                 debit_note_id=obj.id,
-                description=item["description"],
-                quantity=item["quantity"],
-                unit_price=item["unit_price"],
-                tax_rate=item["tax_rate"],
+                description=item.get("description", ""),
+                quantity=item.get("quantity", 1),
+                unit_price=item.get("unit_price", 0),
+                tax_rate=item.get("tax_rate", 0),
                 tax_code_id=item.get("tax_code_id"),
-                discount=raw_disc,
-                discount_mode=disc_mode,
-                amount=line_total - disc_val,
+                discount=item.get("discount", 0),
+                discount_mode=item.get("discount_mode", "percent"),
+                amount=item.get("amount", 0),
                 account_id=item.get("account_id"),
                 sort_order=i,
             ))
         obj.subtotal = subtotal
         obj.discount_amount = discount_total
         obj.tax_amount = tax_amount
-        obj.total = subtotal - discount_total + tax_amount
+        obj.total = total
 
     new_num = update_data.get("debit_note_number")
     if new_num and new_num != obj.debit_note_number:

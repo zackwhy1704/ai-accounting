@@ -14,6 +14,7 @@ from app.schemas.schemas import (
     DeliveryOrderCreate, DeliveryOrderUpdate, DeliveryOrderResponse,
 )
 from app.core.sequences import next_sequence_number
+from app.core.line_items import calculate_line_items
 from .sales import calc_totals
 
 router = APIRouter(tags=["Sales"])
@@ -129,30 +130,24 @@ async def update_delivery_order(do_id: UUID, data: DeliveryOrderUpdate, current_
     if "line_items" in update_data:
         line_items_data = update_data.pop("line_items")
         await db.execute(delete(DeliveryOrderLineItem).where(DeliveryOrderLineItem.delivery_order_id == obj.id))
-        subtotal = 0.0
-        discount_total = 0.0
-        tax_amount = 0.0
+        subtotal, tax_amount, discount_total, total = calculate_line_items(line_items_data)
         for i, item in enumerate(line_items_data):
-            line_total = item["quantity"] * item["unit_price"]
-            disc_mode = item.get("discount_mode", "percent") or "percent"
-            disc_raw = item.get("discount", 0) or 0
-            line_disc = min(disc_raw, line_total) if disc_mode == "amount" else line_total * disc_raw / 100
-            after_disc = line_total - line_disc
-            line_tax = after_disc * (item["tax_rate"] / 100)
-            subtotal += after_disc
-            discount_total += line_disc
-            tax_amount += line_tax
             db.add(DeliveryOrderLineItem(
-                delivery_order_id=obj.id, description=item["description"], quantity=item["quantity"],
-                unit_price=item["unit_price"], discount=disc_raw, discount_mode=disc_mode,
-                tax_rate=item["tax_rate"], tax_code_id=item.get("tax_code_id"),
-                amount=after_disc + line_tax,
+                delivery_order_id=obj.id,
+                description=item.get("description", ""),
+                quantity=item.get("quantity", 1),
+                unit_price=item.get("unit_price", 0),
+                discount=item.get("discount", 0),
+                discount_mode=item.get("discount_mode", "percent"),
+                tax_rate=item.get("tax_rate", 0),
+                tax_code_id=item.get("tax_code_id"),
+                amount=item.get("amount", 0),
                 sort_order=i,
             ))
         obj.subtotal = subtotal
         obj.discount_amount = discount_total
         obj.tax_amount = tax_amount
-        obj.total = subtotal - discount_total + tax_amount
+        obj.total = total
 
     new_num = update_data.get("delivery_number")
     if new_num and new_num != obj.delivery_number:

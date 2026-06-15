@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator, model_validator
 from uuid import UUID
 from datetime import datetime
 
@@ -83,6 +83,20 @@ class BillCreate(BaseModel):
     shipping_postcode: str | None = None
     shipping_country: str | None = None
     line_items: list[LineItemCreate]
+
+    @field_validator("line_items")
+    @classmethod
+    def require_at_least_one_line(cls, v):
+        if not v:
+            raise ValueError("At least one line item is required")
+        return v
+
+    @model_validator(mode="after")
+    def due_after_issue(self):
+        if self.due_date and self.issue_date and self.due_date < self.issue_date:
+            raise ValueError("due_date must not be before issue_date")
+        return self
+
 
 class BillUpdate(BaseModel):
     contact_id: UUID | None = None

@@ -54,6 +54,31 @@ class Invoice(Base):
         Index("ix_invoices_org_status", "organization_id", "status"),
     )
 
+    @property
+    def balance_due(self) -> float:
+        return round(float(self.total) - float(self.amount_paid), 2)
+
+    @property
+    def is_overdue(self) -> bool:
+        from datetime import datetime, timezone as tz
+        return self.status not in ("paid", "void") and self.due_date < datetime.now(tz.utc)
+
+    def can_edit(self) -> bool:
+        return self.status in ("draft", "outstanding", "partially_paid")
+
+    def can_delete(self) -> bool:
+        return self.status in ("draft", "void")
+
+    def mark_paid(self) -> None:
+        paid = float(self.amount_paid)
+        total = float(self.total)
+        if paid >= total:
+            self.status = "paid"
+        elif paid > 0:
+            self.status = "partially_paid"
+        else:
+            self.status = "outstanding"
+
 
 
 
@@ -330,7 +355,15 @@ class CreditNote(Base):
         Index("ix_credit_notes_org_status", "organization_id", "status"),
     )
 
+    @property
+    def remaining_credit(self) -> float:
+        return round(float(self.total) - float(self.credit_applied), 2)
 
+    def can_edit(self) -> bool:
+        return self.status == "draft"
+
+    def can_delete(self) -> bool:
+        return self.status in ("draft", "void")
 
 
 class CreditNoteLineItem(Base):

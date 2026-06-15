@@ -53,6 +53,26 @@ class Bill(Base):
         Index("ix_bills_org_status", "organization_id", "status"),
     )
 
+    @property
+    def balance_due(self) -> float:
+        return round(float(self.total) - float(self.amount_paid), 2)
+
+    def can_edit(self) -> bool:
+        return self.status in ("draft", "outstanding", "partially_paid")
+
+    def can_delete(self) -> bool:
+        return self.status in ("draft", "void")
+
+    def mark_paid(self) -> None:
+        paid = float(self.amount_paid)
+        total = float(self.total)
+        if paid >= total:
+            self.status = "paid"
+        elif paid > 0:
+            self.status = "partially_paid"
+        else:
+            self.status = "outstanding"
+
 
 
 
@@ -225,7 +245,15 @@ class PurchaseCreditNote(Base):
         Index("ix_purchase_credit_notes_org_status", "organization_id", "status"),
     )
 
+    @property
+    def remaining_credit(self) -> float:
+        return round(float(self.total) - float(self.credit_applied), 2)
 
+    def can_edit(self) -> bool:
+        return self.status == "draft"
+
+    def can_delete(self) -> bool:
+        return self.status in ("draft", "void")
 
 
 class PurchaseCreditNoteLineItem(Base):

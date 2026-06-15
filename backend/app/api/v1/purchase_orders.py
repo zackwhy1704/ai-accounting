@@ -11,6 +11,7 @@ from app.core.database import get_db
 from app.core.security import get_current_user
 from app.core.permissions import require_write
 from app.core.pagination import PaginationParams, paginated_result, apply_sort
+from app.core.line_items import calculate_line_items
 from app.models.models import PurchaseOrder, PurchaseOrderLineItem, Contact
 
 router = APIRouter(prefix="/purchase-orders", tags=["purchase-orders"])
@@ -126,13 +127,8 @@ async def create_purchase_order(
 ):
     org_id = current_user["org_id"]
 
-    subtotal = 0.0
-    tax_amount = 0.0
-    for item in payload.line_items:
-        amount = item.quantity * item.unit_price
-        tax = amount * (item.tax_rate / 100)
-        subtotal += amount
-        tax_amount += tax
+    items = [li.model_dump() for li in payload.line_items]
+    subtotal, tax_amount, _, total = calculate_line_items(items)
 
     if payload.po_number:
         existing = (await db.execute(select(PurchaseOrder.id).where(PurchaseOrder.organization_id == org_id, PurchaseOrder.po_number == payload.po_number))).first()
@@ -151,7 +147,7 @@ async def create_purchase_order(
         expected_date=payload.expected_date,
         subtotal=subtotal,
         tax_amount=tax_amount,
-        total=subtotal + tax_amount,
+        total=total,
         currency=payload.currency,
         notes=payload.notes,
         delivery_address=payload.delivery_address,
@@ -159,25 +155,8 @@ async def create_purchase_order(
     db.add(po)
     await db.flush()
 
-    for i, item in enumerate(payload.line_items):
-        disc = item.discount or 0.0
-        line_total = item.quantity * item.unit_price
-        disc_amt = min(disc, line_total) if item.discount_mode == "amount" else line_total * disc / 100
-        after_disc = line_total - disc_amt
-        line = PurchaseOrderLineItem(
-            purchase_order_id=po.id,
-            description=item.description,
-            quantity=item.quantity,
-            unit_price=item.unit_price,
-            discount=disc,
-            discount_mode=item.discount_mode,
-            tax_rate=item.tax_rate,
-            tax_code_id=item.tax_code_id,
-            amount=after_disc * (1 + item.tax_rate / 100),
-            account_id=item.account_id,
-            sort_order=i,
-        )
-        db.add(line)
+    for i, item in enumerate(items):
+        db.add(PurchaseOrderLineItem(purchase_order_id=po.id, sort_order=i, **item))
 
     await db.commit()
     result = await db.execute(
@@ -233,33 +212,13 @@ async def update_purchase_order(
         await db.execute(
             delete(PurchaseOrderLineItem).where(PurchaseOrderLineItem.purchase_order_id == po_id)
         )
-        subtotal = 0.0
-        tax_amount = 0.0
-        for i, item in enumerate(data.line_items):
-            disc = item.discount or 0.0
-            line_total = item.quantity * item.unit_price
-            disc_amt = min(disc, line_total) if item.discount_mode == "amount" else line_total * disc / 100
-            after_disc = line_total - disc_amt
-            tax = after_disc * (item.tax_rate / 100)
-            subtotal += after_disc
-            tax_amount += tax
-            line = PurchaseOrderLineItem(
-                purchase_order_id=po.id,
-                description=item.description,
-                quantity=item.quantity,
-                unit_price=item.unit_price,
-                discount=disc,
-                discount_mode=item.discount_mode,
-                tax_rate=item.tax_rate,
-                tax_code_id=item.tax_code_id,
-                amount=after_disc + tax,
-                account_id=item.account_id,
-                sort_order=i,
-            )
-            db.add(line)
+        new_items = [li.model_dump() for li in data.line_items]
+        subtotal, tax_amount, _, total = calculate_line_items(new_items)
+        for i, item in enumerate(new_items):
+            db.add(PurchaseOrderLineItem(purchase_order_id=po.id, sort_order=i, **item))
         po.subtotal = subtotal
         po.tax_amount = tax_amount
-        po.total = subtotal + tax_amount
+        po.total = total
 
     for key, value in update_data.items():
         setattr(po, key, value)

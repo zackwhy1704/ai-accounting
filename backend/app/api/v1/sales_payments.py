@@ -103,25 +103,14 @@ async def create_sales_payment(data: SalesPaymentCreate, current_user: dict = De
             inv = inv_result.scalar_one_or_none()
             if inv:
                 inv.amount_paid = float(inv.amount_paid or 0) + float(alloc.amount)
-                inv_total = float(inv.total or 0)
-                if float(inv.amount_paid) >= inv_total:
-                    inv.status = "paid"
-                elif float(inv.amount_paid) > 0:
-                    inv.status = "partially paid"
-                else:
-                    inv.status = "outstanding"
+                inv.mark_paid()
         if alloc.debit_note_id:
             dn_result = await db.execute(select(DebitNote).where(DebitNote.id == alloc.debit_note_id))
             dn = dn_result.scalar_one_or_none()
             if dn:
                 dn.amount_paid = float(dn.amount_paid or 0) + float(alloc.amount)
                 dn_total = float(dn.total or 0)
-                if float(dn.amount_paid) >= dn_total:
-                    dn.status = "applied"
-                elif float(dn.amount_paid) > 0:
-                    dn.status = "partially paid"
-                else:
-                    dn.status = "issued"
+                dn.status = "applied" if float(dn.amount_paid) >= dn_total else "issued"
 
     # GL: Dr Cash/Bank (1000) / Cr AR (1100)
     await post_gl(
@@ -161,25 +150,14 @@ async def update_sales_payment(sp_id: UUID, data: SalesPaymentUpdate, current_us
                 inv = inv_result.scalar_one_or_none()
                 if inv:
                     inv.amount_paid = max(0.0, float(inv.amount_paid or 0) - float(existing_alloc.amount))
-                    inv_total = float(inv.total or 0)
-                    if float(inv.amount_paid) >= inv_total:
-                        inv.status = "paid"
-                    elif float(inv.amount_paid) > 0:
-                        inv.status = "partially paid"
-                    else:
-                        inv.status = "outstanding"
+                    inv.mark_paid()
             if existing_alloc.debit_note_id:
                 dn_result = await db.execute(select(DebitNote).where(DebitNote.id == existing_alloc.debit_note_id))
                 dn = dn_result.scalar_one_or_none()
                 if dn:
                     dn.amount_paid = max(0.0, float(dn.amount_paid or 0) - float(existing_alloc.amount))
                     dn_total = float(dn.total or 0)
-                    if float(dn.amount_paid) >= dn_total:
-                        dn.status = "applied"
-                    elif float(dn.amount_paid) > 0:
-                        dn.status = "partially paid"
-                    else:
-                        dn.status = "issued"
+                    dn.status = "applied" if float(dn.amount_paid) >= dn_total else "issued"
         await db.execute(delete(PaymentAllocation).where(PaymentAllocation.payment_id == obj.id))
         for alloc in allocs_data:
             db.add(PaymentAllocation(
@@ -193,25 +171,14 @@ async def update_sales_payment(sp_id: UUID, data: SalesPaymentUpdate, current_us
                 inv = inv_result.scalar_one_or_none()
                 if inv:
                     inv.amount_paid = float(inv.amount_paid or 0) + float(alloc["amount"])
-                    inv_total = float(inv.total or 0)
-                    if float(inv.amount_paid) >= inv_total:
-                        inv.status = "paid"
-                    elif float(inv.amount_paid) > 0:
-                        inv.status = "partially paid"
-                    else:
-                        inv.status = "outstanding"
+                    inv.mark_paid()
             if alloc.get("debit_note_id"):
                 dn_result = await db.execute(select(DebitNote).where(DebitNote.id == alloc["debit_note_id"]))
                 dn = dn_result.scalar_one_or_none()
                 if dn:
                     dn.amount_paid = float(dn.amount_paid or 0) + float(alloc["amount"])
                     dn_total = float(dn.total or 0)
-                    if float(dn.amount_paid) >= dn_total:
-                        dn.status = "applied"
-                    elif float(dn.amount_paid) > 0:
-                        dn.status = "partially paid"
-                    else:
-                        dn.status = "issued"
+                    dn.status = "applied" if float(dn.amount_paid) >= dn_total else "issued"
 
     new_num = update_data.get("payment_number")
     if new_num and new_num != obj.payment_number:
@@ -251,25 +218,14 @@ async def update_sales_payment_status(sp_id: UUID, status: str, current_user: di
                 inv = inv_result.scalar_one_or_none()
                 if inv:
                     inv.amount_paid = max(0.0, float(inv.amount_paid or 0) - float(alloc.amount))
-                    inv_total = float(inv.total or 0)
-                    if float(inv.amount_paid) >= inv_total:
-                        inv.status = "paid"
-                    elif float(inv.amount_paid) > 0:
-                        inv.status = "partially paid"
-                    else:
-                        inv.status = "outstanding"
+                    inv.mark_paid()
             if alloc.debit_note_id:
                 dn_result = await db.execute(select(DebitNote).where(DebitNote.id == alloc.debit_note_id))
                 dn = dn_result.scalar_one_or_none()
                 if dn:
                     dn.amount_paid = max(0.0, float(dn.amount_paid or 0) - float(alloc.amount))
                     dn_total = float(dn.total or 0)
-                    if float(dn.amount_paid) >= dn_total:
-                        dn.status = "applied"
-                    elif float(dn.amount_paid) > 0:
-                        dn.status = "partially paid"
-                    else:
-                        dn.status = "issued"
+                    dn.status = "applied" if float(dn.amount_paid) >= dn_total else "issued"
         await revert_gl(
             db, current_user["org_id"], obj.id, "payment",
             obj.payment_date,

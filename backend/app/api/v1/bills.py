@@ -12,6 +12,7 @@ from app.core.permissions import require_write
 from app.core.pagination import PaginationParams, paginated_result, apply_sort
 from app.models.models import Bill, BillLineItem, PurchasePayment, PurchaseCreditApplication, PurchaseCreditNote, Transaction, JournalEntry, Account, Contact
 from app.schemas.schemas import BillCreate, BillUpdate, BillResponse
+from app.core.line_items import calculate_line_items
 from app.services.pricing import line_after_discount, line_tax
 from .gl_helpers import post_gl, revert_gl
 from app.core.audit import log_audit
@@ -90,18 +91,9 @@ async def create_bill(
         from .sales import next_sequence_number
         bill_number = await next_sequence_number(db, Bill, Bill.bill_number, org_id, "BILL")
 
-    # Calculate totals (discount applied before tax)
-    subtotal = 0.0
-    tax_amount = 0.0
-    for item in data.line_items:
-        after_disc = line_after_discount(
-            item.quantity,
-            item.unit_price,
-            getattr(item, 'discount', 0) or 0,
-            getattr(item, 'discount_mode', 'percent') or 'percent',
-        )
-        subtotal += after_disc
-        tax_amount += line_tax(after_disc, item.tax_rate)
+    # Calculate totals
+    items = [li.model_dump() for li in data.line_items]
+    subtotal, tax_amount, _, total = calculate_line_items(items)
 
     bill = Bill(
         organization_id=org_id,
@@ -111,7 +103,7 @@ async def create_bill(
         due_date=data.due_date,
         subtotal=subtotal,
         tax_amount=tax_amount,
-        total=subtotal + tax_amount,
+        total=total,
         currency=data.currency,
         notes=data.notes,
         terms=data.terms,
@@ -131,27 +123,8 @@ async def create_bill(
     db.add(bill)
     await db.flush()
 
-    for i, item in enumerate(data.line_items):
-        after_disc = line_after_discount(
-            item.quantity,
-            item.unit_price,
-            getattr(item, 'discount', 0) or 0,
-            getattr(item, 'discount_mode', 'percent') or 'percent',
-        )
-        line = BillLineItem(
-            bill_id=bill.id,
-            description=item.description,
-            quantity=item.quantity,
-            unit_price=item.unit_price,
-            tax_rate=item.tax_rate,
-            tax_code_id=item.tax_code_id,
-            discount=getattr(item, 'discount', 0) or 0,
-            discount_mode=getattr(item, 'discount_mode', 'percent') or 'percent',
-            amount=after_disc,
-            account_id=item.account_id,
-            sort_order=i,
-        )
-        db.add(line)
+    for i, item in enumerate(items):
+        db.add(BillLineItem(bill_id=bill.id, sort_order=i, **item))
 
     # No GL entries at draft stage — posted on 'approved' status
     await db.commit()
@@ -209,53 +182,18 @@ async def update_bill(
         await db.execute(delete(BillLineItem).where(BillLineItem.bill_id == bill.id))
         await db.flush()
 
-        subtotal = 0.0
-        tax_amount = 0.0
-        for item in data.line_items:
-            after_disc = line_after_discount(
-                item.quantity,
-                item.unit_price,
-                getattr(item, 'discount', 0) or 0,
-                getattr(item, 'discount_mode', 'percent') or 'percent',
-            )
-            subtotal += after_disc
-            tax_amount += line_tax(after_disc, item.tax_rate)
-
-        new_total = subtotal + tax_amount
+        new_items = [li.model_dump() for li in data.line_items]
+        subtotal, tax_amount, _, total = calculate_line_items(new_items)
         bill.subtotal = subtotal
         bill.tax_amount = tax_amount
-        bill.total = new_total
+        bill.total = total
 
         # Recalculate payment status when total changes
-        amount_paid = float(bill.amount_paid or 0)
-        if amount_paid >= new_total and amount_paid > 0:
-            bill.status = "paid"
-        elif amount_paid > 0:
-            bill.status = "partially paid"
-        elif bill.status in ("paid", "partially paid"):
-            bill.status = "outstanding"
+        if bill.status in ("paid", "partially paid", "outstanding"):
+            bill.mark_paid()
 
-        for i, item in enumerate(data.line_items):
-            after_disc = line_after_discount(
-                item.quantity,
-                item.unit_price,
-                getattr(item, 'discount', 0) or 0,
-                getattr(item, 'discount_mode', 'percent') or 'percent',
-            )
-            line = BillLineItem(
-                bill_id=bill.id,
-                description=item.description,
-                quantity=item.quantity,
-                unit_price=item.unit_price,
-                tax_rate=item.tax_rate,
-                tax_code_id=item.tax_code_id,
-                discount=getattr(item, 'discount', 0) or 0,
-                discount_mode=getattr(item, 'discount_mode', 'percent') or 'percent',
-                amount=after_disc,
-                account_id=item.account_id,
-                sort_order=i,
-            )
-            db.add(line)
+        for i, item in enumerate(new_items):
+            db.add(BillLineItem(bill_id=bill.id, sort_order=i, **item))
 
     # Apply scalar field updates
     for field, value in update_data.items():
@@ -512,10 +450,7 @@ async def pay_bill(
 
     bill.amount_paid = float(bill.amount_paid) + apply_amount
     bill_total = float(bill.total or 0)
-    if bill.amount_paid >= bill_total:
-        bill.status = "paid"
-    elif bill.amount_paid > 0:
-        bill.status = "partially paid"
+    bill.mark_paid()
 
     await db.commit()
     result2 = await db.execute(

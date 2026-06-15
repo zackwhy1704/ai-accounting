@@ -16,6 +16,7 @@ from app.models.models import (
     Transaction, JournalEntry, Account, DeliveryOrder, Document, Contact,
 )
 from app.schemas.schemas import InvoiceCreate, InvoiceUpdate, InvoiceResponse
+from app.core.line_items import calculate_line_items
 from app.services.pricing import line_after_discount, line_tax
 from .gl_helpers import post_gl, revert_gl
 from app.core.audit import log_audit
@@ -73,12 +74,8 @@ async def create_invoice(
         invoice_number = await next_sequence_number(db, Invoice, Invoice.invoice_number, org_id, "INV")
 
     # Calculate totals
-    subtotal = 0
-    tax_amount = 0
-    for item in data.line_items:
-        after_disc = line_after_discount(item.quantity, item.unit_price, item.discount or 0, item.discount_mode)
-        subtotal += after_disc
-        tax_amount += line_tax(after_disc, item.tax_rate)
+    items = [li.model_dump() for li in data.line_items]
+    subtotal, tax_amount, _, total = calculate_line_items(items)
 
     invoice = Invoice(
         organization_id=org_id,
@@ -88,7 +85,7 @@ async def create_invoice(
         due_date=data.due_date,
         subtotal=subtotal,
         tax_amount=tax_amount,
-        total=subtotal + tax_amount,
+        total=total,
         currency=data.currency,
         notes=data.notes,
         terms=data.terms,
@@ -103,22 +100,8 @@ async def create_invoice(
     await db.flush()
 
     # Add line items — no GL entries at draft stage
-    for i, item in enumerate(data.line_items):
-        after_disc = line_after_discount(item.quantity, item.unit_price, item.discount or 0, item.discount_mode)
-        db.add(InvoiceLineItem(
-            invoice_id=invoice.id,
-            line_type=item.line_type,
-            description=item.description,
-            quantity=item.quantity,
-            unit_price=item.unit_price,
-            tax_rate=item.tax_rate,
-            tax_code_id=item.tax_code_id,
-            discount=item.discount or 0,
-            discount_mode=item.discount_mode,
-            amount=after_disc,
-            account_id=item.account_id,
-            sort_order=i,
-        ))
+    for i, item in enumerate(items):
+        db.add(InvoiceLineItem(invoice_id=invoice.id, sort_order=i, **item))
 
     await db.commit()
     await log_audit(db, current_user["org_id"], current_user["sub"], "create", "invoice", invoice.id)
@@ -164,41 +147,18 @@ async def update_invoice(
         line_items_data = update_data.pop("line_items")
 
         # Delete old line items
-        old_items_result = await db.execute(
-            select(InvoiceLineItem).where(InvoiceLineItem.invoice_id == invoice.id)
-        )
-        for old_item in old_items_result.scalars().all():
-            await db.delete(old_item)
+        await db.execute(delete(InvoiceLineItem).where(InvoiceLineItem.invoice_id == invoice.id))
 
-        # Calculate totals (discount applied before tax)
-        subtotal = 0
-        tax_amount = 0
-        for item in data.line_items:
-            after_disc = line_after_discount(item.quantity, item.unit_price, item.discount or 0, item.discount_mode)
-            subtotal += after_disc
-            tax_amount += line_tax(after_disc, item.tax_rate)
-
+        # Calculate totals
+        new_items = [li.model_dump() for li in data.line_items]
+        subtotal, tax_amount, _, total = calculate_line_items(new_items)
         invoice.subtotal = subtotal
         invoice.tax_amount = tax_amount
-        invoice.total = subtotal + tax_amount
+        invoice.total = total
 
         # Insert new line items
-        for i, item in enumerate(data.line_items):
-            after_disc = line_after_discount(item.quantity, item.unit_price, item.discount or 0, item.discount_mode)
-            db.add(InvoiceLineItem(
-                invoice_id=invoice.id,
-                line_type=item.line_type,
-                description=item.description,
-                quantity=item.quantity,
-                unit_price=item.unit_price,
-                tax_rate=item.tax_rate,
-                tax_code_id=item.tax_code_id,
-                discount=item.discount or 0,
-                discount_mode=item.discount_mode,
-                amount=after_disc,
-                account_id=item.account_id,
-                sort_order=i,
-            ))
+        for i, item in enumerate(new_items):
+            db.add(InvoiceLineItem(invoice_id=invoice.id, sort_order=i, **item))
 
     # Apply scalar field updates
     for field, value in update_data.items():
@@ -478,22 +438,11 @@ async def apply_overpaid_to_invoice(
 
     # Deduct from source's overpaid amount by reducing amount_paid
     src.amount_paid = float(src.amount_paid or 0) - body.amount
-    src_total = float(src.total or 0)
-    if src.amount_paid >= src_total:
-        src.status = "paid"  # still paid / still overpaid
-    elif src.amount_paid > 0:
-        src.status = "partially paid"
-    else:
-        src.status = "outstanding"
+    src.mark_paid()
 
     # Apply to target invoice
     tgt.amount_paid = float(tgt.amount_paid or 0) + body.amount
-    tgt_total = float(tgt.total or 0)
-    if tgt.amount_paid >= tgt_total:
-        tgt.status = "paid"
-    elif tgt.amount_paid > 0:
-        tgt.status = "partially paid"
-    # else status stays as-is (still outstanding/overdue)
+    tgt.mark_paid()
 
     await db.commit()
     return {"applied": body.amount, "source_invoice_id": str(invoice_id), "target_invoice_id": str(body.target_invoice_id)}
@@ -560,13 +509,7 @@ async def refund_overpaid(
 
     # Deduct from invoice amount_paid and update status
     inv.amount_paid = float(inv.amount_paid or 0) - body.amount
-    inv_total = float(inv.total or 0)
-    if inv.amount_paid >= inv_total:
-        inv.status = "paid"
-    elif inv.amount_paid > 0:
-        inv.status = "partially paid"
-    else:
-        inv.status = "outstanding"
+    inv.mark_paid()
 
     # GL: Dr AR (1100) / Cr Cash/Bank (1000)
     from .gl_helpers import post_gl

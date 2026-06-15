@@ -1,7 +1,8 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 from uuid import UUID
 from datetime import datetime
 
+VALID_CONTACT_TYPES = {"customer", "vendor", "both"}
 
 # ── Contact ──
 class ContactCreate(BaseModel):
@@ -31,6 +32,19 @@ class ContactCreate(BaseModel):
     shipping_country: str | None = None
     default_currency: str | None = None
     default_payment_terms: str | None = None
+
+    @field_validator("name")
+    @classmethod
+    def name_not_empty(cls, v: str) -> str:
+        if not v.strip():
+            raise ValueError("Contact name cannot be empty")
+        return v.strip()
+
+    @field_validator("email")
+    @classmethod
+    def email_lowercase(cls, v: str | None) -> str | None:
+        return v.lower().strip() if v else v
+
 
 class ContactUpdate(BaseModel):
     name: str | None = None

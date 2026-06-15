@@ -3,7 +3,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, or_
 from uuid import UUID
 from datetime import datetime, timezone
-from typing import Optional, Any
+from typing import Optional
 from pydantic import BaseModel
 
 from app.core.database import get_db
@@ -37,12 +37,21 @@ class StockAdjustmentCreate(BaseModel):
     lines: list[StockAdjustmentLine] = []
 
 
+class StockTransferLine(BaseModel):
+    product_id: Optional[UUID] = None
+    product: Optional[str] = None
+    description: Optional[str] = None
+    quantity: float = 0.0
+    location_from: Optional[str] = None
+    location_to: Optional[str] = None
+
+
 class StockAdjustmentUpdate(BaseModel):
     adjustment_date: Optional[datetime] = None
     reference_no: Optional[str] = None
     reason: Optional[str] = None
     notes: Optional[str] = None
-    lines: Optional[list[Any]] = None
+    lines: Optional[list[StockAdjustmentLine]] = None
 
 
 class StockAdjustmentResponse(BaseModel):
@@ -54,7 +63,7 @@ class StockAdjustmentResponse(BaseModel):
     reason: str
     notes: Optional[str]
     status: str
-    lines: list[Any]
+    lines: list[StockAdjustmentLine]
     created_at: datetime
 
     model_config = {"from_attributes": True}
@@ -65,7 +74,7 @@ class StockTransferCreate(BaseModel):
     from_location: Optional[str] = None
     to_location: Optional[str] = None
     notes: Optional[str] = None
-    lines: list[Any] = []
+    lines: list[StockTransferLine] = []
 
 
 class StockTransferUpdate(BaseModel):
@@ -73,7 +82,7 @@ class StockTransferUpdate(BaseModel):
     from_location: Optional[str] = None
     to_location: Optional[str] = None
     notes: Optional[str] = None
-    lines: Optional[list[Any]] = None
+    lines: Optional[list[StockTransferLine]] = None
 
 
 class StockTransferResponse(BaseModel):
@@ -85,7 +94,7 @@ class StockTransferResponse(BaseModel):
     to_location: Optional[str]
     notes: Optional[str]
     status: str
-    lines: list[Any]
+    lines: list[StockTransferLine]
     created_at: datetime
 
     model_config = {"from_attributes": True}

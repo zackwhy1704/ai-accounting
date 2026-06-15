@@ -79,6 +79,16 @@ class Organization(Base):
     purchase_orders: Mapped[list["PurchaseOrder"]] = relationship(back_populates="organization")
     goods_received_notes: Mapped[list["GoodsReceivedNote"]] = relationship(back_populates="organization")
 
+    def is_gst_registered(self) -> bool:
+        return bool(self.gst_registration_no)
+
+    def is_sst_registered(self) -> bool:
+        return bool(self.sst_registration_no)
+
+    @property
+    def effective_tax_regime(self) -> str:
+        return self.tax_regime or "NONE"
+
 
 # ──────────────────────────────────────────────
 # User

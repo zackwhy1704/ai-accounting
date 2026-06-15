@@ -21,22 +21,20 @@ router = APIRouter(tags=["Sales"])
 
 
 # ── Helper: calculate line item totals ──
+from app.core.line_items import calculate_line_items as _calc
+
+
 def calc_totals(line_items, has_discount=True):
-    """Discount is either a percentage (0-100) or a flat amount depending on discount_mode."""
-    subtotal = 0
-    tax_amount = 0
-    discount_total = 0
-    for item in line_items:
-        amount = item.quantity * item.unit_price
-        disc_raw = getattr(item, 'discount', 0) or 0
-        disc_mode = getattr(item, 'discount_mode', 'percent') or 'percent'
-        if disc_mode == 'amount':
-            disc_value = min(disc_raw, amount)
-        else:
-            disc_value = amount * (disc_raw / 100)
-        amount_after_disc = amount - disc_value
-        tax = amount_after_disc * (item.tax_rate / 100)
-        subtotal += amount
-        tax_amount += tax
-        discount_total += disc_value
+    """Delegate to canonical calculate_line_items. Returns (subtotal, discount_total, tax_amount)."""
+    items_dicts = [
+        {
+            "quantity": getattr(item, "quantity", 1),
+            "unit_price": getattr(item, "unit_price", 0),
+            "discount": getattr(item, "discount", 0) or 0,
+            "discount_mode": getattr(item, "discount_mode", "percent") or "percent",
+            "tax_rate": getattr(item, "tax_rate", 0) or 0,
+        }
+        for item in line_items
+    ]
+    subtotal, tax_amount, discount_total, _ = _calc(items_dicts)
     return subtotal, discount_total, tax_amount

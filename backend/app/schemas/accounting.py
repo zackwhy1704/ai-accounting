@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 from uuid import UUID
 from datetime import datetime
 
@@ -136,6 +136,14 @@ class ManualJournalCreate(BaseModel):
     description: str | None = None
     currency: str = "MYR"
     lines: list[ManualJournalLineCreate]
+
+    @field_validator("lines")
+    @classmethod
+    def require_at_least_two_lines(cls, v):
+        if len(v) < 2:
+            raise ValueError("A journal entry requires at least two lines")
+        return v
+
 
 class ManualJournalUpdate(BaseModel):
     journal_number: str | None = None

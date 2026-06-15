@@ -45,14 +45,23 @@ class TestInvoiceRoutes:
             InvoiceCreate()  # missing required fields
 
     def test_invoice_create_schema_accepts_valid_data(self):
+        import pytest
+        from app.schemas.sales import LineItemCreate
         now = datetime.now(timezone.utc)
         obj = InvoiceCreate(
             contact_id=uuid4(),
             issue_date=now,
             due_date=now,
-            line_items=[],
+            line_items=[LineItemCreate(description="Test", unit_price=100.0, quantity=1)],
         )
         assert obj.currency == "SGD"  # default
+
+    def test_invoice_create_rejects_empty_line_items(self):
+        import pytest
+        from pydantic import ValidationError
+        now = datetime.now(timezone.utc)
+        with pytest.raises(ValidationError):
+            InvoiceCreate(contact_id=uuid4(), issue_date=now, due_date=now, line_items=[])
 
     def test_invoice_update_schema_all_optional(self):
         u = InvoiceUpdate()
@@ -65,12 +74,13 @@ class TestInvoiceRoutes:
 
     def test_invoice_number_is_optional_in_create(self):
         """invoice_number can be omitted — backend assigns it."""
+        from app.schemas.sales import LineItemCreate
         now = datetime.now(timezone.utc)
         obj = InvoiceCreate(
             contact_id=uuid4(),
             issue_date=now,
             due_date=now,
-            line_items=[],
+            line_items=[LineItemCreate(description="Item", unit_price=50.0)],
         )
         assert obj.invoice_number is None
 
@@ -95,12 +105,13 @@ class TestBillRoutes:
 
     def test_bill_create_schema_all_optional_fields(self):
         """BillCreate should at minimum accept a contact_id, dates, and line_items."""
+        from app.schemas.sales import LineItemCreate
         now = datetime.now(timezone.utc)
         b = BillCreate(
             contact_id=uuid4(),
             issue_date=now,
             due_date=now,
-            line_items=[],
+            line_items=[LineItemCreate(description="Item", unit_price=100.0)],
         )
         assert b is not None
         assert b.currency == "SGD"  # default

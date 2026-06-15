@@ -121,6 +121,18 @@ class ManualJournal(Base):
         UniqueConstraint("organization_id", "journal_number", name="uq_org_journal_number"),
     )
 
+    def can_edit(self) -> bool:
+        return self.status == "draft"
+
+    def can_delete(self) -> bool:
+        return self.status in ("draft", "void")
+
+    def can_post(self) -> bool:
+        return self.status == "draft"
+
+    def can_void(self) -> bool:
+        return self.status == "posted"
+
 
 
 
@@ -166,6 +178,13 @@ class TaxRate(Base):
     __table_args__ = (
         UniqueConstraint("organization_id", "code", name="uq_org_tax_code"),
     )
+
+    @property
+    def rate_decimal(self) -> float:
+        return float(self.rate) / 100
+
+    def apply_to(self, amount: float) -> float:
+        return round(amount * self.rate_decimal, 2)
 
 
 # ──────────────────────────────────────────────
