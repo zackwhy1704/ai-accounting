@@ -4,6 +4,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from app.core.database import get_db
 from app.core.security import hash_password, verify_password, create_access_token, get_current_user
+from app.core.rate_limit import login_rate_limit, register_rate_limit, forgot_password_rate_limit
 from app.models.models import User, Organization, Account, UserOrganization, TaxRate
 from app.schemas.schemas import (
     UserRegister, UserLogin, TokenResponse, UserResponse,
@@ -48,7 +49,7 @@ DEFAULT_TAX_CODES = [
 ]
 
 
-@router.post("/register", response_model=TokenResponse)
+@router.post("/register", response_model=TokenResponse, dependencies=[Depends(register_rate_limit)])
 async def register(data: UserRegister, db: AsyncSession = Depends(get_db)):
     # Check existing user
     existing = await db.execute(select(User).where(User.email == data.email))
@@ -109,7 +110,7 @@ async def register(data: UserRegister, db: AsyncSession = Depends(get_db)):
     return TokenResponse(access_token=token)
 
 
-@router.post("/login", response_model=TokenResponse)
+@router.post("/login", response_model=TokenResponse, dependencies=[Depends(login_rate_limit)])
 async def login(data: UserLogin, db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(User).where(User.email == data.email))
     user = result.scalar_one_or_none()
@@ -161,7 +162,7 @@ class ResetPasswordRequest(BaseModel):
     token: str
     new_password: str
 
-@router.post("/forgot-password")
+@router.post("/forgot-password", dependencies=[Depends(forgot_password_rate_limit)])
 async def forgot_password(body: ForgotPasswordRequest, db: AsyncSession = Depends(get_db)):
     """Send a password reset email. Always returns success to prevent email enumeration."""
     from app.core.config import get_settings

@@ -1,6 +1,7 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import get_settings
+from app.core.permissions import require_role
 from app.api.v1 import (
     auth, invoices, bills, documents, contacts, accounts, dashboard, billing, firm, sales,
     products, tax_rates, exchange_rates, manual_journals, sale_receipts, recurring_invoices, einvoice, payment_links, reports, custom_fields, invoice_templates, ai_assist,
@@ -58,8 +59,8 @@ async def health():
 
 
 @app.post("/api/health/email")
-async def test_email(to: str):
-    """Dev-only: send a test email. Usage: POST /api/health/email?to=you@example.com"""
+async def test_email(to: str, current_user: dict = Depends(require_role("owner", "admin"))):
+    """Admin-only: send a test email. Usage: POST /api/health/email?to=you@example.com"""
     if not settings.RESEND_API_KEY:
         return {"status": "error", "detail": "RESEND_API_KEY is not set in .env"}
     try:

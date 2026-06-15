@@ -1,5 +1,8 @@
+import sys
 from pydantic_settings import BaseSettings
 from functools import lru_cache
+
+INSECURE_DEFAULT_SECRET = "change-me-in-production"
 
 
 class Settings(BaseSettings):
@@ -53,4 +56,13 @@ class Settings(BaseSettings):
 
 @lru_cache()
 def get_settings() -> Settings:
-    return Settings()
+    s = Settings()
+    # Refuse to run in production with the publicly-known default signing key.
+    if not s.DEBUG and s.SECRET_KEY == INSECURE_DEFAULT_SECRET:
+        print(
+            "FATAL: SECRET_KEY is still the insecure default. "
+            "Set a strong SECRET_KEY in the environment before running with DEBUG=False.",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+    return s
