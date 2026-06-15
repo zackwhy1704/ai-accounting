@@ -3,7 +3,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import get_settings
 from app.core.permissions import require_role
 from app.api.v1 import (
-    auth, invoices, bills, documents, contacts, accounts, dashboard, billing, firm, sales,
+    auth, invoices, bills, documents, contacts, accounts, dashboard, billing, firm,
+    quotations, delivery_orders, credit_notes, debit_notes, sales_payments, sales_refunds,
     products, tax_rates, exchange_rates, manual_journals, sale_receipts, recurring_invoices, einvoice, payment_links, reports, custom_fields, invoice_templates, ai_assist,
     bank_accounts, bank_transactions, bank_transfers_router, stock, fixed_assets, purchase_payments, purchase_refunds, contact_groups, settings_data, bank_reconciliation,
 )
@@ -44,7 +45,12 @@ app.include_router(accounts.router, prefix=settings.API_V1_PREFIX)
 app.include_router(documents.router, prefix=settings.API_V1_PREFIX)
 app.include_router(billing.router, prefix=settings.API_V1_PREFIX)
 app.include_router(firm.router, prefix=settings.API_V1_PREFIX)
-app.include_router(sales.router, prefix=settings.API_V1_PREFIX)
+app.include_router(quotations.router, prefix=settings.API_V1_PREFIX)
+app.include_router(delivery_orders.router, prefix=settings.API_V1_PREFIX)
+app.include_router(credit_notes.router, prefix=settings.API_V1_PREFIX)
+app.include_router(debit_notes.router, prefix=settings.API_V1_PREFIX)
+app.include_router(sales_payments.router, prefix=settings.API_V1_PREFIX)
+app.include_router(sales_refunds.router, prefix=settings.API_V1_PREFIX)
 app.include_router(products.router, prefix=settings.API_V1_PREFIX)
 app.include_router(tax_rates.router, prefix=settings.API_V1_PREFIX)
 app.include_router(exchange_rates.router, prefix=settings.API_V1_PREFIX)
