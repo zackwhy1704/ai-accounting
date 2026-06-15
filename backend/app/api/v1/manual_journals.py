@@ -13,6 +13,7 @@ from sqlalchemy import delete as sa_delete
 from app.models.models import ManualJournal, ManualJournalLine, Transaction, JournalEntry
 from app.schemas.schemas import ManualJournalCreate, ManualJournalUpdate, ManualJournalResponse
 from .gl_helpers import revert_gl
+from app.core.audit import log_audit
 
 router = APIRouter(prefix="/manual-journals", tags=["manual-journals"])
 
@@ -89,6 +90,7 @@ async def create_journal(
         db.add(line)
 
     await db.commit()
+    await log_audit(db, current_user["org_id"], current_user["sub"], "create", "manual_journal", journal.id)
     await db.refresh(journal)
     result = await db.execute(
         select(ManualJournal)
@@ -159,6 +161,7 @@ async def update_journal(
             db.add(ManualJournalLine(journal_id=journal_id, **line_data))
 
     await db.commit()
+    await log_audit(db, current_user["org_id"], current_user["sub"], "update", "manual_journal", journal_id)
     result = await db.execute(
         select(ManualJournal)
         .options(selectinload(ManualJournal.lines))
@@ -188,6 +191,7 @@ async def delete_journal(
     await db.execute(sa_delete(ManualJournalLine).where(ManualJournalLine.journal_id == journal_id))
     await db.delete(journal)
     await db.commit()
+    await log_audit(db, current_user["org_id"], current_user["sub"], "delete", "manual_journal", journal_id)
 
 
 @router.post("/{journal_id}/post", response_model=ManualJournalResponse)

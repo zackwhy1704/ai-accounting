@@ -18,6 +18,7 @@ from app.models.models import (
 from app.schemas.schemas import InvoiceCreate, InvoiceUpdate, InvoiceResponse
 from app.services.pricing import line_after_discount, line_tax
 from .gl_helpers import post_gl, revert_gl
+from app.core.audit import log_audit
 
 router = APIRouter(prefix="/invoices", tags=["Invoices"])
 
@@ -120,6 +121,7 @@ async def create_invoice(
         ))
 
     await db.commit()
+    await log_audit(db, current_user["org_id"], current_user["sub"], "create", "invoice", invoice.id)
     result = await db.execute(
         select(Invoice).options(selectinload(Invoice.line_items)).where(Invoice.id == invoice.id)
     )
@@ -203,6 +205,7 @@ async def update_invoice(
         setattr(invoice, field, value)
 
     await db.commit()
+    await log_audit(db, current_user["org_id"], current_user["sub"], "update", "invoice", invoice_id)
     result2 = await db.execute(
         select(Invoice).options(selectinload(Invoice.line_items)).where(Invoice.id == invoice_id)
     )
@@ -263,6 +266,8 @@ async def update_invoice_status(
         )
 
     await db.commit()
+    action = "void" if status in ("void", "cancelled") else "status_change"
+    await log_audit(db, current_user["org_id"], current_user["sub"], action, "invoice", invoice_id, {"status": status})
     return {"status": invoice.status}
 
 
@@ -433,6 +438,7 @@ async def delete_invoice(
     await db.execute(delete(InvoiceLineItem).where(InvoiceLineItem.invoice_id == invoice_id))
     await db.delete(invoice)
     await db.commit()
+    await log_audit(db, org_id, current_user["sub"], "delete", "invoice", invoice_id)
 
 
 class ApplyCreditRequest(BaseModel):

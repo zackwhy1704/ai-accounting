@@ -13,6 +13,7 @@ from app.core.permissions import require_write
 from app.core.pagination import PaginationParams, paginated_result, apply_sort
 from app.models.models import PurchasePayment, Bill, PurchaseDebitNote, Contact
 from .gl_helpers import post_gl, revert_gl
+from app.core.audit import log_audit
 
 router = APIRouter(prefix="/purchase-payments", tags=["purchase-payments"])
 
@@ -170,6 +171,7 @@ async def create_purchase_payment(
     )
 
     await db.commit()
+    await log_audit(db, current_user["org_id"], current_user["sub"], "create", "purchase_payment", payment.id)
     await db.refresh(payment)
     return payment
 
@@ -301,6 +303,7 @@ async def void_purchase_payment(
         payment.payment_no,
     )
     await db.commit()
+    await log_audit(db, current_user["org_id"], current_user["sub"], "delete", "purchase_payment", payment_id)
 
 
 @router.patch("/{payment_id}/status")

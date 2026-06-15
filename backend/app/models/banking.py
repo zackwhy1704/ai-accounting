@@ -23,6 +23,7 @@ class BankAccount(Base):
     opening_balance: Mapped[float] = mapped_column(Numeric(18,4), default=0)
     current_balance: Mapped[float] = mapped_column(Numeric(18,4), default=0)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    gl_account_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("accounts.id", ondelete="SET NULL"), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
 # ── Bank Transactions (money in/out) ───────────

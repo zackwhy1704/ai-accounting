@@ -10,7 +10,10 @@ from app.core.database import get_db
 from app.core.security import get_current_user
 from app.core.permissions import require_write
 from app.core.pagination import PaginationParams, paginated_result, apply_sort
-from app.models.models import BankTransaction, Contact
+from app.models.models import BankTransaction, Contact, BankAccount
+from app.api.v1.gl_helpers import post_gl_by_id, revert_gl
+from app.core.audit import log_audit
+from sqlalchemy import select as _select
 
 router = APIRouter(prefix="/bank-transactions", tags=["bank-transactions"])
 
@@ -114,12 +117,44 @@ async def create_bank_transaction(
     db: AsyncSession = Depends(get_db),
     current_user: dict = Depends(require_write()),
 ):
+    org_id = current_user["org_id"]
     txn = BankTransaction(
-        organization_id=current_user["org_id"],
+        organization_id=org_id,
         **payload.model_dump(),
     )
     db.add(txn)
+    await db.flush()
+
+    # Post GL if bank account has a linked GL account
+    if payload.bank_account_id:
+        ba_result = await db.execute(
+            _select(BankAccount).where(BankAccount.id == payload.bank_account_id)
+        )
+        bank_account = ba_result.scalar_one_or_none()
+        if bank_account and bank_account.gl_account_id:
+            amount = float(payload.amount or 0)
+            is_income = payload.transaction_type in ("income", "deposit", "credit")
+            if is_income:
+                # Dr Bank / Cr Undeposited (income into the bank)
+                entries = [(bank_account.gl_account_id, amount, 0.0), (bank_account.gl_account_id, 0.0, 0.0)]
+                # Use post_gl_by_id with proper debit/credit split
+                entries_by_id = [(bank_account.gl_account_id, amount, 0.0)]
+            else:
+                entries_by_id = [(bank_account.gl_account_id, 0.0, amount)]
+            try:
+                await post_gl_by_id(
+                    db, org_id, txn.transaction_date,
+                    txn.description,
+                    txn.reference_no or str(txn.id),
+                    "bank_transaction",
+                    txn.id,
+                    entries_by_id,
+                )
+            except Exception:
+                pass  # GL post failures must not break the transaction
+
     await db.commit()
+    await log_audit(db, org_id, current_user["sub"], "create", "bank_transaction", txn.id)
     await db.refresh(txn)
     return txn
 
@@ -181,4 +216,15 @@ async def void_bank_transaction(
     if not txn:
         raise HTTPException(status_code=404, detail="Bank transaction not found")
     txn.status = "void"
+    # Reverse any GL entries posted for this transaction
+    try:
+        await revert_gl(
+            db, current_user["org_id"], txn_id, "bank_transaction",
+            txn.transaction_date,
+            f"Reversal: Bank transaction {txn.reference_no or txn_id} voided",
+            txn.reference_no or str(txn_id),
+        )
+    except Exception:
+        pass  # GL revert failures must not block the void
     await db.commit()
+    await log_audit(db, current_user["org_id"], current_user["sub"], "void", "bank_transaction", txn_id)

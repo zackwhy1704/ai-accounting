@@ -14,6 +14,7 @@ from app.models.models import Bill, BillLineItem, PurchasePayment, PurchaseCredi
 from app.schemas.schemas import BillCreate, BillUpdate, BillResponse
 from app.services.pricing import line_after_discount, line_tax
 from .gl_helpers import post_gl, revert_gl
+from app.core.audit import log_audit
 
 router = APIRouter(prefix="/bills", tags=["Bills"])
 
@@ -154,6 +155,7 @@ async def create_bill(
 
     # No GL entries at draft stage — posted on 'approved' status
     await db.commit()
+    await log_audit(db, current_user["org_id"], current_user["sub"], "create", "bill", bill.id)
     result = await db.execute(
         select(Bill).options(selectinload(Bill.line_items)).where(Bill.id == bill.id)
     )
@@ -260,6 +262,7 @@ async def update_bill(
         setattr(bill, field, value)
 
     await db.commit()
+    await log_audit(db, current_user["org_id"], current_user["sub"], "update", "bill", bill_id)
     result2 = await db.execute(
         select(Bill).options(selectinload(Bill.line_items)).where(Bill.id == bill.id)
     )
@@ -315,6 +318,8 @@ async def update_bill_status(
         )
 
     await db.commit()
+    action = "void" if status in ("void", "cancelled") else "status_change"
+    await log_audit(db, current_user["org_id"], current_user["sub"], action, "bill", bill_id, {"status": status})
     return {"status": bill.status}
 
 
@@ -340,6 +345,7 @@ async def delete_bill(
     )
     await db.delete(bill)
     await db.commit()
+    await log_audit(db, org_id, current_user["sub"], "delete", "bill", bill_id)
 
 
 @router.get("/{bill_id}/activity")

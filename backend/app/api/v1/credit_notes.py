@@ -13,6 +13,7 @@ from app.models.models import (
     Invoice, Contact,
 )
 from .gl_helpers import post_gl, revert_gl
+from app.core.audit import log_audit
 from app.schemas.schemas import (
     CreditNoteCreate, CreditNoteUpdate, CreditNoteResponse,
 )
@@ -144,6 +145,7 @@ async def create_credit_note(data: CreditNoteCreate, current_user: dict = Depend
     )
 
     await db.commit()
+    await log_audit(db, org_id, current_user["sub"], "create", "credit_note", obj.id)
     result2 = await db.execute(
         select(CreditNote).options(selectinload(CreditNote.line_items), selectinload(CreditNote.credit_applications)).where(CreditNote.id == obj.id)
     )
@@ -357,6 +359,7 @@ async def delete_credit_note(cn_id: UUID, current_user: dict = Depends(require_w
         raise HTTPException(status_code=400, detail="Only draft, issued, or void credit notes can be deleted")
     await db.delete(obj)
     await db.commit()
+    await log_audit(db, current_user["org_id"], current_user["sub"], "delete", "credit_note", cn_id)
 
 
 def _build_events(events: list[dict]) -> dict:

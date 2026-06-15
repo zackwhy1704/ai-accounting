@@ -11,6 +11,7 @@ from app.models.models import (
     DebitNote, SalesPayment, PaymentAllocation, Invoice, Contact,
 )
 from .gl_helpers import post_gl, revert_gl
+from app.core.audit import log_audit
 from app.schemas.schemas import (
     SalesPaymentCreate, SalesPaymentUpdate, SalesPaymentResponse,
 )
@@ -131,6 +132,7 @@ async def create_sales_payment(data: SalesPaymentCreate, current_user: dict = De
     )
 
     await db.commit()
+    await log_audit(db, org_id, current_user["sub"], "create", "sales_payment", obj.id)
     await db.refresh(obj)
     return obj
 
@@ -312,6 +314,7 @@ async def delete_sales_payment(sp_id: UUID, current_user: dict = Depends(require
         )
     await db.delete(obj)
     await db.commit()
+    await log_audit(db, current_user["org_id"], current_user["sub"], "delete", "sales_payment", sp_id)
 
 
 def _build_events(events: list[dict]) -> dict:
