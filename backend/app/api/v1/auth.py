@@ -18,6 +18,7 @@ DEFAULT_ACCOUNTS = [
     ("1000", "Cash at Bank", "asset", "bank"),
     ("1100", "Accounts Receivable", "asset", "current"),
     ("1200", "Prepaid Expenses", "asset", "current"),
+    ("1300", "Inventory Asset", "asset", "current"),
     ("2000", "Accounts Payable", "liability", "current"),
     ("2100", "GST Payable", "liability", "current"),
     ("2200", "Accrued Expenses", "liability", "current"),
@@ -33,6 +34,7 @@ DEFAULT_ACCOUNTS = [
     ("5500", "Cloud & IT Expense", "expense", "operating"),
     ("5600", "Travel Expense", "expense", "operating"),
     ("5700", "Office Supplies", "expense", "operating"),
+    ("5800", "Inventory Adjustment", "expense", "operating"),
 ]
 
 # Default tax codes seeded for every new organization

@@ -12,9 +12,25 @@ _acct(db, org_id, code) — fetch account by code, returns None if missing.
 
 from datetime import datetime
 from uuid import UUID
+from fastapi import HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from app.models.models import Account, Transaction, JournalEntry
+
+
+def _assert_balanced(resolved: list[tuple]) -> None:
+    """Guard: refuse to write a transaction whose debits != credits.
+
+    A double-entry transaction must balance. Without this, a caller passing
+    mismatched entries would write a corrupt, unbalanced ledger silently.
+    """
+    total_debit = round(sum(d for _, d, _ in resolved), 2)
+    total_credit = round(sum(c for _, _, c in resolved), 2)
+    if abs(total_debit - total_credit) > 0.01:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Journal entries do not balance: debit={total_debit}, credit={total_credit}",
+        )
 
 
 async def _acct(db: AsyncSession, org_id: str, code: str) -> Account | None:
@@ -94,6 +110,7 @@ async def _write_txn(
     resolved: list[tuple[Account, float, float]],
 ) -> Transaction:
 
+    _assert_balanced(resolved)
     txn = Transaction(
         organization_id=org_id,
         date=date,

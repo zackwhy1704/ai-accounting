@@ -9,16 +9,30 @@ from pydantic import BaseModel
 
 from app.core.database import get_db
 from app.core.security import get_current_user
-from app.models.models import StockAdjustment, StockTransfer
+from app.models.models import StockAdjustment, StockTransfer, Product
+from .gl_helpers import post_gl, revert_gl
 
 # ── Schemas ────────────────────────────────────
+
+class StockAdjustmentLine(BaseModel):
+    product: Optional[str] = None        # product name (frontend sends name string)
+    product_id: Optional[UUID] = None
+    description: Optional[str] = None
+    location: Optional[str] = None
+    adjustment: float = 0.0              # signed quantity delta
+    unit_cost: float = 0.0
+    amount: float = 0.0
+
 
 class StockAdjustmentCreate(BaseModel):
     adjustment_date: datetime
     reference_no: Optional[str] = None
+    reference_number: Optional[str] = None  # frontend alias
     reason: str = "Inventory Adjustment"
     notes: Optional[str] = None
-    lines: list[Any] = []
+    # Frontend sends "items"; older callers/tests may send "lines". Accept both.
+    items: list[StockAdjustmentLine] = []
+    lines: list[StockAdjustmentLine] = []
 
 
 class StockAdjustmentUpdate(BaseModel):
@@ -111,10 +125,17 @@ async def create_adjustment(
     db: AsyncSession = Depends(get_db),
     current_user: dict = Depends(get_current_user),
 ):
+    # Frontend sends "items"; normalize to the model's "lines" JSONB column.
+    raw_lines = payload.items or payload.lines
+    lines = [l.model_dump(mode="json") for l in raw_lines]
     adj = StockAdjustment(
         organization_id=current_user["org_id"],
         adjustment_no=_gen_adj_no(),
-        **payload.model_dump(),
+        adjustment_date=payload.adjustment_date,
+        reference_no=payload.reference_no or payload.reference_number,
+        reason=payload.reason,
+        notes=payload.notes,
+        lines=lines,
     )
     db.add(adj)
     await db.commit()
@@ -199,6 +220,44 @@ async def confirm_adjustment(
         raise HTTPException(status_code=404, detail="Stock adjustment not found")
     if adj.status != "draft":
         raise HTTPException(status_code=400, detail="Only draft adjustments can be confirmed")
+
+    org_id = current_user["org_id"]
+    net_value = 0.0  # signed inventory value change (positive = stock increase)
+    for line in (adj.lines or []):
+        name = line.get("product")
+        delta = float(line.get("adjustment", 0) or 0)
+        cost = float(line.get("unit_cost", 0) or 0)
+        if not name or delta == 0:
+            continue
+        # Resolve product by id (preferred) or name within the org.
+        product = None
+        pid = line.get("product_id")
+        if pid:
+            product = (await db.execute(
+                select(Product).where(Product.id == pid, Product.organization_id == org_id)
+            )).scalar_one_or_none()
+        if product is None:
+            product = (await db.execute(
+                select(Product).where(Product.name == name, Product.organization_id == org_id)
+            )).scalar_one_or_none()
+        if product is not None:
+            product.qty_on_hand = float(product.qty_on_hand or 0) + delta
+        net_value += delta * cost
+
+    # Post inventory GL: Inventory Asset (1300) <-> Inventory Adjustment (5800).
+    # Skips silently if those accounts are not in the chart (post_gl returns None).
+    if abs(net_value) > 0.01:
+        if net_value > 0:
+            entries = [("1300", net_value, 0.0), ("5800", 0.0, net_value)]
+        else:
+            amt = abs(net_value)
+            entries = [("5800", amt, 0.0), ("1300", 0.0, amt)]
+        await post_gl(
+            db, org_id, adj.adjustment_date,
+            f"Stock adjustment {adj.adjustment_no}", adj.reference_no or adj.adjustment_no,
+            "stock_adjustment", adj.id, entries,
+        )
+
     adj.status = "confirmed"
     await db.commit()
     await db.refresh(adj)
