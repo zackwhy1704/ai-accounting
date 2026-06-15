@@ -165,8 +165,8 @@ async def delete_sale_receipt(
     receipt = result.scalar_one_or_none()
     if not receipt:
         raise HTTPException(status_code=404, detail="Sale receipt not found")
-    if receipt.status not in ("void", "completed"):
-        raise HTTPException(status_code=409, detail="Only completed or voided receipts can be deleted")
+    if receipt.status not in ("draft", "void"):
+        raise HTTPException(status_code=409, detail="Only draft or voided receipts can be deleted. Void the receipt first.")
     await revert_gl(
         db, current_user["org_id"], receipt_id, "sale_receipt",
         receipt.receipt_date,

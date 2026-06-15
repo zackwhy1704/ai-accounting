@@ -187,11 +187,11 @@ export default function NewBillPage() {
     return sum + (lineTotal - lineDiscountAmount(item)) * (item.tax_rate / 100)
   }, 0)
   const total = subTotal - totalDiscount + totalTax
-  const linesValid = lineItems.length > 0 && lineItems.every(li => li.account_id)
-
   const handleSave = async () => {
     if (!contactId) { toast("Please select a supplier", "warning"); return }
     if (!issueDate) { toast("Please enter a bill date", "warning"); return }
+    const missingAccount = lineItems.findIndex(li => !li.account_id)
+    if (missingAccount >= 0) { toast(`Line ${missingAccount + 1}: please select an account before saving`, "warning"); return }
     try {
       await createBill.mutateAsync({
         contact_id: contactId,
@@ -503,7 +503,7 @@ export default function NewBillPage() {
 
         <div className="mt-6 flex items-center justify-end gap-2">
           <Button type="button" variant="secondary" className="h-9 rounded-xl px-3 text-xs font-semibold" onClick={() => navigate("/purchases/bills")}>Cancel</Button>
-          <Button type="button" onClick={handleSave} disabled={createBill.isPending || !contactId || !issueDate || !lineItems.some(li => li.description.trim()) || !linesValid} className="h-9 rounded-xl bg-gradient-to-r from-[#7C9DFF] to-[#4D63FF] px-3 text-xs font-semibold text-white hover:opacity-95">
+          <Button type="button" onClick={handleSave} disabled={createBill.isPending || !contactId || !issueDate || !lineItems.some(li => li.description.trim())} className="h-9 rounded-xl bg-gradient-to-r from-[#7C9DFF] to-[#4D63FF] px-3 text-xs font-semibold text-white hover:opacity-95">
             {createBill.isPending ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Saving...</> : "Save as Draft"}
           </Button>
         </div>

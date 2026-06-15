@@ -415,8 +415,8 @@ async def delete_purchase_credit_note(
     pcn = result.scalar_one_or_none()
     if not pcn:
         raise HTTPException(status_code=404, detail="Purchase credit note not found")
-    if pcn.status == "applied":
-        raise HTTPException(status_code=400, detail="Cannot delete an applied purchase credit note. Remove applications first.")
+    if pcn.status not in ("draft", "void"):
+        raise HTTPException(status_code=400, detail="Only draft or void purchase credit notes can be deleted. Void it first.")
     if pcn.credit_applications:
         raise HTTPException(status_code=400, detail="Remove all bill applications before deleting.")
     await db.delete(pcn)

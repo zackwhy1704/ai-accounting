@@ -1,5 +1,5 @@
-import { useState } from "react"
-import { Loader2, Download, Printer } from "lucide-react"
+import { useMemo, useState } from "react"
+import { Loader2, Download, Printer, Search } from "lucide-react"
 import { useQuery } from "@tanstack/react-query"
 import { Card } from "../../components/ui/card"
 import { Button } from "../../components/ui/button"
@@ -33,15 +33,25 @@ export default function TransactionListPage() {
   const [fromDate, setFromDate] = useState(`${thisYear}-01-01`)
   const [toDate, setToDate] = useState(new Date().toISOString().slice(0, 10))
   const [queryParams, setQueryParams] = useState({ fromDate: `${thisYear}-01-01`, toDate: new Date().toISOString().slice(0, 10) })
+  const [search, setSearch] = useState("")
 
   const { data, isLoading, isFetching } = useQuery<TransactionListReport>({
     queryKey: ["report-transaction-list", queryParams],
     queryFn: () => api.get(`/reports/transaction-list?start_date=${queryParams.fromDate}&end_date=${queryParams.toDate}`).then(r => r.data),
   })
 
-  const flatRows = data?.transactions.flatMap(t =>
-    t.entries.map(e => ({ ...t, ...e }))
-  ) ?? []
+  const flatRows = useMemo(() => {
+    const all = data?.transactions.flatMap(t => t.entries.map(e => ({ ...t, ...e }))) ?? []
+    if (!search.trim()) return all
+    const q = search.toLowerCase()
+    return all.filter(r =>
+      (r.description ?? "").toLowerCase().includes(q) ||
+      (r.reference ?? "").toLowerCase().includes(q) ||
+      (r.account_code ?? "").toLowerCase().includes(q) ||
+      (r.account_name ?? "").toLowerCase().includes(q) ||
+      (r.source ?? "").toLowerCase().includes(q)
+    )
+  }, [data, search])
 
   return (
     <div className="flex flex-col gap-4">
@@ -69,7 +79,7 @@ export default function TransactionListPage() {
       )}
 
       <Card className="rounded-2xl border-border bg-card p-4 shadow-[0_0_0_1px_rgba(15,23,42,0.06),0_18px_55px_rgba(2,6,23,0.08)]">
-        <div className="flex items-end gap-4">
+        <div className="flex flex-wrap items-end gap-4">
           <div className="space-y-1.5">
             <label className="text-xs font-medium text-muted-foreground">From Date</label>
             <Input type="date" value={fromDate} onChange={e => setFromDate(e.target.value)} className="h-9 text-sm w-48" />
@@ -82,6 +92,15 @@ export default function TransactionListPage() {
             {isFetching ? <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" /> : null}
             Update
           </Button>
+          <div className="relative flex-1 min-w-[200px]">
+            <Search className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+            <Input
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              placeholder="Search description, account, reference..."
+              className="h-9 rounded-xl pl-9 text-sm"
+            />
+          </div>
         </div>
       </Card>
 

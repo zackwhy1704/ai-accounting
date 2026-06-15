@@ -74,7 +74,7 @@ export default function ManualJournalsPage() {
               </TableHeader>
               <TableBody>
                 {journals.map(j => (
-                  <TableRow key={j.id} className="border-border hover:bg-muted/50 cursor-pointer" onClick={() => navigate(`/accounting/journals/${j.id}`)}>
+                  <TableRow key={j.id} className="border-border hover:bg-muted/50 cursor-pointer" onClick={() => navigate(`/accounting/journals/${j.id}/edit`)}>
                     <TableCell className="font-medium text-foreground">{j.journal_number}</TableCell>
                     <TableCell className="text-muted-foreground">{formatDate(j.date)}</TableCell>
                     <TableCell className="text-foreground">{j.description ?? "—"}</TableCell>
@@ -87,7 +87,7 @@ export default function ManualJournalsPage() {
                     </TableCell>
                     <TableCell className="text-right">
                       <RowActionsMenu actions={[
-                        { label: "Edit", icon: <Pencil className="h-3.5 w-3.5" />, onClick: () => navigate(`/accounting/manual-journals/${j.id}/edit`) },
+                        { label: "Edit", icon: <Pencil className="h-3.5 w-3.5" />, onClick: () => navigate(`/accounting/journals/${j.id}/edit`) },
                         { label: "View", icon: <FileText className="h-4 w-4" />, onClick: () => { setViewItem(j) } },
                         { label: "Void", icon: <XCircle className="h-4 w-4" />, onClick: () => { if (confirm("Void this journal entry?")) api.patch(`/accounting/journals/${j.id}`, { status: "void" }).then(() => { queryClient.invalidateQueries({ queryKey: ["manual-journals"] }); toast("Journal entry voided", "success") }).catch((e: any) => toast(e?.response?.data?.detail ?? "Failed to void journal entry", "warning")) }, danger: true, dividerBefore: true, disabled: j.status === "void" },
                       ]} />

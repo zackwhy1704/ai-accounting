@@ -1,4 +1,5 @@
 import { Routes, Route, Navigate } from 'react-router-dom'
+import NotFoundPage from './pages/NotFoundPage'
 import { AppLayout } from './components/layout/AppLayout'
 import { useAuth } from './lib/auth'
 import LoginPage from './pages/auth/LoginPage'
@@ -298,8 +299,8 @@ function App() {
         <Route path="/firm/clients" element={<FirmClientsPage />} />
         <Route path="/firm/clients/:clientId" element={<FirmClientDetailPage />} />
 
-        {/* Catch-all: redirect unknown routes to dashboard */}
-        <Route path="*" element={<Navigate to="/dashboard" replace />} />
+        {/* Catch-all: show a 404 so route mismatches are visible, not silently swallowed */}
+        <Route path="*" element={<NotFoundPage />} />
       </Route>
     </Routes>
   )

@@ -6,9 +6,10 @@ from datetime import datetime
 from typing import Optional
 from pydantic import BaseModel
 
+from sqlalchemy import func
 from app.core.database import get_db
 from app.core.security import get_current_user
-from app.models.models import BankAccount
+from app.models.models import BankAccount, BankTransaction
 
 router = APIRouter(prefix="/bank-accounts", tags=["bank-accounts"])
 
@@ -145,5 +146,10 @@ async def delete_bank_account(
     account = result.scalar_one_or_none()
     if not account:
         raise HTTPException(status_code=404, detail="Bank account not found")
+    txn_count_result = await db.execute(
+        select(func.count(BankTransaction.id)).where(BankTransaction.bank_account_id == account_id)
+    )
+    if (txn_count_result.scalar() or 0) > 0:
+        raise HTTPException(status_code=409, detail="Cannot delete a bank account that has transactions. Deactivate it instead.")
     await db.delete(account)
     await db.commit()
