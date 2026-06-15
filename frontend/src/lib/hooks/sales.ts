@@ -1,15 +1,14 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import api from '../api'
 import type { Invoice, Quotation, DeliveryOrder, CreditNote, DebitNote, SalesPayment, SalesRefund } from '../../types'
-import { makeActivityHook, type InvoiceActivityEvent, type AdjustmentLine } from './_shared'
+import { makeActivityHook, makeListHook, type InvoiceActivityEvent, type AdjustmentLine, type ListParams } from './_shared'
 
-// Invoices
-export function useInvoices(status?: string) {
-  return useQuery<Invoice[]>({
-    queryKey: ['invoices', status],
-    queryFn: () => api.get('/invoices', { params: status ? { status } : {} }).then(r => r.data),
-  })
-}
+// Invoices — paginated + searchable. useInvoices() returns Invoice[] (back-compat,
+// accepts a status string or a ListParams object); useInvoicesPage() returns the
+// {items,total,page,pages} envelope for pagination UI.
+const _invoices = makeListHook<Invoice>('/invoices', 'invoices')
+export function useInvoices(arg?: string | ListParams) { return _invoices.useList(arg) }
+export function useInvoicesPage(params?: ListParams) { return _invoices.usePage(params) }
 
 export function useCreateInvoice() {
   const qc = useQueryClient()

@@ -5,12 +5,14 @@ from sqlalchemy.orm import selectinload
 from uuid import UUID
 from datetime import datetime, timezone
 from pydantic import BaseModel
+from sqlalchemy import func, or_
 from app.core.database import get_db
 from app.core.security import get_current_user
+from app.core.pagination import PaginationParams, paginated_result, apply_sort
 from app.models.models import (
     Invoice, InvoiceLineItem, CreditNote, DebitNote,
     SalesPayment, PaymentAllocation, SalesRefund,
-    Transaction, JournalEntry, Account, DeliveryOrder, Document,
+    Transaction, JournalEntry, Account, DeliveryOrder, Document, Contact,
 )
 from app.schemas.schemas import InvoiceCreate, InvoiceUpdate, InvoiceResponse
 from app.services.pricing import line_after_discount, line_tax
@@ -19,18 +21,39 @@ from .gl_helpers import post_gl, revert_gl
 router = APIRouter(prefix="/invoices", tags=["Invoices"])
 
 
-@router.get("", response_model=list[InvoiceResponse])
+@router.get("")
 async def list_invoices(
     status: str | None = None,
+    contact_id: UUID | None = None,
+    p: PaginationParams = Depends(),
     current_user: dict = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     org_id = current_user["org_id"]
-    query = select(Invoice).options(selectinload(Invoice.line_items)).where(Invoice.organization_id == org_id).order_by(Invoice.created_at.desc())
+    base = select(Invoice).where(Invoice.organization_id == org_id)
     if status:
-        query = query.where(Invoice.status == status)
-    result = await db.execute(query)
-    return result.scalars().all()
+        base = base.where(Invoice.status == status)
+    if contact_id:
+        base = base.where(Invoice.contact_id == contact_id)
+    if p.search:
+        like = f"%{p.search}%"
+        contact_match = select(Contact.id).where(
+            Contact.organization_id == org_id, Contact.name.ilike(like)
+        )
+        base = base.where(or_(
+            Invoice.invoice_number.ilike(like),
+            Invoice.contact_id.in_(contact_match),
+        ))
+    if p.date_from:
+        base = base.where(Invoice.issue_date >= p.date_from)
+    if p.date_to:
+        base = base.where(Invoice.issue_date <= p.date_to)
+
+    total = (await db.execute(select(func.count()).select_from(base.subquery()))).scalar() or 0
+    query = apply_sort(base, Invoice, p).options(selectinload(Invoice.line_items)).offset(p.offset).limit(p.limit)
+    items = (await db.execute(query)).scalars().all()
+    items = [InvoiceResponse.model_validate(i) for i in items]
+    return paginated_result(items, total, p)
 
 
 @router.post("", response_model=InvoiceResponse, status_code=201)
