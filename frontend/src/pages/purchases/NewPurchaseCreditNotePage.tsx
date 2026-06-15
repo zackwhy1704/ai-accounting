@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react"
 import { useNavigate, useSearchParams } from "react-router-dom"
-import { Plus, Trash2, Loader2 } from "lucide-react"
+import { Loader2 } from "lucide-react"
 import { useContacts, useAccounts, useBills, useCreatePurchaseCreditNote, useTaxRates } from "../../lib/hooks"
 import { getContactPrefs, saveContactPref } from "../../lib/contact-prefs"
 import { Card } from "../../components/ui/card"
@@ -8,39 +8,8 @@ import { Button } from "../../components/ui/button"
 import { Input } from "../../components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../components/ui/select"
 import { SearchableSelect } from "../../components/ui/searchable-select"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../../components/ui/table"
+import { LineItemsEditor, useLineItems } from "../../components/line-items"
 import { useToast } from "../../components/ui/toast"
-
-interface LineItem {
-  id: string
-  description: string
-  line_type: "goods" | "services"
-  accountId: string
-  quantity: number
-  unitPrice: number
-  discount: number
-  discount_mode: "percent" | "amount"
-  taxRate: number
-  taxCodeId: string
-}
-
-function lineDiscountAmount(item: LineItem): number {
-  const lineTotal = item.quantity * item.unitPrice
-  return item.discount_mode === "amount" ? Math.min(item.discount, lineTotal) : (lineTotal * item.discount) / 100
-}
-
-const emptyLine = (): LineItem => ({
-  id: crypto.randomUUID(),
-  description: "",
-  line_type: "goods",
-  accountId: "",
-  quantity: 1,
-  unitPrice: 0,
-  discount: 0,
-  discount_mode: "percent",
-  taxRate: 0,
-  taxCodeId: "",
-})
 
 export default function NewVendorCreditPage() {
   const navigate = useNavigate()
@@ -72,7 +41,10 @@ export default function NewVendorCreditPage() {
   }, [bills, fromBillId])
 
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10))
-  const [lines, setLines] = useState<LineItem[]>([emptyLine()])
+
+  const { lineItems, updateLine, addLine, removeLine, subTotal, totalDiscount, totalTax, total } = useLineItems({
+    taxRates,
+  })
 
   const vendors = (contacts as any[]).filter((c: any) => c.type === "supplier" || c.type === "vendor" || c.type === "both")
   const filteredBills = vendorId
@@ -87,29 +59,7 @@ export default function NewVendorCreditPage() {
     if (prefs.currency) setCurrency(prefs.currency)
   }
 
-  const updateLine = (id: string, field: keyof LineItem, value: any) => {
-    setLines(prev => prev.map(l => {
-      if (l.id !== id) return l
-      const updated = { ...l, [field]: value }
-      if (field === "taxCodeId") {
-        const tc = (taxRates as any[]).find((t: any) => t.id === value)
-        if (tc) updated.taxRate = tc.rate
-      }
-      if (field === "line_type" && value === "services") updated.quantity = 1
-      return updated
-    }))
-  }
-
-  const removeLine = (id: string) => {
-    setLines(prev => (prev.length === 1 ? prev : prev.filter(l => l.id !== id)))
-  }
-
-  const subTotal = lines.reduce((sum, l) => sum + l.quantity * l.unitPrice, 0)
-  const totalDiscount = lines.reduce((sum, l) => sum + lineDiscountAmount(l), 0)
-  const totalTax = lines.reduce((sum, l) => sum + (l.quantity * l.unitPrice - lineDiscountAmount(l)) * (l.taxRate / 100), 0)
-  const total = subTotal - totalDiscount + totalTax
-
-  const isFormValid = !!vendorId && lines.some(l => l.description.trim() !== "") && lines.every(l => l.accountId)
+  const isFormValid = !!vendorId && lineItems.some(l => l.description.trim() !== "") && lineItems.every(l => l.account_id)
 
   const handleSave = () => {
     if (!isFormValid) { toast("Please select a supplier and add at least one line item", "warning"); return }
@@ -122,17 +72,17 @@ export default function NewVendorCreditPage() {
         reference: reference || null,
         currency,
         notes: notes || null,
-        line_items: lines.map((l, i) => ({
+        line_items: lineItems.map((l, i) => ({
           description: l.description,
           line_type: l.line_type,
-          account_id: l.accountId || undefined,
+          account_id: l.account_id || undefined,
           quantity: l.quantity,
-          unit_price: l.unitPrice,
+          unit_price: l.unit_price,
           discount: l.discount,
           discount_mode: l.discount_mode,
-          tax_rate: l.taxRate,
-          tax_code_id: l.taxCodeId || undefined,
-          amount: (l.quantity * l.unitPrice - lineDiscountAmount(l)) * (1 + l.taxRate / 100),
+          tax_rate: l.tax_rate,
+          tax_code_id: l.tax_code_id || undefined,
+          amount: l.amount,
           sort_order: i,
         })),
       } as any,
@@ -227,134 +177,24 @@ export default function NewVendorCreditPage() {
             </div>
           </div>
 
-          <div className="overflow-hidden rounded-2xl border border-border bg-card">
-            <Table>
-              <TableHeader>
-                <TableRow className="border-border hover:bg-transparent">
-                  <TableHead className="w-[50px] text-muted-foreground">#</TableHead>
-                  <TableHead className="w-[110px] text-muted-foreground">Type</TableHead>
-                  <TableHead className="text-muted-foreground">Description</TableHead>
-                  <TableHead className="w-[180px] text-muted-foreground">Account</TableHead>
-                  <TableHead className="w-[100px] text-muted-foreground">Quantity</TableHead>
-                  <TableHead className="w-[130px] text-muted-foreground">Unit Price</TableHead>
-                  <TableHead className="w-[80px] text-muted-foreground">Discount</TableHead>
-                  <TableHead className="w-[160px] text-muted-foreground">Tax Code</TableHead>
-                  <TableHead className="w-[80px] text-muted-foreground">Tax %</TableHead>
-                  <TableHead className="w-[50px]" />
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {lines.map((line, idx) => (
-                  <TableRow key={line.id} className="border-border hover:bg-muted/50">
-                    <TableCell className="text-muted-foreground">{idx + 1}</TableCell>
-                    <TableCell>
-                      <Select value={line.line_type} onValueChange={v => updateLine(line.id, "line_type", v as "goods" | "services")}>
-                        <SelectTrigger className="h-9 rounded-lg border-0 bg-transparent shadow-none focus:ring-1 text-xs"><SelectValue /></SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="goods">Goods</SelectItem>
-                          <SelectItem value="services">Services</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </TableCell>
-                    <TableCell>
-                      <Input
-                        value={line.description}
-                        onChange={e => updateLine(line.id, "description", e.target.value)}
-                        placeholder="Item description"
-                        className="h-9 rounded-lg border-0 bg-transparent px-2 text-sm shadow-none focus-visible:ring-1"
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <SearchableSelect
-                        value={line.accountId}
-                        onChange={v => updateLine(line.id, "accountId", v)}
-                        placeholder="Account"
-                        options={(accounts as any[]).map((a: any) => ({ value: a.id, label: `${a.code} – ${a.name}`, hint: a.code }))}
-                      />
-                    </TableCell>
-                    <TableCell>
-                      {line.line_type === "services" ? (
-                        <span className="px-2 text-sm text-muted-foreground">—</span>
-                      ) : (
-                        <Input
-                          type="number" min={0}
-                          value={line.quantity}
-                          onChange={e => updateLine(line.id, "quantity", Number(e.target.value))}
-                          className="h-9 rounded-lg border-0 bg-transparent px-2 text-sm shadow-none focus-visible:ring-1"
-                        />
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      <Input
-                        type="number" min={0} step={0.01}
-                        value={line.unitPrice}
-                        onChange={e => updateLine(line.id, "unitPrice", Number(e.target.value))}
-                        className="h-9 rounded-lg border-0 bg-transparent px-2 text-sm shadow-none focus-visible:ring-1"
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-1">
-                        <Input
-                          type="number" min={0} step={0.01}
-                          value={line.discount}
-                          onChange={e => updateLine(line.id, "discount", Number(e.target.value))}
-                          className="h-9 w-20 rounded-lg border-0 bg-transparent px-1 text-sm shadow-none focus-visible:ring-1"
-                        />
-                        <button
-                          type="button"
-                          onClick={() => updateLine(line.id, "discount_mode", line.discount_mode === "percent" ? "amount" : "percent")}
-                          className="h-7 w-9 rounded-md border border-border bg-muted/40 text-[11px] font-semibold text-foreground hover:bg-muted"
-                        >
-                          {line.discount_mode === "percent" ? "%" : "#"}
-                        </button>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <Select value={line.taxCodeId} onValueChange={v => updateLine(line.id, "taxCodeId", v === "__none__" ? "" : v)}>
-                        <SelectTrigger className="h-9 rounded-lg border-0 bg-transparent shadow-none focus:ring-1 text-xs">
-                          <SelectValue placeholder="Tax Code" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="__none__">No Tax</SelectItem>
-                          {(taxRates as any[]).map((tc: any) => (
-                            <SelectItem key={tc.id} value={tc.id}>{tc.code} ({tc.rate}%)</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </TableCell>
-                    <TableCell>
-                      <Input
-                        type="number" min={0} max={100} step={0.01}
-                        value={line.taxRate}
-                        onChange={e => updateLine(line.id, "taxRate", Number(e.target.value))}
-                        className="h-9 rounded-lg border-0 bg-transparent px-1 text-sm shadow-none focus-visible:ring-1"
-                        placeholder="%"
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <Button
-                        type="button" variant="ghost" size="icon"
-                        className="h-8 w-8 text-muted-foreground hover:text-destructive"
-                        onClick={() => removeLine(line.id)}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
-
-          <div>
-            <Button
-              type="button" variant="outline"
-              className="h-9 rounded-xl border-blue-300 px-3 text-xs font-semibold text-blue-600 hover:bg-blue-50"
-              onClick={() => setLines(prev => [...prev, emptyLine()])}
-            >
-              <Plus className="mr-2 h-4 w-4" /> Item
-            </Button>
-          </div>
+          <LineItemsEditor
+            items={lineItems}
+            updateLine={updateLine}
+            addLine={addLine}
+            removeLine={removeLine}
+            accounts={accounts as any}
+            taxRates={taxRates as any}
+            currency="#"
+            quantityHeading="Quantity"
+            descriptionHeadClassName="min-w-[200px]"
+            discountHeadClassName="w-[80px]"
+            accountTriggerClassName="h-9 rounded-lg border-0 bg-transparent shadow-none text-xs"
+            servicesQtyStyle="span"
+            taxCodeCellClassName="w-[160px]"
+            taxRateCellClassName="w-[80px]"
+            controlsClassName="mt-3 flex flex-wrap items-center gap-3"
+            discountToggleTitle
+          />
 
           <div className="flex justify-end">
             <div className="w-full max-w-sm flex flex-col gap-2">

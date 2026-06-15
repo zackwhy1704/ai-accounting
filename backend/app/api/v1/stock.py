@@ -1,4 +1,3 @@
-import random
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
@@ -9,6 +8,7 @@ from pydantic import BaseModel
 
 from app.core.database import get_db
 from app.core.security import get_current_user
+from app.core.sequences import next_sequence_number
 from app.models.models import StockAdjustment, StockTransfer, Product
 from .gl_helpers import post_gl, revert_gl
 
@@ -91,14 +91,8 @@ class StockTransferResponse(BaseModel):
 
 # ── Helpers ────────────────────────────────────
 
-def _gen_adj_no() -> str:
-    now = datetime.now(timezone.utc)
-    return f"ADJ-{now.strftime('%Y%m')}-{random.randint(1000, 9999)}"
-
-
-def _gen_trf_no() -> str:
-    now = datetime.now(timezone.utc)
-    return f"TRF-{now.strftime('%Y%m')}-{random.randint(1000, 9999)}"
+# Document numbers now use the shared sequential generator (ADJ-0001, TRF-0001)
+# instead of a random suffix — no collision risk, consistent with other modules.
 
 
 # ── Stock Adjustments Router ───────────────────
@@ -130,7 +124,7 @@ async def create_adjustment(
     lines = [l.model_dump(mode="json") for l in raw_lines]
     adj = StockAdjustment(
         organization_id=current_user["org_id"],
-        adjustment_no=_gen_adj_no(),
+        adjustment_no=await next_sequence_number(db, StockAdjustment, StockAdjustment.adjustment_no, current_user["org_id"], "ADJ"),
         adjustment_date=payload.adjustment_date,
         reference_no=payload.reference_no or payload.reference_number,
         reason=payload.reason,
@@ -290,7 +284,7 @@ async def create_transfer(
 ):
     trf = StockTransfer(
         organization_id=current_user["org_id"],
-        transfer_no=_gen_trf_no(),
+        transfer_no=await next_sequence_number(db, StockTransfer, StockTransfer.transfer_no, current_user["org_id"], "TRF"),
         **payload.model_dump(),
     )
     db.add(trf)
