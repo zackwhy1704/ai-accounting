@@ -1,7 +1,8 @@
-import { useState } from "react"
+import { useState, useMemo } from "react"
 import { useNavigate, useLocation } from "react-router-dom"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import api from "../../lib/api"
+import { useAccounts } from "../../lib/hooks"
 import { Card } from "../../components/ui/card"
 import { Button } from "../../components/ui/button"
 import { Input } from "../../components/ui/input"
@@ -28,6 +29,7 @@ interface TransactionForm {
   reference_number: string
   payment_method: string
   category: string
+  category_account_id: string
   notes: string
 }
 
@@ -61,8 +63,19 @@ export default function NewBankTransactionPage() {
     reference_number: "",
     payment_method: "bank_transfer",
     category: "",
+    category_account_id: "",
     notes: "",
   })
+
+  const { data: allAccounts = [] } = useAccounts()
+  const categoryAccounts = useMemo(() => {
+    const isIncome = ["income", "deposit", "credit"].includes(type)
+    return (allAccounts as any[]).filter(a =>
+      isIncome
+        ? ["income", "revenue"].includes(a.type)
+        : ["expense", "cogs", "cost_of_sales"].includes(a.type)
+    )
+  }, [allAccounts, type])
 
   const set = (key: keyof TransactionForm) => (val: string) =>
     setForm(prev => ({ ...prev, [key]: val }))
@@ -90,6 +103,7 @@ export default function NewBankTransactionPage() {
         amount: parseFloat(data.amount),
         transaction_type: type,
         contact_id: data.contact_id || null,
+        category_account_id: data.category_account_id || undefined,
       })
       return res.data
     },
@@ -218,6 +232,21 @@ export default function NewBankTransactionPage() {
                 value={form.category}
                 onChange={e => set("category")(e.target.value)}
               />
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium text-foreground">Category Account (GL)</label>
+              <Select value={form.category_account_id} onValueChange={set("category_account_id")}>
+                <SelectTrigger className="h-9">
+                  <SelectValue placeholder="No category (skip GL posting)" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">No category (skip GL posting)</SelectItem>
+                  {categoryAccounts.map((a: any) => (
+                    <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           </div>
 

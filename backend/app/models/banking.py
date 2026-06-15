@@ -45,6 +45,7 @@ class BankTransaction(Base):
     currency: Mapped[str] = mapped_column(String(3), default="MYR")
     payment_method: Mapped[str] = mapped_column(String(30), default="bank_transfer")
     category: Mapped[str | None] = mapped_column(String(100))
+    category_account_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("accounts.id", ondelete="SET NULL"), nullable=True)
     notes: Mapped[str | None] = mapped_column(Text)
     status: Mapped[str] = mapped_column(String(20), default="completed")  # completed | void
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)

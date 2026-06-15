@@ -1,7 +1,7 @@
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect, useRef, useMemo } from "react"
 import { useNavigate, useParams } from "react-router-dom"
 import { useQuery } from "@tanstack/react-query"
-import { useBankTransaction, useUpdateBankTransaction } from "../../lib/hooks"
+import { useBankTransaction, useUpdateBankTransaction, useAccounts } from "../../lib/hooks"
 import api from "../../lib/api"
 import { Card } from "../../components/ui/card"
 import { Button } from "../../components/ui/button"
@@ -29,6 +29,7 @@ interface TransactionForm {
   reference_number: string
   payment_method: string
   category: string
+  category_account_id: string
   notes: string
 }
 
@@ -57,6 +58,7 @@ export default function EditBankTransactionPage() {
     reference_number: "",
     payment_method: "bank_transfer",
     category: "",
+    category_account_id: "",
     notes: "",
   })
 
@@ -73,6 +75,7 @@ export default function EditBankTransactionPage() {
         reference_number: data.reference_number || "",
         payment_method: data.payment_method || "bank_transfer",
         category: data.category || "",
+        category_account_id: data.category_account_id || "",
         notes: data.notes || "",
       })
     }
@@ -97,6 +100,17 @@ export default function EditBankTransactionPage() {
     },
   })
 
+  const { data: allAccounts = [] } = useAccounts()
+  const categoryAccounts = useMemo(() => {
+    const txnType = data?.transaction_type || ""
+    const isIncome = ["income", "deposit", "credit"].includes(txnType)
+    return (allAccounts as any[]).filter(a =>
+      isIncome
+        ? ["income", "revenue"].includes(a.type)
+        : ["expense", "cogs", "cost_of_sales"].includes(a.type)
+    )
+  }, [allAccounts, data?.transaction_type])
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     if (!form.transaction_date || !form.description || !form.amount) return
@@ -106,6 +120,7 @@ export default function EditBankTransactionPage() {
         ...form,
         amount: parseFloat(form.amount),
         contact_id: form.contact_id || null,
+        category_account_id: form.category_account_id || undefined,
       },
       {
         onSuccess: () => {
@@ -226,6 +241,21 @@ export default function EditBankTransactionPage() {
                 value={form.category}
                 onChange={e => set("category")(e.target.value)}
               />
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium text-foreground">Category Account (GL)</label>
+              <Select value={form.category_account_id} onValueChange={set("category_account_id")}>
+                <SelectTrigger className="h-9">
+                  <SelectValue placeholder="No category (skip GL posting)" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">No category (skip GL posting)</SelectItem>
+                  {categoryAccounts.map((a: any) => (
+                    <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           </div>
 

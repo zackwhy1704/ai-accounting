@@ -32,6 +32,7 @@ class BankTransactionCreate(BaseModel):
     reference_no: Optional[str] = None
     payment_method: str = "bank_transfer"
     category: Optional[str] = None
+    category_account_id: Optional[UUID] = None
     notes: Optional[str] = None
 
 
@@ -46,6 +47,7 @@ class BankTransactionUpdate(BaseModel):
     reference_no: Optional[str] = None
     payment_method: Optional[str] = None
     category: Optional[str] = None
+    category_account_id: Optional[UUID] = None
     notes: Optional[str] = None
 
 
@@ -62,6 +64,7 @@ class BankTransactionResponse(BaseModel):
     currency: str
     payment_method: str
     category: Optional[str]
+    category_account_id: Optional[UUID]
     notes: Optional[str]
     status: str
     created_at: datetime
@@ -137,26 +140,36 @@ async def create_bank_transaction(
         if bank_account and bank_account.gl_account_id:
             amount = float(payload.amount or 0)
             is_income = payload.transaction_type in ("income", "deposit", "credit")
-            if is_income:
-                # Dr Bank / Cr Undeposited (income into the bank)
-                entries = [(bank_account.gl_account_id, amount, 0.0), (bank_account.gl_account_id, 0.0, 0.0)]
-                # Use post_gl_by_id with proper debit/credit split
-                entries_by_id = [(bank_account.gl_account_id, amount, 0.0)]
+            if payload.category_account_id:
+                if is_income:
+                    # DR Bank / CR Income category
+                    entries_by_id = [
+                        (bank_account.gl_account_id, amount, 0.0),
+                        (payload.category_account_id, 0.0, amount),
+                    ]
+                else:
+                    # DR Expense category / CR Bank
+                    entries_by_id = [
+                        (payload.category_account_id, amount, 0.0),
+                        (bank_account.gl_account_id, 0.0, amount),
+                    ]
             else:
-                entries_by_id = [(bank_account.gl_account_id, 0.0, amount)]
-            try:
-                await post_gl_by_id(
-                    db, org_id, txn.transaction_date,
-                    txn.description,
-                    txn.reference_no or str(txn.id),
-                    "bank_transaction",
-                    txn.id,
-                    entries_by_id,
-                )
-            except HTTPException:
-                raise
-            except Exception as e:
-                logger.error(f"GL posting failed for bank_transaction {txn.id}: {e}", exc_info=True)
+                # No category selected — skip GL to avoid unbalanced entry
+                entries_by_id = None
+            if entries_by_id:
+                try:
+                    await post_gl_by_id(
+                        db, org_id, txn.transaction_date,
+                        txn.description,
+                        txn.reference_no or str(txn.id),
+                        "bank_transaction",
+                        txn.id,
+                        entries_by_id,
+                    )
+                except HTTPException:
+                    raise
+                except Exception as e:
+                    logger.error(f"GL posting failed for bank_transaction {txn.id}: {e}", exc_info=True)
 
     await db.commit()
     await log_audit(db, org_id, current_user["sub"], "create", "bank_transaction", txn.id)
