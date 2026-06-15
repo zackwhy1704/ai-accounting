@@ -2,9 +2,10 @@ import { useState } from "react"
 import { useNavigate } from "react-router-dom"
 import { ViewDetailSheet } from "../../components/ui/view-detail-sheet"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
-import { Plus, Search, MoveRight, FileText, XCircle, Pencil } from "lucide-react"
+import { Plus, Search, MoveRight, FileText, XCircle, Pencil, Trash2 } from "lucide-react"
 import api from "../../lib/api"
 import { formatDate, cn } from "../../lib/utils"
+import { useToast } from "../../components/ui/toast"
 import { Card } from "../../components/ui/card"
 import { Button } from "../../components/ui/button"
 import { Input } from "../../components/ui/input"
@@ -30,6 +31,7 @@ const statusColors: Record<string, string> = {
 export default function StockTransfersPage() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
+  const { toast } = useToast()
   const [search, setSearch] = useState("")
   const [viewItem, setViewItem] = useState<StockTransfer | null>(null)
 
@@ -123,7 +125,8 @@ export default function StockTransfersPage() {
                       <RowActionsMenu actions={[
                         { label: "Edit", icon: <Pencil className="h-3.5 w-3.5" />, onClick: () => navigate(`/stock/transfers/${t.id}/edit`) },
                         { label: "View", icon: <FileText className="h-4 w-4" />, onClick: () => setViewItem(t) },
-                        { label: "Void", icon: <XCircle className="h-4 w-4" />, onClick: () => { if (confirm("Void this transfer?")) api.patch(`/stock/transfers/${t.id}`, { status: "void" }).then(() => queryClient.invalidateQueries({ queryKey: ["stock-transfers"] })) }, danger: true, dividerBefore: true, disabled: t.status === "void" },
+                        { label: "Void", icon: <XCircle className="h-4 w-4" />, onClick: () => { if (confirm("Void this transfer?")) api.patch(`/stock/transfers/${t.id}`, { status: "void" }).then(() => { queryClient.invalidateQueries({ queryKey: ["stock-transfers"] }); toast("Transfer voided", "success") }).catch((e: any) => toast(e?.response?.data?.detail ?? "Failed to void transfer", "warning")) }, danger: true, dividerBefore: true, disabled: t.status === "void" },
+                        { label: "Delete", icon: <Trash2 className="h-3.5 w-3.5" />, onClick: () => { if (confirm("Delete this draft transfer? This cannot be undone.")) api.delete(`/stock-transfers/${t.id}`).then(() => { queryClient.invalidateQueries({ queryKey: ["stock-transfers"] }); toast("Transfer deleted", "success") }).catch((e: any) => toast(e?.response?.data?.detail ?? "Failed to delete", "warning")) }, danger: true, disabled: t.status !== "draft" },
                       ]} />
                     </TableCell>
                   </TableRow>

@@ -3,7 +3,7 @@ import { useState } from "react"
 import { useQueryClient } from "@tanstack/react-query"
 import { useNavigate } from "react-router-dom"
 import { ViewDetailSheet } from "../../components/ui/view-detail-sheet"
-import { Plus, BookOpen, FileText, XCircle, Pencil } from "lucide-react"
+import { Plus, BookOpen, FileText, XCircle, Pencil, Trash2 } from "lucide-react"
 import { useManualJournals } from "../../lib/hooks"
 import api from "../../lib/api"
 import { formatDate, formatCurrency } from "../../lib/utils"
@@ -90,6 +90,7 @@ export default function ManualJournalsPage() {
                         { label: "Edit", icon: <Pencil className="h-3.5 w-3.5" />, onClick: () => navigate(`/accounting/journals/${j.id}/edit`) },
                         { label: "View", icon: <FileText className="h-4 w-4" />, onClick: () => { setViewItem(j) } },
                         { label: "Void", icon: <XCircle className="h-4 w-4" />, onClick: () => { if (confirm("Void this journal entry?")) api.patch(`/accounting/journals/${j.id}`, { status: "void" }).then(() => { queryClient.invalidateQueries({ queryKey: ["manual-journals"] }); toast("Journal entry voided", "success") }).catch((e: any) => toast(e?.response?.data?.detail ?? "Failed to void journal entry", "warning")) }, danger: true, dividerBefore: true, disabled: j.status === "void" },
+                        { label: "Delete", icon: <Trash2 className="h-3.5 w-3.5" />, onClick: () => { if (confirm("Delete this draft journal entry? This cannot be undone.")) api.delete(`/manual-journals/${j.id}`).then(() => { queryClient.invalidateQueries({ queryKey: ["manual-journals"] }); toast("Journal entry deleted", "success") }).catch((e: any) => toast(e?.response?.data?.detail ?? "Failed to delete", "warning")) }, danger: true, disabled: j.status !== "draft" },
                       ]} />
                     </TableCell>
                   </TableRow>

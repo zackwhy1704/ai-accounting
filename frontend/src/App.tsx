@@ -52,6 +52,8 @@ import NewManualJournalPage from './pages/accounting/NewManualJournalPage'
 import NewProductPage from './pages/products/NewProductPage'
 import InvoiceTemplatesPage from './pages/settings/InvoiceTemplatesPage'
 import CustomFieldsPage from './pages/settings/CustomFieldsPage'
+import PaymentLinksPage from './pages/settings/PaymentLinksPage'
+import ExchangeRatesPage from './pages/settings/ExchangeRatesPage'
 import BankAccountsPage from './pages/bank/BankAccountsPage'
 import NewBankAccountPage from './pages/bank/NewBankAccountPage'
 import BankTransactionsPage from './pages/bank/BankTransactionsPage'
@@ -287,6 +289,8 @@ function App() {
         <Route path="/settings/company" element={<CompanySettingsPage />} />
         <Route path="/settings/invoice-templates" element={<InvoiceTemplatesPage />} />
         <Route path="/settings/custom-fields" element={<CustomFieldsPage />} />
+        <Route path="/settings/payment-links" element={<PaymentLinksPage />} />
+        <Route path="/settings/exchange-rates" element={<ExchangeRatesPage />} />
 
         {/* Firm / Practice */}
         <Route path="/firm/settings" element={<FirmSettingsPage />} />

@@ -33,7 +33,7 @@ export default function NewDeliveryOrderPage() {
   const createDeliveryOrder = useCreateDeliveryOrder()
   const { data: taxRates = [] } = useTaxRates()
 
-  const [doNumber, setDoNumber] = useState(() => `DO-${Date.now().toString().slice(-6)}`)
+  const [doNumber, setDoNumber] = useState("")
   const [contactId, setContactId] = useState("")
   const [deliveryDate, setDeliveryDate] = useState(() => new Date().toISOString().slice(0, 10))
   const [poNumber, setPoNumber] = useState("")
@@ -193,7 +193,7 @@ export default function NewDeliveryOrderPage() {
             <Input
               value={doNumber}
               onChange={e => setDoNumber(e.target.value)}
-              placeholder="DO-000000"
+              placeholder="Auto-generated"
               className="h-10 rounded-xl"
             />
           </div>

@@ -55,6 +55,7 @@ interface EditState {
   type: string
   subtype: string
   description: string
+  account_role: string
 }
 
 export default function ChartOfAccountsPage() {
@@ -64,9 +65,9 @@ export default function ChartOfAccountsPage() {
 
   const [activeFilter, setActiveFilter] = useState<AccountTypeFilter>("All")
   const [editingId, setEditingId] = useState<string | null>(null)
-  const [editState, setEditState] = useState<EditState>({ code: "", name: "", type: "", subtype: "", description: "" })
+  const [editState, setEditState] = useState<EditState>({ code: "", name: "", type: "", subtype: "", description: "", account_role: "account" })
   const [showNewRow, setShowNewRow] = useState(false)
-  const [newRow, setNewRow] = useState<EditState>({ code: "", name: "", type: "asset", subtype: "", description: "" })
+  const [newRow, setNewRow] = useState<EditState>({ code: "", name: "", type: "asset", subtype: "", description: "", account_role: "account" })
 
   // PDF import state
   const [importOpen, setImportOpen] = useState(false)
@@ -96,7 +97,7 @@ export default function ChartOfAccountsPage() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["accounts"] })
       setShowNewRow(false)
-      setNewRow({ code: "", name: "", type: "asset", subtype: "", description: "" })
+      setNewRow({ code: "", name: "", type: "asset", subtype: "", description: "", account_role: "account" })
       toast("Account created", "success")
     },
     onError: (e: any) => toast(e?.response?.data?.detail || "Failed to create account", "warning"),
@@ -126,7 +127,7 @@ export default function ChartOfAccountsPage() {
 
   const startEdit = (a: Account) => {
     setEditingId(a.id)
-    setEditState({ code: a.code, name: a.name, type: a.type, subtype: a.subtype ?? "", description: a.description ?? "" })
+    setEditState({ code: a.code, name: a.name, type: a.type, subtype: a.subtype ?? "", description: a.description ?? "", account_role: a.account_role ?? "account" })
   }
 
   const saveEdit = (id: string) => {
@@ -340,6 +341,7 @@ export default function ChartOfAccountsPage() {
                 <th className="px-4 py-2.5 text-left text-xs font-medium text-muted-foreground w-24">Code</th>
                 <th className="px-4 py-2.5 text-left text-xs font-medium text-muted-foreground">Name</th>
                 <th className="px-4 py-2.5 text-left text-xs font-medium text-muted-foreground w-28">Type</th>
+                <th className="px-4 py-2.5 text-left text-xs font-medium text-muted-foreground w-24">Role</th>
                 <th className="px-4 py-2.5 text-left text-xs font-medium text-muted-foreground w-28">Subtype</th>
                 <th className="px-4 py-2.5 text-right text-xs font-medium text-muted-foreground w-32">Balance</th>
                 <th className="px-4 py-2.5 text-right text-xs font-medium text-muted-foreground w-24">Actions</th>
@@ -358,6 +360,13 @@ export default function ChartOfAccountsPage() {
                   <td className="px-3 py-1.5">
                     <select value={newRow.type} onChange={e => setNewRow(p => ({ ...p, type: e.target.value }))} className="h-8 w-full rounded-lg border border-border bg-card px-2 text-xs focus:outline-none focus:ring-1 focus:ring-primary/40">
                       {TYPE_OPTIONS.map(t => <option key={t} value={t}>{t}</option>)}
+                    </select>
+                  </td>
+                  <td className="px-3 py-1.5">
+                    <select value={newRow.account_role} onChange={e => setNewRow(p => ({ ...p, account_role: e.target.value }))} className="h-8 w-full rounded-lg border border-border bg-card px-2 text-xs focus:outline-none focus:ring-1 focus:ring-primary/40">
+                      <option value="account">Account</option>
+                      <option value="subheader">Subheader</option>
+                      <option value="header">Header</option>
                     </select>
                   </td>
                   <td className="px-3 py-1.5">
@@ -433,6 +442,13 @@ export default function ChartOfAccountsPage() {
                             </select>
                           </td>
                           <td className="px-3 py-1.5">
+                            <select value={editState.account_role} onChange={e => setEditState(p => ({ ...p, account_role: e.target.value }))} className="h-8 w-full rounded-lg border border-border bg-card px-2 text-xs focus:outline-none focus:ring-1 focus:ring-primary/40">
+                              <option value="account">Account</option>
+                              <option value="subheader">Subheader</option>
+                              <option value="header">Header</option>
+                            </select>
+                          </td>
+                          <td className="px-3 py-1.5">
                             <Input value={editState.subtype} onChange={e => setEditState(p => ({ ...p, subtype: e.target.value }))} placeholder="optional" className="h-8 rounded-lg text-xs" />
                           </td>
                           <td className="px-3 py-1.5 text-right text-xs text-muted-foreground tabular-nums">
@@ -462,6 +478,11 @@ export default function ChartOfAccountsPage() {
                                 {type}
                               </span>
                             )}
+                          </td>
+                          <td className="px-4 py-2.5 text-xs text-muted-foreground">
+                            {isHeader ? <span className="rounded px-1.5 py-0.5 text-[10px] font-semibold bg-violet-100 text-violet-700">Header</span>
+                              : isSubheader ? <span className="rounded px-1.5 py-0.5 text-[10px] font-semibold bg-sky-100 text-sky-700">Subheader</span>
+                              : <span className="rounded px-1.5 py-0.5 text-[10px] font-semibold bg-muted text-muted-foreground">Account</span>}
                           </td>
                           <td className="px-4 py-2.5 text-xs text-muted-foreground">{isHeader || isSubheader ? "" : (a.subtype ?? "—")}</td>
                           <td className={`px-4 py-2.5 text-right text-sm tabular-nums ${(a.balance ?? 0) < 0 ? "text-rose-600" : "text-foreground"}`}>

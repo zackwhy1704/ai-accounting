@@ -119,6 +119,8 @@ export const navItems: NavItem[] = [
       { labelKey: "nav.companySettings", href: "/settings/company" },
       { labelKey: "nav.invoiceTemplates", href: "/settings/invoice-templates" },
       { labelKey: "nav.customFields", href: "/settings/custom-fields" },
+      { labelKey: "nav.paymentLinks", href: "/settings/payment-links" },
+      { labelKey: "nav.exchangeRates", href: "/settings/exchange-rates" },
     ],
   },
 ]
