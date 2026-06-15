@@ -19,7 +19,7 @@ from app.schemas.schemas import (
 )
 from app.core.sequences import next_sequence_number
 from app.core.audit import log_audit
-from .sales import calc_totals
+from app.core.line_items import calculate_line_items
 
 router = APIRouter(tags=["Sales"])
 
@@ -72,7 +72,8 @@ async def create_quotation(data: QuotationCreate, current_user: dict = Depends(r
         quotation_number = data.quotation_number
     else:
         quotation_number = await next_sequence_number(db, Quotation, Quotation.quotation_number, org_id, "QT")
-    subtotal, discount_total, tax_amount = calc_totals(data.line_items)
+    _line_dicts = [{"quantity": getattr(i, "quantity", 1), "unit_price": getattr(i, "unit_price", 0), "discount": getattr(i, "discount", 0) or 0, "discount_mode": getattr(i, "discount_mode", "percent") or "percent", "tax_rate": getattr(i, "tax_rate", 0) or 0} for i in data.line_items]
+    subtotal, tax_amount, discount_total, _ = calculate_line_items(_line_dicts)
 
     obj = Quotation(
         organization_id=org_id, contact_id=data.contact_id,
@@ -161,7 +162,8 @@ async def update_quotation(qid: UUID, data: QuotationUpdate, current_user: dict 
 
     if data.line_items is not None:
         await db.execute(delete(QuotationLineItem).where(QuotationLineItem.quotation_id == obj.id))
-        subtotal, discount_total, tax_amount = calc_totals(data.line_items)
+        _line_dicts2 = [{"quantity": getattr(i, "quantity", 1), "unit_price": getattr(i, "unit_price", 0), "discount": getattr(i, "discount", 0) or 0, "discount_mode": getattr(i, "discount_mode", "percent") or "percent", "tax_rate": getattr(i, "tax_rate", 0) or 0} for i in data.line_items]
+        subtotal, tax_amount, discount_total, _ = calculate_line_items(_line_dicts2)
         for i, item in enumerate(data.line_items):
             line_total = item.quantity * item.unit_price
             disc_mode = getattr(item, 'discount_mode', 'percent') or 'percent'

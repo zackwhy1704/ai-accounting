@@ -20,7 +20,7 @@ from app.schemas.schemas import (
     CreditNoteCreate, CreditNoteUpdate, CreditNoteResponse,
 )
 from app.core.sequences import next_sequence_number
-from .sales import calc_totals
+from app.core.line_items import calculate_line_items
 
 router = APIRouter(tags=["Sales"])
 
@@ -87,7 +87,8 @@ async def create_credit_note(data: CreditNoteCreate, current_user: dict = Depend
         cn_number = data.credit_note_number
     else:
         cn_number = await next_sequence_number(db, CreditNote, CreditNote.credit_note_number, org_id, "CN")
-    subtotal, discount_total, tax_amount = calc_totals(data.line_items)
+    _line_dicts = [{"quantity": getattr(i, "quantity", 1), "unit_price": getattr(i, "unit_price", 0), "discount": getattr(i, "discount", 0) or 0, "discount_mode": getattr(i, "discount_mode", "percent") or "percent", "tax_rate": getattr(i, "tax_rate", 0) or 0} for i in data.line_items]
+    subtotal, tax_amount, discount_total, _ = calculate_line_items(_line_dicts)
     total = subtotal + tax_amount
 
     obj = CreditNote(
