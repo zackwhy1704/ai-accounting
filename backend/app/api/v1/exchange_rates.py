@@ -9,7 +9,7 @@ from uuid import UUID
 from app.core.database import get_db
 from app.core.security import get_current_user
 from app.models.models import ExchangeRate, Organization
-from app.schemas.schemas import ExchangeRateCreate, ExchangeRateResponse
+from app.schemas.schemas import ExchangeRateCreate, ExchangeRateUpdate, ExchangeRateResponse
 
 router = APIRouter(prefix="/exchange-rates", tags=["exchange-rates"])
 
@@ -148,3 +148,51 @@ async def get_latest_rate(
     if not rate:
         raise HTTPException(status_code=404, detail="No exchange rate found")
     return rate
+
+
+async def _get_owned_rate(rate_id: UUID, org_id: UUID, db: AsyncSession) -> ExchangeRate:
+    result = await db.execute(
+        select(ExchangeRate).where(
+            ExchangeRate.id == rate_id,
+            ExchangeRate.organization_id == org_id,
+        )
+    )
+    rate = result.scalar_one_or_none()
+    if not rate:
+        raise HTTPException(status_code=404, detail="Exchange rate not found")
+    return rate
+
+
+@router.get("/{rate_id}", response_model=ExchangeRateResponse)
+async def get_exchange_rate(
+    rate_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: dict = Depends(get_current_user),
+):
+    return await _get_owned_rate(rate_id, current_user["org_id"], db)
+
+
+@router.patch("/{rate_id}", response_model=ExchangeRateResponse)
+async def update_exchange_rate(
+    rate_id: UUID,
+    payload: ExchangeRateUpdate,
+    db: AsyncSession = Depends(get_db),
+    current_user: dict = Depends(get_current_user),
+):
+    rate = await _get_owned_rate(rate_id, current_user["org_id"], db)
+    for key, value in payload.model_dump(exclude_unset=True).items():
+        setattr(rate, key, value)
+    await db.commit()
+    await db.refresh(rate)
+    return rate
+
+
+@router.delete("/{rate_id}", status_code=204)
+async def delete_exchange_rate(
+    rate_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: dict = Depends(get_current_user),
+):
+    rate = await _get_owned_rate(rate_id, current_user["org_id"], db)
+    await db.delete(rate)
+    await db.commit()

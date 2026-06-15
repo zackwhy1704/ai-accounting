@@ -5,7 +5,7 @@ from uuid import UUID
 from app.core.database import get_db
 from app.core.security import get_current_user
 from app.models.models import Contact
-from app.schemas.schemas import ContactCreate, ContactResponse
+from app.schemas.schemas import ContactCreate, ContactUpdate, ContactResponse
 
 router = APIRouter(prefix="/contacts", tags=["Contacts"])
 
@@ -53,10 +53,11 @@ async def get_contact(
     return contact
 
 
+@router.patch("/{contact_id}", response_model=ContactResponse)
 @router.put("/{contact_id}", response_model=ContactResponse)
 async def update_contact(
     contact_id: UUID,
-    data: ContactCreate,
+    data: ContactUpdate,
     current_user: dict = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):

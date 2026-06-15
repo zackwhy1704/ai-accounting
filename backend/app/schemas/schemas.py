@@ -108,6 +108,34 @@ class ContactCreate(BaseModel):
     default_currency: str | None = None
     default_payment_terms: str | None = None
 
+class ContactUpdate(BaseModel):
+    name: str | None = None
+    email: str | None = None
+    phone: str | None = None
+    type: str | None = None
+    entity_type: str | None = None
+    company: str | None = None
+    address: str | None = None
+    tax_number: str | None = None
+    brn: str | None = None
+    ic_number: str | None = None
+    tin: str | None = None
+    msic_code: str | None = None
+    billing_address_line1: str | None = None
+    billing_address_line2: str | None = None
+    billing_city: str | None = None
+    billing_state: str | None = None
+    billing_postcode: str | None = None
+    billing_country: str | None = None
+    shipping_address_line1: str | None = None
+    shipping_address_line2: str | None = None
+    shipping_city: str | None = None
+    shipping_state: str | None = None
+    shipping_postcode: str | None = None
+    shipping_country: str | None = None
+    default_currency: str | None = None
+    default_payment_terms: str | None = None
+
 class ContactResponse(BaseModel):
     id: UUID
     name: str
@@ -1027,6 +1055,11 @@ class ExchangeRateCreate(BaseModel):
     rate_date: datetime
     source: str = "manual"
 
+class ExchangeRateUpdate(BaseModel):
+    rate: float | None = None
+    rate_date: datetime | None = None
+    source: str | None = None
+
 class ExchangeRateResponse(BaseModel):
     id: UUID
     organization_id: UUID
@@ -1127,6 +1160,14 @@ class ManualJournalCreate(BaseModel):
     description: str | None = None
     currency: str = "MYR"
     lines: list[ManualJournalLineCreate]
+
+class ManualJournalUpdate(BaseModel):
+    journal_number: str | None = None
+    date: datetime | None = None
+    reference: str | None = None
+    description: str | None = None
+    currency: str | None = None
+    lines: list[ManualJournalLineCreate] | None = None
 
 class ManualJournalResponse(BaseModel):
     id: UUID

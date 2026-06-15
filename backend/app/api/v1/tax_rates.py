@@ -32,6 +32,24 @@ async def list_tax_rates(
     return result.scalars().all()
 
 
+@router.get("/{tax_rate_id}", response_model=TaxRateResponse)
+async def get_tax_rate(
+    tax_rate_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: dict = Depends(get_current_user),
+):
+    result = await db.execute(
+        select(TaxRate).where(
+            TaxRate.id == tax_rate_id,
+            TaxRate.organization_id == current_user["org_id"],
+        )
+    )
+    tax_rate = result.scalar_one_or_none()
+    if not tax_rate:
+        raise HTTPException(status_code=404, detail="Tax rate not found")
+    return tax_rate
+
+
 @router.post("", response_model=TaxRateResponse, status_code=201)
 async def create_tax_rate(
     payload: TaxRateCreate,

@@ -218,7 +218,7 @@ export function useUpdateContact() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: ({ id, ...data }: { id: string; [key: string]: unknown }) =>
-      api.put(`/contacts/${id}`, data).then(r => r.data),
+      api.patch(`/contacts/${id}`, data).then(r => r.data),
     onSuccess: (_data, vars) => {
       qc.invalidateQueries({ queryKey: ['contacts'] })
       qc.invalidateQueries({ queryKey: ['contact', vars.id] })

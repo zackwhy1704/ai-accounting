@@ -6,8 +6,9 @@ from uuid import UUID
 
 from app.core.database import get_db
 from app.core.security import get_current_user
+from sqlalchemy import delete as sa_delete
 from app.models.models import ManualJournal, ManualJournalLine, Transaction, JournalEntry
-from app.schemas.schemas import ManualJournalCreate, ManualJournalResponse
+from app.schemas.schemas import ManualJournalCreate, ManualJournalUpdate, ManualJournalResponse
 from .gl_helpers import revert_gl
 
 router = APIRouter(prefix="/manual-journals", tags=["manual-journals"])
@@ -100,6 +101,78 @@ async def get_journal(
     if not journal:
         raise HTTPException(status_code=404, detail="Journal not found")
     return journal
+
+
+@router.patch("/{journal_id}", response_model=ManualJournalResponse)
+async def update_journal(
+    journal_id: UUID,
+    payload: ManualJournalUpdate,
+    db: AsyncSession = Depends(get_db),
+    current_user: dict = Depends(get_current_user),
+):
+    result = await db.execute(
+        select(ManualJournal)
+        .options(selectinload(ManualJournal.lines))
+        .where(
+            ManualJournal.id == journal_id,
+            ManualJournal.organization_id == current_user["org_id"],
+        )
+    )
+    journal = result.scalar_one_or_none()
+    if not journal:
+        raise HTTPException(status_code=404, detail="Journal not found")
+    # Posted/void journals are immutable — they have hit (or reversed) the GL.
+    if journal.status != "draft":
+        raise HTTPException(status_code=409, detail="Only draft journals can be edited")
+
+    data = payload.model_dump(exclude_unset=True)
+    lines = data.pop("lines", None)
+
+    for key, value in data.items():
+        setattr(journal, key, value)
+
+    if lines is not None:
+        if len(lines) < 2:
+            raise HTTPException(status_code=422, detail="Journal must have at least 2 lines")
+        total_debit = sum(l.get("debit", 0) for l in lines)
+        total_credit = sum(l.get("credit", 0) for l in lines)
+        if abs(total_debit - total_credit) > 0.01:
+            raise HTTPException(status_code=422, detail="Debits must equal credits")
+        # Replace lines: delete existing then re-add
+        await db.execute(sa_delete(ManualJournalLine).where(ManualJournalLine.journal_id == journal_id))
+        for line_data in lines:
+            db.add(ManualJournalLine(journal_id=journal_id, **line_data))
+
+    await db.commit()
+    result = await db.execute(
+        select(ManualJournal)
+        .options(selectinload(ManualJournal.lines))
+        .where(ManualJournal.id == journal_id)
+    )
+    return result.scalar_one()
+
+
+@router.delete("/{journal_id}", status_code=204)
+async def delete_journal(
+    journal_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: dict = Depends(get_current_user),
+):
+    result = await db.execute(
+        select(ManualJournal).where(
+            ManualJournal.id == journal_id,
+            ManualJournal.organization_id == current_user["org_id"],
+        )
+    )
+    journal = result.scalar_one_or_none()
+    if not journal:
+        raise HTTPException(status_code=404, detail="Journal not found")
+    # Posted journals have hit the GL — they must be voided, never deleted.
+    if journal.status != "draft":
+        raise HTTPException(status_code=409, detail="Only draft journals can be deleted. Void posted journals instead.")
+    await db.execute(sa_delete(ManualJournalLine).where(ManualJournalLine.journal_id == journal_id))
+    await db.delete(journal)
+    await db.commit()
 
 
 @router.post("/{journal_id}/post", response_model=ManualJournalResponse)

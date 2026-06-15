@@ -45,6 +45,12 @@ class PaymentLinkResponse(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class PaymentLinkUpdate(BaseModel):
+    is_active: bool | None = None
+    expires_at: datetime | None = None
+    description: str | None = None
+
+
 def _make_token() -> str:
     return secrets.token_urlsafe(32)
 
@@ -88,6 +94,45 @@ async def create_payment_link(
     await db.commit()
     await db.refresh(link)
     return _enrich(link)
+
+
+async def _get_owned_link(link_id: UUID, org_id: UUID, db: AsyncSession) -> PaymentLink:
+    result = await db.execute(
+        select(PaymentLink).where(
+            PaymentLink.id == link_id,
+            PaymentLink.organization_id == org_id,
+        )
+    )
+    link = result.scalar_one_or_none()
+    if not link:
+        raise HTTPException(status_code=404, detail="Payment link not found")
+    return link
+
+
+@router.patch("/{link_id}", response_model=PaymentLinkResponse)
+async def update_payment_link(
+    link_id: UUID,
+    payload: PaymentLinkUpdate,
+    db: AsyncSession = Depends(get_db),
+    current_user: dict = Depends(get_current_user),
+):
+    link = await _get_owned_link(link_id, current_user["org_id"], db)
+    for key, value in payload.model_dump(exclude_unset=True).items():
+        setattr(link, key, value)
+    await db.commit()
+    await db.refresh(link)
+    return _enrich(link)
+
+
+@router.delete("/{link_id}", status_code=204)
+async def delete_payment_link(
+    link_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: dict = Depends(get_current_user),
+):
+    link = await _get_owned_link(link_id, current_user["org_id"], db)
+    await db.delete(link)
+    await db.commit()
 
 
 @router.get("/{token}/public")
