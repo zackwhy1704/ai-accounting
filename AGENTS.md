@@ -1,4 +1,4 @@
-# CLAUDE.md — AI Accounting Project
+# CLAUDE.md — Accruly Engineering Standards
 > Read this at the start of every session. Update it when you discover something new.
 
 ## Project Architecture
@@ -7,7 +7,7 @@
 |---|---|---|
 | Frontend | React 19 + TypeScript + TanStack Query v5 + Vite + Tailwind | `frontend/src/App.tsx` |
 | Backend | FastAPI + SQLAlchemy async + PostgreSQL (Neon) | `backend/app/main.py` |
-| DB migrations | Alembic — single linear chain. Current head: **`a024`** | `backend/alembic/versions/` |
+| DB migrations | Alembic — single linear chain. Current head: **`a026`** | `backend/alembic/versions/` |
 
 **Backend** on port 8000 with `--reload`. DB on port 5433. **Frontend dev** on port 5173.
 
@@ -47,10 +47,19 @@ Contacts · Products · BankAccounts · BankTransactions · BankTransfers · Sto
    await db.commit()
    await log_audit(db, org_id, current_user["sub"], "create", "entity_type", obj.id)
    ```
+   **ALWAYS reference the exact variable name — never guess.** Wrong variable = NameError that crashes the endpoint silently.
 
 9. **List endpoints return the paginated envelope** `{items, total, page, limit, pages}` using `PaginationParams` + `paginated_result()` from `app.core.pagination`.
 
 10. **Always commit and push after fixes.** Don't wait to be asked.
+
+11. **Discount is always raw value + mode, NEVER pre-computed.** Payload must send `discount: li.discount, discount_mode: li.discount_mode` — never `discount: lineDiscountAmount(li)`. Backend computes the RM amount from the raw value.
+
+12. **Payment amount = sum of allocations.** When allocations exist, `amount = sum(allocation.amount)`. Never let user-entered amount override allocation sum.
+
+13. **Block `post_gl()` from posting to header/subheader accounts.** Accounts with `account_role in ("header", "subheader")` are structural — they cannot receive journal entries.
+
+14. **`calc_totals()` returns after-discount subtotal.** The signature is `(subtotal_after_disc, discount_total, tax_amount)`. Use `total = subtotal + tax_amount` — NOT `subtotal - discount_total + tax_amount` (that double-deducts). Applies to quotations, credit notes, debit notes, purchase debit notes.
 
 ---
 
@@ -58,18 +67,20 @@ Contacts · Products · BankAccounts · BankTransactions · BankTransfers · Sto
 
 | Utility | Location | Purpose |
 |---|---|---|
-| `calculate_line_items(items_dicts)` | `app.core.line_items` | Subtotal + discount + tax + total. Returns `(subtotal, tax, discount_total, total)`. |
+| `calculate_line_items(items_dicts)` | `app.core.line_items` | Returns `(net_subtotal, tax, discount_total, total)`. `net_subtotal` is already after-discount. `total = net_subtotal + tax`. |
 | `next_sequence_number(db, Model, col, org_id, prefix)` | `app.core.sequences` | Auto-generates INV-00001 style numbers |
 | `log_audit(db, org_id, user_id, action, entity_type, entity_id, changes)` | `app.core.audit` | Audit trail — never raises |
 | `require_write()` / `require_admin()` | `app.core.permissions` | RBAC FastAPI dependencies |
 | `PaginationParams` / `paginated_result()` / `apply_sort()` | `app.core.pagination` | Pagination infra |
 | `InvoiceService` / `BillService` | `app.services.*` | Business logic, no FastAPI imports |
+| `post_gl(db, org_id, date, desc, ref, source, source_id, entries)` | `app.api.v1.gl_helpers` | Code-based GL posting (account codes). Guards against non-postable accounts. |
+| `post_gl_by_id(db, org_id, ...)` | `app.api.v1.gl_helpers` | UUID-based GL posting. Same guard applies. |
 
 ---
 
 ## Domain Methods on Models
 
-Phase 2A added domain methods to SQLAlchemy models — use them instead of inline logic:
+Use these instead of inline logic:
 
 | Model | Methods |
 |---|---|
@@ -78,17 +89,33 @@ Phase 2A added domain methods to SQLAlchemy models — use them instead of inlin
 | `ManualJournal` | `.can_edit()` · `.can_delete()` · `.can_post()` · `.can_void()` |
 | `TaxRate` | `.rate_decimal` · `.apply_to(amount)` |
 | `Organization` | `.is_gst_registered()` · `.is_sst_registered()` · `.effective_tax_regime` |
+| `Account` | `.is_header` · `.is_subheader` · `.is_postable` (based on `account_role`) |
 
 ---
 
-## Pydantic Validators
-
-Phase 2B added validators — these are enforced on every request:
+## Pydantic Validators (enforced on every request)
 
 - `InvoiceCreate` / `BillCreate`: requires `len(line_items) >= 1`; `due_date >= issue_date`
+- `LineItemCreate`: `quantity >= 0`; `discount >= 0`; `discount_mode` must be `"percent"` or `"amount"`; percent discount ≤ 100
 - `UserRegister`: email lowercased; password ≥ 8 chars with at least one digit
-- `ManualJournalCreate`: requires `len(lines) >= 2`
+- `ManualJournalCreate`: requires `len(lines) >= 2`; debits must equal credits (balanced)
 - `ContactCreate`: name stripped of whitespace; email lowercased
+
+---
+
+## Account Role System
+
+`accounts.account_role` — introduced in migration `a026`:
+
+| Role | Meaning | Postable? |
+|---|---|---|
+| `"account"` (default) | Leaf account that receives journal entries | Yes |
+| `"header"` | Section header (e.g. "Non-Current Assets") | No |
+| `"subheader"` | Sub-section header under a header | No |
+
+`post_gl()` and `post_gl_by_id()` both raise HTTP 400 if a target account has `account_role in ("header", "subheader")`.
+
+ChartOfAccountsPage renders headers in bold uppercase, subheaders in italic semibold, leaf accounts in normal weight — all visually distinct.
 
 ---
 
@@ -112,6 +139,9 @@ Phase 2B added validators — these are enforced on every request:
 - **Error messages**: `e?.response?.data?.detail ?? "Fallback"`.
 - **Status colours**: draft=slate, active=sky, outstanding=white, overdue=rose, paid=emerald, void=slate-muted.
 - **Routes**: all in `App.tsx`. Nav items in `components/layout/nav-data.ts`.
+- **Mutations**: use `await mutateAsync()` in try/catch with explicit navigation — never `.mutate(data, { onSuccess: () => navigate() })` which silently drops navigation on error.
+- **Discount payload**: always `discount: li.discount, discount_mode: li.discount_mode`. Never send a pre-computed RM amount.
+- **Separate journal-entries from activity**: activity endpoints have `include_journals: bool = Query(False)`. Use the separate `GET /{id}/journal-entries` endpoint to load GL entries independently.
 
 ---
 
@@ -120,11 +150,12 @@ Phase 2B added validators — these are enforced on every request:
 - **Status values** — Invoice: `draft/outstanding/partially_paid/paid/void`. Bill: same. CreditNote: `draft/issued/applied/void`. PO: `draft/sent/received/billed/declined/cancelled`. Never use `"sent"` for invoice status.
 - **Numeric**: SQLAlchemy `Numeric(15,2)` → `Decimal`. Always `float()` wrap in arithmetic.
 - **FK deletes**: null out FK references first. Pattern from `invoices.py` delete endpoint.
-- **Migrations**: new column = new migration. Never edit existing. Head: **`a024`**.
+- **Migrations**: new column = new migration. Never edit existing. Head: **`a026`**.
+- **Account filter in reports**: use `JournalEntry` subquery — `select(JournalEntry.transaction_id).where(JournalEntry.account_id == account_id).scalar_subquery()`.
 
 ---
 
-## Error Handling (Phase 7)
+## Error Handling
 
 `app/main.py` has three handlers:
 1. `StarletteHTTPException` → pass-through with original status code
@@ -144,6 +175,9 @@ Never swallow exceptions silently in router code — let the handlers surface th
 5. **`cn` naming conflict**: in PurchaseCreditNotesPage, CSS util `cn` is aliased as `cx` to avoid conflict with loop variable.
 6. **ManualJournals has no update endpoint** — only create/post/void. Edit page only allows drafts.
 7. **SA model methods in tests**: SQLAlchemy descriptors can't be constructed without a session. Use proxy dataclasses in unit tests — see `tests/test_model_methods.py`.
+8. **log_audit variable names**: always read the endpoint code and use the exact variable name (`obj.id`, `account.id`, `qid`). Never guess — NameError crashes the create endpoint silently.
+9. **DO/SaleReceipt discount payload**: the frontend must send `discount: li.discount, discount_mode: li.discount_mode`, NOT the pre-computed RM value. Backend `calculate_line_items` does the RM math.
+10. **Double-discount bug**: `calc_totals()` from `sales.py` already returns `subtotal_after_disc`. Using `total = subtotal - discount_total + tax_amount` double-deducts. Correct: `total = subtotal + tax_amount`.
 
 ---
 
@@ -156,8 +190,9 @@ Never swallow exceptions silently in router code — let the handlers surface th
 | `tests/test_schema_validators.py` | Pydantic validators (Phase 2B) |
 | `tests/test_service_layer.py` | Service classes + `calculate_line_items` utility |
 | `tests/test_pagination_and_audit.py` | Pagination envelope, audit log, error handlers |
+| `tests/test_bug_fixes.py` | Regression suite: LineItemCreate validators, ManualJournal balance, discount round-trips |
 
-Run: `cd backend && python -m pytest` — must be **414+ passed, 1 skipped**.
+Run: `cd backend && python -m pytest` — must be **430+ passed**.
 
 ---
 
@@ -175,3 +210,5 @@ Run: `cd backend && python -m pytest` — must be **414+ passed, 1 skipped**.
 | Nav | `frontend/src/components/layout/nav-data.ts` |
 | Shared UI | `frontend/src/components/ui/` |
 | Migrations | `backend/alembic/versions/` |
+| GL helpers | `backend/app/api/v1/gl_helpers.py` |
+| Account schemas | `backend/app/schemas/accounting.py` |

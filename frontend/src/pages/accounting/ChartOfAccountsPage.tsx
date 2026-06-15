@@ -18,6 +18,8 @@ interface Account {
   balance: number
   currency: string
   is_system: boolean
+  account_role: string  // "header" | "subheader" | "account"
+  parent_id: string | null
 }
 
 interface ExtractedAccount {
@@ -407,8 +409,16 @@ export default function ChartOfAccountsPage() {
                           </td>
                         </tr>
                       )}
-                      {subAccs.map(a => (
-                    <tr key={a.id} className="border-b border-border last:border-0 hover:bg-muted/30">
+                      {subAccs.map(a => {
+                        const isHeader = a.account_role === "header"
+                        const isSubheader = a.account_role === "subheader"
+                        const rowBg = isHeader
+                          ? "bg-muted/40 border-b-2 border-border"
+                          : isSubheader
+                          ? "bg-muted/20 border-b border-border"
+                          : "border-b border-border last:border-0 hover:bg-muted/30"
+                        return (
+                    <tr key={a.id} className={rowBg}>
                       {editingId === a.id ? (
                         <>
                           <td className="px-3 py-1.5">
@@ -426,7 +436,7 @@ export default function ChartOfAccountsPage() {
                             <Input value={editState.subtype} onChange={e => setEditState(p => ({ ...p, subtype: e.target.value }))} placeholder="optional" className="h-8 rounded-lg text-xs" />
                           </td>
                           <td className="px-3 py-1.5 text-right text-xs text-muted-foreground tabular-nums">
-                            {formatCurrency(a.balance ?? 0, a.currency)}
+                            {isHeader || isSubheader ? "—" : formatCurrency(a.balance ?? 0, a.currency)}
                           </td>
                           <td className="px-3 py-1.5 text-right">
                             <div className="flex items-center justify-end gap-1.5">
@@ -441,19 +451,21 @@ export default function ChartOfAccountsPage() {
                         </>
                       ) : (
                         <>
-                          <td className="px-4 py-2.5 text-xs font-mono text-muted-foreground">{a.code}</td>
-                          <td className="px-4 py-2.5 text-sm font-medium text-foreground">
+                          <td className={`px-4 py-2.5 text-xs font-mono ${isHeader ? "text-foreground font-bold" : isSubheader ? "pl-6 text-foreground font-semibold" : "text-muted-foreground pl-8"}`}>{a.code}</td>
+                          <td className={`px-4 py-2.5 ${isHeader ? "text-sm font-bold text-foreground uppercase tracking-wide" : isSubheader ? "text-sm font-semibold text-foreground italic" : "text-sm font-medium text-foreground"}`}>
                             {a.name}
-                            {a.description && <div className="text-xs text-muted-foreground font-normal mt-0.5">{a.description}</div>}
+                            {a.description && !isHeader && !isSubheader && <div className="text-xs text-muted-foreground font-normal mt-0.5">{a.description}</div>}
                           </td>
                           <td className="px-4 py-2.5">
-                            <span className={`rounded px-1.5 py-0.5 text-[10px] font-semibold ${TYPE_COLOR[type] ?? "bg-muted text-muted-foreground"}`}>
-                              {type}
-                            </span>
+                            {!isHeader && !isSubheader && (
+                              <span className={`rounded px-1.5 py-0.5 text-[10px] font-semibold ${TYPE_COLOR[type] ?? "bg-muted text-muted-foreground"}`}>
+                                {type}
+                              </span>
+                            )}
                           </td>
-                          <td className="px-4 py-2.5 text-xs text-muted-foreground">{a.subtype ?? "—"}</td>
+                          <td className="px-4 py-2.5 text-xs text-muted-foreground">{isHeader || isSubheader ? "" : (a.subtype ?? "—")}</td>
                           <td className={`px-4 py-2.5 text-right text-sm tabular-nums ${(a.balance ?? 0) < 0 ? "text-rose-600" : "text-foreground"}`}>
-                            {formatCurrency(a.balance ?? 0, a.currency)}
+                            {isHeader || isSubheader ? "" : formatCurrency(a.balance ?? 0, a.currency)}
                           </td>
                           <td className="px-4 py-2.5 text-right">
                             <div className="flex items-center justify-end gap-2">
@@ -470,7 +482,8 @@ export default function ChartOfAccountsPage() {
                         </>
                       )}
                     </tr>
-                      ))}
+                        )
+                      })}
                     </>
                   ))}
                 </>

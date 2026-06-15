@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, delete, func, or_
 from sqlalchemy.orm import selectinload
@@ -13,6 +13,7 @@ from app.models.models import (
     Invoice, Contact,
 )
 from app.models.sales import SalesRefund
+from app.models.accounting import Transaction, JournalEntry, Account as AccountModel
 from .gl_helpers import post_gl, revert_gl
 from app.core.audit import log_audit
 from app.schemas.schemas import (
@@ -372,8 +373,45 @@ def _build_events(events: list[dict]) -> dict:
     return {"total": round(running, 2), "events": events}
 
 
+@router.get("/credit-notes/{cn_id}/journal-entries")
+async def credit_note_journal_entries(cn_id: UUID, current_user: dict = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    """Return all GL transactions posted against this credit note."""
+    org_id = current_user["org_id"]
+    result = await db.execute(select(CreditNote).where(CreditNote.id == cn_id, CreditNote.organization_id == org_id))
+    obj = result.scalar_one_or_none()
+    if not obj:
+        raise HTTPException(status_code=404, detail="Credit note not found")
+    txn_result = await db.execute(
+        select(Transaction)
+        .where(Transaction.organization_id == org_id, Transaction.source_id == cn_id)
+        .order_by(Transaction.date)
+    )
+    journal_events = []
+    for txn in txn_result.scalars().all():
+        je_result = await db.execute(
+            select(JournalEntry, AccountModel)
+            .join(AccountModel, AccountModel.id == JournalEntry.account_id)
+            .where(JournalEntry.transaction_id == txn.id)
+        )
+        lines = [
+            {"account_code": acct.code, "account_name": acct.name, "debit": float(je.debit or 0), "credit": float(je.credit or 0)}
+            for je, acct in je_result.all()
+        ]
+        journal_events.append({
+            "ts": txn.date.isoformat() if txn.date else None,
+            "type": "journal", "subtype": txn.source, "ref": txn.reference, "ref_id": str(txn.id),
+            "description": txn.description or "", "lines": lines,
+        })
+    return {"credit_note_id": str(cn_id), "journal_entries": journal_events}
+
+
 @router.get("/credit-notes/{cn_id}/activity")
-async def credit_note_activity(cn_id: UUID, current_user: dict = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+async def credit_note_activity(
+    cn_id: UUID,
+    include_journals: bool = Query(False, description="Include GL journal entries in timeline"),
+    current_user: dict = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
     org_id = current_user["org_id"]
     result = await db.execute(select(CreditNote).where(CreditNote.id == cn_id, CreditNote.organization_id == org_id))
     obj = result.scalar_one_or_none()

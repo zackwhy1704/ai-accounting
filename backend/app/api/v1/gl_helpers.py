@@ -55,7 +55,7 @@ async def post_gl(
     Skips silently if any required account is missing.
     Returns the Transaction or None.
     """
-    # Resolve all accounts first — abort if any missing
+    # Resolve all accounts first — abort if any missing or non-postable
     resolved: list[tuple[Account, float, float]] = []
     for code, debit, credit in entries:
         if debit == 0 and credit == 0:
@@ -63,6 +63,11 @@ async def post_gl(
         acct = await _acct(db, org_id, code)
         if acct is None:
             return None  # Missing COA entry — skip entire transaction
+        if hasattr(acct, 'account_role') and acct.account_role in ("header", "subheader"):
+            raise HTTPException(
+                status_code=400,
+                detail=f"Cannot post journal entries to header/subheader account '{acct.name}' ({acct.code})"
+            )
         resolved.append((acct, debit, credit))
 
     if not resolved:
@@ -93,6 +98,11 @@ async def post_gl_by_id(
         acct = result.scalar_one_or_none()
         if acct is None:
             return None
+        if hasattr(acct, 'account_role') and acct.account_role in ("header", "subheader"):
+            raise HTTPException(
+                status_code=400,
+                detail=f"Cannot post journal entries to header/subheader account '{acct.name}' ({acct.code})"
+            )
         resolved.append((acct, debit, credit))
     if not resolved:
         return None

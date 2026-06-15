@@ -120,10 +120,10 @@ export default function NewPaymentPage() {
       .filter(([id]) => selectedDebitNotes[id] && (Number(dnAllocations[id]) || 0) > 0)
       .map(([debit_note_id, amt]) => ({ debit_note_id, amount: Number(amt) }))
 
-    const effectiveAmount = parseFloat(amount) > 0 ? parseFloat(amount) : totalApplied
-    if (effectiveAmount <= 0) { alert("Please enter a payment amount"); return }
-
     const allocationsList = [...invoiceAllocs, ...dnAllocs]
+    // Amount always equals sum of allocations (no unallocated credit)
+    const paymentAmount = allocationsList.length > 0 ? totalApplied : parseFloat(amount) || 0
+    if (paymentAmount <= 0) { alert("Please allocate at least one invoice or enter a payment amount"); return }
 
     const payload: any = {
       contact_id: customerId,
@@ -132,7 +132,7 @@ export default function NewPaymentPage() {
       payment_method: paymentMethod,
       reference,
       bank_account_id: bankAccountId || undefined,
-      amount: effectiveAmount,
+      amount: paymentAmount,
       currency,
       allocations: allocationsList,
     }
@@ -145,8 +145,7 @@ export default function NewPaymentPage() {
     }
   }
 
-  const effectiveAmount = parseFloat(amount) > 0 ? parseFloat(amount) : totalApplied
-  const isFormValid = !!customerId && !!paymentMethod && effectiveAmount > 0
+  const isFormValid = !!customerId && !!paymentMethod && (totalApplied > 0 || parseFloat(amount) > 0)
 
   const getBalance = (inv: any) =>
     inv.balance ?? inv.amount_due ?? (inv.total - (inv.amount_paid || 0))

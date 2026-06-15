@@ -1,4 +1,4 @@
-from pydantic import BaseModel, field_validator, model_validator
+from pydantic import BaseModel, field_validator, model_validator, Field
 from uuid import UUID
 from datetime import datetime
 
@@ -7,13 +7,26 @@ from datetime import datetime
 class LineItemCreate(BaseModel):
     line_type: str = "goods"  # goods, services
     description: str
-    quantity: float = 1.0
+    quantity: float = Field(default=1.0, ge=0)
     unit_price: float
     tax_rate: float = 0.0
     tax_code_id: UUID | None = None
-    discount: float = 0.0
+    discount: float = Field(default=0.0, ge=0)
     discount_mode: str = "percent"  # percent | amount
     account_id: UUID | None = None
+
+    @field_validator("discount_mode")
+    @classmethod
+    def validate_discount_mode(cls, v: str) -> str:
+        if v not in ("percent", "amount"):
+            raise ValueError("discount_mode must be 'percent' or 'amount'")
+        return v
+
+    @model_validator(mode="after")
+    def validate_percent_discount_range(self) -> "LineItemCreate":
+        if self.discount_mode == "percent" and self.discount > 100:
+            raise ValueError("Percentage discount cannot exceed 100%")
+        return self
 
 class LineItemResponse(BaseModel):
     id: UUID

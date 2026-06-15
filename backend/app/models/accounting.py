@@ -26,10 +26,24 @@ class Account(Base):
     currency: Mapped[str] = mapped_column(String(3), default="SGD")
     is_system: Mapped[bool] = mapped_column(Boolean, default=False)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    account_role: Mapped[str] = mapped_column(String(20), default="account")  # "header" | "subheader" | "account"
+    parent_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("accounts.id"), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
     organization: Mapped["Organization"] = relationship(back_populates="accounts")
     journal_entries: Mapped[list["JournalEntry"]] = relationship(back_populates="account")
+
+    @property
+    def is_header(self) -> bool:
+        return self.account_role == "header"
+
+    @property
+    def is_subheader(self) -> bool:
+        return self.account_role == "subheader"
+
+    @property
+    def is_postable(self) -> bool:
+        return self.account_role == "account"
 
     __table_args__ = (
         UniqueConstraint("organization_id", "code", name="uq_org_account_code"),

@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, delete, update
 from sqlalchemy.orm import selectinload
@@ -231,9 +231,58 @@ async def update_invoice_status(
     return {"status": invoice.status}
 
 
+@router.get("/{invoice_id}/journal-entries")
+async def invoice_journal_entries(
+    invoice_id: UUID,
+    current_user: dict = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Return all GL transactions posted against this invoice, formatted for display."""
+    org_id = current_user["org_id"]
+    result = await db.execute(
+        select(Invoice).where(Invoice.id == invoice_id, Invoice.organization_id == org_id)
+    )
+    invoice = result.scalar_one_or_none()
+    if not invoice:
+        raise HTTPException(status_code=404, detail="Invoice not found")
+
+    txn_result = await db.execute(
+        select(Transaction)
+        .where(Transaction.organization_id == org_id, Transaction.source_id == invoice_id)
+        .order_by(Transaction.date)
+    )
+    journal_events = []
+    for txn in txn_result.scalars().all():
+        je_result = await db.execute(
+            select(JournalEntry, Account)
+            .join(Account, Account.id == JournalEntry.account_id)
+            .where(JournalEntry.transaction_id == txn.id)
+        )
+        lines = [
+            {
+                "account_code": acct.code,
+                "account_name": acct.name,
+                "debit": float(je.debit or 0),
+                "credit": float(je.credit or 0),
+            }
+            for je, acct in je_result.all()
+        ]
+        journal_events.append({
+            "ts": txn.date.isoformat() if txn.date else None,
+            "type": "journal",
+            "subtype": txn.source,
+            "ref": txn.reference,
+            "ref_id": str(txn.id),
+            "description": txn.description or "",
+            "lines": lines,
+        })
+    return {"invoice_id": str(invoice_id), "journal_entries": journal_events}
+
+
 @router.get("/{invoice_id}/activity")
 async def invoice_activity(
     invoice_id: UUID,
+    include_journals: bool = Query(False, description="Include GL journal entries in timeline (default off)"),
     current_user: dict = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
@@ -241,8 +290,8 @@ async def invoice_activity(
 
     Each event represents something that changed the invoice's outstanding balance
     or attached a note: issuance, credit notes, debit notes, payments (via
-    PaymentAllocation), refunds (via the credit note that was refunded), and any
-    raw GL transactions posted against the invoice (status changes, adjustments).
+    PaymentAllocation), refunds (via the credit note that was refunded).
+    Use /journal-entries for the GL double-entry view.
     """
     org_id = current_user["org_id"]
     result = await db.execute(
@@ -325,36 +374,37 @@ async def invoice_activity(
                 "status": refund.status,
             })
 
-    txn_result = await db.execute(
-        select(Transaction)
-        .where(Transaction.organization_id == org_id, Transaction.source_id == invoice_id)
-        .order_by(Transaction.date)
-    )
-    for txn in txn_result.scalars().all():
-        je_result = await db.execute(
-            select(JournalEntry, Account)
-            .join(Account, Account.id == JournalEntry.account_id)
-            .where(JournalEntry.transaction_id == txn.id)
+    if include_journals:
+        txn_result = await db.execute(
+            select(Transaction)
+            .where(Transaction.organization_id == org_id, Transaction.source_id == invoice_id)
+            .order_by(Transaction.date)
         )
-        lines = [
-            {
-                "account_code": acct.code,
-                "account_name": acct.name,
-                "debit": float(je.debit or 0),
-                "credit": float(je.credit or 0),
-            }
-            for je, acct in je_result.all()
-        ]
-        events.append({
-            "ts": txn.date.isoformat() if txn.date else None,
-            "type": "journal",
-            "subtype": txn.source,
-            "ref": txn.reference,
-            "ref_id": str(txn.id),
-            "delta": 0.0,
-            "note": txn.description or "",
-            "lines": lines,
-        })
+        for txn in txn_result.scalars().all():
+            je_result = await db.execute(
+                select(JournalEntry, Account)
+                .join(Account, Account.id == JournalEntry.account_id)
+                .where(JournalEntry.transaction_id == txn.id)
+            )
+            lines = [
+                {
+                    "account_code": acct.code,
+                    "account_name": acct.name,
+                    "debit": float(je.debit or 0),
+                    "credit": float(je.credit or 0),
+                }
+                for je, acct in je_result.all()
+            ]
+            events.append({
+                "ts": txn.date.isoformat() if txn.date else None,
+                "type": "journal",
+                "subtype": txn.source,
+                "ref": txn.reference,
+                "ref_id": str(txn.id),
+                "delta": 0.0,
+                "note": txn.description or "",
+                "lines": lines,
+            })
 
     events.sort(key=lambda e: (e.get("ts") or "", 0 if e["type"] == "issued" else 1))
 

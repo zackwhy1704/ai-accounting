@@ -751,6 +751,7 @@ async def payment_summary_report(
 async def transaction_list_report(
     start_date: str = Query(..., description="YYYY-MM-DD"),
     end_date: str = Query(..., description="YYYY-MM-DD"),
+    account_id: UUID | None = Query(None, description="Filter to transactions touching this account"),
     db: AsyncSession = Depends(get_db),
     current_user: dict = Depends(get_current_user),
 ):
@@ -759,7 +760,7 @@ async def transaction_list_report(
     start = datetime.fromisoformat(start_date).replace(tzinfo=timezone.utc)
     end = datetime.fromisoformat(end_date).replace(hour=23, minute=59, second=59, tzinfo=timezone.utc)
 
-    result = await db.execute(
+    txn_query = (
         select(Transaction)
         .where(
             Transaction.organization_id == org_id,
@@ -769,6 +770,15 @@ async def transaction_list_report(
         )
         .order_by(Transaction.date)
     )
+    if account_id:
+        matching_txn_ids = (
+            select(JournalEntry.transaction_id)
+            .where(JournalEntry.account_id == account_id)
+            .scalar_subquery()
+        )
+        txn_query = txn_query.where(Transaction.id.in_(matching_txn_ids))
+
+    result = await db.execute(txn_query)
     transactions = result.scalars().all()
 
     total_debit = 0.0

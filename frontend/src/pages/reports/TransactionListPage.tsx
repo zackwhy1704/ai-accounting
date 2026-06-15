@@ -34,35 +34,32 @@ export default function TransactionListPage() {
   const thisYear = new Date().getFullYear()
   const [fromDate, setFromDate] = useState(`${thisYear}-01-01`)
   const [toDate, setToDate] = useState(new Date().toISOString().slice(0, 10))
-  const [queryParams, setQueryParams] = useState({ fromDate: `${thisYear}-01-01`, toDate: new Date().toISOString().slice(0, 10) })
+  const [queryParams, setQueryParams] = useState({ fromDate: `${thisYear}-01-01`, toDate: new Date().toISOString().slice(0, 10), accountId: "all" })
   const [search, setSearch] = useState("")
   const [accountFilter, setAccountFilter] = useState("all")
   const { data: accounts = [] } = useAccounts()
 
   const { data, isLoading, isFetching } = useQuery<TransactionListReport>({
     queryKey: ["report-transaction-list", queryParams],
-    queryFn: () => api.get(`/reports/transaction-list?start_date=${queryParams.fromDate}&end_date=${queryParams.toDate}`).then(r => r.data),
+    queryFn: () => {
+      let url = `/reports/transaction-list?start_date=${queryParams.fromDate}&end_date=${queryParams.toDate}`
+      if (queryParams.accountId !== "all") url += `&account_id=${queryParams.accountId}`
+      return api.get(url).then(r => r.data)
+    },
   })
 
   const flatRows = useMemo(() => {
     const all = data?.transactions.flatMap(t => t.entries.map(e => ({ ...t, ...e }))) ?? []
-    let rows = all
-    if (accountFilter !== "all") {
-      const acct = (accounts as any[]).find((a: any) => a.id === accountFilter)
-      if (acct) {
-        rows = rows.filter(r => r.account_code === acct.code || r.account_name === acct.name)
-      }
-    }
-    if (!search.trim()) return rows
+    if (!search.trim()) return all
     const q = search.toLowerCase()
-    return rows.filter(r =>
+    return all.filter(r =>
       (r.description ?? "").toLowerCase().includes(q) ||
       (r.reference ?? "").toLowerCase().includes(q) ||
       (r.account_code ?? "").toLowerCase().includes(q) ||
       (r.account_name ?? "").toLowerCase().includes(q) ||
       (r.source ?? "").toLowerCase().includes(q)
     )
-  }, [data, search, accountFilter, accounts])
+  }, [data, search])
 
   return (
     <div className="flex flex-col gap-4">
@@ -99,7 +96,7 @@ export default function TransactionListPage() {
             <label className="text-xs font-medium text-muted-foreground">To Date</label>
             <Input type="date" value={toDate} onChange={e => setToDate(e.target.value)} className="h-9 text-sm w-48" />
           </div>
-          <Button type="button" onClick={() => setQueryParams({ fromDate, toDate })} className="h-9 bg-gradient-to-r from-[#7C9DFF] to-[#4D63FF] px-4 text-sm text-white" disabled={isFetching}>
+          <Button type="button" onClick={() => setQueryParams({ fromDate, toDate, accountId: accountFilter })} className="h-9 bg-gradient-to-r from-[#7C9DFF] to-[#4D63FF] px-4 text-sm text-white" disabled={isFetching}>
             {isFetching ? <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" /> : null}
             Update
           </Button>

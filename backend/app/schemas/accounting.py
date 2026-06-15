@@ -1,4 +1,4 @@
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, field_validator, model_validator
 from uuid import UUID
 from datetime import datetime
 
@@ -11,6 +11,8 @@ class AccountCreate(BaseModel):
     subtype: str | None = None
     description: str | None = None
     currency: str = "SGD"
+    account_role: str = "account"  # "header" | "subheader" | "account"
+    parent_id: UUID | None = None
 
 class AccountUpdate(BaseModel):
     code: str | None = None
@@ -19,6 +21,8 @@ class AccountUpdate(BaseModel):
     subtype: str | None = None
     description: str | None = None
     currency: str | None = None
+    account_role: str | None = None
+    parent_id: UUID | None = None
 
 class AccountResponse(BaseModel):
     id: UUID
@@ -29,6 +33,8 @@ class AccountResponse(BaseModel):
     currency: str
     is_system: bool
     description: str | None = None
+    account_role: str = "account"
+    parent_id: UUID | None = None
     created_at: datetime
     model_config = {"from_attributes": True}
 
@@ -143,6 +149,16 @@ class ManualJournalCreate(BaseModel):
         if len(v) < 2:
             raise ValueError("A journal entry requires at least two lines")
         return v
+
+    @model_validator(mode="after")
+    def validate_balanced(self) -> "ManualJournalCreate":
+        total_debit = round(sum(l.debit for l in self.lines), 2)
+        total_credit = round(sum(l.credit for l in self.lines), 2)
+        if abs(total_debit - total_credit) > 0.01:
+            raise ValueError(
+                f"Journal entry does not balance: debit={total_debit}, credit={total_credit}"
+            )
+        return self
 
 
 class ManualJournalUpdate(BaseModel):

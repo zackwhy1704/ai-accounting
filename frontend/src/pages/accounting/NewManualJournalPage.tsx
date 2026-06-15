@@ -45,13 +45,13 @@ export default function NewManualJournalPage() {
   const isBalanced = Math.abs(totalDebit - totalCredit) < 0.01
   const hasLines = lines.every(l => l.account_id)
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!isBalanced) {
       toast("Debits must equal credits", "warning")
       return
     }
-    createJournal.mutate(
-      {
+    try {
+      await createJournal.mutateAsync({
         date: new Date(date).toISOString(),
         reference: reference || null,
         description: description || null,
@@ -63,9 +63,11 @@ export default function NewManualJournalPage() {
           credit: parseFloat(l.credit) || 0,
           contact_id: l.contact_id || null,
         })),
-      },
-      { onSuccess: () => navigate("/accounting/journals") }
-    )
+      })
+      navigate("/accounting/journals")
+    } catch (err: any) {
+      toast(err?.response?.data?.detail ?? "Failed to save journal entry", "warning")
+    }
   }
 
   return (
