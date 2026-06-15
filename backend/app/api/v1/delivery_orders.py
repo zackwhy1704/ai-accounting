@@ -95,7 +95,7 @@ async def create_delivery_order(data: DeliveryOrderCreate, current_user: dict = 
             sort_order=i,
         ))
     await db.commit()
-    await log_audit(db, org_id, current_user["sub"], "create", "delivery_order", do_obj.id)
+    await log_audit(db, org_id, current_user["sub"], "create", "delivery_order", obj.id)
     result = await db.execute(
         select(DeliveryOrder).options(selectinload(DeliveryOrder.line_items)).where(DeliveryOrder.id == obj.id)
     )

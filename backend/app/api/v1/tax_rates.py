@@ -84,7 +84,7 @@ async def create_tax_rate(
     )
     db.add(tax_rate)
     await db.commit()
-    await log_audit(db, current_user["org_id"], current_user["sub"], "create", "tax_rate", tr.id)
+    await log_audit(db, current_user["org_id"], current_user["sub"], "create", "tax_rate", tax_rate.id)
     await db.refresh(tax_rate)
     return tax_rate
 

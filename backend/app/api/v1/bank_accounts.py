@@ -95,7 +95,7 @@ async def create_bank_account(
     )
     db.add(account)
     await db.commit()
-    await log_audit(db, current_user["org_id"], current_user["sub"], "create", "bank_account", acct.id)
+    await log_audit(db, current_user["org_id"], current_user["sub"], "create", "bank_account", account.id)
     await db.refresh(account)
     return account
 

@@ -417,7 +417,7 @@ async def remove_single_application(
         await _recalc_bill_status(bill)
 
     pcn.credit_applied = max(0.0, float(pcn.credit_applied or 0) - float(app.amount))
-    pcn.status = "issued" if float(pcn.credit_applied) > 0 else "issued"
+    pcn.status = "applied" if float(pcn.credit_applied) >= float(pcn.total or 0) else "issued"
 
     await db.delete(app)
     await db.commit()

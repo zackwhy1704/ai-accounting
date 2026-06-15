@@ -125,6 +125,7 @@ async def create_sales_refund(data: SalesRefundCreate, current_user: dict = Depe
     )
 
     await db.commit()
+    await log_audit(db, org_id, current_user["sub"], "create", "sales_refund", obj.id)
     await db.refresh(obj)
     return obj
 

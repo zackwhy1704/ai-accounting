@@ -89,7 +89,7 @@ async def create_debit_note(data: DebitNoteCreate, current_user: dict = Depends(
         organization_id=org_id, contact_id=data.contact_id, invoice_id=data.invoice_id,
         debit_note_number=dn_number, issue_date=data.issue_date,
         reference=data.reference, subtotal=subtotal, discount_amount=discount_total,
-        tax_amount=tax_amount, total=subtotal - discount_total + tax_amount,
+        tax_amount=tax_amount, total=subtotal + tax_amount,
         currency=data.currency, notes=data.notes,
         billing_address_line1=data.billing_address_line1,
         billing_address_line2=data.billing_address_line2,
@@ -119,8 +119,8 @@ async def create_debit_note(data: DebitNoteCreate, current_user: dict = Depends(
         ))
 
     # GL: Dr AR / Cr Revenue (debit note increases what customer owes)
-    dn_total = float(subtotal - discount_total + tax_amount)
-    dn_subtotal = float(subtotal - discount_total)
+    dn_total = float(subtotal + tax_amount)
+    dn_subtotal = float(subtotal)
     entries = [
         ("1100", dn_total, 0),       # Dr AR
         ("4000", 0, dn_subtotal),    # Cr Revenue

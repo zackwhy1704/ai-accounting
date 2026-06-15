@@ -79,7 +79,7 @@ async def create_quotation(data: QuotationCreate, current_user: dict = Depends(r
         quotation_number=quotation_number, issue_date=data.issue_date,
         expiry_date=data.expiry_date, reference=data.reference,
         subtotal=subtotal, discount_amount=discount_total, tax_amount=tax_amount,
-        total=subtotal - discount_total + tax_amount, currency=data.currency,
+        total=subtotal + tax_amount, currency=data.currency,
         notes=data.notes, terms=data.terms,
         billing_address_line1=data.billing_address_line1, billing_address_line2=data.billing_address_line2,
         billing_city=data.billing_city, billing_state=data.billing_state,
@@ -99,7 +99,7 @@ async def create_quotation(data: QuotationCreate, current_user: dict = Depends(r
             amount=after_disc, account_id=item.account_id, sort_order=i,
         ))
     await db.commit()
-    await log_audit(db, org_id, current_user["sub"], "create", "quotation", quot.id)
+    await log_audit(db, org_id, current_user["sub"], "create", "quotation", obj.id)
     result = await db.execute(
         select(Quotation).options(selectinload(Quotation.line_items)).where(Quotation.id == obj.id)
     )
@@ -176,7 +176,7 @@ async def update_quotation(qid: UUID, data: QuotationUpdate, current_user: dict 
         obj.subtotal = subtotal
         obj.discount_amount = discount_total
         obj.tax_amount = tax_amount
-        obj.total = subtotal - discount_total + tax_amount
+        obj.total = subtotal + tax_amount
 
     await db.commit()
     result2 = await db.execute(
@@ -279,7 +279,7 @@ async def update_quotation_status(qid: UUID, status: str, current_user: dict = D
         raise HTTPException(status_code=400, detail=f"Invalid status. Must be one of: {', '.join(valid)}")
     obj.status = status
     await db.commit()
-    await log_audit(db, current_user["org_id"], current_user["sub"], "status_change", "quotation", quot_id)
+    await log_audit(db, current_user["org_id"], current_user["sub"], "status_change", "quotation", qid)
     return {"id": str(qid), "status": status}
 
 
@@ -293,7 +293,7 @@ async def delete_quotation(qid: UUID, current_user: dict = Depends(require_write
         raise HTTPException(status_code=400, detail="Only draft, declined or void quotations can be deleted")
     await db.delete(obj)
     await db.commit()
-    await log_audit(db, current_user["org_id"], current_user["sub"], "delete", "quotation", quot_id)
+    await log_audit(db, current_user["org_id"], current_user["sub"], "delete", "quotation", qid)
 
 
 def _build_events(events: list[dict]) -> dict:

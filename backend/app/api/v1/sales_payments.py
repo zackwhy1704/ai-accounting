@@ -80,11 +80,14 @@ async def create_sales_payment(data: SalesPaymentCreate, current_user: dict = De
     else:
         pmt_number = await next_sequence_number(db, SalesPayment, SalesPayment.payment_number, org_id, "PMT")
 
+    # Derive amount from allocations so payment total always equals sum of allocated amounts
+    effective_amount = round(sum(float(a.amount) for a in data.allocations), 2) if data.allocations else float(data.amount)
+
     obj = SalesPayment(
         organization_id=org_id, contact_id=data.contact_id,
         payment_number=pmt_number, payment_date=data.payment_date,
         payment_method=data.payment_method, reference=data.reference,
-        amount=data.amount, bank_account_id=data.bank_account_id,
+        amount=effective_amount, bank_account_id=data.bank_account_id,
         currency=data.currency, notes=data.notes, status="completed",
     )
     db.add(obj)
@@ -117,7 +120,7 @@ async def create_sales_payment(data: SalesPaymentCreate, current_user: dict = De
         db, org_id, data.payment_date,
         f"Payment received {obj.payment_number}",
         obj.payment_number, "payment", obj.id,
-        [("1000", float(data.amount), 0), ("1100", 0, float(data.amount))],
+        [("1000", effective_amount, 0), ("1100", 0, effective_amount)],
     )
 
     await db.commit()

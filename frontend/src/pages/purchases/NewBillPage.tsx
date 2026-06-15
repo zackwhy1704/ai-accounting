@@ -130,8 +130,6 @@ export default function NewBillPage() {
   const handleSave = async () => {
     if (!contactId) { toast("Please select a supplier", "warning"); return }
     if (!issueDate) { toast("Please enter a bill date", "warning"); return }
-    const missingAccount = lineItems.findIndex(li => !li.account_id)
-    if (missingAccount >= 0) { toast(`Line ${missingAccount + 1}: please select an account before saving`, "warning"); return }
     try {
       await createBill.mutateAsync({
         contact_id: contactId,

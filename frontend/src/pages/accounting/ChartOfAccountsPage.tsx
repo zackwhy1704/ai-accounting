@@ -375,14 +375,39 @@ export default function ChartOfAccountsPage() {
                 </tr>
               )}
 
-              {sortedGroups.map(([type, accs]) => (
+              {sortedGroups.map(([type, accs]) => {
+                // Group by subtype within each account type
+                const bySubtype: Record<string, Account[]> = {}
+                const noSubtype: Account[] = []
+                accs.forEach(a => {
+                  if (a.subtype) {
+                    if (!bySubtype[a.subtype]) bySubtype[a.subtype] = []
+                    bySubtype[a.subtype].push(a)
+                  } else {
+                    noSubtype.push(a)
+                  }
+                })
+                const subtypeGroups: [string | null, Account[]][] = [
+                  ...Object.entries(bySubtype),
+                  ...(noSubtype.length > 0 ? [[null, noSubtype] as [null, Account[]]] : []),
+                ]
+                return (
                 <>
-                  <tr key={`group-${type}`} className="bg-muted/20">
-                    <td colSpan={6} className="px-4 py-2 text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                  <tr key={`group-${type}`} className="bg-muted/30">
+                    <td colSpan={6} className="px-4 py-2.5 text-xs font-bold text-foreground uppercase tracking-widest border-b border-border">
                       {type}
                     </td>
                   </tr>
-                  {accs.map(a => (
+                  {subtypeGroups.map(([subtype, subAccs]) => (
+                    <>
+                      {subtype && (
+                        <tr key={`subtype-${type}-${subtype}`} className="bg-muted/10">
+                          <td colSpan={6} className="px-6 py-1.5 text-xs font-semibold text-muted-foreground italic">
+                            {subtype}
+                          </td>
+                        </tr>
+                      )}
+                      {subAccs.map(a => (
                     <tr key={a.id} className="border-b border-border last:border-0 hover:bg-muted/30">
                       {editingId === a.id ? (
                         <>
@@ -445,9 +470,12 @@ export default function ChartOfAccountsPage() {
                         </>
                       )}
                     </tr>
+                      ))}
+                    </>
                   ))}
                 </>
-              ))}
+                )
+              })}
             </tbody>
           </table>
         )}

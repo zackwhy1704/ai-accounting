@@ -12,6 +12,7 @@ from app.models.models import (
     CreditApplication as CreditApplicationModel,
     Invoice, Contact,
 )
+from app.models.sales import SalesRefund
 from .gl_helpers import post_gl, revert_gl
 from app.core.audit import log_audit
 from app.schemas.schemas import (
@@ -86,7 +87,7 @@ async def create_credit_note(data: CreditNoteCreate, current_user: dict = Depend
     else:
         cn_number = await next_sequence_number(db, CreditNote, CreditNote.credit_note_number, org_id, "CN")
     subtotal, discount_total, tax_amount = calc_totals(data.line_items)
-    total = subtotal - discount_total + tax_amount
+    total = subtotal + tax_amount
 
     obj = CreditNote(
         organization_id=org_id, contact_id=data.contact_id, invoice_id=data.invoice_id,
@@ -197,7 +198,7 @@ async def update_credit_note(cn_id: UUID, data: CreditNoteUpdate, current_user: 
         obj.subtotal = subtotal
         obj.discount_amount = discount_total
         obj.tax_amount = tax_amount
-        obj.total = subtotal - discount_total + tax_amount
+        obj.total = subtotal + tax_amount
 
     if "credit_applications" in update_data:
         apps_data = update_data.pop("credit_applications")
@@ -393,5 +394,14 @@ async def credit_note_activity(cn_id: UUID, current_user: dict = Depends(get_cur
             "ts": app.applied_at.isoformat() if app.applied_at else None,
             "type": "payment", "ref": inv.invoice_number, "ref_id": str(inv.id),
             "delta": -float(app.amount or 0), "note": f"Applied to invoice {inv.invoice_number}", "status": inv.status,
+        })
+    refunds_result = await db.execute(
+        select(SalesRefund).where(SalesRefund.credit_note_id == cn_id)
+    )
+    for refund in refunds_result.scalars().all():
+        events.append({
+            "ts": refund.refund_date.isoformat() if refund.refund_date else None,
+            "type": "refund", "ref": refund.refund_number, "ref_id": str(refund.id),
+            "delta": -float(refund.amount or 0), "note": f"Refund {refund.refund_number}", "status": refund.status,
         })
     return _build_events(events)

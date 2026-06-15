@@ -105,7 +105,7 @@ async def create_purchase_debit_note(
         subtotal=subtotal,
         discount_amount=discount_total,
         tax_amount=tax_amount,
-        total=subtotal - discount_total + tax_amount,
+        total=subtotal + tax_amount,
         currency=data.currency,
         notes=data.notes,
     )
@@ -131,8 +131,8 @@ async def create_purchase_debit_note(
         ))
 
     # GL: Dr AP / Cr Expense reversal (buyer issues debit note to reduce payable)
-    dn_total = float(subtotal - discount_total + tax_amount)
-    dn_subtotal = float(subtotal - discount_total)
+    dn_total = float(subtotal + tax_amount)
+    dn_subtotal = float(subtotal)
     entries = [
         ("2000", dn_total, 0),       # Dr AP (reduces payable)
         ("5000", 0, dn_subtotal),    # Cr Expense

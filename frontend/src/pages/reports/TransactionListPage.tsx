@@ -4,8 +4,10 @@ import { useQuery } from "@tanstack/react-query"
 import { Card } from "../../components/ui/card"
 import { Button } from "../../components/ui/button"
 import { Input } from "../../components/ui/input"
+import { SearchableSelect } from "../../components/ui/searchable-select"
 import { formatCurrency, downloadCSV, printReport } from "../../lib/utils"
 import api from "../../lib/api"
+import { useAccounts } from "../../lib/hooks"
 
 interface TransactionEntry {
   account_code: string
@@ -34,6 +36,8 @@ export default function TransactionListPage() {
   const [toDate, setToDate] = useState(new Date().toISOString().slice(0, 10))
   const [queryParams, setQueryParams] = useState({ fromDate: `${thisYear}-01-01`, toDate: new Date().toISOString().slice(0, 10) })
   const [search, setSearch] = useState("")
+  const [accountFilter, setAccountFilter] = useState("all")
+  const { data: accounts = [] } = useAccounts()
 
   const { data, isLoading, isFetching } = useQuery<TransactionListReport>({
     queryKey: ["report-transaction-list", queryParams],
@@ -42,16 +46,23 @@ export default function TransactionListPage() {
 
   const flatRows = useMemo(() => {
     const all = data?.transactions.flatMap(t => t.entries.map(e => ({ ...t, ...e }))) ?? []
-    if (!search.trim()) return all
+    let rows = all
+    if (accountFilter !== "all") {
+      const acct = (accounts as any[]).find((a: any) => a.id === accountFilter)
+      if (acct) {
+        rows = rows.filter(r => r.account_code === acct.code || r.account_name === acct.name)
+      }
+    }
+    if (!search.trim()) return rows
     const q = search.toLowerCase()
-    return all.filter(r =>
+    return rows.filter(r =>
       (r.description ?? "").toLowerCase().includes(q) ||
       (r.reference ?? "").toLowerCase().includes(q) ||
       (r.account_code ?? "").toLowerCase().includes(q) ||
       (r.account_name ?? "").toLowerCase().includes(q) ||
       (r.source ?? "").toLowerCase().includes(q)
     )
-  }, [data, search])
+  }, [data, search, accountFilter, accounts])
 
   return (
     <div className="flex flex-col gap-4">
@@ -92,6 +103,17 @@ export default function TransactionListPage() {
             {isFetching ? <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" /> : null}
             Update
           </Button>
+          <div className="w-64">
+            <SearchableSelect
+              options={[
+                { value: "all", label: "All Accounts" },
+                ...(accounts as any[]).map((a: any) => ({ value: a.id, label: `${a.code} – ${a.name}` })),
+              ]}
+              value={accountFilter}
+              onChange={setAccountFilter}
+              placeholder="Filter by account…"
+            />
+          </div>
           <div className="relative flex-1 min-w-[200px]">
             <Search className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
             <Input
