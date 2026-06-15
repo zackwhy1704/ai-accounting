@@ -1,11 +1,14 @@
-import { useState } from "react"
-import { Plus, Trash2, Loader2, Pencil } from "lucide-react"
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
+import { useEffect, useState } from "react"
+import { Plus, Trash2, Loader2, Pencil, Search } from "lucide-react"
+import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { useNavigate } from "react-router-dom"
 import { Card } from "../../components/ui/card"
 import { Button } from "../../components/ui/button"
+import { Input } from "../../components/ui/input"
 import { useToast } from "../../components/ui/toast"
 import { formatCurrency, formatDate } from "../../lib/utils"
+import { useFixedAssetsPage, useDebounce } from "../../lib/hooks"
+import { PaginationControls } from "../../components/ui/pagination-controls"
 import api from "../../lib/api"
 
 interface FixedAsset {
@@ -31,11 +34,14 @@ export default function FixedAssetsPage() {
   const { toast } = useToast()
   const qc = useQueryClient()
   const [tab, setTab] = useState<Tab>("registered")
+  const [search, setSearch] = useState("")
+  const [page, setPage] = useState(1)
+  const debouncedSearch = useDebounce(search, 300)
 
-  const { data: assets = [], isLoading } = useQuery<FixedAsset[]>({
-    queryKey: ["fixed-assets", tab],
-    queryFn: () => api.get(`/fixed-assets?status=${tab}`).then(r => r.data),
-  })
+  const { data: assetsPage, isLoading } = useFixedAssetsPage({ search: debouncedSearch, status: tab, page, limit: 50 })
+  const assets = assetsPage?.items ?? []
+
+  useEffect(() => { setPage(1) }, [debouncedSearch, tab])
 
   const deleteMutation = useMutation({
     mutationFn: (id: string) => api.delete(`/fixed-assets/${id}`),
@@ -78,6 +84,12 @@ export default function FixedAssetsPage() {
       </div>
 
       <Card className="rounded-2xl border-border bg-card shadow-[0_0_0_1px_rgba(15,23,42,0.06),0_18px_55px_rgba(2,6,23,0.08)] overflow-hidden">
+        <div className="p-4">
+          <div className="relative max-w-sm">
+            <Search className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+            <Input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search assets..." className="h-10 rounded-xl pl-9 text-sm" />
+          </div>
+        </div>
         {isLoading ? (
           <div className="py-12 text-center text-sm text-muted-foreground">
             <Loader2 className="h-4 w-4 animate-spin inline" />
@@ -90,6 +102,7 @@ export default function FixedAssetsPage() {
             </div>
           </div>
         ) : (
+          <>
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-border bg-muted/40">
@@ -138,6 +151,8 @@ export default function FixedAssetsPage() {
               ))}
             </tbody>
           </table>
+          <PaginationControls page={page} pages={assetsPage?.pages ?? 1} total={assetsPage?.total ?? 0} limit={50} onPageChange={setPage} />
+          </>
         )}
       </Card>
     </div>

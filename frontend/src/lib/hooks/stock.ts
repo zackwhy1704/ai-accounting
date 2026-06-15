@@ -1,5 +1,11 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import api from '../api'
+import { makeListHook, type ListParams } from './_shared'
+
+const _stockAdjustments = makeListHook<any>('/stock-adjustments', 'stock-adjustments')
+export function useStockAdjustmentsPage(params?: ListParams) { return _stockAdjustments.usePage(params) }
+const _stockTransfers = makeListHook<any>('/stock-transfers', 'stock-transfers')
+export function useStockTransfersPage(params?: ListParams) { return _stockTransfers.usePage(params) }
 
 export function useStockAdjustment(id: string | undefined) {
   return useQuery({ queryKey: ['stock-adjustment', id], queryFn: () => api.get(`/stock-adjustments/${id}`).then(r => r.data), enabled: !!id })

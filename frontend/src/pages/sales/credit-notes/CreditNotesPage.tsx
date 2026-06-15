@@ -1,8 +1,9 @@
-import { useMemo, useState } from "react"
+import { useMemo, useState, useEffect } from "react"
 import { useNavigate } from "react-router-dom"
 import { Plus, Search, ArrowRightLeft, Pencil, Send, XCircle, RotateCcw, Trash2, Undo2 } from "lucide-react"
 import { RowActionsMenu } from "../../../components/ui/row-actions"
-import { useCreditNotes, useContacts, useInvoices, useUpdateCreditNoteStatus, useDeleteCreditNote, useRemoveCreditApplications } from "../../../lib/hooks"
+import { useCreditNotesPage, useContacts, useInvoices, useUpdateCreditNoteStatus, useDeleteCreditNote, useRemoveCreditApplications, useDebounce } from "../../../lib/hooks"
+import { PaginationControls } from "../../../components/ui/pagination-controls"
 import { formatCurrency, formatDate, cn } from "../../../lib/utils"
 import { useTheme } from "../../../lib/theme"
 import { useToast } from "../../../components/ui/toast"
@@ -30,10 +31,13 @@ export default function CreditNotesPage() {
   const patch = (id: string, status: string, label?: string) => updateStatus.mutate({ id, status }, { onSuccess: () => label && toast(label, "success"), onError: (e: any) => toast(e?.response?.data?.detail ?? `Failed to update status`, "warning") })
   const [tab, setTab] = useState("all")
   const [search, setSearch] = useState("")
+  const [page, setPage] = useState(1)
+  const debouncedSearch = useDebounce(search, 300)
   const [contactFilter, setContactFilter] = useState("all")
   const [dateFrom, setDateFrom] = useState("")
   const [dateTo, setDateTo] = useState("")
-  const { data: creditNotes = [], isLoading } = useCreditNotes(tab === "all" ? undefined : tab)
+  const { data: creditNotesPage, isLoading } = useCreditNotesPage({ status: tab === "all" ? undefined : tab, search: debouncedSearch, page, limit: 50 })
+  const creditNotes = creditNotesPage?.items ?? []
   const { data: contacts = [] } = useContacts()
   const { data: invoices = [] } = useInvoices()
   const { t } = useTheme()
@@ -58,20 +62,15 @@ export default function CreditNotesPage() {
     return m
   }, [invoices])
 
+  useEffect(() => { setPage(1) }, [debouncedSearch, tab])
+
   const rows = useMemo(() => {
     let filtered = creditNotes
-    if (search.trim()) {
-      const q = search.toLowerCase()
-      filtered = filtered.filter(i =>
-        (i.credit_note_number ?? "").toLowerCase().includes(q) ||
-        (contactMap.get(i.contact_id) ?? "").toLowerCase().includes(q)
-      )
-    }
     if (contactFilter !== "all") filtered = filtered.filter(i => i.contact_id === contactFilter)
     if (dateFrom) filtered = filtered.filter(i => (i.issue_date || "") >= dateFrom)
     if (dateTo) filtered = filtered.filter(i => (i.issue_date || "") <= dateTo)
     return filtered
-  }, [creditNotes, search, contactMap, contactFilter, dateFrom, dateTo])
+  }, [creditNotes, contactMap, contactFilter, dateFrom, dateTo])
 
   return (
     <div className="flex flex-col gap-4">
@@ -180,6 +179,7 @@ export default function CreditNotesPage() {
                     ))}
                   </TableBody>
                 </Table>
+                <PaginationControls page={page} pages={creditNotesPage?.pages ?? 1} total={creditNotesPage?.total ?? 0} limit={50} onPageChange={setPage} />
               </div>
             )}
           </div>

@@ -1,9 +1,10 @@
-import { useMemo, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { useQueryClient } from "@tanstack/react-query"
 import { useNavigate } from "react-router-dom"
 import { ViewDetailSheet } from "../../components/ui/view-detail-sheet"
 import { Plus, Search, ClipboardList, FileText, Pencil, Trash2, PackageCheck, Receipt } from "lucide-react"
-import { useGoodsReceivedNotes, useContacts, useBills } from "../../lib/hooks"
+import { useGoodsReceivedNotesPage, useContacts, useBills, useDebounce } from "../../lib/hooks"
+import { PaginationControls } from "../../components/ui/pagination-controls"
 import api from "../../lib/api"
 import { formatDate, cn } from "../../lib/utils"
 import { useToast } from "../../components/ui/toast"
@@ -35,13 +36,18 @@ export default function GoodsReceivedNotesPage() {
   const { toast } = useToast()
   const [tab, setTab] = useState("all")
   const [search, setSearch] = useState("")
+  const [page, setPage] = useState(1)
+  const debouncedSearch = useDebounce(search, 300)
   const [contactFilter, setContactFilter] = useState("all")
   const [dateFrom, setDateFrom] = useState("")
   const [dateTo, setDateTo] = useState("")
-  const { data: grns = [], isLoading } = useGoodsReceivedNotes()
+  const { data: grnsPage, isLoading } = useGoodsReceivedNotesPage({ status: tab === "all" ? undefined : tab, search: debouncedSearch, page, limit: 50 })
+  const grns = grnsPage?.items ?? []
   const { data: contacts = [] } = useContacts()
   const { data: bills = [] } = useBills()
   const [viewItem, setViewItem] = useState<typeof grns[0] | null>(null)
+
+  useEffect(() => { setPage(1) }, [debouncedSearch])
 
   const vendors = useMemo(() => contacts.filter((c: any) => c.type === "supplier" || c.type === "vendor" || c.type === "both"), [contacts])
 
@@ -59,19 +65,11 @@ export default function GoodsReceivedNotesPage() {
 
   const rows = useMemo(() => {
     let filtered = grns
-    if (tab !== "all") filtered = filtered.filter((grn: any) => grn.status === tab)
-    if (search.trim()) {
-      const q = search.toLowerCase()
-      filtered = filtered.filter((grn: any) =>
-        grn.grn_number.toLowerCase().includes(q) ||
-        (contactMap.get(grn.contact_id) ?? "").toLowerCase().includes(q)
-      )
-    }
     if (contactFilter !== "all") filtered = filtered.filter((grn: any) => grn.contact_id === contactFilter)
     if (dateFrom) filtered = filtered.filter((grn: any) => (grn.received_date || "") >= dateFrom)
     if (dateTo) filtered = filtered.filter((grn: any) => (grn.received_date || "") <= dateTo)
     return filtered
-  }, [grns, tab, search, contactMap, contactFilter, dateFrom, dateTo])
+  }, [grns, contactMap, contactFilter, dateFrom, dateTo])
 
   return (
     <div className="flex flex-col gap-4">
@@ -176,6 +174,7 @@ export default function GoodsReceivedNotesPage() {
                     ))}
                   </TableBody>
                 </Table>
+                <PaginationControls page={page} pages={grnsPage?.pages ?? 1} total={grnsPage?.total ?? 0} limit={50} onPageChange={setPage} />
               </div>
             )}
           </div>

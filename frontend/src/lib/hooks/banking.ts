@@ -5,6 +5,11 @@ import { makeListHook, type ListParams } from './_shared'
 const _bankAccounts = makeListHook<any>('/bank-accounts', 'bank-accounts')
 export function useBankAccounts(arg?: string | ListParams) { return _bankAccounts.useList(arg) }
 export function useBankAccountsPage(params?: ListParams) { return _bankAccounts.usePage(params) }
+const _bankTransactions = makeListHook<any>('/bank-transactions', 'bank-transactions')
+export function useBankTransactionsPage(params?: ListParams) { return _bankTransactions.usePage(params) }
+const _bankTransfers = makeListHook<any>('/bank-transfers', 'bank-transfers')
+export function useBankTransfersPage(params?: ListParams) { return _bankTransfers.usePage(params) }
+
 export function useBankAccount(id: string | undefined) {
   return useQuery({ queryKey: ['bank-account', id], queryFn: () => api.get(`/bank-accounts/${id}`).then(r => r.data), enabled: !!id })
 }

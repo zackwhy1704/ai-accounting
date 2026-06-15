@@ -1,8 +1,10 @@
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { useNavigate } from "react-router-dom"
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
+import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { Plus, Search, Landmark, Pencil } from "lucide-react"
 import { RowActionsMenu } from "../../components/ui/row-actions"
+import { useBankAccountsPage, useDebounce } from "../../lib/hooks"
+import { PaginationControls } from "../../components/ui/pagination-controls"
 import api from "../../lib/api"
 import { formatCurrency, cn } from "../../lib/utils"
 import { Card } from "../../components/ui/card"
@@ -43,14 +45,13 @@ export default function BankAccountsPage() {
   const queryClient = useQueryClient()
   const { toast } = useToast()
   const [search, setSearch] = useState("")
+  const [page, setPage] = useState(1)
+  const debouncedSearch = useDebounce(search, 300)
 
-  const { data: accounts = [], isLoading } = useQuery<BankAccount[]>({
-    queryKey: ["bank-accounts"],
-    queryFn: async () => {
-      const res = await api.get("/bank-accounts")
-      return res.data
-    },
-  })
+  const { data: accountsPage, isLoading } = useBankAccountsPage({ search: debouncedSearch, page, limit: 50 })
+  const accounts = accountsPage?.items ?? []
+
+  useEffect(() => { setPage(1) }, [debouncedSearch])
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
@@ -63,13 +64,7 @@ export default function BankAccountsPage() {
     onError: () => toast("Failed to delete bank account", "warning"),
   })
 
-  const rows = search.trim()
-    ? accounts.filter(a =>
-        a.name.toLowerCase().includes(search.toLowerCase()) ||
-        (a.bank_name ?? "").toLowerCase().includes(search.toLowerCase()) ||
-        (a.account_number ?? "").toLowerCase().includes(search.toLowerCase())
-      )
-    : accounts
+  const rows = accounts
 
   return (
     <div className="flex flex-col gap-4">
@@ -159,6 +154,7 @@ export default function BankAccountsPage() {
                 ))}
               </TableBody>
             </Table>
+            <PaginationControls page={page} pages={accountsPage?.pages ?? 1} total={accountsPage?.total ?? 0} limit={50} onPageChange={setPage} />
           </div>
         )}
       </Card>

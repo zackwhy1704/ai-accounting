@@ -1,10 +1,11 @@
-import { useMemo, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { useNavigate } from "react-router-dom"
 import { ViewDetailSheet } from "../../components/ui/view-detail-sheet"
-import { useQuery, useQueryClient } from "@tanstack/react-query"
+import { useQueryClient } from "@tanstack/react-query"
 import { Plus, Search, CreditCard, FileText, Download, XCircle, Pencil, CheckCircle, Trash2 } from "lucide-react"
 import api from "../../lib/api"
-import { useContacts } from "../../lib/hooks"
+import { useContacts, usePurchasePaymentsPage, useDebounce } from "../../lib/hooks"
+import { PaginationControls } from "../../components/ui/pagination-controls"
 import { formatCurrency, formatDate, cn } from "../../lib/utils"
 import { useToast } from "../../components/ui/toast"
 import { Card } from "../../components/ui/card"
@@ -57,18 +58,17 @@ export default function PurchasePaymentsPage() {
   const { toast } = useToast()
   const [tab, setTab] = useState("all")
   const [search, setSearch] = useState("")
+  const [page, setPage] = useState(1)
+  const debouncedSearch = useDebounce(search, 300)
   const [supplierFilter, setSupplierFilter] = useState("all")
   const [dateFrom, setDateFrom] = useState("")
   const [dateTo, setDateTo] = useState("")
   const [viewItem, setViewItem] = useState<PurchasePayment | null>(null)
 
-  const { data: payments = [], isLoading } = useQuery<PurchasePayment[]>({
-    queryKey: ["purchase-payments"],
-    queryFn: async () => {
-      const res = await api.get("/purchase-payments")
-      return res.data
-    },
-  })
+  const { data: paymentsPage, isLoading } = usePurchasePaymentsPage({ search: debouncedSearch, status: tab === "all" ? undefined : tab, page, limit: 50 })
+  const payments = paymentsPage?.items ?? []
+
+  useEffect(() => { setPage(1) }, [debouncedSearch, tab])
 
   const { data: contacts = [] } = useContacts()
   const contactMap = useMemo(() => {
@@ -87,19 +87,11 @@ export default function PurchasePaymentsPage() {
 
   const rows = useMemo(() => {
     let filtered = payments
-    if (tab !== "all") filtered = filtered.filter(p => p.status === tab)
-    if (search.trim()) {
-      const q = search.toLowerCase()
-      filtered = filtered.filter(p =>
-        p.payment_no.toLowerCase().includes(q) ||
-        (contactMap.get(p.contact_id ?? "") ?? "").toLowerCase().includes(q)
-      )
-    }
     if (supplierFilter !== "all") filtered = filtered.filter(p => p.contact_id === supplierFilter)
     if (dateFrom) filtered = filtered.filter(p => (p.payment_date || "") >= dateFrom)
     if (dateTo) filtered = filtered.filter(p => (p.payment_date || "") <= dateTo)
     return filtered
-  }, [payments, tab, search, contactMap, supplierFilter, dateFrom, dateTo])
+  }, [payments, contactMap, supplierFilter, dateFrom, dateTo])
 
   return (
     <div className="flex flex-col gap-4">
@@ -207,6 +199,7 @@ export default function PurchasePaymentsPage() {
                     ))}
                   </TableBody>
                 </Table>
+                <PaginationControls page={page} pages={paymentsPage?.pages ?? 1} total={paymentsPage?.total ?? 0} limit={50} onPageChange={setPage} />
               </div>
             )}
           </div>

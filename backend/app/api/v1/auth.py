@@ -233,6 +233,107 @@ async def reset_password(body: ResetPasswordRequest, db: AsyncSession = Depends(
     return {"message": "Password reset successfully. You can now log in."}
 
 
+@router.get("/organizations")
+async def get_organization(
+    current_user: dict = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Return the current user's organization, including default GL accounts."""
+    from app.models.models import Organization
+    result = await db.execute(select(Organization).where(Organization.id == current_user["org_id"]))
+    org = result.scalar_one_or_none()
+    if not org:
+        raise HTTPException(status_code=404, detail="Organization not found")
+    return {
+        "id": str(org.id),
+        "name": org.name,
+        "uen": org.uen,
+        "sst_registration_no": getattr(org, "sst_registration_no", None),
+        "address": org.address,
+        "country": org.country,
+        "currency": org.currency,
+        "tax_regime": getattr(org, "tax_regime", "MY_SST"),
+        "fiscal_year_start": None,
+        "einvoice_enabled": getattr(org, "einvoice_enabled", False),
+        "einvoice_supplier_tin": getattr(org, "einvoice_supplier_tin", None),
+        "default_ar_account_id": str(org.default_ar_account_id) if org.default_ar_account_id else None,
+        "default_ap_account_id": str(org.default_ap_account_id) if org.default_ap_account_id else None,
+        "default_bank_account_id": str(org.default_bank_account_id) if org.default_bank_account_id else None,
+        "default_revenue_account_id": str(org.default_revenue_account_id) if org.default_revenue_account_id else None,
+        "default_expense_account_id": str(org.default_expense_account_id) if org.default_expense_account_id else None,
+    }
+
+
+class OrganizationUpdate(BaseModel):
+    name: str | None = None
+    uen: str | None = None
+    sst_registration_no: str | None = None
+    address: str | None = None
+    country: str | None = None
+    currency: str | None = None
+    tax_regime: str | None = None
+    fiscal_year_start: str | None = None
+    einvoice_enabled: bool | None = None
+    einvoice_supplier_tin: str | None = None
+    default_ar_account_id: str | None = None
+    default_ap_account_id: str | None = None
+    default_bank_account_id: str | None = None
+    default_revenue_account_id: str | None = None
+    default_expense_account_id: str | None = None
+
+
+@router.patch("/organizations/{org_id}")
+async def update_organization(
+    org_id: str,
+    data: OrganizationUpdate,
+    current_user: dict = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Update organization settings including default GL accounts."""
+    from app.models.models import Organization
+    import uuid as _uuid
+    if str(current_user["org_id"]) != org_id:
+        raise HTTPException(status_code=403, detail="Cannot update another organization")
+    result = await db.execute(select(Organization).where(Organization.id == current_user["org_id"]))
+    org = result.scalar_one_or_none()
+    if not org:
+        raise HTTPException(status_code=404, detail="Organization not found")
+
+    update_data = data.model_dump(exclude_unset=True)
+    # UUID fields — parse string to UUID
+    uuid_fields = {"default_ar_account_id", "default_ap_account_id", "default_bank_account_id",
+                   "default_revenue_account_id", "default_expense_account_id"}
+    for field, value in update_data.items():
+        if field in uuid_fields:
+            try:
+                setattr(org, field, _uuid.UUID(value) if value else None)
+            except (ValueError, AttributeError):
+                setattr(org, field, None)
+        elif hasattr(org, field):
+            setattr(org, field, value)
+
+    await db.commit()
+    await db.refresh(org)
+    return {
+        "id": str(org.id),
+        "name": org.name,
+        "uen": org.uen,
+        "sst_registration_no": getattr(org, "sst_registration_no", None),
+        "address": org.address,
+        "country": org.country,
+        "currency": org.currency,
+        "tax_regime": getattr(org, "tax_regime", "MY_SST"),
+        "fiscal_year_start": None,
+        "einvoice_enabled": getattr(org, "einvoice_enabled", False),
+        "einvoice_supplier_tin": getattr(org, "einvoice_supplier_tin", None),
+        "default_ar_account_id": str(org.default_ar_account_id) if org.default_ar_account_id else None,
+        "default_ap_account_id": str(org.default_ap_account_id) if org.default_ap_account_id else None,
+        "default_bank_account_id": str(org.default_bank_account_id) if org.default_bank_account_id else None,
+        "default_revenue_account_id": str(org.default_revenue_account_id) if org.default_revenue_account_id else None,
+        "default_expense_account_id": str(org.default_expense_account_id) if org.default_expense_account_id else None,
+    }
+
+
 @router.get("/org-settings")
 async def get_org_settings(
     current_user: dict = Depends(get_current_user),

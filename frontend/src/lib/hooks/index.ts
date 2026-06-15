@@ -1,3 +1,4 @@
+export { useDebounce } from './useDebounce'
 export type { InvoiceActivityEvent, AdjustmentLine } from './_shared'
 export * from './dashboard'
 export * from './sales'

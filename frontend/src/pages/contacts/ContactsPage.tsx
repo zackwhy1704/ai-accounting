@@ -1,9 +1,10 @@
-import { useMemo, useState } from "react"
+import { useEffect, useState } from "react"
 import { useQueryClient } from "@tanstack/react-query"
 import { useNavigate } from "react-router-dom"
 import { ViewDetailSheet } from "../../components/ui/view-detail-sheet"
 import { Plus, Search, Users, Eye, Pencil, Trash2 } from "lucide-react"
-import { useContacts } from "../../lib/hooks"
+import { useContactsPage, useDebounce } from "../../lib/hooks"
+import { PaginationControls } from "../../components/ui/pagination-controls"
 import api from "../../lib/api"
 import { cn } from "../../lib/utils"
 import { useTheme } from "../../lib/theme"
@@ -23,8 +24,9 @@ export default function ContactsPage() {
   const [tab, setTab] = useState("all")
   const [query, setQuery] = useState("")
   const [page, setPage] = useState(1)
-  const pageSize = 10
-  const { data: contacts = [], isLoading } = useContacts(tab === "all" ? undefined : tab)
+  const debouncedSearch = useDebounce(query, 300)
+  const { data: contactsPage, isLoading } = useContactsPage({ search: debouncedSearch, type: tab === "all" ? undefined : tab, page, limit: 50 })
+  const contacts = contactsPage?.items ?? []
   const { t } = useTheme()
   const [viewItem, setViewItem] = useState<typeof contacts[0] | null>(null)
 
@@ -34,15 +36,9 @@ export default function ContactsPage() {
     { label: t("contacts.vendors"), value: "vendor" },
   ]
 
-  const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase()
-    if (!q) return contacts
-    return contacts.filter(c => c.name.toLowerCase().includes(q) || (c.email ?? "").toLowerCase().includes(q))
-  }, [contacts, query])
+  const rows = contacts
 
-  const total = filtered.length
-  const pageCount = Math.max(1, Math.ceil(total / pageSize))
-  const rows = filtered.slice((page - 1) * pageSize, page * pageSize)
+  useEffect(() => { setPage(1) }, [debouncedSearch, tab])
 
   return (
     <div className="flex flex-col gap-4">
@@ -102,14 +98,7 @@ export default function ContactsPage() {
                   </TableBody>
                 </Table>
               </div>
-              <div className="mt-3 flex items-center justify-between">
-                <div className="text-xs text-muted-foreground">{total === 0 ? "0" : `${(page-1)*pageSize+1}-${Math.min(total, page*pageSize)} / ${total}`}</div>
-                <div className="flex items-center gap-2">
-                  <Button type="button" variant="secondary" className="h-8 rounded-xl px-3 text-xs font-semibold" onClick={() => setPage(p => Math.max(1, p-1))} disabled={page <= 1}>{t("common.prev")}</Button>
-                  <div className="rounded-xl border border-border bg-card px-3 py-1 text-xs font-semibold text-foreground">{page} / {pageCount}</div>
-                  <Button type="button" variant="secondary" className="h-8 rounded-xl px-3 text-xs font-semibold" onClick={() => setPage(p => Math.min(pageCount, p+1))} disabled={page >= pageCount}>{t("common.next")}</Button>
-                </div>
-              </div>
+              <PaginationControls page={page} pages={contactsPage?.pages ?? 1} total={contactsPage?.total ?? 0} limit={50} onPageChange={setPage} />
             </>
           )}
         </div>

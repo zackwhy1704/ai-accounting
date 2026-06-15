@@ -1,9 +1,10 @@
-import { useMemo, useState } from "react"
+import { useEffect, useState } from "react"
 import { useNavigate } from "react-router-dom"
 import { ViewDetailSheet } from "../../components/ui/view-detail-sheet"
 import { useQueryClient } from "@tanstack/react-query"
 import { Plus, Search, Package, Eye, Pencil, ArrowUpDown, Trash2 } from "lucide-react"
-import { useProducts } from "../../lib/hooks"
+import { useProductsPage, useDebounce } from "../../lib/hooks"
+import { PaginationControls } from "../../components/ui/pagination-controls"
 import { formatCurrency } from "../../lib/utils"
 import { useToast } from "../../components/ui/toast"
 import { Card } from "../../components/ui/card"
@@ -24,19 +25,16 @@ export default function ProductsPage() {
   const navigate = useNavigate()
   const { toast } = useToast()
   const [search, setSearch] = useState("")
-  const { data: products = [], isLoading } = useProducts()
+  const [page, setPage] = useState(1)
+  const debouncedSearch = useDebounce(search, 300)
+  const { data: productsPage, isLoading } = useProductsPage({ search: debouncedSearch, page, limit: 50 })
+  const products = productsPage?.items ?? []
   const [viewItem, setViewItem] = useState<typeof products[0] | null>(null)
   const queryClient = useQueryClient()
 
-  const rows = useMemo(() => {
-    if (!search.trim()) return products
-    const q = search.toLowerCase()
-    return products.filter(p =>
-      p.name.toLowerCase().includes(q) ||
-      (p.code ?? "").toLowerCase().includes(q) ||
-      (p.description ?? "").toLowerCase().includes(q)
-    )
-  }, [products, search])
+  const rows = products
+
+  useEffect(() => { setPage(1) }, [debouncedSearch])
 
   return (
     <div className="flex flex-col gap-4">
@@ -116,6 +114,7 @@ export default function ProductsPage() {
                 ))}
               </TableBody>
             </Table>
+            <PaginationControls page={page} pages={productsPage?.pages ?? 1} total={productsPage?.total ?? 0} limit={50} onPageChange={setPage} />
           </div>
         )}
       </Card>

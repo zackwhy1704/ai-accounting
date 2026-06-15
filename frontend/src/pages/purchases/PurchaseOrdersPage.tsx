@@ -1,9 +1,10 @@
-import { useMemo, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { useQueryClient } from "@tanstack/react-query"
 import { useNavigate } from "react-router-dom"
 import { ViewDetailSheet } from "../../components/ui/view-detail-sheet"
 import { Plus, Search, ShoppingCart, FileText, Pencil, ArrowRightLeft, Copy, XCircle, Send, PackageCheck, Trash2, ThumbsDown } from "lucide-react"
-import { usePurchaseOrders, useContacts } from "../../lib/hooks"
+import { usePurchaseOrdersPage, useContacts, useDebounce } from "../../lib/hooks"
+import { PaginationControls } from "../../components/ui/pagination-controls"
 import api from "../../lib/api"
 import { formatCurrency, formatDate, cn } from "../../lib/utils"
 import { useToast } from "../../components/ui/toast"
@@ -41,12 +42,17 @@ export default function PurchaseOrdersPage() {
   const { toast } = useToast()
   const [tab, setTab] = useState("all")
   const [search, setSearch] = useState("")
+  const [page, setPage] = useState(1)
+  const debouncedSearch = useDebounce(search, 300)
   const [contactFilter, setContactFilter] = useState("all")
   const [dateFrom, setDateFrom] = useState("")
   const [dateTo, setDateTo] = useState("")
-  const { data: purchaseOrders = [], isLoading } = usePurchaseOrders(tab === "all" ? undefined : tab)
+  const { data: purchaseOrdersPage, isLoading } = usePurchaseOrdersPage({ status: tab === "all" ? undefined : tab, search: debouncedSearch, page, limit: 50 })
+  const purchaseOrders = purchaseOrdersPage?.items ?? []
   const { data: contacts = [] } = useContacts()
   const [viewItem, setViewItem] = useState<typeof purchaseOrders[0] | null>(null)
+
+  useEffect(() => { setPage(1) }, [debouncedSearch, tab])
 
   const vendors = useMemo(() => contacts.filter((c: any) => c.type === "supplier" || c.type === "vendor" || c.type === "both"), [contacts])
 
@@ -58,18 +64,11 @@ export default function PurchaseOrdersPage() {
 
   const rows = useMemo(() => {
     let filtered = purchaseOrders
-    if (search.trim()) {
-      const q = search.toLowerCase()
-      filtered = filtered.filter((po: any) =>
-        po.po_number.toLowerCase().includes(q) ||
-        (contactMap.get(po.contact_id) ?? "").toLowerCase().includes(q)
-      )
-    }
     if (contactFilter !== "all") filtered = filtered.filter((po: any) => po.contact_id === contactFilter)
     if (dateFrom) filtered = filtered.filter((po: any) => (po.issue_date || "") >= dateFrom)
     if (dateTo) filtered = filtered.filter((po: any) => (po.issue_date || "") <= dateTo)
     return filtered
-  }, [purchaseOrders, search, contactMap, contactFilter, dateFrom, dateTo])
+  }, [purchaseOrders, contactMap, contactFilter, dateFrom, dateTo])
 
   const updateStatus = (poId: string, status: string, label?: string) =>
     api.patch(`/purchase-orders/${poId}/status`, null, { params: { status } })
@@ -181,6 +180,7 @@ export default function PurchaseOrdersPage() {
                     ))}
                   </TableBody>
                 </Table>
+                <PaginationControls page={page} pages={purchaseOrdersPage?.pages ?? 1} total={purchaseOrdersPage?.total ?? 0} limit={50} onPageChange={setPage} />
               </div>
             )}
           </div>

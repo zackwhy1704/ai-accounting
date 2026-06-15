@@ -1,8 +1,10 @@
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { useNavigate } from "react-router-dom"
 import { ViewDetailSheet } from "../../components/ui/view-detail-sheet"
-import { useQuery, useQueryClient } from "@tanstack/react-query"
+import { useQueryClient } from "@tanstack/react-query"
 import { Plus, Search, MoveRight, FileText, XCircle, Pencil, Trash2 } from "lucide-react"
+import { useStockTransfersPage, useDebounce } from "../../lib/hooks"
+import { PaginationControls } from "../../components/ui/pagination-controls"
 import api from "../../lib/api"
 import { formatDate, cn } from "../../lib/utils"
 import { useToast } from "../../components/ui/toast"
@@ -33,23 +35,15 @@ export default function StockTransfersPage() {
   const queryClient = useQueryClient()
   const { toast } = useToast()
   const [search, setSearch] = useState("")
+  const [page, setPage] = useState(1)
+  const debouncedSearch = useDebounce(search, 300)
   const [viewItem, setViewItem] = useState<StockTransfer | null>(null)
 
-  const { data: transfers = [], isLoading } = useQuery<StockTransfer[]>({
-    queryKey: ["stock-transfers"],
-    queryFn: async () => {
-      const res = await api.get("/stock-transfers")
-      return res.data
-    },
-  })
+  const { data: transfersPage, isLoading } = useStockTransfersPage({ search: debouncedSearch, page, limit: 50 })
+  const transfers = transfersPage?.items ?? []
+  const rows = transfers
 
-  const rows = search.trim()
-    ? transfers.filter(t =>
-        t.transfer_number.toLowerCase().includes(search.toLowerCase()) ||
-        (t.from_location ?? "").toLowerCase().includes(search.toLowerCase()) ||
-        (t.to_location ?? "").toLowerCase().includes(search.toLowerCase())
-      )
-    : transfers
+  useEffect(() => { setPage(1) }, [debouncedSearch])
 
   return (
     <div className="flex flex-col gap-4">
@@ -133,6 +127,7 @@ export default function StockTransfersPage() {
                 ))}
               </TableBody>
             </Table>
+            <PaginationControls page={page} pages={transfersPage?.pages ?? 1} total={transfersPage?.total ?? 0} limit={50} onPageChange={setPage} />
           </div>
         )}
       </Card>

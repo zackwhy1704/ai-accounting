@@ -1,8 +1,9 @@
-import { useMemo, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { useNavigate } from "react-router-dom"
 import { Plus, Search, Pencil, Send, XCircle, CreditCard, Trash2 } from "lucide-react"
 import { RowActionsMenu } from "../../../components/ui/row-actions"
-import { usePurchaseDebitNotes, useContacts, useBills, useUpdatePurchaseDebitNoteStatus, useDeletePurchaseDebitNote } from "../../../lib/hooks"
+import { usePurchaseDebitNotesPage, useContacts, useBills, useUpdatePurchaseDebitNoteStatus, useDeletePurchaseDebitNote, useDebounce } from "../../../lib/hooks"
+import { PaginationControls } from "../../../components/ui/pagination-controls"
 import { formatCurrency, formatDate, cn } from "../../../lib/utils"
 import { useToast } from "../../../components/ui/toast"
 import { Card } from "../../../components/ui/card"
@@ -28,12 +29,17 @@ export default function PurchaseDebitNotesPage() {
   const patch = (id: string, status: string, label?: string) => updateStatus.mutate({ id, status }, { onSuccess: () => label && toast(label, "success"), onError: (e: any) => toast(e?.response?.data?.detail ?? "Failed to update status", "warning") })
   const [tab, setTab] = useState("all")
   const [search, setSearch] = useState("")
+  const [page, setPage] = useState(1)
+  const debouncedSearch = useDebounce(search, 300)
   const [contactFilter, setContactFilter] = useState("all")
   const [dateFrom, setDateFrom] = useState("")
   const [dateTo, setDateTo] = useState("")
-  const { data: debitNotes = [], isLoading } = usePurchaseDebitNotes(tab === "all" ? undefined : tab)
+  const { data: debitNotesPage, isLoading } = usePurchaseDebitNotesPage({ status: tab === "all" ? undefined : tab, search: debouncedSearch, page, limit: 50 })
+  const debitNotes = debitNotesPage?.items ?? []
   const { data: contacts = [] } = useContacts()
   const { data: bills = [] } = useBills()
+
+  useEffect(() => { setPage(1) }, [debouncedSearch, tab])
 
   const statusTabs = [
     { label: "All", value: "all" },
@@ -59,18 +65,11 @@ export default function PurchaseDebitNotesPage() {
 
   const rows = useMemo(() => {
     let filtered = debitNotes
-    if (search.trim()) {
-      const q = search.toLowerCase()
-      filtered = filtered.filter((i: any) =>
-        i.debit_note_number.toLowerCase().includes(q) ||
-        (contactMap.get(i.contact_id) ?? "").toLowerCase().includes(q)
-      )
-    }
     if (contactFilter !== "all") filtered = filtered.filter((i: any) => i.contact_id === contactFilter)
     if (dateFrom) filtered = filtered.filter((i: any) => (i.issue_date || "") >= dateFrom)
     if (dateTo) filtered = filtered.filter((i: any) => (i.issue_date || "") <= dateTo)
     return filtered
-  }, [debitNotes, search, contactMap, contactFilter, dateFrom, dateTo])
+  }, [debitNotes, contactMap, contactFilter, dateFrom, dateTo])
 
   return (
     <div className="flex flex-col gap-4">
@@ -181,6 +180,7 @@ export default function PurchaseDebitNotesPage() {
                     ))}
                   </TableBody>
                 </Table>
+                <PaginationControls page={page} pages={debitNotesPage?.pages ?? 1} total={debitNotesPage?.total ?? 0} limit={50} onPageChange={setPage} />
               </div>
             )}
           </div>

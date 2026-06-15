@@ -19,7 +19,8 @@ from app.schemas.schemas import InvoiceCreate, InvoiceUpdate, InvoiceResponse
 from app.core.line_items import calculate_line_items
 from app.core.audit import log_audit
 from app.services.pricing import line_after_discount, line_tax
-from .gl_helpers import post_gl, revert_gl
+from .gl_helpers import post_gl, post_gl_by_id, revert_gl
+from app.core.org_defaults import get_default_accounts
 
 router = APIRouter(prefix="/invoices", tags=["Invoices"])
 
@@ -204,17 +205,36 @@ async def update_invoice_status(
         subtotal = float(invoice.subtotal)
         tax_amount = float(invoice.tax_amount)
         total = float(invoice.total)
-        entries = [
-            ("1100", total, 0),
-            ("4000", 0, subtotal),
-        ]
-        if tax_amount > 0:
-            entries.append(("2100", 0, tax_amount))
-        await post_gl(
-            db, org_id, invoice.issue_date,
-            f"Invoice {invoice.invoice_number}",
-            invoice.invoice_number, "invoice", invoice.id, entries,
-        )
+        defaults = await get_default_accounts(db, org_id)
+        if defaults.get("ar") and defaults.get("revenue"):
+            id_entries = [
+                (defaults["ar"], total, 0.0),
+                (defaults["revenue"], 0.0, subtotal),
+            ]
+            if tax_amount > 0:
+                entries_code = [("2100", 0, tax_amount)]
+                await post_gl(
+                    db, org_id, invoice.issue_date,
+                    f"Invoice {invoice.invoice_number}",
+                    invoice.invoice_number, "invoice", invoice.id, entries_code,
+                )
+            await post_gl_by_id(
+                db, org_id, invoice.issue_date,
+                f"Invoice {invoice.invoice_number}",
+                invoice.invoice_number, "invoice", invoice.id, id_entries,
+            )
+        else:
+            entries = [
+                ("1100", total, 0),
+                ("4000", 0, subtotal),
+            ]
+            if tax_amount > 0:
+                entries.append(("2100", 0, tax_amount))
+            await post_gl(
+                db, org_id, invoice.issue_date,
+                f"Invoice {invoice.invoice_number}",
+                invoice.invoice_number, "invoice", invoice.id, entries,
+            )
 
     # cancelled: reverse any previously posted GL entries
     elif status == "cancelled" and prev_status != "draft":

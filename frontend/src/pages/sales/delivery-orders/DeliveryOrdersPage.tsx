@@ -1,8 +1,9 @@
-import { useMemo, useState } from "react"
+import { useMemo, useState, useEffect } from "react"
 import { useNavigate } from "react-router-dom"
 import { Plus, Search, FileText, Pencil, Truck, XCircle, Trash2 } from "lucide-react"
 import { RowActionsMenu } from "../../../components/ui/row-actions"
-import { useDeliveryOrders, useContacts, useUpdateDeliveryOrderStatus, useDeleteDeliveryOrder } from "../../../lib/hooks"
+import { useDeliveryOrdersPage, useContacts, useUpdateDeliveryOrderStatus, useDeleteDeliveryOrder, useDebounce } from "../../../lib/hooks"
+import { PaginationControls } from "../../../components/ui/pagination-controls"
 import { formatCurrency, formatDate, cn } from "../../../lib/utils"
 import { useTheme } from "../../../lib/theme"
 import { Card } from "../../../components/ui/card"
@@ -26,10 +27,13 @@ export default function DeliveryOrdersPage() {
   const patch = (id: string, status: string) => updateStatus.mutate({ id, status })
   const [tab, setTab] = useState("all")
   const [search, setSearch] = useState("")
+  const [page, setPage] = useState(1)
+  const debouncedSearch = useDebounce(search, 300)
   const [contactFilter, setContactFilter] = useState("all")
   const [dateFrom, setDateFrom] = useState("")
   const [dateTo, setDateTo] = useState("")
-  const { data: deliveryOrders = [], isLoading } = useDeliveryOrders(tab === "all" ? undefined : tab)
+  const { data: deliveryOrdersPage, isLoading } = useDeliveryOrdersPage({ status: tab === "all" ? undefined : tab, search: debouncedSearch, page, limit: 50 })
+  const deliveryOrders = deliveryOrdersPage?.items ?? []
   const { data: contacts = [] } = useContacts()
   const { t } = useTheme()
 
@@ -46,20 +50,15 @@ export default function DeliveryOrdersPage() {
     return m
   }, [contacts])
 
+  useEffect(() => { setPage(1) }, [debouncedSearch, tab])
+
   const rows = useMemo(() => {
     let filtered = deliveryOrders
-    if (search.trim()) {
-      const q = search.toLowerCase()
-      filtered = filtered.filter(i =>
-        i.delivery_number.toLowerCase().includes(q) ||
-        (contactMap.get(i.contact_id) ?? "").toLowerCase().includes(q)
-      )
-    }
     if (contactFilter !== "all") filtered = filtered.filter(i => i.contact_id === contactFilter)
     if (dateFrom) filtered = filtered.filter(i => (i.delivery_date || "") >= dateFrom)
     if (dateTo) filtered = filtered.filter(i => (i.delivery_date || "") <= dateTo)
     return filtered
-  }, [deliveryOrders, search, contactMap, contactFilter, dateFrom, dateTo])
+  }, [deliveryOrders, contactMap, contactFilter, dateFrom, dateTo])
 
   return (
     <div className="flex flex-col gap-4">
@@ -163,6 +162,7 @@ export default function DeliveryOrdersPage() {
                     ))}
                   </TableBody>
                 </Table>
+                <PaginationControls page={page} pages={deliveryOrdersPage?.pages ?? 1} total={deliveryOrdersPage?.total ?? 0} limit={50} onPageChange={setPage} />
               </div>
             )}
           </div>

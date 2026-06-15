@@ -115,6 +115,10 @@ export function useUpdateManualJournal() {
 }
 
 // Fixed Assets
+const _fixedAssets = makeListHook<any>('/fixed-assets', 'fixed-assets')
+export function useFixedAssets(arg?: string | ListParams) { return _fixedAssets.useList(arg) }
+export function useFixedAssetsPage(params?: ListParams) { return _fixedAssets.usePage(params) }
+
 export function useFixedAsset(id: string | undefined) {
   return useQuery({ queryKey: ['fixed-asset', id], queryFn: () => api.get(`/fixed-assets/${id}`).then(r => r.data), enabled: !!id })
 }

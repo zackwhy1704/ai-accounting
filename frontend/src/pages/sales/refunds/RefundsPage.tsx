@@ -1,8 +1,9 @@
-import { useMemo, useState } from "react"
+import { useMemo, useState, useEffect } from "react"
 import { useNavigate } from "react-router-dom"
 import { Plus, Search, XCircle, Pencil, CheckCircle, Trash2 } from "lucide-react"
 import { RowActionsMenu } from "../../../components/ui/row-actions"
-import { useSalesRefunds, useContacts, useCreditNotes, useUpdateSalesRefundStatus, useDeleteSalesRefund } from "../../../lib/hooks"
+import { useSalesRefundsPage, useContacts, useCreditNotes, useUpdateSalesRefundStatus, useDeleteSalesRefund, useDebounce } from "../../../lib/hooks"
+import { PaginationControls } from "../../../components/ui/pagination-controls"
 import { formatCurrency, formatDate, cn } from "../../../lib/utils"
 import { useTheme } from "../../../lib/theme"
 import { useToast } from "../../../components/ui/toast"
@@ -27,10 +28,13 @@ export default function RefundsPage() {
   const { toast } = useToast()
   const [tab, setTab] = useState("all")
   const [search, setSearch] = useState("")
+  const [page, setPage] = useState(1)
+  const debouncedSearch = useDebounce(search, 300)
   const [contactFilter, setContactFilter] = useState("all")
   const [dateFrom, setDateFrom] = useState("")
   const [dateTo, setDateTo] = useState("")
-  const { data: refunds = [], isLoading } = useSalesRefunds(tab === "all" ? undefined : tab)
+  const { data: refundsPage, isLoading } = useSalesRefundsPage({ status: tab === "all" ? undefined : tab, search: debouncedSearch, page, limit: 50 })
+  const refunds = refundsPage?.items ?? []
   const { data: contacts = [] } = useContacts()
   const { data: creditNotes = [] } = useCreditNotes()
   const { t } = useTheme()
@@ -54,20 +58,15 @@ export default function RefundsPage() {
     return m
   }, [creditNotes])
 
+  useEffect(() => { setPage(1) }, [debouncedSearch, tab])
+
   const rows = useMemo(() => {
     let filtered = refunds
-    if (search.trim()) {
-      const q = search.toLowerCase()
-      filtered = filtered.filter(i =>
-        i.refund_number.toLowerCase().includes(q) ||
-        (contactMap.get(i.contact_id) ?? "").toLowerCase().includes(q)
-      )
-    }
     if (contactFilter !== "all") filtered = filtered.filter(i => i.contact_id === contactFilter)
     if (dateFrom) filtered = filtered.filter(i => (i.refund_date || "") >= dateFrom)
     if (dateTo) filtered = filtered.filter(i => (i.refund_date || "") <= dateTo)
     return filtered
-  }, [refunds, search, contactMap, contactFilter, dateFrom, dateTo])
+  }, [refunds, contactMap, contactFilter, dateFrom, dateTo])
 
   return (
     <div className="flex flex-col gap-4">
@@ -172,6 +171,7 @@ export default function RefundsPage() {
                     ))}
                   </TableBody>
                 </Table>
+                <PaginationControls page={page} pages={refundsPage?.pages ?? 1} total={refundsPage?.total ?? 0} limit={50} onPageChange={setPage} />
               </div>
             )}
           </div>

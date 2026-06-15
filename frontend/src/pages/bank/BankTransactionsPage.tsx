@@ -1,8 +1,10 @@
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { useNavigate } from "react-router-dom"
 import { ViewDetailSheet } from "../../components/ui/view-detail-sheet"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { Plus, Search, ArrowDownCircle, ArrowUpCircle, FileText, Trash2, Pencil } from "lucide-react"
+import { useBankTransactionsPage, useDebounce } from "../../lib/hooks"
+import { PaginationControls } from "../../components/ui/pagination-controls"
 import api from "../../lib/api"
 import { formatCurrency, formatDate, cn } from "../../lib/utils"
 import { useToast } from "../../components/ui/toast"
@@ -48,20 +50,17 @@ export default function BankTransactionsPage({ type }: Props) {
   const queryClient = useQueryClient()
   const { toast } = useToast()
   const [search, setSearch] = useState("")
+  const [page, setPage] = useState(1)
+  const debouncedSearch = useDebounce(search, 300)
   const [viewItem, setViewItem] = useState<BankTransaction | null>(null)
   const [dateFrom, setDateFrom] = useState("")
   const [dateTo, setDateTo] = useState("")
   const [bankAccountId, setBankAccountId] = useState("all")
 
-  const { data: transactions = [], isLoading } = useQuery<BankTransaction[]>({
-    queryKey: ["bank-transactions", type],
-    queryFn: async () => {
-      const res = await api.get("/bank-transactions", {
-        params: { transaction_type: type },
-      })
-      return res.data
-    },
-  })
+  const { data: transactionsPage, isLoading } = useBankTransactionsPage({ search: debouncedSearch, page, limit: 50, ...(type ? { transaction_type: type } as any : {}) })
+  const transactions = transactionsPage?.items ?? []
+
+  useEffect(() => { setPage(1) }, [debouncedSearch])
 
   const { data: bankAccounts = [] } = useQuery<BankAccount[]>({
     queryKey: ["bank-accounts"],
@@ -72,14 +71,6 @@ export default function BankTransactionsPage({ type }: Props) {
   })
 
   const rows = transactions.filter(t => {
-    if (search.trim()) {
-      const q = search.toLowerCase()
-      if (
-        !t.transaction_number.toLowerCase().includes(q) &&
-        !(t.contact_name ?? "").toLowerCase().includes(q) &&
-        !(t.reference_number ?? "").toLowerCase().includes(q)
-      ) return false
-    }
     if (dateFrom && t.transaction_date < dateFrom) return false
     if (dateTo && t.transaction_date > dateTo) return false
     if (bankAccountId !== "all" && t.bank_account_id !== bankAccountId) return false
@@ -212,6 +203,7 @@ export default function BankTransactionsPage({ type }: Props) {
                 ))}
               </TableBody>
             </Table>
+            <PaginationControls page={page} pages={transactionsPage?.pages ?? 1} total={transactionsPage?.total ?? 0} limit={50} onPageChange={setPage} />
           </div>
         )}
       </Card>

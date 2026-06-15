@@ -14,7 +14,8 @@ from app.models.models import Bill, BillLineItem, PurchasePayment, PurchaseCredi
 from app.schemas.schemas import BillCreate, BillUpdate, BillResponse
 from app.core.line_items import calculate_line_items
 from app.services.pricing import line_after_discount, line_tax
-from .gl_helpers import post_gl, revert_gl
+from .gl_helpers import post_gl, post_gl_by_id, revert_gl
+from app.core.org_defaults import get_default_accounts
 from app.core.audit import log_audit
 
 router = APIRouter(prefix="/bills", tags=["Bills"])
@@ -234,17 +235,36 @@ async def update_bill_status(
         subtotal = float(bill.subtotal)
         tax_amount = float(bill.tax_amount)
         total = float(bill.total)
-        entries = [
-            ("5000", subtotal, 0),   # Dr Expense
-            ("2000", 0, total),      # Cr Accounts Payable
-        ]
-        if tax_amount > 0:
-            entries.append(("1200", tax_amount, 0))  # Dr GST Input (ITC)
-        await post_gl(
-            db, org_id, bill.issue_date,
-            f"Bill {bill.bill_number}",
-            bill.bill_number, "bill", bill.id, entries,
-        )
+        defaults = await get_default_accounts(db, org_id)
+        if defaults.get("ap") and defaults.get("expense"):
+            id_entries = [
+                (defaults["expense"], subtotal, 0.0),   # Dr Expense
+                (defaults["ap"], 0.0, total),            # Cr Accounts Payable
+            ]
+            if tax_amount > 0:
+                gst_entries = [("1200", tax_amount, 0)]  # Dr GST Input (ITC)
+                await post_gl(
+                    db, org_id, bill.issue_date,
+                    f"Bill {bill.bill_number}",
+                    bill.bill_number, "bill", bill.id, gst_entries,
+                )
+            await post_gl_by_id(
+                db, org_id, bill.issue_date,
+                f"Bill {bill.bill_number}",
+                bill.bill_number, "bill", bill.id, id_entries,
+            )
+        else:
+            entries = [
+                ("5000", subtotal, 0),   # Dr Expense
+                ("2000", 0, total),      # Cr Accounts Payable
+            ]
+            if tax_amount > 0:
+                entries.append(("1200", tax_amount, 0))  # Dr GST Input (ITC)
+            await post_gl(
+                db, org_id, bill.issue_date,
+                f"Bill {bill.bill_number}",
+                bill.bill_number, "bill", bill.id, entries,
+            )
 
     # void/cancelled: reverse any posted GL entries
     elif status in ("void", "cancelled") and prev_status not in ("draft", "received"):

@@ -1,9 +1,10 @@
-import { useMemo, useState } from "react"
+import { useMemo, useState, useEffect } from "react"
 import { useQueryClient } from "@tanstack/react-query"
 import { useNavigate } from "react-router-dom"
 import { Plus, Search, FileText, XCircle, Pencil, Receipt, Trash2 } from "lucide-react"
 import { RowActionsMenu } from "../../../components/ui/row-actions"
-import { useSalesPayments, useContacts, useSaleReceipts, useUpdateSalesPaymentStatus, useDeleteSalesPayment } from "../../../lib/hooks"
+import { useSalesPaymentsPage, useContacts, useSaleReceipts, useUpdateSalesPaymentStatus, useDeleteSalesPayment, useDebounce } from "../../../lib/hooks"
+import { PaginationControls } from "../../../components/ui/pagination-controls"
 import api from "../../../lib/api"
 import { formatCurrency, formatDate, cn } from "../../../lib/utils"
 import { useTheme } from "../../../lib/theme"
@@ -41,10 +42,13 @@ export default function PaymentsPage() {
   const [mainTab, setMainTab] = useState("payments")
   const [tab, setTab] = useState("all")
   const [search, setSearch] = useState("")
+  const [page, setPage] = useState(1)
+  const debouncedSearch = useDebounce(search, 300)
   const [contactFilter, setContactFilter] = useState("all")
   const [dateFrom, setDateFrom] = useState("")
   const [dateTo, setDateTo] = useState("")
-  const { data: payments = [], isLoading } = useSalesPayments(tab === "all" ? undefined : tab)
+  const { data: paymentsPage, isLoading } = useSalesPaymentsPage({ status: tab === "all" ? undefined : tab, search: debouncedSearch, page, limit: 50 })
+  const payments = paymentsPage?.items ?? []
   const { data: receipts = [], isLoading: receiptsLoading } = useSaleReceipts()
   const { data: contacts = [] } = useContacts()
   const { t } = useTheme()
@@ -62,20 +66,15 @@ export default function PaymentsPage() {
     return m
   }, [contacts])
 
+  useEffect(() => { setPage(1) }, [debouncedSearch, tab])
+
   const rows = useMemo(() => {
     let filtered = payments
-    if (search.trim()) {
-      const q = search.toLowerCase()
-      filtered = filtered.filter(i =>
-        i.payment_number.toLowerCase().includes(q) ||
-        (contactMap.get(i.contact_id) ?? "").toLowerCase().includes(q)
-      )
-    }
     if (contactFilter !== "all") filtered = filtered.filter(i => i.contact_id === contactFilter)
     if (dateFrom) filtered = filtered.filter(i => (i.payment_date || "") >= dateFrom)
     if (dateTo) filtered = filtered.filter(i => (i.payment_date || "") <= dateTo)
     return filtered
-  }, [payments, search, contactMap, contactFilter, dateFrom, dateTo])
+  }, [payments, contactMap, contactFilter, dateFrom, dateTo])
 
   return (
     <div className="flex flex-col gap-4">
@@ -242,6 +241,7 @@ export default function PaymentsPage() {
                     ))}
                   </TableBody>
                 </Table>
+                <PaginationControls page={page} pages={paymentsPage?.pages ?? 1} total={paymentsPage?.total ?? 0} limit={50} onPageChange={setPage} />
               </div>
             )}
           </div>

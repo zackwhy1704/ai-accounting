@@ -1,15 +1,17 @@
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { useQueryClient } from "@tanstack/react-query"
 import { useNavigate } from "react-router-dom"
 import { ViewDetailSheet } from "../../components/ui/view-detail-sheet"
-import { Plus, BookOpen, FileText, XCircle, Pencil, Trash2 } from "lucide-react"
-import { useManualJournals } from "../../lib/hooks"
+import { Plus, BookOpen, FileText, XCircle, Pencil, Trash2, Search } from "lucide-react"
+import { useManualJournalsPage, useDebounce } from "../../lib/hooks"
+import { PaginationControls } from "../../components/ui/pagination-controls"
 import api from "../../lib/api"
 import { formatDate, formatCurrency } from "../../lib/utils"
 import { useToast } from "../../components/ui/toast"
 import { Card } from "../../components/ui/card"
 import { Button } from "../../components/ui/button"
+import { Input } from "../../components/ui/input"
 import { Badge } from "../../components/ui/badge"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../../components/ui/table"
 import { cn } from "../../lib/utils"
@@ -25,8 +27,14 @@ export default function ManualJournalsPage() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const { toast } = useToast()
-  const { data: journals = [], isLoading } = useManualJournals()
+  const [search, setSearch] = useState("")
+  const [page, setPage] = useState(1)
+  const debouncedSearch = useDebounce(search, 300)
+  const { data: journalsPage, isLoading } = useManualJournalsPage({ search: debouncedSearch, page, limit: 50 })
+  const journals = journalsPage?.items ?? []
   const [viewItem, setViewItem] = useState<typeof journals[0] | null>(null)
+
+  useEffect(() => { setPage(1) }, [debouncedSearch])
 
   const totalDebit = (j: typeof journals[0]) =>
     j.lines.reduce((s, l) => s + Number(l.debit), 0)
@@ -45,6 +53,10 @@ export default function ManualJournalsPage() {
       </div>
 
       <Card className="rounded-2xl border-border bg-card p-4 shadow-[0_0_0_1px_rgba(15,23,42,0.06),0_18px_55px_rgba(2,6,23,0.08)]">
+        <div className="mb-4 relative max-w-sm">
+          <Search className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+          <Input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search journals..." className="h-10 rounded-xl pl-9 text-sm" />
+        </div>
         {isLoading ? (
           <div className="py-10 text-center text-sm text-muted-foreground">Loading...</div>
         ) : journals.length === 0 ? (
@@ -97,6 +109,7 @@ export default function ManualJournalsPage() {
                 ))}
               </TableBody>
             </Table>
+            <PaginationControls page={page} pages={journalsPage?.pages ?? 1} total={journalsPage?.total ?? 0} limit={50} onPageChange={setPage} />
           </div>
         )}
       </Card>

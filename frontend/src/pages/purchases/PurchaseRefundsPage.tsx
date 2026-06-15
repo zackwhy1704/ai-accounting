@@ -1,10 +1,11 @@
-import { useState, useMemo } from "react"
+import { useState, useMemo, useEffect } from "react"
 import { useNavigate } from "react-router-dom"
 import { ViewDetailSheet } from "../../components/ui/view-detail-sheet"
-import { useQuery, useQueryClient } from "@tanstack/react-query"
+import { useQueryClient } from "@tanstack/react-query"
 import { Plus, Search, RotateCcw, FileText, Download, XCircle, Pencil, CheckCircle, Trash2 } from "lucide-react"
 import api from "../../lib/api"
-import { useContacts } from "../../lib/hooks"
+import { useContacts, usePurchaseRefundsPage, useDebounce } from "../../lib/hooks"
+import { PaginationControls } from "../../components/ui/pagination-controls"
 import { formatCurrency, formatDate, cn } from "../../lib/utils"
 import { useToast } from "../../components/ui/toast"
 import { Card } from "../../components/ui/card"
@@ -60,19 +61,18 @@ export default function PurchaseRefundsPage() {
   const { toast } = useToast()
   const [tab, setTab] = useState("all")
   const [search, setSearch] = useState("")
+  const [page, setPage] = useState(1)
+  const debouncedSearch = useDebounce(search, 300)
   const [contactFilter, setContactFilter] = useState("all")
   const [dateFrom, setDateFrom] = useState("")
   const [dateTo, setDateTo] = useState("")
   const [viewItem, setViewItem] = useState<PurchaseRefund | null>(null)
 
-  const { data: refunds = [], isLoading } = useQuery<PurchaseRefund[]>({
-    queryKey: ["purchase-refunds"],
-    queryFn: async () => {
-      const res = await api.get("/purchase-refunds")
-      return res.data
-    },
-  })
+  const { data: refundsPage, isLoading } = usePurchaseRefundsPage({ search: debouncedSearch, status: tab === "all" ? undefined : tab, page, limit: 50 })
+  const refunds = refundsPage?.items ?? []
   const { data: contacts = [] } = useContacts()
+
+  useEffect(() => { setPage(1) }, [debouncedSearch, tab])
 
   const vendors = useMemo(() => contacts.filter((c: any) => c.type === "supplier" || c.type === "vendor" || c.type === "both"), [contacts])
 
@@ -84,19 +84,11 @@ export default function PurchaseRefundsPage() {
 
   const rows = useMemo(() => {
     let filtered = refunds
-    if (tab !== "all") filtered = filtered.filter(r => r.status === tab)
-    if (search.trim()) {
-      const q = search.toLowerCase()
-      filtered = filtered.filter(r =>
-        r.refund_no.toLowerCase().includes(q) ||
-        (r.contact_id ? (contactMap.get(r.contact_id) ?? "").toLowerCase().includes(q) : false)
-      )
-    }
     if (contactFilter !== "all") filtered = filtered.filter(r => r.contact_id === contactFilter)
     if (dateFrom) filtered = filtered.filter(r => (r.refund_date || "") >= dateFrom)
     if (dateTo) filtered = filtered.filter(r => (r.refund_date || "") <= dateTo)
     return filtered
-  }, [refunds, tab, search, contactMap, contactFilter, dateFrom, dateTo])
+  }, [refunds, contactMap, contactFilter, dateFrom, dateTo])
 
   return (
     <div className="flex flex-col gap-4">
@@ -204,6 +196,7 @@ export default function PurchaseRefundsPage() {
                     ))}
                   </TableBody>
                 </Table>
+                <PaginationControls page={page} pages={refundsPage?.pages ?? 1} total={refundsPage?.total ?? 0} limit={50} onPageChange={setPage} />
               </div>
             )}
           </div>

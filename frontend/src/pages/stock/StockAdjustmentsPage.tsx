@@ -1,8 +1,10 @@
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { useNavigate } from "react-router-dom"
 import { ViewDetailSheet } from "../../components/ui/view-detail-sheet"
-import { useQuery, useQueryClient } from "@tanstack/react-query"
+import { useQueryClient } from "@tanstack/react-query"
 import { Plus, Search, SlidersHorizontal, FileText, CheckCircle2, XCircle, Pencil, Trash2 } from "lucide-react"
+import { useStockAdjustmentsPage, useDebounce } from "../../lib/hooks"
+import { PaginationControls } from "../../components/ui/pagination-controls"
 import api from "../../lib/api"
 import { formatDate, cn } from "../../lib/utils"
 import { useToast } from "../../components/ui/toast"
@@ -34,31 +36,21 @@ export default function StockAdjustmentsPage() {
   const queryClient = useQueryClient()
   const { toast } = useToast()
   const [search, setSearch] = useState("")
+  const [page, setPage] = useState(1)
+  const debouncedSearch = useDebounce(search, 300)
   const [viewItem, setViewItem] = useState<StockAdjustment | null>(null)
   const [statusFilter, setStatusFilter] = useState("all")
   const [dateFrom, setDateFrom] = useState("")
   const [dateTo, setDateTo] = useState("")
 
-  const { data: adjustments = [], isLoading } = useQuery<StockAdjustment[]>({
-    queryKey: ["stock-adjustments"],
-    queryFn: async () => {
-      const res = await api.get("/stock-adjustments")
-      return res.data
-    },
-  })
+  const { data: adjustmentsPage, isLoading } = useStockAdjustmentsPage({ search: debouncedSearch, status: statusFilter === "all" ? undefined : statusFilter, page, limit: 50 })
+  const adjustments = adjustmentsPage?.items ?? []
+
+  useEffect(() => { setPage(1) }, [debouncedSearch, statusFilter])
 
   const rows = adjustments.filter(a => {
-    if (statusFilter !== "all" && a.status !== statusFilter) return false
     if (dateFrom && a.adjustment_date < dateFrom) return false
     if (dateTo && a.adjustment_date > dateTo) return false
-    if (search.trim()) {
-      const q = search.toLowerCase()
-      if (
-        !a.adjustment_number.toLowerCase().includes(q) &&
-        !(a.reference_number ?? "").toLowerCase().includes(q) &&
-        !(a.reason ?? "").toLowerCase().includes(q)
-      ) return false
-    }
     return true
   })
 
@@ -170,6 +162,7 @@ export default function StockAdjustmentsPage() {
                 ))}
               </TableBody>
             </Table>
+            <PaginationControls page={page} pages={adjustmentsPage?.pages ?? 1} total={adjustmentsPage?.total ?? 0} limit={50} onPageChange={setPage} />
           </div>
         )}
       </Card>

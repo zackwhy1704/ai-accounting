@@ -1,7 +1,8 @@
-import { useMemo, useState } from "react"
+import { useMemo, useState, useEffect } from "react"
 import { useNavigate } from "react-router-dom"
 import { Plus, Search, CreditCard, FileText, Copy, Printer, XCircle, Truck, Pencil, Send, Trash2, ArrowRightLeft, RotateCcw } from "lucide-react"
-import { useInvoices, useContacts, useBankAccounts, useUpdateInvoiceStatus, useDeleteInvoice } from "../../lib/hooks"
+import { useInvoicesPage, useContacts, useBankAccounts, useUpdateInvoiceStatus, useDeleteInvoice, useDebounce } from "../../lib/hooks"
+import { PaginationControls } from "../../components/ui/pagination-controls"
 import { useQueryClient } from "@tanstack/react-query"
 import api from "../../lib/api"
 import { formatCurrency, formatDate, cn } from "../../lib/utils"
@@ -38,6 +39,8 @@ export default function InvoicesPage() {
   const { toast } = useToast()
   const [tab, setTab] = useState("all")
   const [search, setSearch] = useState("")
+  const [page, setPage] = useState(1)
+  const debouncedSearch = useDebounce(search, 300)
   const [contactFilter, setContactFilter] = useState("all")
   const [dateFrom, setDateFrom] = useState("")
   const [dateTo, setDateTo] = useState("")
@@ -52,9 +55,16 @@ export default function InvoicesPage() {
   const [refundBankAccountId, setRefundBankAccountId] = useState("")
   const [overpaidBusy, setOverpaidBusy] = useState(false)
 
-  const { data: invoices = [], isLoading } = useInvoices(tab === "all" ? undefined : tab)
+  const { data: invoicesPage, isLoading } = useInvoicesPage({
+    status: tab === "all" ? undefined : tab,
+    search: debouncedSearch,
+    page,
+    limit: 50,
+  })
+  const invoices = invoicesPage?.items ?? []
   const { data: contacts = [] } = useContacts()
   const { data: bankAccounts = [] } = useBankAccounts()
+  useEffect(() => { setPage(1) }, [debouncedSearch, tab])
   const { t } = useTheme()
 
   const statusTabs = [
@@ -74,18 +84,11 @@ export default function InvoicesPage() {
 
   const rows = useMemo(() => {
     let filtered = invoices
-    if (search.trim()) {
-      const q = search.toLowerCase()
-      filtered = filtered.filter(i =>
-        i.invoice_number.toLowerCase().includes(q) ||
-        (contactMap.get(i.contact_id) ?? "").toLowerCase().includes(q)
-      )
-    }
     if (contactFilter !== "all") filtered = filtered.filter(i => i.contact_id === contactFilter)
     if (dateFrom) filtered = filtered.filter(i => (i.issue_date || "") >= dateFrom)
     if (dateTo) filtered = filtered.filter(i => (i.issue_date || "") <= dateTo)
     return filtered
-  }, [invoices, search, contactMap, contactFilter, dateFrom, dateTo])
+  }, [invoices, contactMap, contactFilter, dateFrom, dateTo])
 
   const overpaidOf = (inv: any) => Math.max(0, (inv.amount_paid ?? 0) - inv.total)
   const displayStatus = (inv: any) => overpaidOf(inv) > 0 ? "overpaid" : inv.status
@@ -253,6 +256,7 @@ export default function InvoicesPage() {
                     })}
                   </TableBody>
                 </Table>
+              <PaginationControls page={page} pages={invoicesPage?.pages ?? 1} total={invoicesPage?.total ?? 0} limit={50} onPageChange={setPage} />
               </div>
             )}
           </div>

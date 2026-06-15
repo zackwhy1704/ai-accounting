@@ -1,8 +1,9 @@
-import { useMemo, useState, useRef } from "react"
+import { useMemo, useState, useRef, useEffect } from "react"
 import { useNavigate } from "react-router-dom"
 import { ViewDetailSheet } from "../../components/ui/view-detail-sheet"
 import { Plus, Search, CalendarDays, FileText, Copy, Printer, XCircle, CreditCard, Pencil, PackageCheck, Trash2, ArrowRightLeft, RotateCcw } from "lucide-react"
-import { useBills, useContacts, useUpdateBillStatus, useDeleteBill } from "../../lib/hooks"
+import { useBillsPage, useContacts, useUpdateBillStatus, useDeleteBill, useDebounce } from "../../lib/hooks"
+import { PaginationControls } from "../../components/ui/pagination-controls"
 import { formatCurrency, formatDate, cn } from "../../lib/utils"
 import { useTheme } from "../../lib/theme"
 import { useToast } from "../../components/ui/toast"
@@ -38,14 +39,23 @@ export default function BillsPage() {
   const { toast } = useToast()
   const [tab, setTab] = useState("all")
   const [search, setSearch] = useState("")
+  const [page, setPage] = useState(1)
+  const debouncedSearch = useDebounce(search, 300)
   const [contactFilter, setContactFilter] = useState("all")
   const [dateFrom, setDateFrom] = useState("")
   const [dateTo, setDateTo] = useState("")
   const dateFromRef = useRef<HTMLInputElement>(null)
   const dateToRef = useRef<HTMLInputElement>(null)
-  const { data: bills = [], isLoading } = useBills(tab === "all" ? undefined : tab)
+  const { data: billsPage, isLoading } = useBillsPage({
+    status: tab === "all" ? undefined : tab,
+    search: debouncedSearch,
+    page,
+    limit: 50,
+  })
+  const bills = billsPage?.items ?? []
   const { data: contacts = [] } = useContacts()
   const { t } = useTheme()
+  useEffect(() => { setPage(1) }, [debouncedSearch, tab])
   const [viewItem, setViewItem] = useState<typeof bills[0] | null>(null)
 
   const statusTabs = [
@@ -66,17 +76,11 @@ export default function BillsPage() {
 
   const rows = useMemo(() => {
     let filtered = bills
-    // treat "approved" same as "outstanding" in tab filter
-    if (tab === "outstanding") filtered = filtered.filter(b => b.status === "outstanding" || b.status === "approved")
-    if (search.trim()) {
-      const q = search.toLowerCase()
-      filtered = filtered.filter(b => b.bill_number.toLowerCase().includes(q) || (contactMap.get(b.contact_id) ?? "").toLowerCase().includes(q))
-    }
     if (contactFilter !== "all") filtered = filtered.filter(b => b.contact_id === contactFilter)
     if (dateFrom) filtered = filtered.filter(b => b.due_date && b.due_date >= dateFrom)
     if (dateTo) filtered = filtered.filter(b => b.due_date && b.due_date <= dateTo)
     return filtered
-  }, [bills, tab, search, contactMap, contactFilter, dateFrom, dateTo])
+  }, [bills, contactMap, contactFilter, dateFrom, dateTo])
 
   return (
     <div className="flex flex-col gap-4">
@@ -202,6 +206,7 @@ export default function BillsPage() {
                         })}
                       </TableBody>
                     </Table>
+                    <PaginationControls page={page} pages={billsPage?.pages ?? 1} total={billsPage?.total ?? 0} limit={50} onPageChange={setPage} />
                   </div>
                 )}
               </div>

@@ -1,8 +1,9 @@
-import { useMemo, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { useQueryClient } from "@tanstack/react-query"
 import { useNavigate } from "react-router-dom"
 import { Plus, Search, FileText, Send, XCircle, Pencil, Trash2, Receipt, ArrowRightLeft, RotateCcw } from "lucide-react"
-import { usePurchaseCreditNotes, useContacts, useDeletePurchaseCreditNote, useBills, useRemovePurchaseCreditApplications } from "../../lib/hooks"
+import { usePurchaseCreditNotesPage, useContacts, useDeletePurchaseCreditNote, useBills, useRemovePurchaseCreditApplications, useDebounce } from "../../lib/hooks"
+import { PaginationControls } from "../../components/ui/pagination-controls"
 import api from "../../lib/api"
 import { formatCurrency, formatDate, cn as clsx } from "../../lib/utils"
 import { useToast } from "../../components/ui/toast"
@@ -38,12 +39,17 @@ export default function PurchaseCreditNotesPage() {
   const removeApplications = useRemovePurchaseCreditApplications()
   const [tab, setTab] = useState("all")
   const [search, setSearch] = useState("")
+  const [page, setPage] = useState(1)
+  const debouncedSearch = useDebounce(search, 300)
   const [contactFilter, setContactFilter] = useState("all")
   const [dateFrom, setDateFrom] = useState("")
   const [dateTo, setDateTo] = useState("")
-  const { data: creditNotes = [], isLoading } = usePurchaseCreditNotes(tab === "all" ? undefined : tab)
+  const { data: creditNotesPage, isLoading } = usePurchaseCreditNotesPage({ status: tab === "all" ? undefined : tab, search: debouncedSearch, page, limit: 50 })
+  const creditNotes = creditNotesPage?.items ?? []
   const { data: contacts = [] } = useContacts()
   const { data: bills = [] } = useBills()
+
+  useEffect(() => { setPage(1) }, [debouncedSearch, tab])
 
   const vendors = useMemo(() => contacts.filter((c: any) => c.type === "supplier" || c.type === "vendor" || c.type === "both"), [contacts])
 
@@ -61,18 +67,11 @@ export default function PurchaseCreditNotesPage() {
 
   const rows = useMemo(() => {
     let filtered = creditNotes
-    if (search.trim()) {
-      const q = search.toLowerCase()
-      filtered = filtered.filter((cn: any) =>
-        cn.pcn_number.toLowerCase().includes(q) ||
-        (contactMap.get(cn.contact_id) ?? "").toLowerCase().includes(q)
-      )
-    }
     if (contactFilter !== "all") filtered = filtered.filter((cn: any) => cn.contact_id === contactFilter)
     if (dateFrom) filtered = filtered.filter((cn: any) => (cn.issue_date || "") >= dateFrom)
     if (dateTo) filtered = filtered.filter((cn: any) => (cn.issue_date || "") <= dateTo)
     return filtered
-  }, [creditNotes, search, contactMap, contactFilter, dateFrom, dateTo])
+  }, [creditNotes, contactMap, contactFilter, dateFrom, dateTo])
 
   const patch = (id: string, status: string, label: string) =>
     api.patch(`/purchase-credit-notes/${id}/status`, null, { params: { status } })
@@ -185,6 +184,7 @@ export default function PurchaseCreditNotesPage() {
                     ))}
                   </TableBody>
                 </Table>
+                <PaginationControls page={page} pages={creditNotesPage?.pages ?? 1} total={creditNotesPage?.total ?? 0} limit={50} onPageChange={setPage} />
               </div>
             )}
           </div>

@@ -7,8 +7,9 @@ import { Input } from "../../components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../components/ui/select"
 import { useToast } from "../../components/ui/toast"
 import api from "../../lib/api"
+import { useAccounts } from "../../lib/hooks"
 
-type Tab = "general" | "tax" | "currencies" | "number_formats" | "payment_terms" | "payment_methods" | "locations" | "tags"
+type Tab = "general" | "tax" | "currencies" | "number_formats" | "payment_terms" | "payment_methods" | "locations" | "tags" | "default_gl"
 
 const TABS: { value: Tab; label: string }[] = [
   { value: "general", label: "General" },
@@ -19,6 +20,7 @@ const TABS: { value: Tab; label: string }[] = [
   { value: "payment_methods", label: "Payment Methods" },
   { value: "locations", label: "Locations" },
   { value: "tags", label: "Tags" },
+  { value: "default_gl", label: "Default GL Accounts" },
 ]
 
 const COUNTRIES = ["MY", "SG", "AU", "US", "UK", "HK"]
@@ -43,6 +45,11 @@ interface Organization {
   fiscal_year_start: string | null
   einvoice_enabled: boolean
   einvoice_supplier_tin: string | null
+  default_ar_account_id: string | null
+  default_ap_account_id: string | null
+  default_bank_account_id: string | null
+  default_revenue_account_id: string | null
+  default_expense_account_id: string | null
 }
 
 interface SimpleItem {
@@ -263,6 +270,11 @@ export default function CompanySettingsPage() {
     currency: "MYR",
     tax_regime: "MY_SST",
     fiscal_year_start: "01-01",
+    default_ar_account_id: "",
+    default_ap_account_id: "",
+    default_bank_account_id: "",
+    default_revenue_account_id: "",
+    default_expense_account_id: "",
   })
 
   useEffect(() => {
@@ -276,6 +288,11 @@ export default function CompanySettingsPage() {
         currency: org.currency ?? "MYR",
         tax_regime: org.tax_regime ?? "MY_SST",
         fiscal_year_start: "01-01",
+        default_ar_account_id: org.default_ar_account_id ?? "",
+        default_ap_account_id: org.default_ap_account_id ?? "",
+        default_bank_account_id: org.default_bank_account_id ?? "",
+        default_revenue_account_id: org.default_revenue_account_id ?? "",
+        default_expense_account_id: org.default_expense_account_id ?? "",
       })
     }
   }, [org])
@@ -294,6 +311,8 @@ export default function CompanySettingsPage() {
     queryFn: () => api.get("/settings-data").then(r => r.data?.currencies ?? []),
     enabled: activeTab === "currencies",
   })
+
+  const { data: allAccounts = [] } = useAccounts()
 
   const setField = (key: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement>) =>
     setForm(prev => ({ ...prev, [key]: e.target.value }))
@@ -512,6 +531,58 @@ export default function CompanySettingsPage() {
             )}
 
             {activeTab === "tags" && <TagsTab />}
+
+            {activeTab === "default_gl" && (
+              <div className="space-y-4">
+                <div className="text-sm font-semibold text-foreground">Default GL Accounts</div>
+                <div className="rounded-xl bg-muted/40 border border-border p-4">
+                  <div className="text-xs text-muted-foreground">
+                    Configure default GL accounts for automated journal posting. When set, these accounts are used instead of the system defaults when invoices, bills, and payments are posted.
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  {([
+                    { key: "default_ar_account_id", label: "Accounts Receivable (AR)", filter: (a: { type: string }) => a.type === "asset" },
+                    { key: "default_ap_account_id", label: "Accounts Payable (AP)", filter: (a: { type: string }) => a.type === "liability" },
+                    { key: "default_bank_account_id", label: "Bank / Cash Account", filter: (a: { type: string }) => a.type === "asset" },
+                    { key: "default_revenue_account_id", label: "Revenue Account", filter: (a: { type: string }) => a.type === "revenue" },
+                    { key: "default_expense_account_id", label: "Expense Account", filter: (a: { type: string }) => a.type === "expense" },
+                  ] as { key: keyof typeof form; label: string; filter: (a: { type: string }) => boolean }[]).map(({ key, label, filter }) => {
+                    const filtered = allAccounts.filter(filter)
+                    return (
+                      <div key={key} className="space-y-1.5">
+                        <label className="text-xs font-medium text-muted-foreground">{label}</label>
+                        <Select
+                          value={form[key] || "none"}
+                          onValueChange={v => setForm(p => ({ ...p, [key]: v === "none" ? "" : v }))}
+                        >
+                          <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="Not set" /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="none">Not set</SelectItem>
+                            {filtered.map(a => (
+                              <SelectItem key={a.id} value={a.id}>
+                                {a.code} — {a.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    )
+                  })}
+                </div>
+                <div className="flex justify-end">
+                  <Button
+                    type="button"
+                    className="h-9 bg-gradient-to-r from-[#7C9DFF] to-[#4D63FF] px-4 text-sm text-white"
+                    onClick={() => updateMutation.mutate(form)}
+                    disabled={updateMutation.isPending}
+                  >
+                    {updateMutation.isPending ? <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" /> : null}
+                    Save Changes
+                  </Button>
+                </div>
+              </div>
+            )}
           </>
         )}
       </Card>

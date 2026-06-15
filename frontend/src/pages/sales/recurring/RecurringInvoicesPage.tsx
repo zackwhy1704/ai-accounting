@@ -1,8 +1,9 @@
-import { useMemo, useState } from "react"
+import { useMemo, useState, useEffect } from "react"
 import { useNavigate } from "react-router-dom"
 import { Plus, Search, RefreshCw, Pause, Play, Pencil, Trash2 } from "lucide-react"
 import { RowActionsMenu } from "../../../components/ui/row-actions"
-import { useRecurringInvoices, useContacts, usePauseRecurringInvoice, useResumeRecurringInvoice, useDeleteRecurringInvoice, useRunRecurringInvoiceNow } from "../../../lib/hooks"
+import { useRecurringInvoicesPage, useContacts, usePauseRecurringInvoice, useResumeRecurringInvoice, useDeleteRecurringInvoice, useRunRecurringInvoiceNow, useDebounce } from "../../../lib/hooks"
+import { PaginationControls } from "../../../components/ui/pagination-controls"
 import { formatDate, cn } from "../../../lib/utils"
 import { Card } from "../../../components/ui/card"
 import { Button } from "../../../components/ui/button"
@@ -37,10 +38,13 @@ export default function RecurringInvoicesPage() {
   const { toast } = useToast()
   const [tab, setTab] = useState("all")
   const [search, setSearch] = useState("")
+  const [page, setPage] = useState(1)
+  const debouncedSearch = useDebounce(search, 300)
   const [contactFilter, setContactFilter] = useState("all")
   const [dateFrom, setDateFrom] = useState("")
   const [dateTo, setDateTo] = useState("")
-  const { data: recurring = [], isLoading } = useRecurringInvoices(tab === "all" ? undefined : tab)
+  const { data: recurringPage, isLoading } = useRecurringInvoicesPage({ status: tab === "all" ? undefined : tab, search: debouncedSearch, page, limit: 50 })
+  const recurring = recurringPage?.items ?? []
   const { data: contacts = [] } = useContacts()
   const pause = usePauseRecurringInvoice()
   const resume = useResumeRecurringInvoice()
@@ -55,19 +59,15 @@ export default function RecurringInvoicesPage() {
     return m
   }, [contacts])
 
+  useEffect(() => { setPage(1) }, [debouncedSearch, tab])
+
   const rows = useMemo(() => {
     let filtered = recurring
-    if (search.trim()) {
-      const q = search.toLowerCase()
-      filtered = filtered.filter((r: any) =>
-        (contactMap.get(r.contact_id) ?? "").toLowerCase().includes(q)
-      )
-    }
     if (contactFilter !== "all") filtered = filtered.filter((r: any) => r.contact_id === contactFilter)
     if (dateFrom) filtered = filtered.filter((r: any) => (r.start_date || "") >= dateFrom)
     if (dateTo) filtered = filtered.filter((r: any) => (r.start_date || "") <= dateTo)
     return filtered
-  }, [recurring, search, contactMap, contactFilter, dateFrom, dateTo])
+  }, [recurring, contactMap, contactFilter, dateFrom, dateTo])
 
   return (
     <div className="flex flex-col gap-4">
@@ -178,6 +178,7 @@ export default function RecurringInvoicesPage() {
                     ))}
                   </TableBody>
                 </Table>
+                <PaginationControls page={page} pages={recurringPage?.pages ?? 1} total={recurringPage?.total ?? 0} limit={50} onPageChange={setPage} />
               </div>
             )}
           </div>

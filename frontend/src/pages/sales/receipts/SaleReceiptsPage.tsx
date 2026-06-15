@@ -1,8 +1,9 @@
-import { useMemo, useState } from "react"
+import { useMemo, useState, useEffect } from "react"
 import { useNavigate } from "react-router-dom"
 import { ViewDetailSheet } from "../../../components/ui/view-detail-sheet"
 import { Plus, Search, Receipt, FileText, XCircle, Pencil, Trash2 } from "lucide-react"
-import { useSaleReceipts, useContacts, useDeleteSaleReceipt } from "../../../lib/hooks"
+import { useSaleReceiptsPage, useContacts, useDeleteSaleReceipt, useDebounce } from "../../../lib/hooks"
+import { PaginationControls } from "../../../components/ui/pagination-controls"
 import { useQueryClient } from "@tanstack/react-query"
 import api from "../../../lib/api"
 import { formatCurrency, formatDate, cn } from "../../../lib/utils"
@@ -38,11 +39,14 @@ export default function SaleReceiptsPage() {
   const { toast } = useToast()
   const [tab, setTab] = useState("all")
   const [search, setSearch] = useState("")
+  const [page, setPage] = useState(1)
+  const debouncedSearch = useDebounce(search, 300)
   const [contactFilter, setContactFilter] = useState("all")
   const [dateFrom, setDateFrom] = useState("")
   const [dateTo, setDateTo] = useState("")
   const [viewItem, setViewItem] = useState<any>(null)
-  const { data: receipts = [], isLoading } = useSaleReceipts(tab === "all" ? undefined : tab)
+  const { data: receiptsPage, isLoading } = useSaleReceiptsPage({ status: tab === "all" ? undefined : tab, search: debouncedSearch, page, limit: 50 })
+  const receipts = receiptsPage?.items ?? []
   const { data: contacts = [] } = useContacts()
   const deleteReceipt = useDeleteSaleReceipt()
 
@@ -54,20 +58,15 @@ export default function SaleReceiptsPage() {
     return m
   }, [contacts])
 
+  useEffect(() => { setPage(1) }, [debouncedSearch, tab])
+
   const rows = useMemo(() => {
     let filtered = receipts
-    if (search.trim()) {
-      const q = search.toLowerCase()
-      filtered = filtered.filter((r: any) =>
-        r.receipt_number.toLowerCase().includes(q) ||
-        (r.contact_id ? (contactMap.get(r.contact_id) ?? "") : "").toLowerCase().includes(q)
-      )
-    }
     if (contactFilter !== "all") filtered = filtered.filter((r: any) => r.contact_id === contactFilter)
     if (dateFrom) filtered = filtered.filter((r: any) => (r.receipt_date || "") >= dateFrom)
     if (dateTo) filtered = filtered.filter((r: any) => (r.receipt_date || "") <= dateTo)
     return filtered
-  }, [receipts, search, contactMap, contactFilter, dateFrom, dateTo])
+  }, [receipts, contactMap, contactFilter, dateFrom, dateTo])
 
   return (
     <div className="flex flex-col gap-4">
@@ -173,6 +172,7 @@ export default function SaleReceiptsPage() {
                     ))}
                   </TableBody>
                 </Table>
+                <PaginationControls page={page} pages={receiptsPage?.pages ?? 1} total={receiptsPage?.total ?? 0} limit={50} onPageChange={setPage} />
               </div>
             )}
           </div>
