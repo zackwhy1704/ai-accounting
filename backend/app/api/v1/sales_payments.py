@@ -5,6 +5,7 @@ from sqlalchemy.orm import selectinload
 from uuid import UUID
 from app.core.database import get_db
 from app.core.security import get_current_user
+from app.core.permissions import require_write
 from app.core.pagination import PaginationParams, paginated_result, apply_sort
 from app.models.models import (
     DebitNote, SalesPayment, PaymentAllocation, Invoice, Contact,
@@ -68,7 +69,7 @@ async def get_sales_payment(sp_id: UUID, current_user: dict = Depends(get_curren
 
 
 @router.post("/sales-payments", response_model=SalesPaymentResponse, status_code=201)
-async def create_sales_payment(data: SalesPaymentCreate, current_user: dict = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+async def create_sales_payment(data: SalesPaymentCreate, current_user: dict = Depends(require_write()), db: AsyncSession = Depends(get_db)):
     org_id = current_user["org_id"]
     if data.payment_number:
         existing = (await db.execute(select(SalesPayment.id).where(SalesPayment.organization_id == org_id, SalesPayment.payment_number == data.payment_number))).first()
@@ -135,7 +136,7 @@ async def create_sales_payment(data: SalesPaymentCreate, current_user: dict = De
 
 
 @router.patch("/sales-payments/{sp_id}", response_model=SalesPaymentResponse)
-async def update_sales_payment(sp_id: UUID, data: SalesPaymentUpdate, current_user: dict = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+async def update_sales_payment(sp_id: UUID, data: SalesPaymentUpdate, current_user: dict = Depends(require_write()), db: AsyncSession = Depends(get_db)):
     result = await db.execute(
         select(SalesPayment)
         .options(selectinload(SalesPayment.allocations))
@@ -227,7 +228,7 @@ async def update_sales_payment(sp_id: UUID, data: SalesPaymentUpdate, current_us
 
 
 @router.patch("/sales-payments/{sp_id}/status")
-async def update_sales_payment_status(sp_id: UUID, status: str, current_user: dict = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+async def update_sales_payment_status(sp_id: UUID, status: str, current_user: dict = Depends(require_write()), db: AsyncSession = Depends(get_db)):
     result = await db.execute(
         select(SalesPayment)
         .options(selectinload(SalesPayment.allocations))
@@ -280,7 +281,7 @@ async def update_sales_payment_status(sp_id: UUID, status: str, current_user: di
 
 
 @router.delete("/sales-payments/{sp_id}", status_code=204)
-async def delete_sales_payment(sp_id: UUID, current_user: dict = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+async def delete_sales_payment(sp_id: UUID, current_user: dict = Depends(require_write()), db: AsyncSession = Depends(get_db)):
     result = await db.execute(
         select(SalesPayment)
         .options(selectinload(SalesPayment.allocations))

@@ -4,6 +4,7 @@ from sqlalchemy import select, func, or_
 from uuid import UUID
 from app.core.database import get_db
 from app.core.security import get_current_user
+from app.core.permissions import require_write
 from app.core.pagination import PaginationParams, paginated_result, apply_sort
 from app.models.models import (
     CreditNote, SalesRefund, Contact,
@@ -67,7 +68,7 @@ async def get_sales_refund(sr_id: UUID, current_user: dict = Depends(get_current
 
 
 @router.post("/sales-refunds", response_model=SalesRefundResponse, status_code=201)
-async def create_sales_refund(data: SalesRefundCreate, current_user: dict = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+async def create_sales_refund(data: SalesRefundCreate, current_user: dict = Depends(require_write()), db: AsyncSession = Depends(get_db)):
     org_id = current_user["org_id"]
     if data.refund_number:
         existing = (await db.execute(select(SalesRefund.id).where(SalesRefund.organization_id == org_id, SalesRefund.refund_number == data.refund_number))).first()
@@ -128,7 +129,7 @@ async def create_sales_refund(data: SalesRefundCreate, current_user: dict = Depe
 
 
 @router.patch("/sales-refunds/{sr_id}", response_model=SalesRefundResponse)
-async def update_sales_refund(sr_id: UUID, data: SalesRefundUpdate, current_user: dict = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+async def update_sales_refund(sr_id: UUID, data: SalesRefundUpdate, current_user: dict = Depends(require_write()), db: AsyncSession = Depends(get_db)):
     result = await db.execute(
         select(SalesRefund)
         .where(SalesRefund.id == sr_id, SalesRefund.organization_id == current_user["org_id"])
@@ -156,7 +157,7 @@ async def update_sales_refund(sr_id: UUID, data: SalesRefundUpdate, current_user
 
 
 @router.patch("/sales-refunds/{sr_id}/status")
-async def update_sales_refund_status(sr_id: UUID, status: str, current_user: dict = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+async def update_sales_refund_status(sr_id: UUID, status: str, current_user: dict = Depends(require_write()), db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(SalesRefund).where(SalesRefund.id == sr_id, SalesRefund.organization_id == current_user["org_id"]))
     obj = result.scalar_one_or_none()
     if not obj:
@@ -182,7 +183,7 @@ async def update_sales_refund_status(sr_id: UUID, status: str, current_user: dic
 
 
 @router.delete("/sales-refunds/{sr_id}", status_code=204)
-async def delete_sales_refund(sr_id: UUID, current_user: dict = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+async def delete_sales_refund(sr_id: UUID, current_user: dict = Depends(require_write()), db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(SalesRefund).where(SalesRefund.id == sr_id, SalesRefund.organization_id == current_user["org_id"]))
     obj = result.scalar_one_or_none()
     if not obj:

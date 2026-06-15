@@ -10,6 +10,7 @@ from uuid import UUID
 from datetime import datetime, timezone, timedelta
 from app.core.database import get_db, async_session
 from app.core.security import get_current_user
+from app.core.permissions import require_write
 from app.core.pagination import PaginationParams, paginated_result, apply_sort
 from app.models.models import Document, Organization, Bill, BillLineItem, Contact, Account, Transaction, JournalEntry, GoodsReceivedNote, GRNLineItem
 from .gl_helpers import post_gl as do_post_gl
@@ -102,7 +103,7 @@ async def _process_document_background(doc_id: UUID, org_id: UUID, file_content:
 @router.post("", response_model=DocumentResponse, status_code=201)
 async def upload_document(
     file: UploadFile = File(...),
-    current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(require_write()),
     db: AsyncSession = Depends(get_db),
 ):
     # Validate file
@@ -140,7 +141,7 @@ async def upload_document(
 @router.post("/{document_id}/reprocess", response_model=DocumentResponse)
 async def reprocess_document(
     document_id: UUID,
-    current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(require_write()),
     db: AsyncSession = Depends(get_db),
 ):
     result = await db.execute(
@@ -169,7 +170,7 @@ async def reprocess_document(
 @router.delete("/{document_id}", status_code=204)
 async def delete_document(
     document_id: UUID,
-    current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(require_write()),
     db: AsyncSession = Depends(get_db),
 ):
     result = await db.execute(
@@ -229,7 +230,7 @@ class ExtractedDataUpdate(BaseModel):
 async def update_extracted_data(
     document_id: UUID,
     body: ExtractedDataUpdate,
-    current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(require_write()),
     db: AsyncSession = Depends(get_db),
 ):
     result = await db.execute(
@@ -251,7 +252,7 @@ class CategoryUpdate(BaseModel):
 async def update_document(
     document_id: UUID,
     body: CategoryUpdate,
-    current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(require_write()),
     db: AsyncSession = Depends(get_db),
 ):
     valid_categories = {
@@ -284,7 +285,7 @@ class StatusUpdate(BaseModel):
 async def update_document_status(
     document_id: UUID,
     body: StatusUpdate,
-    current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(require_write()),
     db: AsyncSession = Depends(get_db),
 ):
     valid = {"uploaded", "processing", "processed", "failed", "done", "unrecognized"}
@@ -310,7 +311,7 @@ class AttachBillRequest(BaseModel):
 async def attach_to_bill(
     document_id: UUID,
     body: AttachBillRequest,
-    current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(require_write()),
     db: AsyncSession = Depends(get_db),
 ):
     org_id = current_user["org_id"]
@@ -337,7 +338,7 @@ async def attach_to_bill(
 @router.post("/{document_id}/create-bill", response_model=BillResponse)
 async def create_bill_from_document(
     document_id: UUID,
-    current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(require_write()),
     db: AsyncSession = Depends(get_db),
 ):
     org_id = current_user["org_id"]
@@ -596,7 +597,7 @@ class CreateGRNRequest(BaseModel):
 async def create_grn_from_document(
     document_id: UUID,
     body: CreateGRNRequest,
-    current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(require_write()),
     db: AsyncSession = Depends(get_db),
 ):
     """
@@ -902,7 +903,7 @@ class CreateJournalRequest(BaseModel):
 async def create_journal_from_document(
     document_id: UUID,
     body: CreateJournalRequest,
-    current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(require_write()),
     db: AsyncSession = Depends(get_db),
 ):
     """
@@ -1049,7 +1050,7 @@ FILENAME_HINTS: list[tuple[str, str, int]] = [
 @router.post("/{document_id}/categorise", response_model=DocumentResponse)
 async def categorise_document(
     document_id: UUID,
-    current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(require_write()),
     db: AsyncSession = Depends(get_db),
 ):
     result = await db.execute(

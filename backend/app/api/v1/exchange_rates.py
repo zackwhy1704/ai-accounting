@@ -8,6 +8,7 @@ from uuid import UUID
 
 from app.core.database import get_db
 from app.core.security import get_current_user
+from app.core.permissions import require_write
 from app.core.pagination import PaginationParams, paginated_result, apply_sort
 from app.models.models import ExchangeRate, Organization
 from app.schemas.schemas import ExchangeRateCreate, ExchangeRateUpdate, ExchangeRateResponse
@@ -107,7 +108,7 @@ async def list_exchange_rates(
 async def create_exchange_rate(
     payload: ExchangeRateCreate,
     db: AsyncSession = Depends(get_db),
-    current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(require_write()),
 ):
     er = ExchangeRate(
         organization_id=current_user["org_id"],
@@ -122,7 +123,7 @@ async def create_exchange_rate(
 @router.post("/sync", response_model=list[ExchangeRateResponse])
 async def sync_exchange_rates(
     db: AsyncSession = Depends(get_db),
-    current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(require_write()),
 ):
     """Fetch latest rates from BNM (MY) or MAS (SG) based on org country."""
     org_result = await db.execute(
@@ -190,7 +191,7 @@ async def update_exchange_rate(
     rate_id: UUID,
     payload: ExchangeRateUpdate,
     db: AsyncSession = Depends(get_db),
-    current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(require_write()),
 ):
     rate = await _get_owned_rate(rate_id, current_user["org_id"], db)
     for key, value in payload.model_dump(exclude_unset=True).items():
@@ -204,7 +205,7 @@ async def update_exchange_rate(
 async def delete_exchange_rate(
     rate_id: UUID,
     db: AsyncSession = Depends(get_db),
-    current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(require_write()),
 ):
     rate = await _get_owned_rate(rate_id, current_user["org_id"], db)
     await db.delete(rate)

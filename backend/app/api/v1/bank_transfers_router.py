@@ -8,6 +8,7 @@ from pydantic import BaseModel
 
 from app.core.database import get_db
 from app.core.security import get_current_user
+from app.core.permissions import require_write
 from app.core.pagination import PaginationParams, paginated_result, apply_sort
 from app.models.models import BankTransfer
 from .gl_helpers import post_gl_by_id, revert_gl
@@ -76,7 +77,7 @@ async def list_bank_transfers(
 async def create_bank_transfer(
     payload: BankTransferCreate,
     db: AsyncSession = Depends(get_db),
-    current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(require_write()),
 ):
     if payload.from_account_id == payload.to_account_id:
         raise HTTPException(status_code=400, detail="From and To accounts must differ")
@@ -132,7 +133,7 @@ async def update_bank_transfer(
     transfer_id: UUID,
     payload: BankTransferUpdate,
     db: AsyncSession = Depends(get_db),
-    current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(require_write()),
 ):
     result = await db.execute(
         select(BankTransfer).where(
@@ -154,7 +155,7 @@ async def update_bank_transfer(
 async def delete_bank_transfer(
     transfer_id: UUID,
     db: AsyncSession = Depends(get_db),
-    current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(require_write()),
 ):
     result = await db.execute(
         select(BankTransfer).where(

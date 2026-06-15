@@ -10,6 +10,7 @@ from uuid import UUID
 
 from app.core.database import get_db
 from app.core.security import get_current_user
+from app.core.permissions import require_write
 from app.core.pagination import PaginationParams, paginated_result, apply_sort
 from app.models.models import TaxRate
 from app.schemas.schemas import TaxRateCreate, TaxRateUpdate, TaxRateResponse
@@ -64,7 +65,7 @@ async def get_tax_rate(
 async def create_tax_rate(
     payload: TaxRateCreate,
     db: AsyncSession = Depends(get_db),
-    current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(require_write()),
 ):
     # Enforce unique code per org
     existing = await db.execute(
@@ -91,7 +92,7 @@ async def update_tax_rate(
     tax_rate_id: UUID,
     payload: TaxRateUpdate,
     db: AsyncSession = Depends(get_db),
-    current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(require_write()),
 ):
     result = await db.execute(
         select(TaxRate).where(
@@ -113,7 +114,7 @@ async def update_tax_rate(
 async def delete_tax_rate(
     tax_rate_id: UUID,
     db: AsyncSession = Depends(get_db),
-    current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(require_write()),
 ):
     result = await db.execute(
         select(TaxRate).where(
@@ -132,7 +133,7 @@ async def delete_tax_rate(
 async def upload_tax_rates_csv(
     file: UploadFile = File(...),
     db: AsyncSession = Depends(get_db),
-    current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(require_write()),
 ):
     """Upload a CSV file with columns: code, name, rate, tax_type, sst_category (optional).
     Skips rows where the code already exists."""
@@ -177,7 +178,7 @@ async def upload_tax_rates_csv(
 @router.post("/import-pdf", status_code=200)
 async def import_tax_rates_from_pdf(
     file: UploadFile = File(...),
-    current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(require_write()),
     db: AsyncSession = Depends(get_db),
 ):
     """Upload a PDF and extract tax codes via AI. Returns extracted rows for review before saving."""
@@ -267,7 +268,7 @@ Rules:
 @router.post("/import-pdf/confirm", response_model=list[TaxRateResponse], status_code=201)
 async def confirm_import_tax_rates(
     tax_rates: list[TaxRateCreate],
-    current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(require_write()),
     db: AsyncSession = Depends(get_db),
 ):
     """Save extracted tax rates. Skips duplicates by code."""

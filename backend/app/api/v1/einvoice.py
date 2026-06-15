@@ -23,6 +23,7 @@ from uuid import UUID
 
 from app.core.database import get_db
 from app.core.security import get_current_user
+from app.core.permissions import require_write
 from app.models.models import Organization, Invoice
 
 router = APIRouter(prefix="/einvoice", tags=["e-invoice"])
@@ -95,7 +96,7 @@ def _build_ubl_invoice(invoice: Invoice, org: Organization) -> dict:
 async def submit_einvoice(
     invoice_id: UUID,
     db: AsyncSession = Depends(get_db),
-    current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(require_write()),
 ):
     """Submit an invoice to LHDN MyInvois."""
     # Load org

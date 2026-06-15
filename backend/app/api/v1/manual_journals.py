@@ -7,6 +7,7 @@ from uuid import UUID
 from sqlalchemy import or_
 from app.core.database import get_db
 from app.core.security import get_current_user
+from app.core.permissions import require_write
 from app.core.pagination import PaginationParams, paginated_result, apply_sort
 from sqlalchemy import delete as sa_delete
 from app.models.models import ManualJournal, ManualJournalLine, Transaction, JournalEntry
@@ -58,7 +59,7 @@ async def list_journals(
 async def create_journal(
     payload: ManualJournalCreate,
     db: AsyncSession = Depends(get_db),
-    current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(require_write()),
 ):
     if not payload.lines or len(payload.lines) < 2:
         raise HTTPException(status_code=422, detail="Journal must have at least 2 lines")
@@ -122,7 +123,7 @@ async def update_journal(
     journal_id: UUID,
     payload: ManualJournalUpdate,
     db: AsyncSession = Depends(get_db),
-    current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(require_write()),
 ):
     result = await db.execute(
         select(ManualJournal)
@@ -170,7 +171,7 @@ async def update_journal(
 async def delete_journal(
     journal_id: UUID,
     db: AsyncSession = Depends(get_db),
-    current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(require_write()),
 ):
     result = await db.execute(
         select(ManualJournal).where(
@@ -193,7 +194,7 @@ async def delete_journal(
 async def post_journal(
     journal_id: UUID,
     db: AsyncSession = Depends(get_db),
-    current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(require_write()),
 ):
     result = await db.execute(
         select(ManualJournal)
@@ -238,7 +239,7 @@ async def post_journal(
 async def void_journal(
     journal_id: UUID,
     db: AsyncSession = Depends(get_db),
-    current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(require_write()),
 ):
     result = await db.execute(
         select(ManualJournal)

@@ -20,6 +20,7 @@ from sqlalchemy import select
 
 from app.core.database import get_db
 from app.core.security import get_current_user
+from app.core.permissions import require_admin
 from app.models.models import FirmClientLink, Organization, User
 
 router = APIRouter(prefix="/invitations", tags=["invitations"])
@@ -59,7 +60,7 @@ async def _get_link_or_404(db: AsyncSession, token: str) -> FirmClientLink:
 @router.post("", status_code=201)
 async def send_invite(
     data: SendInviteRequest,
-    current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(require_admin()),
     db: AsyncSession = Depends(get_db),
 ):
     """Firm sends an invitation to an SME's email."""
@@ -180,7 +181,7 @@ async def validate_invite(
 @router.post("/accept/{token}")
 async def accept_invite(
     token: str,
-    current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(require_admin()),
     db: AsyncSession = Depends(get_db),
 ):
     """Authenticated SME accepts the invitation — links their org to the firm."""
@@ -209,7 +210,7 @@ async def accept_invite(
 @router.post("/decline/{token}")
 async def decline_invite(
     token: str,
-    current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(require_admin()),
     db: AsyncSession = Depends(get_db),
 ):
     """SME declines the invitation."""
@@ -333,7 +334,7 @@ class LinkBySlugRequest(BaseModel):
 @router.post("/link-by-slug", status_code=201)
 async def sme_link_by_slug(
     data: LinkBySlugRequest,
-    current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(require_admin()),
     db: AsyncSession = Depends(get_db),
 ):
     """SME initiates linking to an accountant firm by the firm's slug.
@@ -430,7 +431,7 @@ async def lookup_firm_by_slug(
 @router.delete("/{link_id}")
 async def unlink(
     link_id: str,
-    current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(require_admin()),
     db: AsyncSession = Depends(get_db),
 ):
     """Either side can unlink — sets status to revoked."""

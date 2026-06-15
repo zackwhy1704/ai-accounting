@@ -19,6 +19,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
 from app.core.security import get_current_user
+from app.core.permissions import require_write
 from app.models.models import Invoice, Bill, Transaction, JournalEntry, Account
 from .gl_helpers import post_gl_by_id, revert_gl
 
@@ -60,7 +61,7 @@ async def create_adjustment(
     parent_id: UUID,
     payload: AdjustmentCreate,
     db: AsyncSession = Depends(get_db),
-    current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(require_write()),
 ):
     org_id = current_user["org_id"]
     await _ensure_parent(db, entity, parent_id, org_id)
@@ -137,7 +138,7 @@ async def list_adjustments(
 async def delete_adjustment(
     txn_id: UUID,
     db: AsyncSession = Depends(get_db),
-    current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(require_write()),
 ):
     """Reverse and delete an adjustment. Posts a counter-entry then removes the originals."""
     org_id = current_user["org_id"]

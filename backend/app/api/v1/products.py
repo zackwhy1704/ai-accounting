@@ -5,6 +5,7 @@ from uuid import UUID
 
 from app.core.database import get_db
 from app.core.security import get_current_user
+from app.core.permissions import require_write
 from app.core.pagination import PaginationParams, paginated_result, apply_sort
 from app.models.models import Product
 from app.schemas.schemas import ProductCreate, ProductUpdate, ProductResponse
@@ -46,7 +47,7 @@ async def list_products(
 async def create_product(
     payload: ProductCreate,
     db: AsyncSession = Depends(get_db),
-    current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(require_write()),
 ):
     product = Product(
         organization_id=current_user["org_id"],
@@ -81,7 +82,7 @@ async def update_product(
     product_id: UUID,
     payload: ProductUpdate,
     db: AsyncSession = Depends(get_db),
-    current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(require_write()),
 ):
     result = await db.execute(
         select(Product).where(
@@ -103,7 +104,7 @@ async def update_product(
 async def delete_product(
     product_id: UUID,
     db: AsyncSession = Depends(get_db),
-    current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(require_write()),
 ):
     result = await db.execute(
         select(Product).where(

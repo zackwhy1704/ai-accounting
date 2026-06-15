@@ -9,6 +9,7 @@ from typing import Optional
 
 from app.core.database import get_db
 from app.core.security import get_current_user
+from app.core.permissions import require_write
 from app.core.pagination import PaginationParams, paginated_result, apply_sort
 from app.models.models import PurchaseCreditNote, PurchaseCreditNoteLineItem, PurchaseCreditApplication, Bill, Contact
 from app.schemas.schemas import (
@@ -133,7 +134,7 @@ async def list_purchase_credit_notes(
 async def create_purchase_credit_note(
     payload: PurchaseCreditNoteCreate,
     db: AsyncSession = Depends(get_db),
-    current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(require_write()),
 ):
     org_id = current_user["org_id"]
     subtotal, discount_amount, tax_amount, total = _calc_totals(payload.line_items)
@@ -221,7 +222,7 @@ async def update_purchase_credit_note_status(
     pcn_id: UUID,
     status: str,
     db: AsyncSession = Depends(get_db),
-    current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(require_write()),
 ):
     valid = {"draft", "issued", "applied", "void"}
     if status not in valid:
@@ -256,7 +257,7 @@ async def update_purchase_credit_note(
     pcn_id: UUID,
     data: PurchaseCreditNoteUpdate,
     db: AsyncSession = Depends(get_db),
-    current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(require_write()),
 ):
     result = await db.execute(
         _with_pcn(select(PurchaseCreditNote).where(
@@ -306,7 +307,7 @@ async def apply_purchase_credit_note(
     bill_id: UUID,
     amount: float,
     db: AsyncSession = Depends(get_db),
-    current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(require_write()),
 ):
     """Apply part or all of a PCN's credit to a bill."""
     result = await db.execute(
@@ -353,7 +354,7 @@ async def apply_purchase_credit_note(
 async def remove_all_applications(
     pcn_id: UUID,
     db: AsyncSession = Depends(get_db),
-    current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(require_write()),
 ):
     """Remove all bill applications from a PCN and restore bill balances."""
     result = await db.execute(
@@ -384,7 +385,7 @@ async def remove_single_application(
     pcn_id: UUID,
     app_id: UUID,
     db: AsyncSession = Depends(get_db),
-    current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(require_write()),
 ):
     """Remove a single bill application from a PCN."""
     result = await db.execute(
@@ -424,7 +425,7 @@ async def remove_single_application(
 async def delete_purchase_credit_note(
     pcn_id: UUID,
     db: AsyncSession = Depends(get_db),
-    current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(require_write()),
 ):
     result = await db.execute(
         _with_pcn(select(PurchaseCreditNote).where(

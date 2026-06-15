@@ -9,6 +9,7 @@ from pydantic import BaseModel
 from sqlalchemy import func, or_
 from app.core.database import get_db
 from app.core.security import get_current_user
+from app.core.permissions import require_write
 from app.core.pagination import PaginationParams, paginated_result, apply_sort
 from app.models.models import BankAccount, BankTransaction
 
@@ -77,7 +78,7 @@ async def list_bank_accounts(
 async def create_bank_account(
     payload: BankAccountCreate,
     db: AsyncSession = Depends(get_db),
-    current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(require_write()),
 ):
     data = payload.model_dump()
     opening_bal = data["opening_balance"]
@@ -120,7 +121,7 @@ async def update_bank_account(
     account_id: UUID,
     payload: BankAccountUpdate,
     db: AsyncSession = Depends(get_db),
-    current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(require_write()),
 ):
     result = await db.execute(
         select(BankAccount).where(
@@ -145,7 +146,7 @@ async def update_bank_account(
 async def delete_bank_account(
     account_id: UUID,
     db: AsyncSession = Depends(get_db),
-    current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(require_write()),
 ):
     result = await db.execute(
         select(BankAccount).where(

@@ -8,6 +8,7 @@ from pydantic import BaseModel
 
 from app.core.database import get_db
 from app.core.security import get_current_user
+from app.core.permissions import require_write
 from app.core.pagination import PaginationParams, paginated_result, apply_sort
 from app.core.sequences import next_sequence_number
 from app.models.models import StockAdjustment, StockTransfer, Product
@@ -131,7 +132,7 @@ async def list_adjustments(
 async def create_adjustment(
     payload: StockAdjustmentCreate,
     db: AsyncSession = Depends(get_db),
-    current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(require_write()),
 ):
     # Frontend sends "items"; normalize to the model's "lines" JSONB column.
     raw_lines = payload.items or payload.lines
@@ -174,7 +175,7 @@ async def update_adjustment(
     adj_id: UUID,
     payload: StockAdjustmentUpdate,
     db: AsyncSession = Depends(get_db),
-    current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(require_write()),
 ):
     result = await db.execute(
         select(StockAdjustment).where(
@@ -196,7 +197,7 @@ async def update_adjustment(
 async def delete_adjustment(
     adj_id: UUID,
     db: AsyncSession = Depends(get_db),
-    current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(require_write()),
 ):
     result = await db.execute(
         select(StockAdjustment).where(
@@ -215,7 +216,7 @@ async def delete_adjustment(
 async def confirm_adjustment(
     adj_id: UUID,
     db: AsyncSession = Depends(get_db),
-    current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(require_write()),
 ):
     result = await db.execute(
         select(StockAdjustment).where(
@@ -304,7 +305,7 @@ async def list_transfers(
 async def create_transfer(
     payload: StockTransferCreate,
     db: AsyncSession = Depends(get_db),
-    current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(require_write()),
 ):
     trf = StockTransfer(
         organization_id=current_user["org_id"],
@@ -340,7 +341,7 @@ async def update_transfer(
     trf_id: UUID,
     payload: StockTransferUpdate,
     db: AsyncSession = Depends(get_db),
-    current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(require_write()),
 ):
     result = await db.execute(
         select(StockTransfer).where(
@@ -362,7 +363,7 @@ async def update_transfer(
 async def delete_transfer(
     trf_id: UUID,
     db: AsyncSession = Depends(get_db),
-    current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(require_write()),
 ):
     result = await db.execute(
         select(StockTransfer).where(
@@ -381,7 +382,7 @@ async def delete_transfer(
 async def complete_transfer(
     trf_id: UUID,
     db: AsyncSession = Depends(get_db),
-    current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(require_write()),
 ):
     result = await db.execute(
         select(StockTransfer).where(

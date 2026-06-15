@@ -4,6 +4,7 @@ from sqlalchemy import select, func, or_
 from uuid import UUID
 from app.core.database import get_db
 from app.core.security import get_current_user
+from app.core.permissions import require_write
 from app.core.pagination import PaginationParams, paginated_result, apply_sort
 from app.models.models import Contact
 from app.schemas.schemas import ContactCreate, ContactUpdate, ContactResponse
@@ -48,7 +49,7 @@ async def list_contacts(
 @router.post("", response_model=ContactResponse, status_code=201)
 async def create_contact(
     data: ContactCreate,
-    current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(require_write()),
     db: AsyncSession = Depends(get_db),
 ):
     contact = Contact(organization_id=current_user["org_id"], **data.model_dump())
@@ -77,7 +78,7 @@ async def get_contact(
 async def update_contact(
     contact_id: UUID,
     data: ContactUpdate,
-    current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(require_write()),
     db: AsyncSession = Depends(get_db),
 ):
     result = await db.execute(
@@ -97,7 +98,7 @@ async def update_contact(
 @router.delete("/{contact_id}", status_code=204)
 async def delete_contact(
     contact_id: UUID,
-    current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(require_write()),
     db: AsyncSession = Depends(get_db),
 ):
     result = await db.execute(

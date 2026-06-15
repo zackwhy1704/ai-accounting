@@ -8,6 +8,7 @@ from typing import Optional
 from pydantic import BaseModel
 from app.core.database import get_db
 from app.core.security import get_current_user
+from app.core.permissions import require_write
 from app.core.pagination import PaginationParams, paginated_result, apply_sort
 from app.models.models import Bill, BillLineItem, PurchasePayment, PurchaseCreditApplication, PurchaseCreditNote, Transaction, JournalEntry, Account, Contact
 from app.schemas.schemas import BillCreate, BillUpdate, BillResponse
@@ -73,7 +74,7 @@ async def list_bills(
 @router.post("", response_model=BillResponse, status_code=201)
 async def create_bill(
     data: BillCreate,
-    current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(require_write()),
     db: AsyncSession = Depends(get_db),
 ):
     org_id = current_user["org_id"]
@@ -178,7 +179,7 @@ async def get_bill(
 async def update_bill(
     bill_id: UUID,
     data: BillUpdate,
-    current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(require_write()),
     db: AsyncSession = Depends(get_db),
 ):
     org_id = current_user["org_id"]
@@ -269,7 +270,7 @@ async def update_bill(
 async def update_bill_status(
     bill_id: UUID,
     status: str,
-    current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(require_write()),
     db: AsyncSession = Depends(get_db),
 ):
     org_id = current_user["org_id"]
@@ -320,7 +321,7 @@ async def update_bill_status(
 @router.delete("/{bill_id}", status_code=204)
 async def delete_bill(
     bill_id: UUID,
-    current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(require_write()),
     db: AsyncSession = Depends(get_db),
 ):
     org_id = current_user["org_id"]
@@ -457,7 +458,7 @@ class BillPaymentCreate(BaseModel):
 async def pay_bill(
     bill_id: UUID,
     payload: BillPaymentCreate,
-    current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(require_write()),
     db: AsyncSession = Depends(get_db),
 ):
     org_id = current_user["org_id"]

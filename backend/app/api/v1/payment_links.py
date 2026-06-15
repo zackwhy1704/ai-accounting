@@ -12,6 +12,7 @@ from uuid import UUID
 
 from app.core.database import get_db
 from app.core.security import get_current_user
+from app.core.permissions import require_write
 from app.core.pagination import PaginationParams, paginated_result, apply_sort
 from app.models.models import PaymentLink, Invoice, Organization
 
@@ -83,7 +84,7 @@ async def list_payment_links(
 async def create_payment_link(
     payload: PaymentLinkCreate,
     db: AsyncSession = Depends(get_db),
-    current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(require_write()),
 ):
     expires_at = None
     if payload.expires_in_days:
@@ -124,7 +125,7 @@ async def update_payment_link(
     link_id: UUID,
     payload: PaymentLinkUpdate,
     db: AsyncSession = Depends(get_db),
-    current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(require_write()),
 ):
     link = await _get_owned_link(link_id, current_user["org_id"], db)
     for key, value in payload.model_dump(exclude_unset=True).items():
@@ -138,7 +139,7 @@ async def update_payment_link(
 async def delete_payment_link(
     link_id: UUID,
     db: AsyncSession = Depends(get_db),
-    current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(require_write()),
 ):
     link = await _get_owned_link(link_id, current_user["org_id"], db)
     await db.delete(link)

@@ -5,6 +5,7 @@ from sqlalchemy.orm import selectinload
 from uuid import UUID
 from app.core.database import get_db
 from app.core.security import get_current_user
+from app.core.permissions import require_write
 from app.core.pagination import PaginationParams, paginated_result, apply_sort
 from app.models.models import (
     DeliveryOrder, DeliveryOrderLineItem, Contact,
@@ -57,7 +58,7 @@ async def list_delivery_orders(
 
 
 @router.post("/delivery-orders", response_model=DeliveryOrderResponse, status_code=201)
-async def create_delivery_order(data: DeliveryOrderCreate, current_user: dict = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+async def create_delivery_order(data: DeliveryOrderCreate, current_user: dict = Depends(require_write()), db: AsyncSession = Depends(get_db)):
     org_id = current_user["org_id"]
     if data.delivery_number:
         existing = (await db.execute(select(DeliveryOrder.id).where(DeliveryOrder.organization_id == org_id, DeliveryOrder.delivery_number == data.delivery_number))).first()
@@ -111,7 +112,7 @@ async def get_delivery_order(do_id: UUID, current_user: dict = Depends(get_curre
 
 
 @router.patch("/delivery-orders/{do_id}", response_model=DeliveryOrderResponse)
-async def update_delivery_order(do_id: UUID, data: DeliveryOrderUpdate, current_user: dict = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+async def update_delivery_order(do_id: UUID, data: DeliveryOrderUpdate, current_user: dict = Depends(require_write()), db: AsyncSession = Depends(get_db)):
     result = await db.execute(
         select(DeliveryOrder)
         .options(selectinload(DeliveryOrder.line_items))
@@ -170,7 +171,7 @@ async def update_delivery_order(do_id: UUID, data: DeliveryOrderUpdate, current_
 
 
 @router.patch("/delivery-orders/{do_id}/status")
-async def update_delivery_order_status(do_id: UUID, status: str, current_user: dict = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+async def update_delivery_order_status(do_id: UUID, status: str, current_user: dict = Depends(require_write()), db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(DeliveryOrder).where(DeliveryOrder.id == do_id, DeliveryOrder.organization_id == current_user["org_id"]))
     obj = result.scalar_one_or_none()
     if not obj:
@@ -184,7 +185,7 @@ async def update_delivery_order_status(do_id: UUID, status: str, current_user: d
 
 
 @router.delete("/delivery-orders/{do_id}", status_code=204)
-async def delete_delivery_order(do_id: UUID, current_user: dict = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+async def delete_delivery_order(do_id: UUID, current_user: dict = Depends(require_write()), db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(DeliveryOrder).where(DeliveryOrder.id == do_id, DeliveryOrder.organization_id == current_user["org_id"]))
     obj = result.scalar_one_or_none()
     if not obj:

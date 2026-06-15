@@ -5,6 +5,7 @@ from sqlalchemy.orm import selectinload
 from uuid import UUID
 from app.core.database import get_db
 from app.core.security import get_current_user
+from app.core.permissions import require_write
 from app.core.pagination import PaginationParams, paginated_result, apply_sort
 from datetime import datetime, timezone, timedelta
 from pydantic import BaseModel as PydanticBaseModel
@@ -61,7 +62,7 @@ async def list_quotations(
 
 
 @router.post("/quotations", response_model=QuotationResponse, status_code=201)
-async def create_quotation(data: QuotationCreate, current_user: dict = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+async def create_quotation(data: QuotationCreate, current_user: dict = Depends(require_write()), db: AsyncSession = Depends(get_db)):
     org_id = current_user["org_id"]
     if data.quotation_number:
         existing = (await db.execute(select(Quotation.id).where(Quotation.organization_id == org_id, Quotation.quotation_number == data.quotation_number))).first()
@@ -117,7 +118,7 @@ async def get_quotation(qid: UUID, current_user: dict = Depends(get_current_user
 
 
 @router.patch("/quotations/{qid}", response_model=QuotationResponse)
-async def update_quotation(qid: UUID, data: QuotationUpdate, current_user: dict = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+async def update_quotation(qid: UUID, data: QuotationUpdate, current_user: dict = Depends(require_write()), db: AsyncSession = Depends(get_db)):
     result = await db.execute(
         select(Quotation)
         .options(selectinload(Quotation.line_items))
@@ -187,7 +188,7 @@ class ConvertQuotationRequest(PydanticBaseModel):
 
 
 @router.post("/quotations/{qid}/convert")
-async def convert_quotation(qid: UUID, body: ConvertQuotationRequest, current_user: dict = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+async def convert_quotation(qid: UUID, body: ConvertQuotationRequest, current_user: dict = Depends(require_write()), db: AsyncSession = Depends(get_db)):
     """Convert quotation to invoice and/or delivery order. Copies all line items."""
     org_id = current_user["org_id"]
     result = await db.execute(
@@ -266,7 +267,7 @@ async def convert_quotation(qid: UUID, body: ConvertQuotationRequest, current_us
 
 
 @router.patch("/quotations/{qid}/status")
-async def update_quotation_status(qid: UUID, status: str, current_user: dict = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+async def update_quotation_status(qid: UUID, status: str, current_user: dict = Depends(require_write()), db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(Quotation).where(Quotation.id == qid, Quotation.organization_id == current_user["org_id"]))
     obj = result.scalar_one_or_none()
     if not obj:
@@ -280,7 +281,7 @@ async def update_quotation_status(qid: UUID, status: str, current_user: dict = D
 
 
 @router.delete("/quotations/{qid}", status_code=204)
-async def delete_quotation(qid: UUID, current_user: dict = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+async def delete_quotation(qid: UUID, current_user: dict = Depends(require_write()), db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(Quotation).where(Quotation.id == qid, Quotation.organization_id == current_user["org_id"]))
     obj = result.scalar_one_or_none()
     if not obj:

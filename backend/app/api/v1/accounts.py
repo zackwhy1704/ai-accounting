@@ -7,6 +7,7 @@ from sqlalchemy import select, func, or_
 from uuid import UUID
 from app.core.database import get_db
 from app.core.security import get_current_user
+from app.core.permissions import require_write
 from app.core.pagination import PaginationParams, paginated_result, apply_sort
 from app.models.models import Account
 from app.schemas.schemas import AccountCreate, AccountUpdate, AccountResponse
@@ -66,7 +67,7 @@ async def get_account(
 @router.post("", response_model=AccountResponse, status_code=201)
 async def create_account(
     data: AccountCreate,
-    current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(require_write()),
     db: AsyncSession = Depends(get_db),
 ):
     existing = await db.execute(
@@ -88,7 +89,7 @@ async def create_account(
 async def update_account(
     account_id: UUID,
     data: AccountUpdate,
-    current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(require_write()),
     db: AsyncSession = Depends(get_db),
 ):
     result = await db.execute(
@@ -124,7 +125,7 @@ async def update_account(
 @router.delete("/{account_id}", status_code=204)
 async def delete_account(
     account_id: UUID,
-    current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(require_write()),
     db: AsyncSession = Depends(get_db),
 ):
     result = await db.execute(
@@ -145,7 +146,7 @@ async def delete_account(
 @router.post("/import-pdf", status_code=200)
 async def import_accounts_from_pdf(
     file: UploadFile = File(...),
-    current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(require_write()),
     db: AsyncSession = Depends(get_db),
 ):
     """Upload a PDF chart of accounts and extract account lines via AI.
@@ -243,7 +244,7 @@ Rules:
 @router.post("/import-pdf/confirm", response_model=list[AccountResponse], status_code=201)
 async def confirm_import_accounts(
     accounts: list[AccountCreate],
-    current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(require_write()),
     db: AsyncSession = Depends(get_db),
 ):
     """Save a list of accounts extracted from PDF. Skips duplicates by code."""

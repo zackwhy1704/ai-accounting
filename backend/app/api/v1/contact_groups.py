@@ -8,6 +8,7 @@ from pydantic import BaseModel
 
 from app.core.database import get_db
 from app.core.security import get_current_user
+from app.core.permissions import require_write
 from app.core.pagination import PaginationParams, paginated_result, apply_sort
 from app.models.models import ContactGroup
 
@@ -57,7 +58,7 @@ async def list_contact_groups(
 async def create_contact_group(
     payload: ContactGroupCreate,
     db: AsyncSession = Depends(get_db),
-    current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(require_write()),
 ):
     group = ContactGroup(
         organization_id=current_user["org_id"],
@@ -92,7 +93,7 @@ async def update_contact_group(
     group_id: UUID,
     payload: ContactGroupUpdate,
     db: AsyncSession = Depends(get_db),
-    current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(require_write()),
 ):
     result = await db.execute(
         select(ContactGroup).where(
@@ -114,7 +115,7 @@ async def update_contact_group(
 async def delete_contact_group(
     group_id: UUID,
     db: AsyncSession = Depends(get_db),
-    current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(require_write()),
 ):
     result = await db.execute(
         select(ContactGroup).where(

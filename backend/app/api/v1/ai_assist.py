@@ -4,6 +4,7 @@ from typing import Any
 
 from app.core.config import get_settings
 from app.core.security import get_current_user
+from app.core.permissions import require_write
 
 router = APIRouter(prefix="/ai", tags=["ai"])
 settings = get_settings()
@@ -59,7 +60,7 @@ def _get_client():
 @router.post("/categorize-transaction", response_model=CategorizeResponse)
 async def categorize_transaction(
     payload: CategorizeRequest,
-    current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(require_write()),
 ):
     """AI-powered bank transaction categorization."""
     client = _get_client()
@@ -110,7 +111,7 @@ Common account codes: 4000=Revenue, 5000=COGS, 6000=Rent, 6100=Office Supplies, 
 @router.post("/suggest-tax-code", response_model=TaxSuggestResponse)
 async def suggest_tax_code(
     payload: TaxSuggestRequest,
-    current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(require_write()),
 ):
     """Suggest the appropriate tax code for an invoice/bill line item."""
     client = _get_client()
@@ -166,7 +167,7 @@ Reply with ONLY valid JSON:
 @router.post("/chat", response_model=ChatResponse)
 async def accounting_chat(
     payload: ChatRequest,
-    current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(require_write()),
 ):
     """Accounting AI chat assistant."""
     client = _get_client()

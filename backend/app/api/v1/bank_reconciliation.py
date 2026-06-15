@@ -14,6 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import get_settings
 from app.core.database import get_db
 from app.core.security import get_current_user
+from app.core.permissions import require_write
 from app.models.models import (
     BankStatementLine, ReconciliationRule, Transaction, JournalEntry,
     Account, Contact, Invoice, Bill, BankAccount,
@@ -147,7 +148,7 @@ async def upload_bank_statement(
     file: UploadFile = File(...),
     bank_account_id: UUID = Query(None),
     db: AsyncSession = Depends(get_db),
-    current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(require_write()),
 ):
     """Upload a CSV bank statement and create BankStatementLine records."""
     org_id = current_user["org_id"]
@@ -258,7 +259,7 @@ async def get_statement_lines(
 @router.post("/auto-match")
 async def auto_match(
     db: AsyncSession = Depends(get_db),
-    current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(require_write()),
 ):
     """Run AI-powered auto-matching on unmatched bank statement lines."""
     org_id = current_user["org_id"]
@@ -413,7 +414,7 @@ async def auto_match(
 async def confirm_match(
     line_id: UUID,
     db: AsyncSession = Depends(get_db),
-    current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(require_write()),
 ):
     """Confirm a match — set status to reconciled and learn a new rule."""
     org_id = current_user["org_id"]
@@ -455,7 +456,7 @@ async def confirm_match(
 async def unmatch_line(
     line_id: UUID,
     db: AsyncSession = Depends(get_db),
-    current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(require_write()),
 ):
     """Reject a match — clear the matched transaction and set status to unmatched."""
     org_id = current_user["org_id"]
@@ -488,7 +489,7 @@ async def manual_match(
     line_id: UUID,
     body: ManualMatchRequest,
     db: AsyncSession = Depends(get_db),
-    current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(require_write()),
 ):
     """Manually match a bank statement line to a transaction."""
     org_id = current_user["org_id"]

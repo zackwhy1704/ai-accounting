@@ -7,6 +7,7 @@ from typing import Any
 
 from app.core.database import get_db
 from app.core.security import get_current_user
+from app.core.permissions import require_write
 from app.core.pagination import PaginationParams, paginated_result, apply_sort
 from app.models.models import InvoiceTemplate
 
@@ -100,7 +101,7 @@ async def list_templates(
 async def create_template(
     payload: TemplateCreate,
     db: AsyncSession = Depends(get_db),
-    current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(require_write()),
 ):
     tmpl = InvoiceTemplate(organization_id=current_user["org_id"], **payload.model_dump())
     db.add(tmpl)
@@ -132,7 +133,7 @@ async def update_template(
     tmpl_id: UUID,
     payload: TemplateUpdate,
     db: AsyncSession = Depends(get_db),
-    current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(require_write()),
 ):
     result = await db.execute(
         select(InvoiceTemplate).where(
@@ -166,7 +167,7 @@ async def update_template(
 async def delete_template(
     tmpl_id: UUID,
     db: AsyncSession = Depends(get_db),
-    current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(require_write()),
 ):
     result = await db.execute(
         select(InvoiceTemplate).where(

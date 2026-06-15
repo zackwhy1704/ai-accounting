@@ -6,6 +6,7 @@ from uuid import UUID
 
 from app.core.database import get_db
 from app.core.security import get_current_user
+from app.core.permissions import require_write
 from app.core.pagination import PaginationParams, paginated_result, apply_sort
 from app.models.models import PurchaseDebitNote, PurchaseDebitNoteLineItem, Contact
 from app.schemas.schemas import (
@@ -73,7 +74,7 @@ async def get_purchase_debit_note(
 async def create_purchase_debit_note(
     data: PurchaseDebitNoteCreate,
     db: AsyncSession = Depends(get_db),
-    current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(require_write()),
 ):
     org_id = current_user["org_id"]
     if data.debit_note_number:
@@ -157,7 +158,7 @@ async def update_purchase_debit_note(
     dn_id: UUID,
     data: PurchaseDebitNoteUpdate,
     db: AsyncSession = Depends(get_db),
-    current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(require_write()),
 ):
     result = await db.execute(
         select(PurchaseDebitNote)
@@ -240,7 +241,7 @@ async def update_purchase_debit_note_status(
     dn_id: UUID,
     status: str,
     db: AsyncSession = Depends(get_db),
-    current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(require_write()),
 ):
     valid = {"draft", "issued", "applied", "void"}
     if status not in valid:
@@ -262,7 +263,7 @@ async def update_purchase_debit_note_status(
 async def delete_purchase_debit_note(
     dn_id: UUID,
     db: AsyncSession = Depends(get_db),
-    current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(require_write()),
 ):
     result = await db.execute(
         select(PurchaseDebitNote).where(

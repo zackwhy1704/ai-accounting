@@ -9,6 +9,7 @@ from pydantic import BaseModel
 
 from app.core.database import get_db
 from app.core.security import get_current_user
+from app.core.permissions import require_write
 from app.core.pagination import PaginationParams, paginated_result, apply_sort
 from app.models.models import PurchaseOrder, PurchaseOrderLineItem, Contact
 
@@ -121,7 +122,7 @@ async def list_purchase_orders(
 async def create_purchase_order(
     payload: PurchaseOrderCreate,
     db: AsyncSession = Depends(get_db),
-    current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(require_write()),
 ):
     org_id = current_user["org_id"]
 
@@ -208,7 +209,7 @@ async def update_purchase_order(
     po_id: UUID,
     data: PurchaseOrderUpdate,
     db: AsyncSession = Depends(get_db),
-    current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(require_write()),
 ):
     result = await db.execute(
         select(PurchaseOrder).where(
@@ -275,7 +276,7 @@ async def update_po_status(
     po_id: UUID,
     status: str,
     db: AsyncSession = Depends(get_db),
-    current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(require_write()),
 ):
     valid = {"draft", "sent", "received", "billed", "declined", "cancelled"}
     if status not in valid:
@@ -300,7 +301,7 @@ async def update_po_status(
 async def delete_purchase_order(
     po_id: UUID,
     db: AsyncSession = Depends(get_db),
-    current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(require_write()),
 ):
     result = await db.execute(
         select(PurchaseOrder).where(

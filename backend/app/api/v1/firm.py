@@ -17,6 +17,7 @@ from sqlalchemy import select, func
 from uuid import UUID
 from app.core.database import get_db
 from app.core.security import get_current_user, hash_password, create_access_token
+from app.core.permissions import require_admin
 from app.models.models import (
     Organization, User, UserOrganization, Account,
     Invoice, Bill, Document, ClientInvitation,
@@ -129,7 +130,7 @@ async def get_firm_settings(
 @router.patch("/settings")
 async def update_firm_settings(
     data: WhiteLabelSettings,
-    current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(require_admin()),
     db: AsyncSession = Depends(get_db),
 ):
     org = await _get_org(current_user, db)
@@ -176,7 +177,7 @@ async def update_firm_settings(
 @router.post("/logo")
 async def upload_org_logo(
     file: UploadFile = File(...),
-    current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(require_admin()),
     db: AsyncSession = Depends(get_db),
 ):
     """Upload organisation logo. Replaces existing logo."""
@@ -333,7 +334,7 @@ class InviteClientRequest(BaseModel):
 @router.post("/clients")
 async def invite_client(
     data: InviteClientRequest,
-    current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(require_admin()),
     db: AsyncSession = Depends(get_db),
 ):
     """Invite a client via email. Creates an invitation and sends a branded invite email."""
@@ -492,7 +493,7 @@ async def list_client_orgs(
 @router.delete("/clients/{client_id}")
 async def archive_client_org(
     client_id: UUID,
-    current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(require_admin()),
     db: AsyncSession = Depends(get_db),
 ):
     """Archive a client organisation (soft delete)."""
@@ -562,7 +563,7 @@ async def get_client_documents(
 @router.post("/clients/{client_id}/restore")
 async def restore_client_org(
     client_id: UUID,
-    current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(require_admin()),
     db: AsyncSession = Depends(get_db),
 ):
     """Restore an archived client organisation."""

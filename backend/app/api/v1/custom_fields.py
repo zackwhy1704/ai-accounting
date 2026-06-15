@@ -7,6 +7,7 @@ from typing import Any
 
 from app.core.database import get_db
 from app.core.security import get_current_user
+from app.core.permissions import require_write
 from app.core.pagination import PaginationParams, paginated_result, apply_sort
 from app.models.models import CustomField
 
@@ -81,7 +82,7 @@ async def list_custom_fields(
 async def create_custom_field(
     payload: CustomFieldCreate,
     db: AsyncSession = Depends(get_db),
-    current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(require_write()),
 ):
     cf = CustomField(organization_id=current_user["org_id"], **payload.model_dump())
     db.add(cf)
@@ -95,7 +96,7 @@ async def update_custom_field(
     field_id: UUID,
     payload: CustomFieldUpdate,
     db: AsyncSession = Depends(get_db),
-    current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(require_write()),
 ):
     result = await db.execute(
         select(CustomField).where(
@@ -117,7 +118,7 @@ async def update_custom_field(
 async def delete_custom_field(
     field_id: UUID,
     db: AsyncSession = Depends(get_db),
-    current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(require_write()),
 ):
     result = await db.execute(
         select(CustomField).where(

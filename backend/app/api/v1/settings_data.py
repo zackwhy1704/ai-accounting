@@ -8,6 +8,7 @@ from pydantic import BaseModel
 
 from app.core.database import get_db
 from app.core.security import get_current_user
+from app.core.permissions import require_admin
 from app.models.models import Tag, Location, PaymentTerm, PaymentMethod
 
 router = APIRouter(prefix="/settings-data", tags=["settings-data"])
@@ -121,7 +122,7 @@ async def list_tags(
 async def create_tag(
     payload: TagCreate,
     db: AsyncSession = Depends(get_db),
-    current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(require_admin()),
 ):
     tag = Tag(organization_id=current_user["org_id"], **payload.model_dump())
     db.add(tag)
@@ -134,7 +135,7 @@ async def create_tag(
 async def delete_tag(
     tag_id: UUID,
     db: AsyncSession = Depends(get_db),
-    current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(require_admin()),
 ):
     result = await db.execute(
         select(Tag).where(Tag.id == tag_id, Tag.organization_id == current_user["org_id"])
@@ -165,7 +166,7 @@ async def list_locations(
 async def create_location(
     payload: LocationCreate,
     db: AsyncSession = Depends(get_db),
-    current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(require_admin()),
 ):
     loc = Location(organization_id=current_user["org_id"], **payload.model_dump())
     db.add(loc)
@@ -179,7 +180,7 @@ async def update_location(
     loc_id: UUID,
     payload: LocationUpdate,
     db: AsyncSession = Depends(get_db),
-    current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(require_admin()),
 ):
     result = await db.execute(
         select(Location).where(
@@ -201,7 +202,7 @@ async def update_location(
 async def delete_location(
     loc_id: UUID,
     db: AsyncSession = Depends(get_db),
-    current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(require_admin()),
 ):
     result = await db.execute(
         select(Location).where(
@@ -235,7 +236,7 @@ async def list_payment_terms(
 async def create_payment_term(
     payload: PaymentTermCreate,
     db: AsyncSession = Depends(get_db),
-    current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(require_admin()),
 ):
     term = PaymentTerm(organization_id=current_user["org_id"], **payload.model_dump())
     db.add(term)
@@ -249,7 +250,7 @@ async def update_payment_term(
     term_id: UUID,
     payload: PaymentTermUpdate,
     db: AsyncSession = Depends(get_db),
-    current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(require_admin()),
 ):
     result = await db.execute(
         select(PaymentTerm).where(
@@ -271,7 +272,7 @@ async def update_payment_term(
 async def delete_payment_term(
     term_id: UUID,
     db: AsyncSession = Depends(get_db),
-    current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(require_admin()),
 ):
     result = await db.execute(
         select(PaymentTerm).where(
@@ -305,7 +306,7 @@ async def list_payment_methods(
 async def create_payment_method(
     payload: PaymentMethodCreate,
     db: AsyncSession = Depends(get_db),
-    current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(require_admin()),
 ):
     method = PaymentMethod(organization_id=current_user["org_id"], **payload.model_dump())
     db.add(method)
@@ -319,7 +320,7 @@ async def update_payment_method(
     method_id: UUID,
     payload: PaymentMethodUpdate,
     db: AsyncSession = Depends(get_db),
-    current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(require_admin()),
 ):
     result = await db.execute(
         select(PaymentMethod).where(
@@ -341,7 +342,7 @@ async def update_payment_method(
 async def delete_payment_method(
     method_id: UUID,
     db: AsyncSession = Depends(get_db),
-    current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(require_admin()),
 ):
     result = await db.execute(
         select(PaymentMethod).where(

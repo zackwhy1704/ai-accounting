@@ -9,6 +9,7 @@ from pydantic import BaseModel
 
 from app.core.database import get_db
 from app.core.security import get_current_user
+from app.core.permissions import require_write
 from app.core.pagination import PaginationParams, paginated_result, apply_sort
 from app.models.models import GoodsReceivedNote, GRNLineItem, Contact
 
@@ -106,7 +107,7 @@ async def list_grns(
 async def create_grn(
     payload: GRNCreate,
     db: AsyncSession = Depends(get_db),
-    current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(require_write()),
 ):
     org_id = current_user["org_id"]
 
@@ -172,7 +173,7 @@ async def update_grn(
     grn_id: UUID,
     data: GRNUpdate,
     db: AsyncSession = Depends(get_db),
-    current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(require_write()),
 ):
     result = await db.execute(
         select(GoodsReceivedNote).where(
@@ -222,7 +223,7 @@ async def update_grn_status(
     grn_id: UUID,
     status: str,
     db: AsyncSession = Depends(get_db),
-    current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(require_write()),
 ):
     valid = {"draft", "received", "billed"}
     if status not in valid:
@@ -247,7 +248,7 @@ async def update_grn_status(
 async def delete_grn(
     grn_id: UUID,
     db: AsyncSession = Depends(get_db),
-    current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(require_write()),
 ):
     result = await db.execute(
         select(GoodsReceivedNote).where(

@@ -10,6 +10,7 @@ from typing import Optional
 from sqlalchemy import or_
 from app.core.database import get_db
 from app.core.security import get_current_user
+from app.core.permissions import require_write
 from app.core.pagination import PaginationParams, paginated_result, apply_sort
 from app.models.models import SaleReceipt, Contact
 from app.schemas.schemas import SaleReceiptCreate, SaleReceiptResponse, SaleReceiptLineItem
@@ -81,7 +82,7 @@ async def list_sale_receipts(
 async def create_sale_receipt(
     payload: SaleReceiptCreate,
     db: AsyncSession = Depends(get_db),
-    current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(require_write()),
 ):
     subtotal, tax_amount, total = _calc_totals(payload.line_items)
     receipt_number = await _next_receipt_number(current_user["org_id"], db)
@@ -143,7 +144,7 @@ async def update_sale_receipt(
     receipt_id: UUID,
     data: SaleReceiptUpdate,
     db: AsyncSession = Depends(get_db),
-    current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(require_write()),
 ):
     result = await db.execute(
         select(SaleReceipt).where(
@@ -177,7 +178,7 @@ async def update_sale_receipt(
 async def delete_sale_receipt(
     receipt_id: UUID,
     db: AsyncSession = Depends(get_db),
-    current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(require_write()),
 ):
     result = await db.execute(
         select(SaleReceipt).where(
@@ -204,7 +205,7 @@ async def delete_sale_receipt(
 async def void_sale_receipt(
     receipt_id: UUID,
     db: AsyncSession = Depends(get_db),
-    current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(require_write()),
 ):
     result = await db.execute(
         select(SaleReceipt).where(

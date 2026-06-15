@@ -8,6 +8,7 @@ from pydantic import BaseModel
 
 from app.core.database import get_db
 from app.core.security import get_current_user
+from app.core.permissions import require_write
 from app.core.pagination import PaginationParams, paginated_result, apply_sort
 from app.models.models import BankTransaction, Contact
 
@@ -111,7 +112,7 @@ async def list_bank_transactions(
 async def create_bank_transaction(
     payload: BankTransactionCreate,
     db: AsyncSession = Depends(get_db),
-    current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(require_write()),
 ):
     txn = BankTransaction(
         organization_id=current_user["org_id"],
@@ -146,7 +147,7 @@ async def update_bank_transaction(
     txn_id: UUID,
     payload: BankTransactionUpdate,
     db: AsyncSession = Depends(get_db),
-    current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(require_write()),
 ):
     result = await db.execute(
         select(BankTransaction).where(
@@ -168,7 +169,7 @@ async def update_bank_transaction(
 async def void_bank_transaction(
     txn_id: UUID,
     db: AsyncSession = Depends(get_db),
-    current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(require_write()),
 ):
     result = await db.execute(
         select(BankTransaction).where(

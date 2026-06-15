@@ -3,6 +3,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from app.core.database import get_db
 from app.core.security import get_current_user
+from app.core.permissions import require_admin
 from app.models.models import Organization
 from app.services.stripe_service import stripe_service, PLANS, ADDONS
 
@@ -107,7 +108,7 @@ async def get_addons(request: Request, currency: str | None = None):
 async def upgrade_plan(
     plan: str,
     currency: str = "MYR",
-    current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(require_admin()),
     db: AsyncSession = Depends(get_db),
 ):
     if plan not in PLANS:
@@ -148,7 +149,7 @@ async def create_checkout(
     currency: str | None = None,
     success_url: str | None = None,
     cancel_url: str | None = None,
-    current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(require_admin()),
     db: AsyncSession = Depends(get_db),
 ):
     """Create a Stripe Checkout session for a plan or add-on.
@@ -199,7 +200,7 @@ async def create_checkout(
 async def add_addon(
     addon: str,
     currency: str = "MYR",
-    current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(require_admin()),
     db: AsyncSession = Depends(get_db),
 ):
     """Attach an AI-scan add-on to the org's existing subscription."""

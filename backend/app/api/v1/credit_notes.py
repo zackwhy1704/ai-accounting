@@ -5,6 +5,7 @@ from sqlalchemy.orm import selectinload
 from uuid import UUID
 from app.core.database import get_db
 from app.core.security import get_current_user
+from app.core.permissions import require_write
 from app.core.pagination import PaginationParams, paginated_result, apply_sort
 from app.models.models import (
     CreditNote, CreditNoteLineItem,
@@ -74,7 +75,7 @@ async def get_credit_note(cn_id: UUID, current_user: dict = Depends(get_current_
 
 
 @router.post("/credit-notes", response_model=CreditNoteResponse, status_code=201)
-async def create_credit_note(data: CreditNoteCreate, current_user: dict = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+async def create_credit_note(data: CreditNoteCreate, current_user: dict = Depends(require_write()), db: AsyncSession = Depends(get_db)):
     org_id = current_user["org_id"]
     if data.credit_note_number:
         existing = (await db.execute(select(CreditNote.id).where(CreditNote.organization_id == org_id, CreditNote.credit_note_number == data.credit_note_number))).first()
@@ -150,7 +151,7 @@ async def create_credit_note(data: CreditNoteCreate, current_user: dict = Depend
 
 
 @router.patch("/credit-notes/{cn_id}", response_model=CreditNoteResponse)
-async def update_credit_note(cn_id: UUID, data: CreditNoteUpdate, current_user: dict = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+async def update_credit_note(cn_id: UUID, data: CreditNoteUpdate, current_user: dict = Depends(require_write()), db: AsyncSession = Depends(get_db)):
     result = await db.execute(
         select(CreditNote)
         .options(selectinload(CreditNote.line_items), selectinload(CreditNote.credit_applications))
@@ -240,7 +241,7 @@ async def update_credit_note(cn_id: UUID, data: CreditNoteUpdate, current_user: 
 
 
 @router.patch("/credit-notes/{cn_id}/status")
-async def update_credit_note_status(cn_id: UUID, status: str, current_user: dict = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+async def update_credit_note_status(cn_id: UUID, status: str, current_user: dict = Depends(require_write()), db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(CreditNote).where(CreditNote.id == cn_id, CreditNote.organization_id == current_user["org_id"]))
     obj = result.scalar_one_or_none()
     if not obj:
@@ -254,7 +255,7 @@ async def update_credit_note_status(cn_id: UUID, status: str, current_user: dict
 
 
 @router.delete("/credit-notes/{cn_id}/applications/{app_id}", status_code=200)
-async def remove_single_credit_application(cn_id: UUID, app_id: UUID, current_user: dict = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+async def remove_single_credit_application(cn_id: UUID, app_id: UUID, current_user: dict = Depends(require_write()), db: AsyncSession = Depends(get_db)):
     """Remove a single credit application by ID, reverting the invoice balance."""
     result = await db.execute(
         select(CreditNote)
@@ -308,7 +309,7 @@ async def remove_single_credit_application(cn_id: UUID, app_id: UUID, current_us
 
 
 @router.delete("/credit-notes/{cn_id}/applications", status_code=200)
-async def remove_credit_applications(cn_id: UUID, current_user: dict = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+async def remove_credit_applications(cn_id: UUID, current_user: dict = Depends(require_write()), db: AsyncSession = Depends(get_db)):
     """Remove all credit applications from a credit note, reverting invoice balances."""
     result = await db.execute(
         select(CreditNote)
@@ -341,7 +342,7 @@ async def remove_credit_applications(cn_id: UUID, current_user: dict = Depends(g
 
 
 @router.delete("/credit-notes/{cn_id}", status_code=204)
-async def delete_credit_note(cn_id: UUID, current_user: dict = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+async def delete_credit_note(cn_id: UUID, current_user: dict = Depends(require_write()), db: AsyncSession = Depends(get_db)):
     result = await db.execute(
         select(CreditNote)
         .options(selectinload(CreditNote.credit_applications))

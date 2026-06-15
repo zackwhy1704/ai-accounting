@@ -8,6 +8,7 @@ from typing import Any
 
 from app.core.database import get_db
 from app.core.security import get_current_user
+from app.core.permissions import require_write
 from app.core.pagination import PaginationParams, paginated_result, apply_sort
 from app.models.models import RecurringInvoice, Contact
 
@@ -118,7 +119,7 @@ async def list_recurring(
 async def create_recurring(
     payload: RecurringInvoiceCreate,
     db: AsyncSession = Depends(get_db),
-    current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(require_write()),
 ):
     next_run = _calc_next_run(payload.start_date, payload.frequency, payload.frequency_interval)
     ri = RecurringInvoice(
@@ -166,7 +167,7 @@ async def update_recurring(
     ri_id: UUID,
     data: RecurringInvoiceUpdate,
     db: AsyncSession = Depends(get_db),
-    current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(require_write()),
 ):
     result = await db.execute(
         select(RecurringInvoice).where(
@@ -202,7 +203,7 @@ async def update_recurring(
 async def pause_recurring(
     ri_id: UUID,
     db: AsyncSession = Depends(get_db),
-    current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(require_write()),
 ):
     result = await db.execute(
         select(RecurringInvoice).where(
@@ -223,7 +224,7 @@ async def pause_recurring(
 async def resume_recurring(
     ri_id: UUID,
     db: AsyncSession = Depends(get_db),
-    current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(require_write()),
 ):
     result = await db.execute(
         select(RecurringInvoice).where(
@@ -244,7 +245,7 @@ async def resume_recurring(
 async def cancel_recurring(
     ri_id: UUID,
     db: AsyncSession = Depends(get_db),
-    current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(require_write()),
 ):
     result = await db.execute(
         select(RecurringInvoice).where(

@@ -5,6 +5,7 @@ from sqlalchemy.orm import selectinload
 from uuid import UUID
 from app.core.database import get_db
 from app.core.security import get_current_user
+from app.core.permissions import require_write
 from app.core.pagination import PaginationParams, paginated_result, apply_sort
 from app.models.models import (
     DebitNote, DebitNoteLineItem,
@@ -71,7 +72,7 @@ async def get_debit_note(dn_id: UUID, current_user: dict = Depends(get_current_u
 
 
 @router.post("/debit-notes", response_model=DebitNoteResponse, status_code=201)
-async def create_debit_note(data: DebitNoteCreate, current_user: dict = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+async def create_debit_note(data: DebitNoteCreate, current_user: dict = Depends(require_write()), db: AsyncSession = Depends(get_db)):
     org_id = current_user["org_id"]
     if data.debit_note_number:
         existing = (await db.execute(select(DebitNote.id).where(DebitNote.organization_id == org_id, DebitNote.debit_note_number == data.debit_note_number))).first()
@@ -138,7 +139,7 @@ async def create_debit_note(data: DebitNoteCreate, current_user: dict = Depends(
 
 
 @router.patch("/debit-notes/{dn_id}", response_model=DebitNoteResponse)
-async def update_debit_note(dn_id: UUID, data: DebitNoteUpdate, current_user: dict = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+async def update_debit_note(dn_id: UUID, data: DebitNoteUpdate, current_user: dict = Depends(require_write()), db: AsyncSession = Depends(get_db)):
     result = await db.execute(
         select(DebitNote)
         .options(selectinload(DebitNote.line_items))
@@ -202,7 +203,7 @@ async def update_debit_note(dn_id: UUID, data: DebitNoteUpdate, current_user: di
 
 
 @router.patch("/debit-notes/{dn_id}/status")
-async def update_debit_note_status(dn_id: UUID, status: str, current_user: dict = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+async def update_debit_note_status(dn_id: UUID, status: str, current_user: dict = Depends(require_write()), db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(DebitNote).where(DebitNote.id == dn_id, DebitNote.organization_id == current_user["org_id"]))
     obj = result.scalar_one_or_none()
     if not obj:
@@ -218,7 +219,7 @@ async def update_debit_note_status(dn_id: UUID, status: str, current_user: dict 
 
 
 @router.delete("/debit-notes/{dn_id}", status_code=204)
-async def delete_debit_note(dn_id: UUID, current_user: dict = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+async def delete_debit_note(dn_id: UUID, current_user: dict = Depends(require_write()), db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(DebitNote).where(DebitNote.id == dn_id, DebitNote.organization_id == current_user["org_id"]))
     obj = result.scalar_one_or_none()
     if not obj:
@@ -235,7 +236,7 @@ async def delete_debit_note(dn_id: UUID, current_user: dict = Depends(get_curren
 async def pay_debit_note(
     dn_id: UUID,
     data: SalesPaymentCreate,
-    current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(require_write()),
     db: AsyncSession = Depends(get_db),
 ):
     """Create a sales payment for a debit note and mark it as applied."""

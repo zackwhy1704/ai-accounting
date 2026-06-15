@@ -7,6 +7,7 @@ import uuid
 
 from app.core.database import get_db
 from app.core.security import get_current_user
+from app.core.permissions import require_write
 from app.models.models import Document, DocumentShare, User, Organization, FirmClientLink
 
 router = APIRouter(prefix="/sharing", tags=["sharing"])
@@ -26,7 +27,7 @@ class RevokeShareRequest(BaseModel):
 @router.post("/share")
 async def share_document(
     data: ShareDocumentRequest,
-    current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(require_write()),
     db: AsyncSession = Depends(get_db),
 ):
     """Owner shares a document with an accountant by email."""
@@ -70,7 +71,7 @@ async def share_document(
 @router.delete("/share")
 async def revoke_share(
     data: RevokeShareRequest,
-    current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(require_write()),
     db: AsyncSession = Depends(get_db),
 ):
     """Revoke a document share."""

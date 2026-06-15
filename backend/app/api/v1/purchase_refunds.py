@@ -9,6 +9,7 @@ from pydantic import BaseModel
 
 from app.core.database import get_db
 from app.core.security import get_current_user
+from app.core.permissions import require_write
 from app.core.pagination import PaginationParams, paginated_result, apply_sort
 from app.models.models import PurchaseRefund, Bill, PurchaseCreditNote, Contact
 from .gl_helpers import post_gl, revert_gl
@@ -154,7 +155,7 @@ async def list_purchase_refunds(
 async def create_purchase_refund(
     payload: PurchaseRefundCreate,
     db: AsyncSession = Depends(get_db),
-    current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(require_write()),
 ):
     org_id = current_user["org_id"]
     data = payload.model_dump()
@@ -218,7 +219,7 @@ async def update_purchase_refund(
     refund_id: UUID,
     payload: PurchaseRefundUpdate,
     db: AsyncSession = Depends(get_db),
-    current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(require_write()),
 ):
     result = await db.execute(
         select(PurchaseRefund).where(
@@ -267,7 +268,7 @@ async def update_purchase_refund(
 async def delete_purchase_refund(
     refund_id: UUID,
     db: AsyncSession = Depends(get_db),
-    current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(require_write()),
 ):
     result = await db.execute(
         select(PurchaseRefund).where(
@@ -289,7 +290,7 @@ async def update_purchase_refund_status(
     refund_id: UUID,
     status: str,
     db: AsyncSession = Depends(get_db),
-    current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(require_write()),
 ):
     valid = {"draft", "completed", "void"}
     if status not in valid:

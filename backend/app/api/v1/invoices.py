@@ -8,6 +8,7 @@ from pydantic import BaseModel
 from sqlalchemy import func, or_
 from app.core.database import get_db
 from app.core.security import get_current_user
+from app.core.permissions import require_write
 from app.core.pagination import PaginationParams, paginated_result, apply_sort
 from app.models.models import (
     Invoice, InvoiceLineItem, CreditNote, DebitNote,
@@ -59,7 +60,7 @@ async def list_invoices(
 @router.post("", response_model=InvoiceResponse, status_code=201)
 async def create_invoice(
     data: InvoiceCreate,
-    current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(require_write()),
     db: AsyncSession = Depends(get_db),
 ):
     org_id = current_user["org_id"]
@@ -144,7 +145,7 @@ async def get_invoice(
 async def update_invoice(
     invoice_id: UUID,
     data: InvoiceUpdate,
-    current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(require_write()),
     db: AsyncSession = Depends(get_db),
 ):
     org_id = current_user["org_id"]
@@ -212,7 +213,7 @@ async def update_invoice(
 async def update_invoice_status(
     invoice_id: UUID,
     status: str,
-    current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(require_write()),
     db: AsyncSession = Depends(get_db),
 ):
     org_id = current_user["org_id"]
@@ -410,7 +411,7 @@ async def invoice_activity(
 @router.delete("/{invoice_id}", status_code=204)
 async def delete_invoice(
     invoice_id: UUID,
-    current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(require_write()),
     db: AsyncSession = Depends(get_db),
 ):
     org_id = current_user["org_id"]
@@ -443,7 +444,7 @@ class ApplyCreditRequest(BaseModel):
 async def apply_overpaid_to_invoice(
     invoice_id: UUID,
     body: ApplyCreditRequest,
-    current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(require_write()),
     db: AsyncSession = Depends(get_db),
 ):
     """Apply the overpaid credit from one invoice to reduce the balance of another."""
@@ -503,7 +504,7 @@ class RefundOverpaidRequest(BaseModel):
 async def refund_overpaid(
     invoice_id: UUID,
     body: RefundOverpaidRequest,
-    current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(require_write()),
     db: AsyncSession = Depends(get_db),
 ):
     """Issue a refund for the overpaid amount on an invoice."""

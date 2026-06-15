@@ -8,6 +8,7 @@ from pydantic import BaseModel
 
 from app.core.database import get_db
 from app.core.security import get_current_user
+from app.core.permissions import require_write
 from app.core.pagination import PaginationParams, paginated_result, apply_sort
 from app.models.models import FixedAsset
 from .gl_helpers import post_gl_by_id, revert_gl
@@ -116,7 +117,7 @@ async def list_fixed_assets(
 async def create_fixed_asset(
     payload: FixedAssetCreate,
     db: AsyncSession = Depends(get_db),
-    current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(require_write()),
 ):
     data = payload.model_dump()
     asset = FixedAsset(
@@ -153,7 +154,7 @@ async def update_fixed_asset(
     asset_id: UUID,
     payload: FixedAssetUpdate,
     db: AsyncSession = Depends(get_db),
-    current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(require_write()),
 ):
     result = await db.execute(
         select(FixedAsset).where(
@@ -175,7 +176,7 @@ async def update_fixed_asset(
 async def delete_fixed_asset(
     asset_id: UUID,
     db: AsyncSession = Depends(get_db),
-    current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(require_write()),
 ):
     result = await db.execute(
         select(FixedAsset).where(
@@ -214,7 +215,7 @@ async def post_acquisition(
     asset_id: UUID,
     payment_account_id: UUID = Query(..., description="Bank/cash/AP account credited for the purchase"),
     db: AsyncSession = Depends(get_db),
-    current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(require_write()),
 ):
     """Post the acquisition journal: Dr Fixed Asset / Cr Cash or AP."""
     asset = await _load_asset(db, asset_id, current_user["org_id"])
@@ -247,7 +248,7 @@ async def depreciate(
     asset_id: UUID,
     payload: DepreciateRequest,
     db: AsyncSession = Depends(get_db),
-    current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(require_write()),
 ):
     """Post a depreciation period: Dr Depreciation Expense / Cr Accumulated Depreciation."""
     asset = await _load_asset(db, asset_id, current_user["org_id"])
@@ -287,7 +288,7 @@ async def dispose(
     asset_id: UUID,
     payload: DisposeRequest,
     db: AsyncSession = Depends(get_db),
-    current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(require_write()),
 ):
     """Dispose the asset:
         Dr Cash/Bank (proceeds)
