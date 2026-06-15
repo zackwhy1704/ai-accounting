@@ -14,6 +14,9 @@ import {
 vi.mock("@/lib/hooks", () => ({
   useInvoices: vi.fn(),
   useContacts: vi.fn(),
+  useUpdateInvoiceStatus: () => ({ mutate: vi.fn(), mutateAsync: vi.fn(), isPending: false }),
+  useDeleteInvoice: () => ({ mutate: vi.fn(), mutateAsync: vi.fn(), isPending: false }),
+  useBankAccounts: () => ({ data: [], isLoading: false, error: null }),
 }))
 vi.mock("@/components/ui/toast", () => ({ useToast: () => ({ toast: vi.fn() }) }))
 const tFn = (k: string) => {

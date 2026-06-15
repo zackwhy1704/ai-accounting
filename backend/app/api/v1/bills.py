@@ -10,6 +10,7 @@ from app.core.database import get_db
 from app.core.security import get_current_user
 from app.models.models import Bill, BillLineItem, PurchasePayment, PurchaseCreditApplication, PurchaseCreditNote, Transaction, JournalEntry, Account
 from app.schemas.schemas import BillCreate, BillUpdate, BillResponse
+from app.services.pricing import line_after_discount, line_tax
 from .gl_helpers import post_gl, revert_gl
 
 router = APIRouter(prefix="/bills", tags=["Bills"])
@@ -65,20 +66,18 @@ async def create_bill(
         from .sales import next_sequence_number
         bill_number = await next_sequence_number(db, Bill, Bill.bill_number, org_id, "BILL")
 
-    def _disc_amount(item) -> float:
-        raw = getattr(item, 'discount', 0) or 0
-        mode = getattr(item, 'discount_mode', 'percent') or 'percent'
-        line_total = item.quantity * item.unit_price
-        return min(raw, line_total) if mode == 'amount' else line_total * raw / 100
-
     # Calculate totals (discount applied before tax)
     subtotal = 0.0
     tax_amount = 0.0
     for item in data.line_items:
-        line_total = item.quantity * item.unit_price
-        after_disc = line_total - _disc_amount(item)
+        after_disc = line_after_discount(
+            item.quantity,
+            item.unit_price,
+            getattr(item, 'discount', 0) or 0,
+            getattr(item, 'discount_mode', 'percent') or 'percent',
+        )
         subtotal += after_disc
-        tax_amount += after_disc * (item.tax_rate / 100)
+        tax_amount += line_tax(after_disc, item.tax_rate)
 
     bill = Bill(
         organization_id=org_id,
@@ -109,7 +108,12 @@ async def create_bill(
     await db.flush()
 
     for i, item in enumerate(data.line_items):
-        after_disc = item.quantity * item.unit_price - _disc_amount(item)
+        after_disc = line_after_discount(
+            item.quantity,
+            item.unit_price,
+            getattr(item, 'discount', 0) or 0,
+            getattr(item, 'discount_mode', 'percent') or 'percent',
+        )
         line = BillLineItem(
             bill_id=bill.id,
             description=item.description,
@@ -176,12 +180,6 @@ async def update_bill(
     if "line_items" in update_data:
         update_data.pop("line_items")
 
-        def _disc_upd(item) -> float:
-            raw = getattr(item, 'discount', 0) or 0
-            mode = getattr(item, 'discount_mode', 'percent') or 'percent'
-            lt = item.quantity * item.unit_price
-            return min(raw, lt) if mode == 'amount' else lt * raw / 100
-
         # Delete old line items atomically then flush before inserting new ones
         await db.execute(delete(BillLineItem).where(BillLineItem.bill_id == bill.id))
         await db.flush()
@@ -189,9 +187,14 @@ async def update_bill(
         subtotal = 0.0
         tax_amount = 0.0
         for item in data.line_items:
-            after_disc = item.quantity * item.unit_price - _disc_upd(item)
+            after_disc = line_after_discount(
+                item.quantity,
+                item.unit_price,
+                getattr(item, 'discount', 0) or 0,
+                getattr(item, 'discount_mode', 'percent') or 'percent',
+            )
             subtotal += after_disc
-            tax_amount += after_disc * (item.tax_rate / 100)
+            tax_amount += line_tax(after_disc, item.tax_rate)
 
         new_total = subtotal + tax_amount
         bill.subtotal = subtotal
@@ -208,7 +211,12 @@ async def update_bill(
             bill.status = "outstanding"
 
         for i, item in enumerate(data.line_items):
-            after_disc = item.quantity * item.unit_price - _disc_upd(item)
+            after_disc = line_after_discount(
+                item.quantity,
+                item.unit_price,
+                getattr(item, 'discount', 0) or 0,
+                getattr(item, 'discount_mode', 'percent') or 'percent',
+            )
             line = BillLineItem(
                 bill_id=bill.id,
                 description=item.description,

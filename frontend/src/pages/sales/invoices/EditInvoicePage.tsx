@@ -7,25 +7,7 @@ import { Button } from "../../../components/ui/button"
 import { Input } from "../../../components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../../components/ui/select"
 import { SearchableSelect } from "../../../components/ui/searchable-select"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../../../components/ui/table"
-
-interface LineItem {
-  description: string
-  account_id: string
-  quantity: number
-  unit_price: number
-  amount: number
-  discount: number
-  discount_mode: "percent" | "amount"
-  tax_rate: number
-  line_type: "goods" | "services"
-  tax_code_id: string
-}
-
-function lineDiscountAmount(item: LineItem): number {
-  const lineTotal = item.quantity * item.unit_price
-  return item.discount_mode === "amount" ? Math.min(item.discount, lineTotal) : (lineTotal * item.discount) / 100
-}
+import { LineItemsEditor, useLineItems } from "../../../components/line-items"
 
 export default function EditInvoicePage() {
   const { id } = useParams<{ id: string }>()
@@ -51,9 +33,9 @@ export default function EditInvoicePage() {
   const [billingState, setBillingState] = useState("")
   const [billingPostcode, setBillingPostcode] = useState("")
   const [billingCountry, setBillingCountry] = useState("")
-  const [lineItems, setLineItems] = useState<LineItem[]>([
-    { description: "", account_id: "", quantity: 1, unit_price: 0, amount: 0, discount: 0, discount_mode: "percent", tax_rate: 0, line_type: "goods", tax_code_id: "" },
-  ])
+  const { lineItems, setLineItems, updateLine, addLine, removeLine, subTotal, totalDiscount: totalLineDiscount, totalTax, total } = useLineItems({
+    taxRates,
+  })
   const [lineItemErrors, setLineItemErrors] = useState<Record<number, { account?: boolean; tax?: boolean }>>({})
 
   const linesValid = lineItems.length > 0 && lineItems.every(li => li.account_id)
@@ -105,45 +87,6 @@ export default function EditInvoicePage() {
     if (contact.default_payment_terms) setTerms(contact.default_payment_terms)
   }
 
-  const updateLineItem = (index: number, field: keyof LineItem, value: string | number) => {
-    setLineItems(prev => {
-      const updated = [...prev]
-      updated[index] = { ...updated[index], [field]: value }
-      if (field === "tax_code_id") {
-        const tc = taxRates.find((t: any) => t.id === value)
-        if (tc) updated[index].tax_rate = tc.rate
-      }
-      if (field === "line_type" && value === "services") {
-        updated[index].quantity = 1
-      }
-      const item = updated[index]
-      const discAmt = lineDiscountAmount(item)
-      const afterDiscount = item.quantity * item.unit_price - discAmt
-      const tax = (afterDiscount * item.tax_rate) / 100
-      updated[index].amount = afterDiscount + tax
-      return updated
-    })
-  }
-
-  const addLineItem = () => {
-    setLineItems(prev => [
-      ...prev,
-      { description: "", account_id: "", quantity: 1, unit_price: 0, amount: 0, discount: 0, discount_mode: "percent", tax_rate: 0, line_type: "goods", tax_code_id: "" },
-    ])
-  }
-
-  const removeLineItem = (index: number) => {
-    setLineItems(prev => (prev.length <= 1 ? prev : prev.filter((_, i) => i !== index)))
-  }
-
-  const subTotal = lineItems.reduce((sum, item) => sum + item.quantity * item.unit_price, 0)
-  const totalLineDiscount = lineItems.reduce((sum, item) => sum + lineDiscountAmount(item), 0)
-  const afterDiscount = subTotal - totalLineDiscount
-  const totalTax = lineItems.reduce((sum, item) => {
-    const afterLineDiscount = item.quantity * item.unit_price - lineDiscountAmount(item)
-    return sum + (afterLineDiscount * item.tax_rate) / 100
-  }, 0)
-  const total = afterDiscount + totalTax
   const appliedToDate = 0
   const balanceDue = total - appliedToDate
 
@@ -258,109 +201,26 @@ export default function EditInvoicePage() {
           </div>
         </div>
 
-        <div className="mt-6 rounded-2xl border border-border">
-          <Table>
-            <TableHeader>
-              <TableRow className="border-border hover:bg-transparent">
-                <TableHead className="w-10 text-center text-muted-foreground">#</TableHead>
-                <TableHead className="w-[100px] text-muted-foreground">Type</TableHead>
-                <TableHead className="min-w-[200px] text-muted-foreground">Description</TableHead>
-                <TableHead className="w-[160px] text-muted-foreground">Account</TableHead>
-                <TableHead className="w-[80px] text-muted-foreground">Quantity</TableHead>
-                <TableHead className="w-[110px] text-muted-foreground">Unit Price</TableHead>
-                <TableHead className="w-[80px] text-muted-foreground">Discount</TableHead>
-                <TableHead className="w-[160px] text-muted-foreground">Tax Code</TableHead>
-                <TableHead className="w-[80px] text-muted-foreground">Tax %</TableHead>
-                <TableHead className="w-10" />
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {lineItems.map((item, idx) => (
-                <TableRow key={idx} className="border-border">
-                  <TableCell className="text-center text-xs text-muted-foreground">{idx + 1}</TableCell>
-                  <TableCell>
-                    <Select value={item.line_type} onValueChange={v => updateLineItem(idx, "line_type", v)}>
-                      <SelectTrigger className="h-9 rounded-lg border-0 bg-transparent shadow-none"><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="goods">Goods</SelectItem>
-                        <SelectItem value="services">Services</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </TableCell>
-                  <TableCell>
-                    <Input value={item.description} onChange={e => updateLineItem(idx, "description", e.target.value)} placeholder="Description" className="h-9 rounded-lg border-0 bg-transparent px-1 text-sm shadow-none focus-visible:ring-1" />
-                  </TableCell>
-                  <TableCell className={lineItemErrors[idx]?.account ? "ring-1 ring-rose-400 rounded-lg" : ""}>
-                    <SearchableSelect
-                      value={item.account_id}
-                      onChange={v => { updateLineItem(idx, "account_id", v); setLineItemErrors(e => { const n = { ...e }; if (n[idx]) { delete n[idx].account; if (!Object.keys(n[idx]).length) delete n[idx] } return n }) }}
-                      placeholder="Account"
-                      triggerClassName="h-9 rounded-lg border-0 bg-transparent shadow-none text-xs"
-                      options={accounts.map((a: any) => ({ value: a.id, label: `${a.code} – ${a.name}`, hint: a.code }))}
-                    />
-                  </TableCell>
-                  <TableCell>
-                    {item.line_type === "services" ? (
-                      <span className="px-1 text-sm text-muted-foreground">&mdash;</span>
-                    ) : (
-                      <Input type="number" min={0} value={item.quantity} onChange={e => updateLineItem(idx, "quantity", Number(e.target.value))} className="h-9 rounded-lg border-0 bg-transparent px-1 text-sm shadow-none focus-visible:ring-1" />
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    <Input type="number" min={0} step={0.01} value={item.unit_price} onChange={e => updateLineItem(idx, "unit_price", Number(e.target.value))} className="h-9 rounded-lg border-0 bg-transparent px-1 text-sm shadow-none focus-visible:ring-1" />
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-1">
-                      <Input
-                        type="number" min={0} step={0.01}
-                        value={item.discount}
-                        onChange={e => updateLineItem(idx, "discount", Number(e.target.value))}
-                        className="h-9 w-20 rounded-lg border-0 bg-transparent px-1 text-sm shadow-none focus-visible:ring-1"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => updateLineItem(idx, "discount_mode", item.discount_mode === "percent" ? "amount" : "percent")}
-                        className="h-7 w-9 rounded-md border border-border bg-muted/40 text-[11px] font-semibold text-foreground hover:bg-muted"
-                        title={item.discount_mode === "percent" ? "Switch to flat amount" : "Switch to percentage"}
-                      >
-                        {item.discount_mode === "percent" ? "%" : currency}
-                      </button>
-                    </div>
-                  </TableCell>
-                  <TableCell className={`w-[160px]${lineItemErrors[idx]?.tax ? " ring-1 ring-rose-400 rounded-lg" : ""}`}>
-                    <Select value={item.tax_code_id} onValueChange={v => { updateLineItem(idx, "tax_code_id", v === "__none__" ? "" : v); setLineItemErrors(e => { const n = { ...e }; if (n[idx]) { delete n[idx].tax; if (!Object.keys(n[idx]).length) delete n[idx] } return n }) }}>
-                      <SelectTrigger className="h-9 rounded-lg border-0 bg-transparent shadow-none focus:ring-1 text-xs"><SelectValue placeholder="Tax Code" /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="__none__">No Tax</SelectItem>
-                        {taxRates.map((tc: any) => <SelectItem key={tc.id} value={tc.id}>{tc.code} ({tc.rate}%)</SelectItem>)}
-                      </SelectContent>
-                    </Select>
-                  </TableCell>
-                  <TableCell className="w-[80px]">
-                    <Input
-                      type="number" min={0} max={100} step={0.01}
-                      value={item.tax_rate}
-                      onChange={e => updateLineItem(idx, "tax_rate", Number(e.target.value))}
-                      className="h-9 rounded-lg border-0 bg-transparent px-1 text-sm shadow-none focus-visible:ring-1"
-                      placeholder="%"
-                    />
-                  </TableCell>
-                  <TableCell>
-                    <button type="button" onClick={() => removeLineItem(idx)} className="text-muted-foreground hover:text-rose-500">
-                      <Trash2 className="h-4 w-4" />
-                    </button>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </div>
-
-        <div className="mt-3">
-          <Button type="button" onClick={addLineItem} className="h-9 rounded-xl bg-gradient-to-r from-[#7C9DFF] to-[#4D63FF] px-3 text-xs font-semibold text-white shadow-sm hover:opacity-95">
-            <Plus className="mr-1.5 h-4 w-4" /> Item
-          </Button>
-        </div>
+        <LineItemsEditor
+          items={lineItems}
+          updateLine={updateLine}
+          addLine={addLine}
+          removeLine={removeLine}
+          accounts={accounts as any}
+          taxRates={taxRates as any}
+          currency={currency}
+          quantityHeading="Quantity"
+          descriptionHeadClassName="min-w-[200px]"
+          discountHeadClassName="w-[80px]"
+          accountTriggerClassName="h-9 rounded-lg border-0 bg-transparent shadow-none text-xs"
+          servicesQtyStyle="span"
+          taxRateCellClassName="w-[80px]"
+          discountToggleTitle
+          accountCellClassName={idx => (lineItemErrors[idx]?.account ? "ring-1 ring-rose-400 rounded-lg" : "")}
+          taxCellClassName={idx => `w-[160px]${lineItemErrors[idx]?.tax ? " ring-1 ring-rose-400 rounded-lg" : ""}`}
+          onAccountChanged={idx => setLineItemErrors(e => { const n = { ...e }; if (n[idx]) { delete n[idx].account; if (!Object.keys(n[idx]).length) delete n[idx] } return n })}
+          onTaxChanged={idx => setLineItemErrors(e => { const n = { ...e }; if (n[idx]) { delete n[idx].tax; if (!Object.keys(n[idx]).length) delete n[idx] } return n })}
+        />
 
         <div className="mt-6 flex justify-end">
           <div className="w-full max-w-xs space-y-2 text-sm">

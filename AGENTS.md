@@ -79,6 +79,23 @@ These are non-negotiable — verify before every commit:
 
 ---
 
+## Service layer (Phase 4 — in progress)
+
+Business math is being moved out of the routers into `backend/app/services/`:
+
+- **`pricing.py`** — pure discount/total/tax math (`line_total`, `line_discount_amount`, `line_after_discount`, `line_tax`, `compute_totals`). No DB/ORM. `invoices.py` and `bills.py` already use it. **Migrating a router off its inline `_disc_amount`: route every line-amount calc through `pricing.py` and keep totals byte-identical.** Covered by `tests/test_pricing_service.py`.
+- **Still inline (TODO):** `sales.py`, `purchase_orders.py`, `purchase_debit_notes.py`, `purchase_credit_notes.py` each still have their own discount math. Migrate them onto `pricing.py` in future passes (one router per PR, verify totals don't shift).
+
+## Pydantic schema location (convention)
+
+Two homes for request/response models currently coexist: the central `app/schemas/schemas.py` **and** per-router inline `BaseModel` classes (28 of 42 routers). **Rule going forward: a contract shared by more than one router goes in `schemas.py`; a contract used by exactly one router may stay inline in that router.** Do not mass-move existing inline models in a single pass — relocate opportunistically when you're already editing a router. New shared contracts must go in `schemas.py`.
+
+## Frontend shared line-items editor (Phase 4 — in progress)
+
+`frontend/src/components/line-items/` holds the shared `LineItemsEditor` + `useLineItems` hook (discount mode, tax code, product search, totals). **Bill + Invoice New/Edit pages are migrated as the reference.** The other ~23 line-item pages still hand-roll their editor — migrate them onto the shared component in future passes. When adding a new document-with-lines page, use the shared component, not a hand-rolled copy.
+
+---
+
 ## File Ownership (agent boundaries)
 
 | Domain | Files |
