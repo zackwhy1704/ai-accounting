@@ -35,7 +35,7 @@ export default function ExchangeRatesPage() {
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editRate, setEditRate] = useState("")
 
-  const rates = useExchangeRates() as ExchangeRate[]
+  const { data: rates } = useExchangeRates()
   const syncMutation = useSyncExchangeRates()
   const createMutation = useCreateExchangeRate()
 
@@ -161,7 +161,7 @@ export default function ExchangeRatesPage() {
               </tr>
             </thead>
             <tbody>
-              {rates.map((r: ExchangeRate) => (
+              {(rates ?? []).map((r: ExchangeRate) => (
                 <tr key={r.id} className="border-b border-border last:border-0 hover:bg-muted/30">
                   <td className="px-4 py-2.5 font-mono font-semibold text-foreground">
                     {r.from_currency} → {r.to_currency}

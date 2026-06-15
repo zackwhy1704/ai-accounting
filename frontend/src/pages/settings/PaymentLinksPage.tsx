@@ -57,7 +57,7 @@ export default function PaymentLinksPage() {
   })
 
   const updateMutation = useMutation({
-    mutationFn: ({ id, ...body }: { id: string } & object) => api.patch(`/payment-links/${id}`, body).then(r => r.data),
+    mutationFn: ({ id, ...body }: { id: string; description?: string; is_active?: boolean }) => api.patch(`/payment-links/${id}`, body).then(r => r.data),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["payment-links"] })
       setEditingId(null)
