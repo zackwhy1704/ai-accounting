@@ -14,18 +14,6 @@ import { Badge } from "../../components/ui/badge"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../../components/ui/table"
 import { useToast } from "../../components/ui/toast"
 
-interface BankAccount {
-  id: string
-  name: string
-  account_type: "current" | "savings" | "credit" | "cash"
-  bank_name: string
-  account_number: string
-  currency: string
-  opening_balance: number
-  current_balance: number
-  is_active: boolean
-}
-
 const typeColors: Record<string, string> = {
   current: "bg-blue-500/10 text-blue-700 border-blue-400/20",
   savings: "bg-emerald-500/10 text-emerald-700 border-emerald-400/20",

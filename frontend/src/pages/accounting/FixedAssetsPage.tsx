@@ -11,22 +11,6 @@ import { useFixedAssetsPage, useDebounce } from "../../lib/hooks"
 import { PaginationControls } from "../../components/ui/pagination-controls"
 import api from "../../lib/api"
 
-interface FixedAsset {
-  id: string
-  code: string
-  serial_no: string | null
-  name: string
-  asset_type: string
-  purchase_date: string
-  purchase_cost: number
-  current_value: number
-  currency: string
-  status: "registered" | "disposed"
-  salvage_value: number | null
-  useful_life_years: number | null
-  depreciation_method: string | null
-}
-
 type Tab = "registered" | "disposed"
 
 export default function FixedAssetsPage() {
