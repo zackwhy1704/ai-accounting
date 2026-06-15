@@ -10,6 +10,7 @@ from app.core.database import get_db
 from app.core.security import get_current_user
 from app.core.permissions import require_write
 from app.core.pagination import PaginationParams, paginated_result, apply_sort
+from app.core.audit import log_audit
 from app.models.models import ExchangeRate, Organization
 from app.schemas.schemas import ExchangeRateCreate, ExchangeRateUpdate, ExchangeRateResponse
 
@@ -116,6 +117,7 @@ async def create_exchange_rate(
     )
     db.add(er)
     await db.commit()
+    await log_audit(db, current_user["org_id"], current_user["sub"], "create", "exchange_rate", rate.id)
     await db.refresh(er)
     return er
 
@@ -197,6 +199,7 @@ async def update_exchange_rate(
     for key, value in payload.model_dump(exclude_unset=True).items():
         setattr(rate, key, value)
     await db.commit()
+    await log_audit(db, current_user["org_id"], current_user["sub"], "update", "exchange_rate", rate_id)
     await db.refresh(rate)
     return rate
 
@@ -210,3 +213,4 @@ async def delete_exchange_rate(
     rate = await _get_owned_rate(rate_id, current_user["org_id"], db)
     await db.delete(rate)
     await db.commit()
+    await log_audit(db, current_user["org_id"], current_user["sub"], "delete", "exchange_rate", rate_id)

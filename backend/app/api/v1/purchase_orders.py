@@ -12,6 +12,7 @@ from app.core.security import get_current_user
 from app.core.permissions import require_write
 from app.core.pagination import PaginationParams, paginated_result, apply_sort
 from app.core.line_items import calculate_line_items
+from app.core.audit import log_audit
 from app.models.models import PurchaseOrder, PurchaseOrderLineItem, Contact
 
 router = APIRouter(prefix="/purchase-orders", tags=["purchase-orders"])
@@ -159,6 +160,7 @@ async def create_purchase_order(
         db.add(PurchaseOrderLineItem(purchase_order_id=po.id, sort_order=i, **item))
 
     await db.commit()
+    await log_audit(db, org_id, current_user["sub"], "create", "purchase_order", po.id)
     result = await db.execute(
         select(PurchaseOrder).options(selectinload(PurchaseOrder.line_items)).where(PurchaseOrder.id == po.id)
     )
@@ -224,6 +226,7 @@ async def update_purchase_order(
         setattr(po, key, value)
 
     await db.commit()
+    await log_audit(db, current_user["org_id"], current_user["sub"], "update", "purchase_order", po_id)
     result = await db.execute(
         select(PurchaseOrder).options(selectinload(PurchaseOrder.line_items)).where(PurchaseOrder.id == po_id)
     )
@@ -253,6 +256,7 @@ async def update_po_status(
 
     po.status = status
     await db.commit()
+    await log_audit(db, current_user["org_id"], current_user["sub"], "status_change", "purchase_order", po_id)
     return {"status": po.status}
 
 
@@ -275,6 +279,7 @@ async def delete_purchase_order(
         raise HTTPException(status_code=400, detail="Only draft or cancelled purchase orders can be deleted")
     await db.delete(po)
     await db.commit()
+    await log_audit(db, current_user["org_id"], current_user["sub"], "delete", "purchase_order", po_id)
 
 
 @router.get("/{po_id}/activity")

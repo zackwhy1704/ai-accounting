@@ -91,6 +91,7 @@ async def create_journal(
 
     await db.commit()
     await log_audit(db, current_user["org_id"], current_user["sub"], "create", "manual_journal", journal.id)
+    await log_audit(db, current_user["org_id"], current_user["sub"], "create", "manual_journal", journal.id)
     await db.refresh(journal)
     result = await db.execute(
         select(ManualJournal)
@@ -162,6 +163,7 @@ async def update_journal(
 
     await db.commit()
     await log_audit(db, current_user["org_id"], current_user["sub"], "update", "manual_journal", journal_id)
+    await log_audit(db, current_user["org_id"], current_user["sub"], "update", "manual_journal", journal_id)
     result = await db.execute(
         select(ManualJournal)
         .options(selectinload(ManualJournal.lines))
@@ -191,6 +193,7 @@ async def delete_journal(
     await db.execute(sa_delete(ManualJournalLine).where(ManualJournalLine.journal_id == journal_id))
     await db.delete(journal)
     await db.commit()
+    await log_audit(db, current_user["org_id"], current_user["sub"], "delete", "manual_journal", journal_id)
     await log_audit(db, current_user["org_id"], current_user["sub"], "delete", "manual_journal", journal_id)
 
 
@@ -235,6 +238,7 @@ async def post_journal(
         ))
 
     await db.commit()
+    await log_audit(db, current_user["org_id"], current_user["sub"], "post", "manual_journal", journal_id)
     await db.refresh(journal)
     return journal
 
@@ -271,5 +275,6 @@ async def void_journal(
         )
 
     await db.commit()
+    await log_audit(db, current_user["org_id"], current_user["sub"], "void", "manual_journal", journal_id)
     await db.refresh(journal)
     return journal

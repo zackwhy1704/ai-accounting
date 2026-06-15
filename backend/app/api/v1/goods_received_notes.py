@@ -11,6 +11,7 @@ from app.core.database import get_db
 from app.core.security import get_current_user
 from app.core.permissions import require_write
 from app.core.pagination import PaginationParams, paginated_result, apply_sort
+from app.core.audit import log_audit
 from app.models.models import GoodsReceivedNote, GRNLineItem, Contact
 
 router = APIRouter(prefix="/goods-received-notes", tags=["goods-received-notes"])
@@ -144,6 +145,7 @@ async def create_grn(
         db.add(line)
 
     await db.commit()
+    await log_audit(db, org_id, current_user["sub"], "create", "grn", grn.id)
     result = await db.execute(
         select(GoodsReceivedNote).options(selectinload(GoodsReceivedNote.line_items)).where(GoodsReceivedNote.id == grn.id)
     )
@@ -241,6 +243,7 @@ async def update_grn_status(
 
     grn.status = status
     await db.commit()
+    await log_audit(db, current_user["org_id"], current_user["sub"], "status_change", "grn", grn_id)
     return {"status": grn.status}
 
 
@@ -264,6 +267,7 @@ async def delete_grn(
     await db.execute(delete(GRNLineItem).where(GRNLineItem.grn_id == grn_id))
     await db.delete(grn)
     await db.commit()
+    await log_audit(db, current_user["org_id"], current_user["sub"], "delete", "grn", grn_id)
 
 
 @router.get("/{grn_id}/activity")

@@ -15,6 +15,7 @@ from app.schemas.schemas import (
 )
 from app.core.sequences import next_sequence_number
 from app.core.line_items import calculate_line_items
+from app.core.audit import log_audit
 from .sales import calc_totals
 
 router = APIRouter(tags=["Sales"])
@@ -94,6 +95,7 @@ async def create_delivery_order(data: DeliveryOrderCreate, current_user: dict = 
             sort_order=i,
         ))
     await db.commit()
+    await log_audit(db, org_id, current_user["sub"], "create", "delivery_order", do_obj.id)
     result = await db.execute(
         select(DeliveryOrder).options(selectinload(DeliveryOrder.line_items)).where(DeliveryOrder.id == obj.id)
     )
@@ -176,6 +178,7 @@ async def update_delivery_order_status(do_id: UUID, status: str, current_user: d
         raise HTTPException(status_code=400, detail=f"Invalid status. Must be one of: {', '.join(valid)}")
     obj.status = status
     await db.commit()
+    await log_audit(db, current_user["org_id"], current_user["sub"], "status_change", "delivery_order", do_id)
     return {"id": str(do_id), "status": status}
 
 
@@ -189,6 +192,7 @@ async def delete_delivery_order(do_id: UUID, current_user: dict = Depends(requir
         raise HTTPException(status_code=400, detail="Only draft or cancelled delivery orders can be deleted")
     await db.delete(obj)
     await db.commit()
+    await log_audit(db, current_user["org_id"], current_user["sub"], "delete", "delivery_order", do_id)
 
 
 def _build_events(events: list[dict]) -> dict:

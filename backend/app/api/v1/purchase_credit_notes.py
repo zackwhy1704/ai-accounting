@@ -11,6 +11,7 @@ from app.core.database import get_db
 from app.core.security import get_current_user
 from app.core.permissions import require_write
 from app.core.pagination import PaginationParams, paginated_result, apply_sort
+from app.core.audit import log_audit
 from app.models.models import PurchaseCreditNote, PurchaseCreditNoteLineItem, PurchaseCreditApplication, Bill, Contact
 from app.schemas.schemas import (
     PurchaseCreditNoteCreate, PurchaseCreditNoteResponse,
@@ -249,6 +250,7 @@ async def update_purchase_credit_note_status(
         )
     pcn.status = status
     await db.commit()
+    await log_audit(db, current_user["org_id"], current_user["sub"], "status_change", "purchase_credit_note", pcn_id)
     return {"id": str(pcn_id), "status": status}
 
 
@@ -442,3 +444,4 @@ async def delete_purchase_credit_note(
         raise HTTPException(status_code=400, detail="Remove all bill applications before deleting.")
     await db.delete(pcn)
     await db.commit()
+    await log_audit(db, current_user["org_id"], current_user["sub"], "delete", "purchase_credit_note", pcn_id)

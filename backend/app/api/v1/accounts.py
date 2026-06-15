@@ -9,6 +9,7 @@ from app.core.database import get_db
 from app.core.security import get_current_user
 from app.core.permissions import require_write
 from app.core.pagination import PaginationParams, paginated_result, apply_sort
+from app.core.audit import log_audit
 from app.models.models import Account
 from app.schemas.schemas import AccountCreate, AccountUpdate, AccountResponse
 
@@ -118,6 +119,7 @@ async def update_account(
         setattr(account, field, value)
 
     await db.commit()
+    await log_audit(db, current_user["org_id"], current_user["sub"], "update", "account", account_id)
     await db.refresh(account)
     return account
 
@@ -141,6 +143,7 @@ async def delete_account(
         raise HTTPException(status_code=400, detail="System accounts cannot be deleted")
     account.is_active = False
     await db.commit()
+    await log_audit(db, current_user["org_id"], current_user["sub"], "delete", "account", account_id)
 
 
 @router.post("/import-pdf", status_code=200)

@@ -6,6 +6,7 @@ from app.core.database import get_db
 from app.core.security import get_current_user
 from app.core.permissions import require_write
 from app.core.pagination import PaginationParams, paginated_result, apply_sort
+from app.core.audit import log_audit
 from app.models.models import Contact
 from app.schemas.schemas import ContactCreate, ContactUpdate, ContactResponse
 
@@ -91,6 +92,7 @@ async def update_contact(
     for key, value in data.model_dump(exclude_unset=True).items():
         setattr(contact, key, value)
     await db.commit()
+    await log_audit(db, current_user["org_id"], current_user["sub"], "update", "contact", contact_id)
     await db.refresh(contact)
     return contact
 

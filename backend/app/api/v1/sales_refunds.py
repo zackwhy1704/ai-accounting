@@ -14,6 +14,7 @@ from app.schemas.schemas import (
     SalesRefundCreate, SalesRefundUpdate, SalesRefundResponse,
 )
 from app.core.sequences import next_sequence_number
+from app.core.audit import log_audit
 
 router = APIRouter(tags=["Sales"])
 
@@ -152,6 +153,7 @@ async def update_sales_refund(sr_id: UUID, data: SalesRefundUpdate, current_user
         setattr(obj, key, value)
 
     await db.commit()
+    await log_audit(db, current_user["org_id"], current_user["sub"], "update", "sales_refund", refund_id)
     await db.refresh(obj)
     return obj
 
@@ -179,6 +181,7 @@ async def update_sales_refund_status(sr_id: UUID, status: str, current_user: dic
 
     obj.status = status
     await db.commit()
+    await log_audit(db, current_user["org_id"], current_user["sub"], "status_change", "sales_refund", refund_id)
     return {"id": str(sr_id), "status": status}
 
 
@@ -201,6 +204,7 @@ async def delete_sales_refund(sr_id: UUID, current_user: dict = Depends(require_
                 cn.status = "issued"
     await db.delete(obj)
     await db.commit()
+    await log_audit(db, current_user["org_id"], current_user["sub"], "delete", "sales_refund", refund_id)
 
 
 def _build_events(events: list[dict]) -> dict:

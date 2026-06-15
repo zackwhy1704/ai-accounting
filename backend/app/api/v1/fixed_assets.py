@@ -10,6 +10,7 @@ from app.core.database import get_db
 from app.core.security import get_current_user
 from app.core.permissions import require_write
 from app.core.pagination import PaginationParams, paginated_result, apply_sort
+from app.core.audit import log_audit
 from app.models.models import FixedAsset
 from .gl_helpers import post_gl_by_id, revert_gl
 
@@ -127,6 +128,7 @@ async def create_fixed_asset(
     )
     db.add(asset)
     await db.commit()
+    await log_audit(db, current_user["org_id"], current_user["sub"], "create", "fixed_asset", asset.id)
     await db.refresh(asset)
     return asset
 
@@ -168,6 +170,7 @@ async def update_fixed_asset(
     for key, val in payload.model_dump(exclude_unset=True).items():
         setattr(asset, key, val)
     await db.commit()
+    await log_audit(db, current_user["org_id"], current_user["sub"], "update", "fixed_asset", asset_id)
     await db.refresh(asset)
     return asset
 
@@ -198,6 +201,7 @@ async def delete_fixed_asset(
     )
     await db.delete(asset)
     await db.commit()
+    await log_audit(db, current_user["org_id"], current_user["sub"], "delete", "fixed_asset", asset_id)
 
 
 async def _load_asset(db: AsyncSession, asset_id: UUID, org_id: str) -> FixedAsset:
@@ -239,6 +243,7 @@ async def post_acquisition(
     if txn is None:
         raise HTTPException(status_code=400, detail="Could not post — verify accounts exist")
     await db.commit()
+    await log_audit(db, current_user["org_id"], current_user["sub"], "post_acquisition", "fixed_asset", asset_id)
     await db.refresh(asset)
     return asset
 
@@ -279,6 +284,7 @@ async def depreciate(
     asset.accumulated_depreciation = float(asset.accumulated_depreciation) + float(payload.amount)
     asset.current_value = float(asset.current_value) - float(payload.amount)
     await db.commit()
+    await log_audit(db, current_user["org_id"], current_user["sub"], "depreciate", "fixed_asset", asset_id)
     await db.refresh(asset)
     return asset
 

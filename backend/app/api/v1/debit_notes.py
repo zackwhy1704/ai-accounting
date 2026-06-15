@@ -18,6 +18,7 @@ from app.schemas.schemas import (
 )
 from app.core.sequences import next_sequence_number
 from app.core.line_items import calculate_line_items
+from app.core.audit import log_audit
 from .sales import calc_totals
 
 router = APIRouter(tags=["Sales"])
@@ -206,6 +207,7 @@ async def update_debit_note_status(dn_id: UUID, status: str, current_user: dict 
         raise HTTPException(status_code=400, detail="This debit note has a payment applied. Void the payment first before voiding the debit note.")
     obj.status = status
     await db.commit()
+    await log_audit(db, current_user["org_id"], current_user["sub"], "status_change", "debit_note", dn_id)
     return {"id": str(dn_id), "status": status}
 
 
@@ -221,6 +223,7 @@ async def delete_debit_note(dn_id: UUID, current_user: dict = Depends(require_wr
         raise HTTPException(status_code=400, detail="Only draft, issued, or void debit notes can be deleted.")
     await db.delete(obj)
     await db.commit()
+    await log_audit(db, current_user["org_id"], current_user["sub"], "delete", "debit_note", dn_id)
 
 
 @router.post("/debit-notes/{dn_id}/pay", status_code=201)

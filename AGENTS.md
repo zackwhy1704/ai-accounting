@@ -1,112 +1,177 @@
-# AGENTS.md — AI Accounting Project
+# CLAUDE.md — AI Accounting Project
 > Read this at the start of every session. Update it when you discover something new.
 
 ## Project Architecture
 
 | Layer | Stack | Entry point |
 |---|---|---|
-| Frontend | React + TypeScript + TanStack Query v5 + Vite + Tailwind | `frontend/src/App.tsx` |
-| Backend | FastAPI + SQLAlchemy async + PostgreSQL | `backend/app/main.py` |
-| DB migrations | Alembic — single linear chain (merged at `a002`). Current head: **`a024`** | `backend/alembic/versions/` |
+| Frontend | React 19 + TypeScript + TanStack Query v5 + Vite + Tailwind | `frontend/src/App.tsx` |
+| Backend | FastAPI + SQLAlchemy async + PostgreSQL (Neon) | `backend/app/main.py` |
+| DB migrations | Alembic — single linear chain. Current head: **`a024`** | `backend/alembic/versions/` |
 
-**Backend runs** on port 8000 with `--reload`. DB on port 5433.  
-**Frontend dev server** on port 5173.
+**Backend** on port 8000 with `--reload`. DB on port 5433. **Frontend dev** on port 5173.
 
 ---
 
 ## Module Map
 
-### Sales (`/sales/*` routes, `backend/app/api/v1/sales.py`)
+### Sales
 Quotations → Invoices → DeliveryOrders → CreditNotes → DebitNotes → Payments → Refunds → SaleReceipts → RecurringInvoices
 
-### Purchases (`/purchases/*`, split across multiple files)
+### Purchases
 PurchaseOrders → GoodsReceivedNotes → Bills → PurchaseCreditNotes → PurchaseDebitNotes → PurchasePayments → PurchaseRefunds
 
-- **Purchase credit notes** router: `purchase_credit_notes.py`, prefix `/purchase-credit-notes` (NOT `vendor_credits.py` — that file was deleted in migration `a018`)
-- **Hook**: `usePurchaseCreditNotes` hits `/purchase-credit-notes`
-
 ### Supporting
-Contacts · Products · BankAccounts · BankTransactions · BankTransfers · StockAdjustments · StockTransfers · ManualJournals · ChartOfAccounts
+Contacts · Products · BankAccounts · BankTransactions · BankTransfers · StockAdjustments · StockTransfers · ManualJournals · ChartOfAccounts · TaxRates · FixedAssets · ExchangeRates
 
 ---
 
-## Enforced Rules
+## Non-Negotiable Rules
 
-These are non-negotiable — verify before every commit:
+1. **Every new page needs a route AND an import in `App.tsx`.** Missing route → renders `NotFoundPage` immediately.
 
-1. **Every new page needs both a route AND an import in `App.tsx`.** Unknown routes now render a `NotFoundPage` (no longer silently redirect to dashboard), so a missing route is immediately visible.
+2. **Financial documents are void-only, never hard-deleted.** Delete endpoints guard `status in ("draft", "void")`. Never remove this guard.
 
-2. **Financial documents are void-only, never hard-deleted.** Delete endpoints for invoices, bills, credit/debit notes, payments, refunds, and receipts all guard that `status in ("draft", "void")` before allowing delete. Follow the pattern in `invoices.py`. Never remove this guard.
+3. **TypeScript: run `npx tsc --noEmit` after every TS/TSX change. Zero errors before commit.**
 
-3. **List pages with a data table must have a search input.** Minimum: a `useMemo` keyword filter over visible text columns (description, reference, name). See `BankTransactionsPage.tsx` and `TransactionListPage.tsx` for the pattern.
+4. **Always `await db.commit()` after every mutation.** Missing commit = data silently not persisted.
 
-4. **TypeScript: run `node_modules/.bin/tsc --noEmit` after every TS/TSX change. Zero errors before commit.**
+5. **Routers contain zero business logic.** All arithmetic and status transitions live in services or `app/core/`.
 
-5. **Always `await db.commit()` after every mutation.** Missing commit = data silently not persisted.
+6. **No god files. Max 300 lines per router/service.** Split by domain when exceeded.
+
+7. **All mutation endpoints require `Depends(require_write())` or `Depends(require_admin())`.** GET endpoints use `Depends(get_current_user)`.
+
+8. **All mutation endpoints call `log_audit()` after `await db.commit()`.** Pattern:
+   ```python
+   await db.commit()
+   await log_audit(db, org_id, current_user["sub"], "create", "entity_type", obj.id)
+   ```
+
+9. **List endpoints return the paginated envelope** `{items, total, page, limit, pages}` using `PaginationParams` + `paginated_result()` from `app.core.pagination`.
+
+10. **Always commit and push after fixes.** Don't wait to be asked.
 
 ---
 
-## Codebase Conventions
+## Canonical Utilities — Use These, Never Roll Your Own
 
-### Frontend patterns
-- **List pages**: Standard 3-column filter layout: `[Date Range | Search | Contact Dropdown]` + status Tabs above. `useMemo` for all filtering. See `PurchaseOrdersPage.tsx` as the reference.
-- **Hooks**: All API calls go through `frontend/src/lib/hooks.ts`. Query keys are lowercase plural: `['invoices']`, `['credit-notes']`.
-- **Toasts**: `const { toast } = useToast()` → `toast("message", "success"|"warning")`. Always wire success AND error toasts.
-- **Error surfacing**: `e?.response?.data?.detail ?? "Fallback message"` — never use generic fallbacks alone.
-- **Status colours**: Defined per-page as `statusColors: Record<string, string>`. Draft=slate, active=blue, complete=emerald, void/declined=rose.
-- **Routes**: All defined in `frontend/src/App.tsx`. The catch-all renders `NotFoundPage` — mismatches are visible immediately.
-- **Nav**: Items defined in `frontend/src/components/layout/nav-data.ts`.
+| Utility | Location | Purpose |
+|---|---|---|
+| `calculate_line_items(items_dicts)` | `app.core.line_items` | Subtotal + discount + tax + total. Returns `(subtotal, tax, discount_total, total)`. |
+| `next_sequence_number(db, Model, col, org_id, prefix)` | `app.core.sequences` | Auto-generates INV-00001 style numbers |
+| `log_audit(db, org_id, user_id, action, entity_type, entity_id, changes)` | `app.core.audit` | Audit trail — never raises |
+| `require_write()` / `require_admin()` | `app.core.permissions` | RBAC FastAPI dependencies |
+| `PaginationParams` / `paginated_result()` / `apply_sort()` | `app.core.pagination` | Pagination infra |
+| `InvoiceService` / `BillService` | `app.services.*` | Business logic, no FastAPI imports |
 
-### Backend patterns
-- **DB session**: Always `async with` or `Depends(get_db)`. Never forget `await db.commit()`.
-- **FK deletes**: Null out FK references before deleting a parent row (see `invoices.py` delete endpoint for the pattern).
-- **Status fields**: Invoices use `outstanding/partially paid/paid` (NOT `sent`). CreditNotes use `draft/issued/applied/void`. PurchaseOrders use `draft/sent/received/billed/declined/cancelled`.
-- **Numeric fields**: SQLAlchemy `Numeric(15,2)` columns come back as `Decimal`. Always `float()` wrap when doing arithmetic comparisons.
-- **Migrations**: New column = new migration file. Never edit existing migration files. Current head: **`a024`**.
-- **Bank account delete**: Blocked if the account has any `BankTransaction` rows (application-level guard in `bank_accounts.py` delete endpoint).
+---
+
+## Domain Methods on Models
+
+Phase 2A added domain methods to SQLAlchemy models — use them instead of inline logic:
+
+| Model | Methods |
+|---|---|
+| `Invoice`, `Bill` | `.mark_paid()` · `.balance_due` · `.can_edit()` · `.can_delete()` |
+| `CreditNote`, `PurchaseCreditNote` | `.remaining_credit` · `.can_edit()` · `.can_delete()` |
+| `ManualJournal` | `.can_edit()` · `.can_delete()` · `.can_post()` · `.can_void()` |
+| `TaxRate` | `.rate_decimal` · `.apply_to(amount)` |
+| `Organization` | `.is_gst_registered()` · `.is_sst_registered()` · `.effective_tax_regime` |
+
+---
+
+## Pydantic Validators
+
+Phase 2B added validators — these are enforced on every request:
+
+- `InvoiceCreate` / `BillCreate`: requires `len(line_items) >= 1`; `due_date >= issue_date`
+- `UserRegister`: email lowercased; password ≥ 8 chars with at least one digit
+- `ManualJournalCreate`: requires `len(lines) >= 2`
+- `ContactCreate`: name stripped of whitespace; email lowercased
+
+---
+
+## Frontend Shared Components
+
+| Component | Location | Use for |
+|---|---|---|
+| `ListPageFilters` | `components/ui/list-page-filters.tsx` | Status tabs + search + date range + contact filter |
+| `DocumentFormHeader` | `components/ui/document-form-header.tsx` | Contact + date + number + currency on create/edit forms |
+| `PaginationControls` | `components/ui/pagination-controls.tsx` | Page prev/next with total count |
+| `LineItemsEditor` | `components/line-items/` | Shared line-items editor with tax/discount |
+
+---
+
+## Frontend Patterns
+
+- **Hooks**: all in `frontend/src/lib/hooks/`. `makeListHook` creates `.useList()` (backward-compat array) and `.usePage()` (envelope with pagination).
+- **Paginated pages**: use `useXxxPage(params)` hooks + `PaginationControls` component.
+- **Query invalidation**: always call `queryClient.invalidateQueries({queryKey: ['entity']})` in mutation `onSuccess`.
+- **Toast**: `const { toast } = useToast()` → `toast("msg", "success"|"warning")`. Wire both success and error.
+- **Error messages**: `e?.response?.data?.detail ?? "Fallback"`.
+- **Status colours**: draft=slate, active=sky, outstanding=white, overdue=rose, paid=emerald, void=slate-muted.
+- **Routes**: all in `App.tsx`. Nav items in `components/layout/nav-data.ts`.
+
+---
+
+## Backend Patterns
+
+- **Status values** — Invoice: `draft/outstanding/partially_paid/paid/void`. Bill: same. CreditNote: `draft/issued/applied/void`. PO: `draft/sent/received/billed/declined/cancelled`. Never use `"sent"` for invoice status.
+- **Numeric**: SQLAlchemy `Numeric(15,2)` → `Decimal`. Always `float()` wrap in arithmetic.
+- **FK deletes**: null out FK references first. Pattern from `invoices.py` delete endpoint.
+- **Migrations**: new column = new migration. Never edit existing. Head: **`a024`**.
+
+---
+
+## Error Handling (Phase 7)
+
+`app/main.py` has three handlers:
+1. `StarletteHTTPException` → pass-through with original status code
+2. `RequestValidationError` → 422 with `{error, details: [{field, message}]}`
+3. `Exception` → 500 with `{error, error_id, detail}` + traceback log
+
+Never swallow exceptions silently in router code — let the handlers surface them.
 
 ---
 
 ## Known Pitfalls
 
-1. **`credit_applied` vs `credit_applications`**: The API returns `credit_applications: []` (array of objects with `id, invoice_id, amount`). Use `credit_applications`, not `applied_to_invoices`.
-2. **Invoice status after payment revert**: Always recalculate to `outstanding/partially paid/paid` based on `amount_paid` vs `total`. Never hardcode `"sent"`.
-3. **`debit_notes.invoice_id`**: Nullable in model and DB. Standalone debit notes don't need an invoice.
-4. **FK violation on invoice delete**: Null out `credit_notes.invoice_id`, `debit_notes.invoice_id`, `delivery_orders.invoice_id`, `documents.linked_invoice_id` before deleting an invoice. See `invoices.py`.
-5. **`cn` naming conflict**: In PurchaseCreditNotesPage the CSS utility `cn` from utils is aliased as `cx` to avoid conflict with loop variable `cn`.
-6. **PO → Bill conversion silent disabled save**: If a PO line has no `account_id`, the converted bill line inherits an empty account. Validation now happens in `handleSave` with a specific toast (not a disabled button), pointing to the line number missing an account.
-7. **ManualJournals has no update endpoint** — only create/post/void. The edit page (`EditManualJournalPage`) only allows editing draft journals before posting.
+1. **Invoice status after payment**: always use `inv.mark_paid()` — never hardcode `"sent"`.
+2. **`credit_applied` vs `credit_applications`**: API returns `credit_applications: []` (array of `{id, invoice_id, amount}`).
+3. **`debit_notes.invoice_id`**: nullable. Standalone debit notes have no invoice.
+4. **FK on invoice delete**: null `credit_notes.invoice_id`, `debit_notes.invoice_id`, `delivery_orders.invoice_id`, `documents.linked_invoice_id`.
+5. **`cn` naming conflict**: in PurchaseCreditNotesPage, CSS util `cn` is aliased as `cx` to avoid conflict with loop variable.
+6. **ManualJournals has no update endpoint** — only create/post/void. Edit page only allows drafts.
+7. **SA model methods in tests**: SQLAlchemy descriptors can't be constructed without a session. Use proxy dataclasses in unit tests — see `tests/test_model_methods.py`.
 
 ---
 
-## Service layer (Phase 4 — in progress)
+## Test Files
 
-Business math is being moved out of the routers into `backend/app/services/`:
-
-- **`pricing.py`** — pure discount/total/tax math (`line_total`, `line_discount_amount`, `line_after_discount`, `line_tax`, `compute_totals`). No DB/ORM. `invoices.py` and `bills.py` already use it. **Migrating a router off its inline `_disc_amount`: route every line-amount calc through `pricing.py` and keep totals byte-identical.** Covered by `tests/test_pricing_service.py`.
-- **Still inline (TODO):** `sales.py`, `purchase_orders.py`, `purchase_debit_notes.py`, `purchase_credit_notes.py` each still have their own discount math. Migrate them onto `pricing.py` in future passes (one router per PR, verify totals don't shift).
-
-## Pydantic schema location (convention)
-
-Two homes for request/response models currently coexist: the central `app/schemas/schemas.py` **and** per-router inline `BaseModel` classes (28 of 42 routers). **Rule going forward: a contract shared by more than one router goes in `schemas.py`; a contract used by exactly one router may stay inline in that router.** Do not mass-move existing inline models in a single pass — relocate opportunistically when you're already editing a router. New shared contracts must go in `schemas.py`.
-
-## Frontend shared line-items editor (Phase 4 — in progress)
-
-`frontend/src/components/line-items/` holds the shared `LineItemsEditor` + `useLineItems` hook (discount mode, tax code, product search, totals). **Bill + Invoice New/Edit pages are migrated as the reference.** The other ~23 line-item pages still hand-roll their editor — migrate them onto the shared component in future passes. When adding a new document-with-lines page, use the shared component, not a hand-rolled copy.
-
----
-
-## File Ownership (agent boundaries)
-
-| Domain | Files |
+| File | What it covers |
 |---|---|
-| Sales list pages | `frontend/src/pages/sales/*/` |
-| Purchase list pages | `frontend/src/pages/purchases/` |
-| Bank/Stock list pages | `frontend/src/pages/bank/`, `frontend/src/pages/stock/` |
-| Sales API | `backend/app/api/v1/sales.py` |
-| Purchase APIs | `backend/app/api/v1/bills.py`, `purchase_credit_notes.py`, `purchase_orders.py`, `purchase_payments.py`, `purchase_refunds.py`, `goods_received_notes.py`, `purchase_debit_notes.py` |
+| `tests/test_crud_core.py` | Schema construction, basic CRUD validation |
+| `tests/test_model_methods.py` | Domain methods (mark_paid, can_edit, etc.) via proxy classes |
+| `tests/test_schema_validators.py` | Pydantic validators (Phase 2B) |
+| `tests/test_service_layer.py` | Service classes + `calculate_line_items` utility |
+| `tests/test_pagination_and_audit.py` | Pagination envelope, audit log, error handlers |
+
+Run: `cd backend && python -m pytest` — must be **414+ passed, 1 skipped**.
+
+---
+
+## File Ownership
+
+| Domain | Key files |
+|---|---|
+| Sales routers | `backend/app/api/v1/invoices.py`, `quotations.py`, `credit_notes.py`, `debit_notes.py`, `delivery_orders.py`, `sales_payments.py`, `sales_refunds.py`, `sale_receipts.py`, `recurring_invoices.py` |
+| Purchase routers | `bills.py`, `purchase_orders.py`, `goods_received_notes.py`, `purchase_credit_notes.py`, `purchase_debit_notes.py`, `purchase_payments.py`, `purchase_refunds.py`, `vendor_credits.py` |
+| Core utilities | `backend/app/core/` — `line_items.py`, `sequences.py`, `audit.py`, `permissions.py`, `pagination.py` |
+| Services | `backend/app/services/` — `invoice_service.py`, `bill_service.py` |
 | Shared types | `frontend/src/types/index.ts` |
-| Hooks | `frontend/src/lib/hooks.ts` |
+| Hooks | `frontend/src/lib/hooks/` |
 | Routing | `frontend/src/App.tsx` |
 | Nav | `frontend/src/components/layout/nav-data.ts` |
+| Shared UI | `frontend/src/components/ui/` |
 | Migrations | `backend/alembic/versions/` |

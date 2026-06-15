@@ -9,6 +9,7 @@ from app.core.database import get_db
 from app.core.security import get_current_user
 from app.core.permissions import require_write
 from app.core.pagination import PaginationParams, paginated_result, apply_sort
+from app.core.audit import log_audit
 from app.models.models import InvoiceTemplate
 
 router = APIRouter(prefix="/invoice-templates", tags=["invoice-templates"])
@@ -106,6 +107,7 @@ async def create_template(
     tmpl = InvoiceTemplate(organization_id=current_user["org_id"], **payload.model_dump())
     db.add(tmpl)
     await db.commit()
+    await log_audit(db, current_user["org_id"], current_user["sub"], "create", "invoice_template", tmpl.id)
     await db.refresh(tmpl)
     return tmpl
 
@@ -159,6 +161,7 @@ async def update_template(
     for k, v in payload.model_dump(exclude_unset=True).items():
         setattr(tmpl, k, v)
     await db.commit()
+    await log_audit(db, current_user["org_id"], current_user["sub"], "update", "invoice_template", tmpl_id)
     await db.refresh(tmpl)
     return tmpl
 
@@ -180,3 +183,4 @@ async def delete_template(
         raise HTTPException(status_code=404, detail="Template not found")
     await db.delete(tmpl)
     await db.commit()
+    await log_audit(db, current_user["org_id"], current_user["sub"], "delete", "invoice_template", tmpl_id)

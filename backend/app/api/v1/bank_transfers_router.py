@@ -10,6 +10,7 @@ from app.core.database import get_db
 from app.core.security import get_current_user
 from app.core.permissions import require_write
 from app.core.pagination import PaginationParams, paginated_result, apply_sort
+from app.core.audit import log_audit
 from app.models.models import BankTransfer
 from .gl_helpers import post_gl_by_id, revert_gl
 
@@ -106,6 +107,7 @@ async def create_bank_transfer(
     )
 
     await db.commit()
+    await log_audit(db, current_user["org_id"], current_user["sub"], "create", "bank_transfer", transfer.id)
     await db.refresh(transfer)
     return transfer
 
@@ -147,6 +149,7 @@ async def update_bank_transfer(
     for key, val in payload.model_dump(exclude_unset=True).items():
         setattr(transfer, key, val)
     await db.commit()
+    await log_audit(db, current_user["org_id"], current_user["sub"], "update", "bank_transfer", transfer_id)
     await db.refresh(transfer)
     return transfer
 
@@ -177,3 +180,4 @@ async def delete_bank_transfer(
     )
     await db.delete(transfer)
     await db.commit()
+    await log_audit(db, current_user["org_id"], current_user["sub"], "delete", "bank_transfer", transfer_id)

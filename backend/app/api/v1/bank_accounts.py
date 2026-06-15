@@ -11,6 +11,7 @@ from app.core.database import get_db
 from app.core.security import get_current_user
 from app.core.permissions import require_write
 from app.core.pagination import PaginationParams, paginated_result, apply_sort
+from app.core.audit import log_audit
 from app.models.models import BankAccount, BankTransaction
 
 router = APIRouter(prefix="/bank-accounts", tags=["bank-accounts"])
@@ -94,6 +95,7 @@ async def create_bank_account(
     )
     db.add(account)
     await db.commit()
+    await log_audit(db, current_user["org_id"], current_user["sub"], "create", "bank_account", acct.id)
     await db.refresh(account)
     return account
 
@@ -138,6 +140,7 @@ async def update_bank_account(
     for key, val in updates.items():
         setattr(account, key, val)
     await db.commit()
+    await log_audit(db, current_user["org_id"], current_user["sub"], "update", "bank_account", account_id)
     await db.refresh(account)
     return account
 
@@ -164,3 +167,4 @@ async def delete_bank_account(
         raise HTTPException(status_code=409, detail="Cannot delete a bank account that has transactions. Deactivate it instead.")
     await db.delete(account)
     await db.commit()
+    await log_audit(db, current_user["org_id"], current_user["sub"], "delete", "bank_account", account_id)

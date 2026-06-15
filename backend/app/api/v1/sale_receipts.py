@@ -12,6 +12,7 @@ from app.core.database import get_db
 from app.core.security import get_current_user
 from app.core.permissions import require_write
 from app.core.pagination import PaginationParams, paginated_result, apply_sort
+from app.core.audit import log_audit
 from app.models.models import SaleReceipt, Contact
 from app.schemas.schemas import SaleReceiptCreate, SaleReceiptResponse, SaleReceiptLineItem
 from .gl_helpers import post_gl, revert_gl
@@ -117,6 +118,7 @@ async def create_sale_receipt(
     )
 
     await db.commit()
+    await log_audit(db, current_user["org_id"], current_user["sub"], "create", "sale_receipt", receipt.id)
     await db.refresh(receipt)
     return receipt
 
@@ -170,6 +172,7 @@ async def update_sale_receipt(
         setattr(receipt, key, value)
 
     await db.commit()
+    await log_audit(db, current_user["org_id"], current_user["sub"], "update", "sale_receipt", receipt_id)
     await db.refresh(receipt)
     return receipt
 
@@ -199,6 +202,7 @@ async def delete_sale_receipt(
     )
     await db.delete(receipt)
     await db.commit()
+    await log_audit(db, current_user["org_id"], current_user["sub"], "delete", "sale_receipt", receipt_id)
 
 
 @router.post("/{receipt_id}/void", response_model=SaleReceiptResponse)
@@ -226,6 +230,7 @@ async def void_sale_receipt(
         receipt.receipt_number,
     )
     await db.commit()
+    await log_audit(db, current_user["org_id"], current_user["sub"], "void", "sale_receipt", receipt_id)
     await db.refresh(receipt)
     return receipt
 

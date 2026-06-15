@@ -10,6 +10,7 @@ from app.core.database import get_db
 from app.core.security import get_current_user
 from app.core.permissions import require_write
 from app.core.pagination import PaginationParams, paginated_result, apply_sort
+from app.core.audit import log_audit
 from app.models.models import RecurringInvoice, Contact
 
 router = APIRouter(prefix="/recurring-invoices", tags=["recurring-invoices"])
@@ -140,6 +141,7 @@ async def create_recurring(
     )
     db.add(ri)
     await db.commit()
+    await log_audit(db, current_user["org_id"], current_user["sub"], "create", "recurring_invoice", rec.id)
     await db.refresh(ri)
     return ri
 
@@ -195,6 +197,7 @@ async def update_recurring(
         setattr(ri, key, value)
 
     await db.commit()
+    await log_audit(db, current_user["org_id"], current_user["sub"], "update", "recurring_invoice", rec_id)
     await db.refresh(ri)
     return ri
 
@@ -216,6 +219,7 @@ async def pause_recurring(
         raise HTTPException(status_code=404, detail="Not found")
     ri.status = "paused"
     await db.commit()
+    await log_audit(db, current_user["org_id"], current_user["sub"], "pause", "recurring_invoice", rec_id)
     await db.refresh(ri)
     return ri
 
@@ -237,6 +241,7 @@ async def resume_recurring(
         raise HTTPException(status_code=404, detail="Not found")
     ri.status = "active"
     await db.commit()
+    await log_audit(db, current_user["org_id"], current_user["sub"], "resume", "recurring_invoice", rec_id)
     await db.refresh(ri)
     return ri
 
@@ -258,6 +263,7 @@ async def cancel_recurring(
         raise HTTPException(status_code=404, detail="Not found")
     await db.delete(ri)
     await db.commit()
+    await log_audit(db, current_user["org_id"], current_user["sub"], "cancel", "recurring_invoice", rec_id)
 
 
 @router.get("/{ri_id}/activity")

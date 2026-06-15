@@ -10,6 +10,7 @@ from app.core.database import get_db
 from app.core.security import get_current_user
 from app.core.permissions import require_write
 from app.core.pagination import PaginationParams, paginated_result, apply_sort
+from app.core.audit import log_audit
 from app.models.models import ContactGroup
 
 router = APIRouter(prefix="/contact-groups", tags=["contact-groups"])
@@ -66,6 +67,7 @@ async def create_contact_group(
     )
     db.add(group)
     await db.commit()
+    await log_audit(db, current_user["org_id"], current_user["sub"], "create", "contact_group", group.id)
     await db.refresh(group)
     return group
 
@@ -107,6 +109,7 @@ async def update_contact_group(
     for key, val in payload.model_dump(exclude_unset=True).items():
         setattr(group, key, val)
     await db.commit()
+    await log_audit(db, current_user["org_id"], current_user["sub"], "update", "contact_group", group_id)
     await db.refresh(group)
     return group
 
@@ -128,3 +131,4 @@ async def delete_contact_group(
         raise HTTPException(status_code=404, detail="Contact group not found")
     await db.delete(group)
     await db.commit()
+    await log_audit(db, current_user["org_id"], current_user["sub"], "delete", "contact_group", group_id)

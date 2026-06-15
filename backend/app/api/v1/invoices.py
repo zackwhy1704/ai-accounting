@@ -17,9 +17,9 @@ from app.models.models import (
 )
 from app.schemas.schemas import InvoiceCreate, InvoiceUpdate, InvoiceResponse
 from app.core.line_items import calculate_line_items
+from app.core.audit import log_audit
 from app.services.pricing import line_after_discount, line_tax
 from .gl_helpers import post_gl, revert_gl
-from app.core.audit import log_audit
 
 router = APIRouter(prefix="/invoices", tags=["Invoices"])
 

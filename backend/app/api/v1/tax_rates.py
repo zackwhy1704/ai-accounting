@@ -12,6 +12,7 @@ from app.core.database import get_db
 from app.core.security import get_current_user
 from app.core.permissions import require_write
 from app.core.pagination import PaginationParams, paginated_result, apply_sort
+from app.core.audit import log_audit
 from app.models.models import TaxRate
 from app.schemas.schemas import TaxRateCreate, TaxRateUpdate, TaxRateResponse
 
@@ -83,6 +84,7 @@ async def create_tax_rate(
     )
     db.add(tax_rate)
     await db.commit()
+    await log_audit(db, current_user["org_id"], current_user["sub"], "create", "tax_rate", tr.id)
     await db.refresh(tax_rate)
     return tax_rate
 
@@ -106,6 +108,7 @@ async def update_tax_rate(
     for key, val in payload.model_dump(exclude_unset=True).items():
         setattr(tax_rate, key, val)
     await db.commit()
+    await log_audit(db, current_user["org_id"], current_user["sub"], "update", "tax_rate", rate_id)
     await db.refresh(tax_rate)
     return tax_rate
 
@@ -127,6 +130,7 @@ async def delete_tax_rate(
         raise HTTPException(status_code=404, detail="Tax rate not found")
     await db.delete(tax_rate)
     await db.commit()
+    await log_audit(db, current_user["org_id"], current_user["sub"], "delete", "tax_rate", rate_id)
 
 
 @router.post("/upload-csv", response_model=list[TaxRateResponse], status_code=201)

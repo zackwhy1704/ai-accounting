@@ -196,6 +196,7 @@ async def update_bank_transaction(
     for key, val in payload.model_dump(exclude_unset=True).items():
         setattr(txn, key, val)
     await db.commit()
+    await log_audit(db, current_user["org_id"], current_user["sub"], "update", "bank_transaction", txn_id)
     await db.refresh(txn)
     return txn
 
