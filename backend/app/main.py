@@ -1,5 +1,12 @@
-from fastapi import FastAPI, Depends
+import traceback
+import uuid as _uuid
+import time
+import logging
+from fastapi import FastAPI, Depends, Request, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+from fastapi.exceptions import RequestValidationError
+from starlette.exceptions import HTTPException as StarletteHTTPException
 from app.core.config import get_settings
 from app.core.permissions import require_role
 from app.api.v1 import (
@@ -34,6 +41,44 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+logger = logging.getLogger("accruly")
+
+
+# Preserve normal HTTPException behavior (404/400/401 with detail) so the broad
+# Exception handler below does not swallow them into 500s.
+@app.exception_handler(StarletteHTTPException)
+async def http_exception_passthrough(request: Request, exc: StarletteHTTPException):
+    return JSONResponse(status_code=exc.status_code, content={"detail": exc.detail})
+
+
+@app.exception_handler(RequestValidationError)
+async def validation_handler(request: Request, exc: RequestValidationError):
+    errors = [{"field": ".".join(str(l) for l in e["loc"]), "message": e["msg"]} for e in exc.errors()]
+    return JSONResponse(status_code=422, content={"error": "Validation error", "details": errors})
+
+
+@app.exception_handler(Exception)
+async def unhandled_exception_handler(request: Request, exc: Exception):
+    error_id = str(_uuid.uuid4())[:8]
+    traceback.print_exc()
+    logger.error(f"[{error_id}] Unhandled exception on {request.method} {request.url.path}: {exc}")
+    return JSONResponse(
+        status_code=500,
+        content={"error": "Internal server error", "error_id": error_id, "detail": str(exc) if settings.DEBUG else None},
+    )
+
+
+@app.middleware("http")
+async def request_logging(request: Request, call_next):
+    request_id = str(_uuid.uuid4())[:8]
+    start = time.monotonic()
+    response = await call_next(request)
+    duration = round((time.monotonic() - start) * 1000, 1)
+    logger.info(f"[{request_id}] {request.method} {request.url.path} -> {response.status_code} ({duration}ms)")
+    response.headers["X-Request-ID"] = request_id
+    return response
+
 
 # API routes
 app.include_router(auth.router, prefix=settings.API_V1_PREFIX)
