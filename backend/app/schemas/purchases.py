@@ -89,6 +89,7 @@ class BillUpdate(BaseModel):
     bill_number: str | None = None
     issue_date: datetime | None = None
     due_date: datetime | None = None
+    terms: str | None = None
     currency: str | None = None
     notes: str | None = None
     billing_address_line1: str | None = None
