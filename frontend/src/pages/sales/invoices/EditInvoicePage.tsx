@@ -1,7 +1,9 @@
 import { useState, useEffect, useRef } from "react"
 import { useNavigate, useParams } from "react-router-dom"
 import { Plus, Trash2, Loader2 } from "lucide-react"
-import { useInvoice, useUpdateInvoice, useContacts, useAccounts, useTaxRates, useInvoiceActivity, useCreateAdjustment, useDeleteAdjustment, type InvoiceActivityEvent, type AdjustmentLine } from "../../../lib/hooks"
+import { useInvoice, useUpdateInvoice, useContacts, useAccounts, useTaxRates, useInvoiceActivity, useInvoiceJournalEntries, useCreateAdjustment, useDeleteAdjustment, type InvoiceActivityEvent, type AdjustmentLine } from "../../../lib/hooks"
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "../../../components/ui/tabs"
+import { JournalEntriesPanel } from "../../../components/journal-entries-panel"
 import { Card } from "../../../components/ui/card"
 import { Button } from "../../../components/ui/button"
 import { Input } from "../../../components/ui/input"
@@ -18,6 +20,7 @@ export default function EditInvoicePage() {
   const { data: taxRates = [] } = useTaxRates()
   const updateInvoice = useUpdateInvoice()
   const { data: activity } = useInvoiceActivity(id)
+  const { data: journalData, isLoading: journalLoading } = useInvoiceJournalEntries(id)
   const populated = useRef(false)
 
   const [invoiceNumber, setInvoiceNumber] = useState("")
@@ -344,18 +347,29 @@ export default function EditInvoicePage() {
               Total {activity.total.toFixed(2)} · Outstanding <span className={activity.outstanding > 0 ? "text-amber-600 font-semibold" : "text-emerald-600 font-semibold"}>{activity.outstanding.toFixed(2)}</span>
             </div>
           </div>
-          {activity.events.length === 0 ? (
-            <div className="text-sm text-muted-foreground">No activity yet.</div>
-          ) : (
-            <div className="space-y-3">
-              {activity.events.map((ev: InvoiceActivityEvent, idx: number) => (
-                <ActivityRow key={`${ev.type}-${ev.ref_id}-${idx}`} event={ev} />
-              ))}
-            </div>
-          )}
-          <div className="mt-3 text-[11px] text-muted-foreground">
-            Adjustments post directly to the GL and appear here. Use them for write-offs, rounding, or bank-charge corrections that should not change the original invoice.
-          </div>
+          <Tabs defaultValue="history">
+            <TabsList className="mb-3">
+              <TabsTrigger value="history">History</TabsTrigger>
+              <TabsTrigger value="journal">Journal Entries</TabsTrigger>
+            </TabsList>
+            <TabsContent value="history">
+              {activity.events.length === 0 ? (
+                <div className="text-sm text-muted-foreground">No activity yet.</div>
+              ) : (
+                <div className="space-y-3">
+                  {activity.events.map((ev: InvoiceActivityEvent, idx: number) => (
+                    <ActivityRow key={`${ev.type}-${ev.ref_id}-${idx}`} event={ev} />
+                  ))}
+                </div>
+              )}
+              <div className="mt-3 text-[11px] text-muted-foreground">
+                Adjustments post directly to the GL and appear here. Use them for write-offs, rounding, or bank-charge corrections that should not change the original invoice.
+              </div>
+            </TabsContent>
+            <TabsContent value="journal">
+              <JournalEntriesPanel groups={journalData?.journal_entries} isLoading={journalLoading} />
+            </TabsContent>
+          </Tabs>
         </Card>
       )}
 
@@ -373,6 +387,7 @@ export default function EditInvoicePage() {
 const TYPE_LABELS: Record<string, string> = {
   issued: "Invoice issued",
   credit_note: "Credit Note",
+  credit_applied: "Credit applied",
   debit_note: "Debit Note",
   payment: "Payment received",
   refund: "Refund issued",
@@ -382,6 +397,7 @@ const TYPE_LABELS: Record<string, string> = {
 const TYPE_COLORS: Record<string, string> = {
   issued: "bg-blue-100 text-blue-700",
   credit_note: "bg-rose-100 text-rose-700",
+  credit_applied: "bg-rose-100 text-rose-700",
   debit_note: "bg-amber-100 text-amber-700",
   payment: "bg-emerald-100 text-emerald-700",
   refund: "bg-orange-100 text-orange-700",

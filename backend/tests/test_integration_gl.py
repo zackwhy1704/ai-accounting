@@ -199,3 +199,90 @@ class TestGLBasedProfitLoss:
         assert abs(body["sections"]["revenue"]["total"] - 150.0) < 0.01, body["sections"]["revenue"]
         # revenue lines come from the ledger (account-level), not invoices
         assert any(l["code"] == "4000" for l in body["sections"]["revenue"]["lines"])
+
+
+class TestInvoiceActivityCreditApplication:
+    async def test_standalone_cn_applied_via_application_appears_in_invoice_activity(self, client, org_with_defaults):
+        """ISSUE 2 regression: a standalone credit note applied to an invoice via
+        CreditApplication (CreditNote.invoice_id stays null) must appear in the
+        invoice's activity timeline as a 'credit_applied' event. Previously the
+        activity query only matched CreditNote.invoice_id and missed it entirely."""
+        org_id = org_with_defaults["org_id"]
+        contact_id = await _make_contact(org_id, "customer")
+        now = datetime.now(timezone.utc)
+
+        # 1) Create + approve an invoice for 100
+        inv = await client.post("/invoices", json={
+            "contact_id": str(contact_id),
+            "issue_date": now.isoformat(),
+            "due_date": (now + timedelta(days=30)).isoformat(),
+            "currency": "MYR",
+            "line_items": [{"description": "Goods", "quantity": 1, "unit_price": 100.0, "tax_rate": 0.0}],
+        })
+        assert inv.status_code in (200, 201), inv.text
+        invoice_id = inv.json()["id"]
+        await client.patch(f"/invoices/{invoice_id}/status", params={"status": "sent"})
+
+        # 2) Create a STANDALONE credit note (no invoice_id) that is APPLIED to the
+        #    invoice via credit_applications -> writes a CreditApplication row.
+        cn = await client.post("/credit-notes", json={
+            "contact_id": str(contact_id),
+            "issue_date": now.isoformat(),
+            "currency": "MYR",
+            "line_items": [{"description": "Return", "quantity": 1, "unit_price": 40.0, "tax_rate": 0.0}],
+            "credit_applications": [{"invoice_id": invoice_id, "amount": 40.0}],
+        })
+        assert cn.status_code in (200, 201), cn.text
+        cn_number = cn.json().get("credit_note_number")
+
+        # 3) Invoice activity must now contain a credit_applied event for 40
+        act = await client.get(f"/invoices/{invoice_id}/activity")
+        assert act.status_code == 200, act.text
+        events = act.json()["events"]
+        applied = [e for e in events if e["type"] == "credit_applied"]
+        assert len(applied) == 1, f"expected 1 credit_applied event, got {events}"
+        assert abs(applied[0]["delta"] + 40.0) < 0.01  # delta is negative (reduces balance)
+        if cn_number:
+            assert applied[0]["ref"] == cn_number
+
+
+class TestJournalEntriesEndpoints:
+    async def test_invoice_and_bill_journal_entries_endpoints(self, client, org_with_defaults):
+        """ACTION 2 backend: invoice and bill expose /journal-entries with grouped
+        double-entry lines once posted."""
+        org_id = org_with_defaults["org_id"]
+        now = datetime.now(timezone.utc)
+
+        cust = await _make_contact(org_id, "customer")
+        inv = await client.post("/invoices", json={
+            "contact_id": str(cust),
+            "issue_date": now.isoformat(),
+            "due_date": (now + timedelta(days=30)).isoformat(),
+            "currency": "MYR",
+            "line_items": [{"description": "Goods", "quantity": 1, "unit_price": 100.0, "tax_rate": 6.0}],
+        })
+        invoice_id = inv.json()["id"]
+        await client.patch(f"/invoices/{invoice_id}/status", params={"status": "sent"})
+        je = await client.get(f"/invoices/{invoice_id}/journal-entries")
+        assert je.status_code == 200, je.text
+        groups = je.json()["journal_entries"]
+        assert len(groups) >= 1
+        # each group's lines must balance
+        for g in groups:
+            dr = sum(l["debit"] for l in g["lines"])
+            cr = sum(l["credit"] for l in g["lines"])
+            assert abs(dr - cr) < 0.01
+
+        vend = await _make_contact(org_id, "vendor")
+        bill = await client.post("/bills", json={
+            "contact_id": str(vend),
+            "issue_date": now.isoformat(),
+            "due_date": (now + timedelta(days=30)).isoformat(),
+            "currency": "MYR",
+            "line_items": [{"description": "Supplies", "quantity": 1, "unit_price": 80.0, "tax_rate": 6.0}],
+        })
+        bill_id = bill.json()["id"]
+        await client.patch(f"/bills/{bill_id}/status", params={"status": "outstanding"})
+        bje = await client.get(f"/bills/{bill_id}/journal-entries")
+        assert bje.status_code == 200, bje.text
+        assert len(bje.json()["journal_entries"]) >= 1

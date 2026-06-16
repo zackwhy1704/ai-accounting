@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import api from '../api'
 import type { Invoice, Quotation, DeliveryOrder, CreditNote, DebitNote, SalesPayment, SalesRefund } from '../../types'
-import { makeActivityHook, makeListHook, type InvoiceActivityEvent, type AdjustmentLine, type ListParams } from './_shared'
+import { makeActivityHook, makeListHook, type InvoiceActivityEvent, type AdjustmentLine, type ListParams, type JournalEntryGroup } from './_shared'
 
 // Invoices — paginated + searchable. useInvoices() returns Invoice[] (back-compat,
 // accepts a status string or a ListParams object); useInvoicesPage() returns the
@@ -243,6 +243,22 @@ export function useInvoiceActivity(id: string | undefined) {
   }>({
     queryKey: ['invoice-activity', id],
     queryFn: () => api.get(`/invoices/${id}/activity`).then(r => r.data),
+    enabled: !!id,
+  })
+}
+
+export function useInvoiceJournalEntries(id: string | undefined) {
+  return useQuery<{ invoice_id: string; journal_entries: JournalEntryGroup[] }>({
+    queryKey: ['invoice-journal-entries', id],
+    queryFn: () => api.get(`/invoices/${id}/journal-entries`).then(r => r.data),
+    enabled: !!id,
+  })
+}
+
+export function useCreditNoteJournalEntries(id: string | undefined) {
+  return useQuery<{ credit_note_id: string; journal_entries: JournalEntryGroup[] }>({
+    queryKey: ['credit-note-journal-entries', id],
+    queryFn: () => api.get(`/credit-notes/${id}/journal-entries`).then(r => r.data),
     enabled: !!id,
   })
 }

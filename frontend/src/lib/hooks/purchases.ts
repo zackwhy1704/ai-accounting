@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import api from '../api'
 import type { Bill, PurchaseOrder, GoodsReceivedNote, PurchasePayment, PurchaseRefund } from '../../types'
-import { makeActivityHook, makeListHook, type InvoiceActivityEvent, type ListParams } from './_shared'
+import { makeActivityHook, makeListHook, type InvoiceActivityEvent, type ListParams, type JournalEntryGroup } from './_shared'
 
 // Bills
 const _bills = makeListHook<Bill>('/bills', 'bills')
@@ -107,6 +107,14 @@ export function useBillActivity(id: string | undefined) {
   }>({
     queryKey: ['bill-activity', id],
     queryFn: () => api.get(`/bills/${id}/activity`).then(r => r.data),
+    enabled: !!id,
+  })
+}
+
+export function useBillJournalEntries(id: string | undefined) {
+  return useQuery<{ bill_id: string; journal_entries: JournalEntryGroup[] }>({
+    queryKey: ['bill-journal-entries', id],
+    queryFn: () => api.get(`/bills/${id}/journal-entries`).then(r => r.data),
     enabled: !!id,
   })
 }

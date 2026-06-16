@@ -11,7 +11,7 @@ from app.core.security import get_current_user
 from app.core.permissions import require_write
 from app.core.pagination import PaginationParams, paginated_result, apply_sort
 from app.models.models import (
-    Invoice, InvoiceLineItem, CreditNote, DebitNote,
+    Invoice, InvoiceLineItem, CreditNote, DebitNote, CreditApplication,
     SalesPayment, PaymentAllocation, SalesRefund,
     Transaction, JournalEntry, Account, DeliveryOrder, Document, Contact,
 )
@@ -310,11 +310,34 @@ async def invoice_activity(
         "status": invoice.status,
     })
 
-    cn_result = await db.execute(
+    # Credit notes affect this invoice in two ways:
+    #  1. Raised directly against it (CreditNote.invoice_id == this invoice), or
+    #  2. Created standalone then APPLIED to it via the CreditApplication table.
+    # Collect both so the activity timeline (and the refund lookup below) is complete.
+    app_result = await db.execute(
+        select(CreditApplication).where(CreditApplication.invoice_id == invoice_id)
+    )
+    applications = app_result.scalars().all()
+    applied_cn_ids = [app.credit_note_id for app in applications]
+
+    direct_cn_result = await db.execute(
         select(CreditNote).where(CreditNote.invoice_id == invoice_id)
     )
-    credit_notes = cn_result.scalars().all()
-    for cn in credit_notes:
+    direct_cns = direct_cn_result.scalars().all()
+    direct_cn_ids = [cn.id for cn in direct_cns]
+
+    all_cn_ids = list({*applied_cn_ids, *direct_cn_ids})
+    if all_cn_ids:
+        cn_full_result = await db.execute(
+            select(CreditNote).where(CreditNote.id.in_(all_cn_ids))
+        )
+        credit_notes = list(cn_full_result.scalars().all())
+    else:
+        credit_notes = []
+    cn_by_id = {cn.id: cn for cn in credit_notes}
+
+    # Directly-raised CNs: show the CN issuance event.
+    for cn in direct_cns:
         events.append({
             "ts": cn.issue_date.isoformat() if cn.issue_date else None,
             "type": "credit_note",
@@ -323,6 +346,20 @@ async def invoice_activity(
             "delta": -float(cn.total or 0),
             "note": cn.notes or "",
             "status": cn.status,
+        })
+
+    # Applied CNs: show the application event (date + amount applied, which may
+    # differ from the CN's own issue date/total).
+    for app in applications:
+        cn = cn_by_id.get(app.credit_note_id)
+        events.append({
+            "ts": app.applied_at.isoformat() if app.applied_at else None,
+            "type": "credit_applied",
+            "ref": cn.credit_note_number if cn else str(app.credit_note_id),
+            "ref_id": str(app.credit_note_id),
+            "delta": -float(app.amount or 0),
+            "note": "Credit note applied",
+            "status": cn.status if cn else "unknown",
         })
 
     dn_result = await db.execute(

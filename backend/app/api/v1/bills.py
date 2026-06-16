@@ -384,6 +384,43 @@ async def bill_activity(
     }
 
 
+@router.get("/{bill_id}/journal-entries")
+async def bill_journal_entries(
+    bill_id: UUID,
+    current_user: dict = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Return all GL transactions posted against this bill (double-entry view)."""
+    org_id = current_user["org_id"]
+    result = await db.execute(
+        select(Bill).where(Bill.id == bill_id, Bill.organization_id == org_id)
+    )
+    if not result.scalar_one_or_none():
+        raise HTTPException(status_code=404, detail="Bill not found")
+    txn_result = await db.execute(
+        select(Transaction)
+        .where(Transaction.organization_id == org_id, Transaction.source_id == bill_id)
+        .order_by(Transaction.date)
+    )
+    journal_events = []
+    for txn in txn_result.scalars().all():
+        je_result = await db.execute(
+            select(JournalEntry, Account)
+            .join(Account, Account.id == JournalEntry.account_id)
+            .where(JournalEntry.transaction_id == txn.id)
+        )
+        lines = [
+            {"account_code": acct.code, "account_name": acct.name, "debit": float(je.debit or 0), "credit": float(je.credit or 0)}
+            for je, acct in je_result.all()
+        ]
+        journal_events.append({
+            "ts": txn.date.isoformat() if txn.date else None,
+            "type": "journal", "subtype": txn.source, "ref": txn.reference, "ref_id": str(txn.id),
+            "description": txn.description or "", "lines": lines,
+        })
+    return {"bill_id": str(bill_id), "journal_entries": journal_events}
+
+
 class BillPaymentCreate(BaseModel):
     payment_date: datetime
     amount: float

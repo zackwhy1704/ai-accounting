@@ -57,7 +57,7 @@ export function makeListHook<T>(path: string, key: string) {
 
 export interface InvoiceActivityEvent {
   ts: string | null
-  type: 'issued' | 'credit_note' | 'debit_note' | 'payment' | 'refund' | 'journal'
+  type: 'issued' | 'credit_note' | 'credit_applied' | 'debit_note' | 'payment' | 'refund' | 'journal'
   subtype?: string
   ref: string
   ref_id: string
@@ -66,6 +66,23 @@ export interface InvoiceActivityEvent {
   note: string
   status?: string
   lines?: Array<{ account_code: string; account_name: string; debit: number; credit: number }>
+}
+
+export interface JournalEntryLine {
+  account_code: string
+  account_name: string
+  debit: number
+  credit: number
+}
+
+export interface JournalEntryGroup {
+  ts: string | null
+  type: string
+  subtype?: string
+  ref: string | null
+  ref_id: string
+  description: string
+  lines: JournalEntryLine[]
 }
 
 export interface AdjustmentLine {

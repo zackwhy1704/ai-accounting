@@ -1,7 +1,9 @@
 import { useState, useEffect, useRef, useMemo } from "react"
 import { useNavigate, useParams } from "react-router-dom"
 import { Loader2, X } from "lucide-react"
-import { useCreditNote, useUpdateCreditNote, useContacts, useAccounts, useTaxRates, useInvoices, useRemoveSingleCreditApplication, useCreditNoteActivity, type InvoiceActivityEvent } from "../../../lib/hooks"
+import { useCreditNote, useUpdateCreditNote, useContacts, useAccounts, useTaxRates, useInvoices, useRemoveSingleCreditApplication, useCreditNoteActivity, useCreditNoteJournalEntries, type InvoiceActivityEvent } from "../../../lib/hooks"
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "../../../components/ui/tabs"
+import { JournalEntriesPanel } from "../../../components/journal-entries-panel"
 import { formatCurrency, formatDate } from "../../../lib/utils"
 import { getContactPrefs, saveContactPref } from "../../../lib/contact-prefs"
 import { useToast } from "../../../components/ui/toast"
@@ -33,6 +35,7 @@ export default function EditCreditNotePage() {
   const { data: invoices = [] } = useInvoices()
   const updateCreditNote = useUpdateCreditNote()
   const { data: activity } = useCreditNoteActivity(id)
+  const { data: cnJournalData, isLoading: cnJournalLoading } = useCreditNoteJournalEntries(id)
   const removeSingleApp = useRemoveSingleCreditApplication()
   const populated = useRef(false)
 
@@ -398,15 +401,26 @@ export default function EditCreditNotePage() {
             <h3 className="text-sm font-semibold text-foreground">Activity</h3>
             <div className="text-xs text-muted-foreground">Total {activity.total.toFixed(2)}</div>
           </div>
-          {activity.events.length === 0 ? (
-            <div className="text-sm text-muted-foreground">No activity yet.</div>
-          ) : (
-            <div className="space-y-3">
-              {activity.events.map((ev: InvoiceActivityEvent, idx: number) => (
-                <SimpleActivityRow key={`${ev.type}-${ev.ref_id}-${idx}`} event={ev} />
-              ))}
-            </div>
-          )}
+          <Tabs defaultValue="history">
+            <TabsList className="mb-3">
+              <TabsTrigger value="history">History</TabsTrigger>
+              <TabsTrigger value="journal">Journal Entries</TabsTrigger>
+            </TabsList>
+            <TabsContent value="history">
+              {activity.events.length === 0 ? (
+                <div className="text-sm text-muted-foreground">No activity yet.</div>
+              ) : (
+                <div className="space-y-3">
+                  {activity.events.map((ev: InvoiceActivityEvent, idx: number) => (
+                    <SimpleActivityRow key={`${ev.type}-${ev.ref_id}-${idx}`} event={ev} />
+                  ))}
+                </div>
+              )}
+            </TabsContent>
+            <TabsContent value="journal">
+              <JournalEntriesPanel groups={cnJournalData?.journal_entries} isLoading={cnJournalLoading} />
+            </TabsContent>
+          </Tabs>
         </Card>
       )}
 
