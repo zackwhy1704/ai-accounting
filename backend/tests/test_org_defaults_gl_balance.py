@@ -76,22 +76,35 @@ class TestTaxedBillBalances:
 
 
 class TestRoutersUseSingleBalancedCall:
-    """Source-level guard: the org-defaults branch must not make a separate
-    tax-only post_gl call (the root cause of the P0 imbalance)."""
+    """Source-level guard: GL posting for invoices/bills lives in the shared
+    services/gl_posting.py and builds ONE balanced entry list (the org-defaults
+    branch must not make a separate tax-only post_gl call — the P0 root cause)."""
 
-    def _src(self, name):
+    def _gl_posting_src(self):
+        return pathlib.Path("app/services/gl_posting.py").read_text()
+
+    def _router_src(self, name):
         return pathlib.Path(f"app/api/v1/{name}").read_text()
 
-    def test_invoices_no_tax_only_post_gl(self):
-        src = self._src("invoices.py")
-        # the buggy pattern posted ("2100", 0, tax_amount) as its own call
-        assert 'entries_code = [("2100"' not in src
-        assert 'output_tax' in src  # uses org-configured tax account
+    def test_invoice_posting_uses_output_tax_in_one_list(self):
+        src = self._gl_posting_src()
+        assert "output_tax" in src
+        # tax leg appended to the SAME entries list, not posted separately
+        assert "entries.append((defaults[\"output_tax\"]" in src
 
-    def test_bills_no_tax_only_post_gl(self):
-        src = self._src("bills.py")
-        assert 'gst_entries = [("1200"' not in src
-        assert 'input_tax' in src
+    def test_bill_posting_uses_input_tax_in_one_list(self):
+        src = self._gl_posting_src()
+        assert "input_tax" in src
+        assert "entries.append((defaults[\"input_tax\"]" in src
+
+    def test_routers_delegate_to_shared_service(self):
+        assert "post_invoice_gl" in self._router_src("invoices.py")
+        assert "post_bill_gl" in self._router_src("bills.py")
+
+    def test_no_tax_only_post_gl_remains(self):
+        # the buggy patterns posted the tax leg as its own unbalanced call
+        assert 'entries_code = [("2100"' not in self._router_src("invoices.py")
+        assert 'gst_entries = [("1200"' not in self._router_src("bills.py")
 
 
 class TestOrgDefaultsHelperExposesTaxAccounts:

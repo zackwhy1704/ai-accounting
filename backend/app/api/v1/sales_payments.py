@@ -12,6 +12,7 @@ from app.models.models import (
 )
 from .gl_helpers import post_gl, post_gl_by_id, revert_gl
 from app.core.org_defaults import get_default_accounts
+from app.services.gl_posting import post_sales_payment_gl
 from app.core.audit import log_audit
 from app.schemas.schemas import (
     SalesPaymentCreate, SalesPaymentUpdate, SalesPaymentResponse,
@@ -116,22 +117,14 @@ async def create_sales_payment(data: SalesPaymentCreate, current_user: dict = De
                 dn_total = float(dn.total or 0)
                 dn.status = "applied" if float(dn.amount_paid) >= dn_total else "issued"
 
-    # GL: Dr Cash/Bank (1000) / Cr AR (1100)
-    defaults = await get_default_accounts(db, org_id)
-    if defaults.get("bank") and defaults.get("ar"):
-        await post_gl_by_id(
-            db, org_id, data.payment_date,
-            f"Payment received {obj.payment_number}",
-            obj.payment_number, "payment", obj.id,
-            [(defaults["bank"], effective_amount, 0.0), (defaults["ar"], 0.0, effective_amount)],
-        )
-    else:
-        await post_gl(
-            db, org_id, data.payment_date,
-            f"Payment received {obj.payment_number}",
-            obj.payment_number, "payment", obj.id,
-            [("1000", effective_amount, 0), ("1100", 0, effective_amount)],
-        )
+    # GL: Dr Cash/Bank / Cr AR via shared service
+    await post_sales_payment_gl(
+        db, org_id,
+        payment_date=data.payment_date,
+        number=obj.payment_number,
+        payment_id=obj.id,
+        amount=effective_amount,
+    )
 
     await db.commit()
     await log_audit(db, org_id, current_user["sub"], "create", "sales_payment", obj.id)

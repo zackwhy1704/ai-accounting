@@ -16,6 +16,7 @@ from app.core.line_items import calculate_line_items
 from app.services.pricing import line_after_discount, line_tax
 from .gl_helpers import post_gl, post_gl_by_id, revert_gl
 from app.core.org_defaults import get_default_accounts
+from app.services.gl_posting import post_bill_gl
 from app.core.audit import log_audit
 
 router = APIRouter(prefix="/bills", tags=["Bills"])
@@ -230,38 +231,17 @@ async def update_bill_status(
     prev_status = bill.status
     bill.status = status
 
-    # draft/received → approved/outstanding: post Dr Expense (+ Dr GST Input) / Cr AP
+    # draft/received → approved/outstanding: post Dr Expense (+ Dr GST Input) / Cr AP via shared service
     if status in ("approved", "outstanding") and prev_status in ("draft", "received"):
-        subtotal = float(bill.subtotal)
-        tax_amount = float(bill.tax_amount)
-        total = float(bill.total)
-        defaults = await get_default_accounts(db, org_id)
-        # Use org-configured accounts only if AP, Expense, and (when taxed) the
-        # input-tax account are all set. Post ALL legs in ONE balanced call.
-        if defaults.get("ap") and defaults.get("expense") and (tax_amount == 0 or defaults.get("input_tax")):
-            id_entries = [
-                (defaults["expense"], subtotal, 0.0),   # Dr Expense (excl. tax)
-                (defaults["ap"], 0.0, total),            # Cr Accounts Payable (incl. tax)
-            ]
-            if tax_amount > 0:
-                id_entries.append((defaults["input_tax"], tax_amount, 0.0))  # Dr GST Input (ITC)
-            await post_gl_by_id(
-                db, org_id, bill.issue_date,
-                f"Bill {bill.bill_number}",
-                bill.bill_number, "bill", bill.id, id_entries,
-            )
-        else:
-            entries = [
-                ("5000", subtotal, 0),   # Dr Expense
-                ("2000", 0, total),      # Cr Accounts Payable
-            ]
-            if tax_amount > 0:
-                entries.append(("1200", tax_amount, 0))  # Dr GST Input (ITC)
-            await post_gl(
-                db, org_id, bill.issue_date,
-                f"Bill {bill.bill_number}",
-                bill.bill_number, "bill", bill.id, entries,
-            )
+        await post_bill_gl(
+            db, org_id,
+            issue_date=bill.issue_date,
+            number=bill.bill_number,
+            bill_id=bill.id,
+            subtotal=float(bill.subtotal),
+            tax_amount=float(bill.tax_amount),
+            total=float(bill.total),
+        )
 
     # void/cancelled: reverse any posted GL entries
     elif status in ("void", "cancelled") and prev_status not in ("draft", "received"):

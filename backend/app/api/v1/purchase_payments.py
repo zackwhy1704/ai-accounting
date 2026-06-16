@@ -14,6 +14,7 @@ from app.core.pagination import PaginationParams, paginated_result, apply_sort
 from app.models.models import PurchasePayment, Bill, PurchaseDebitNote, Contact
 from .gl_helpers import post_gl, post_gl_by_id, revert_gl
 from app.core.org_defaults import get_default_accounts
+from app.services.gl_posting import post_purchase_payment_gl
 from app.core.audit import log_audit
 
 router = APIRouter(prefix="/purchase-payments", tags=["purchase-payments"])
@@ -163,22 +164,14 @@ async def create_purchase_payment(
             elif float(dn.amount_paid) > 0:
                 dn.status = "partially paid"
 
-    # GL: Dr AP (2000) / Cr Cash/Bank (1000)
-    defaults = await get_default_accounts(db, org_id)
-    if defaults.get("ap") and defaults.get("bank"):
-        await post_gl_by_id(
-            db, org_id, payload.payment_date,
-            f"Purchase payment {payment.payment_no}",
-            payment.payment_no, "purchase_payment", payment.id,
-            [(defaults["ap"], float(payload.amount), 0.0), (defaults["bank"], 0.0, float(payload.amount))],
-        )
-    else:
-        await post_gl(
-            db, org_id, payload.payment_date,
-            f"Purchase payment {payment.payment_no}",
-            payment.payment_no, "purchase_payment", payment.id,
-            [("2000", float(payload.amount), 0), ("1000", 0, float(payload.amount))],
-        )
+    # GL: Dr AP / Cr Cash/Bank via shared service
+    await post_purchase_payment_gl(
+        db, org_id,
+        payment_date=payload.payment_date,
+        number=payment.payment_no,
+        payment_id=payment.id,
+        amount=float(payload.amount),
+    )
 
     await db.commit()
     await log_audit(db, current_user["org_id"], current_user["sub"], "create", "purchase_payment", payment.id)

@@ -21,6 +21,7 @@ from app.core.audit import log_audit
 from app.services.pricing import line_after_discount, line_tax
 from .gl_helpers import post_gl, post_gl_by_id, revert_gl
 from app.core.org_defaults import get_default_accounts
+from app.services.gl_posting import post_invoice_gl
 
 router = APIRouter(prefix="/invoices", tags=["Invoices"])
 
@@ -200,39 +201,17 @@ async def update_invoice_status(
     prev_status = invoice.status
     invoice.status = status
 
-    # draft → sent: post Dr AR / Cr Revenue (+ Cr GST Payable)
+    # draft → sent: post Dr AR / Cr Revenue (+ Cr GST Payable) via shared service
     if status == "sent" and prev_status == "draft":
-        subtotal = float(invoice.subtotal)
-        tax_amount = float(invoice.tax_amount)
-        total = float(invoice.total)
-        defaults = await get_default_accounts(db, org_id)
-        # Use org-configured accounts only if AR, Revenue, and (when taxed) the
-        # output-tax account are all set — otherwise the tax leg would have no
-        # home and the transaction could not balance. Post ALL legs in ONE call.
-        if defaults.get("ar") and defaults.get("revenue") and (tax_amount == 0 or defaults.get("output_tax")):
-            id_entries = [
-                (defaults["ar"], total, 0.0),         # DR Accounts Receivable (incl. tax)
-                (defaults["revenue"], 0.0, subtotal),  # CR Revenue (excl. tax)
-            ]
-            if tax_amount > 0:
-                id_entries.append((defaults["output_tax"], 0.0, tax_amount))  # CR Output Tax Payable
-            await post_gl_by_id(
-                db, org_id, invoice.issue_date,
-                f"Invoice {invoice.invoice_number}",
-                invoice.invoice_number, "invoice", invoice.id, id_entries,
-            )
-        else:
-            entries = [
-                ("1100", total, 0),
-                ("4000", 0, subtotal),
-            ]
-            if tax_amount > 0:
-                entries.append(("2100", 0, tax_amount))
-            await post_gl(
-                db, org_id, invoice.issue_date,
-                f"Invoice {invoice.invoice_number}",
-                invoice.invoice_number, "invoice", invoice.id, entries,
-            )
+        await post_invoice_gl(
+            db, org_id,
+            issue_date=invoice.issue_date,
+            number=invoice.invoice_number,
+            invoice_id=invoice.id,
+            subtotal=float(invoice.subtotal),
+            tax_amount=float(invoice.tax_amount),
+            total=float(invoice.total),
+        )
 
     # cancelled: reverse any previously posted GL entries
     elif status == "cancelled" and prev_status != "draft":
