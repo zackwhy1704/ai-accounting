@@ -124,6 +124,7 @@ class BillResponse(BaseModel):
     id: UUID
     bill_number: str
     contact_id: UUID
+    contact_name: str | None = None
     status: str
     issue_date: datetime
     due_date: datetime

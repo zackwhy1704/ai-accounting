@@ -167,7 +167,7 @@ export default function QuotationsPage() {
                       <TableRow key={q.id} className="border-border hover:bg-muted/50">
                         <TableCell className="font-medium text-foreground">{q.quotation_number}</TableCell>
                         <TableCell className="text-muted-foreground">{formatDate(q.issue_date)}</TableCell>
-                        <TableCell className="text-foreground">{contactMap.get(q.contact_id) ?? "—"}</TableCell>
+                        <TableCell className="text-foreground">{(q.contact_name ?? contactMap.get(q.contact_id) ?? "—")}</TableCell>
                         <TableCell className="text-right text-foreground">{formatCurrency(q.total)}</TableCell>
                         <TableCell>
                           <Badge variant="outline" className={cn("rounded-lg px-2 py-0.5 text-[11px] font-semibold", statusColors[q.status] ?? "")}>{q.status.charAt(0).toUpperCase() + q.status.slice(1)}</Badge>

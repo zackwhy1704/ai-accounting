@@ -158,7 +158,7 @@ export default function DebitNotesPage() {
                       <TableRow key={dn.id} className="border-border hover:bg-muted/50">
                         <TableCell className="font-medium text-foreground">{dn.debit_note_number}</TableCell>
                         <TableCell className="text-muted-foreground">{formatDate(dn.issue_date)}</TableCell>
-                        <TableCell className="text-foreground">{contactMap.get(dn.contact_id) ?? "\u2014"}</TableCell>
+                        <TableCell className="text-foreground">{dn.contact_name ?? contactMap.get(dn.contact_id) ?? "\u2014"}</TableCell>
                         <TableCell className="text-foreground">{dn.invoice_id ? (invoiceMap.get(dn.invoice_id) ?? dn.invoice_id) : "\u2014"}</TableCell>
                         <TableCell className="text-right text-foreground">{formatCurrency(dn.total)}</TableCell>
                         <TableCell className="text-right text-muted-foreground">{formatCurrency(balance)}</TableCell>

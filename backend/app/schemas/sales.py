@@ -105,6 +105,7 @@ class InvoiceResponse(BaseModel):
     id: UUID
     invoice_number: str
     contact_id: UUID
+    contact_name: str | None = None
     status: str
     issue_date: datetime
     due_date: datetime
@@ -208,6 +209,7 @@ class QuotationResponse(BaseModel):
     id: UUID
     quotation_number: str
     contact_id: UUID
+    contact_name: str | None = None
     status: str
     issue_date: datetime
     expiry_date: datetime
@@ -322,6 +324,7 @@ class DeliveryOrderResponse(BaseModel):
     id: UUID
     delivery_number: str
     contact_id: UUID
+    contact_name: str | None = None
     invoice_id: UUID | None
     quotation_id: UUID | None
     sales_order_id: UUID | None
@@ -428,6 +431,7 @@ class CreditNoteResponse(BaseModel):
     id: UUID
     credit_note_number: str
     contact_id: UUID
+    contact_name: str | None = None
     invoice_id: UUID | None
     status: str
     issue_date: datetime
@@ -521,6 +525,7 @@ class DebitNoteResponse(BaseModel):
     id: UUID
     debit_note_number: str
     contact_id: UUID
+    contact_name: str | None = None
     invoice_id: UUID | None
     status: str
     issue_date: datetime
@@ -583,6 +588,7 @@ class SalesPaymentResponse(BaseModel):
     id: UUID
     payment_number: str
     contact_id: UUID
+    contact_name: str | None = None
     status: str
     payment_date: datetime
     payment_method: str
@@ -624,6 +630,7 @@ class SalesRefundResponse(BaseModel):
     id: UUID
     refund_number: str
     contact_id: UUID
+    contact_name: str | None = None
     credit_note_id: UUID | None
     status: str
     refund_date: datetime
@@ -659,6 +666,7 @@ class SaleReceiptResponse(BaseModel):
     organization_id: UUID
     receipt_number: str
     contact_id: UUID | None
+    contact_name: str | None = None
     receipt_date: datetime
     status: str
     currency: str

@@ -13,6 +13,17 @@ export function useContacts(type?: string) {
     placeholderData: keepPreviousData,
   })
 }
+// Server-side contact search for form pickers — removes the "first 50 only"
+// ceiling. Pass the typed query; backend filters by name/email/company/phone.
+export function useContactSearch(search: string, type?: string) {
+  return useQuery<Paginated<Contact>, Error, Contact[]>({
+    queryKey: ['contacts', 'search', type, search],
+    queryFn: () => api.get('/contacts', { params: { ...(type ? { type } : {}), search: search || undefined, limit: 25 } }).then(r => r.data),
+    select: (d: any) => (Array.isArray(d) ? d : d.items),
+    placeholderData: keepPreviousData,
+  })
+}
+
 export function useContactsPage(params?: ListParams & { type?: string }) {
   const p = params ?? {}
   return useQuery<Paginated<Contact>>({

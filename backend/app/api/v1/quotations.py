@@ -7,6 +7,7 @@ from app.core.database import get_db
 from app.core.security import get_current_user
 from app.core.permissions import require_write
 from app.core.pagination import PaginationParams, paginated_result, apply_sort
+from app.core.list_helpers import with_contact_name
 from datetime import datetime, timezone, timedelta
 from pydantic import BaseModel as PydanticBaseModel
 from app.models.models import (
@@ -56,9 +57,9 @@ async def list_quotations(
         base = base.where(Quotation.issue_date <= p.date_to)
 
     total = (await db.execute(select(func.count()).select_from(base.subquery()))).scalar() or 0
-    query = apply_sort(base, Quotation, p).options(selectinload(Quotation.line_items)).offset(p.offset).limit(p.limit)
+    query = apply_sort(base, Quotation, p).options(selectinload(Quotation.line_items), selectinload(Quotation.contact)).offset(p.offset).limit(p.limit)
     items = (await db.execute(query)).scalars().all()
-    items = [QuotationResponse.model_validate(i) for i in items]
+    items = [with_contact_name(QuotationResponse, i) for i in items]
     return paginated_result(items, total, p)
 
 

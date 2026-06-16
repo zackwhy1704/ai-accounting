@@ -1,6 +1,6 @@
 import { useState } from "react"
 import { useNavigate } from "react-router-dom"
-import { useContacts, useAccounts, useCreateInvoice, useTaxRates } from "../../../lib/hooks"
+import { useContacts, useContactSearch, useAccounts, useCreateInvoice, useTaxRates } from "../../../lib/hooks"
 import { useTheme } from "../../../lib/theme"
 import { getContactPrefs } from "../../../lib/contact-prefs"
 import { Card } from "../../../components/ui/card"
@@ -14,6 +14,8 @@ export default function NewInvoicePage() {
   const navigate = useNavigate()
   const { t } = useTheme()
   const { data: contacts = [] } = useContacts()
+  const [contactQuery, setContactQuery] = useState("")
+  const { data: searchedContacts = [] } = useContactSearch(contactQuery)
   const { data: accounts = [] } = useAccounts()
   const createInvoice = useCreateInvoice()
   const { data: taxRates = [] } = useTaxRates()
@@ -34,7 +36,7 @@ export default function NewInvoicePage() {
   const handleContactChange = (id: string) => {
     if (id === "__add_new__") { navigate("/contacts/new"); return }
     setContactId(id)
-    const contact = contacts.find((c: any) => c.id === id) as any
+    const contact = ([...contacts, ...searchedContacts] as any[]).find((c: any) => c.id === id) as any
     if (contact) {
       setBillingLine1(contact.billing_address_line1 ?? "")
       setBillingLine2(contact.billing_address_line2 ?? "")
@@ -120,9 +122,17 @@ export default function NewInvoicePage() {
               value={contactId}
               onChange={handleContactChange}
               placeholder="Search or select customer"
-              options={contacts
-                .filter((c: any) => c.type === "customer" || c.type === "both")
-                .map((c: any) => ({ value: c.id, label: c.name, hint: c.email ?? "" }))}
+              onQueryChange={setContactQuery}
+              options={(() => {
+                // Server-searched results, plus the currently-selected contact so
+                // it stays visible even when not in the latest search page.
+                const merged = new Map<string, any>()
+                for (const c of searchedContacts as any[]) merged.set(c.id, c)
+                for (const c of contacts as any[]) if (c.id === contactId) merged.set(c.id, c)
+                return Array.from(merged.values())
+                  .filter((c: any) => c.type === "customer" || c.type === "both")
+                  .map((c: any) => ({ value: c.id, label: c.name, hint: c.email ?? "" }))
+              })()}
               footerAction={{ label: "+ Add New Customer", onClick: () => navigate("/contacts/new") }}
             />
           </div>

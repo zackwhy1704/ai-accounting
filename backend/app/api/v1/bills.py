@@ -10,6 +10,7 @@ from app.core.database import get_db
 from app.core.security import get_current_user
 from app.core.permissions import require_write
 from app.core.pagination import PaginationParams, paginated_result, apply_sort
+from app.core.list_helpers import with_contact_name
 from app.models.models import Bill, BillLineItem, PurchasePayment, PurchaseCreditApplication, PurchaseCreditNote, Transaction, JournalEntry, Account, Contact
 from app.schemas.schemas import BillCreate, BillUpdate, BillResponse
 from app.core.line_items import calculate_line_items
@@ -69,9 +70,9 @@ async def list_bills(
         base = base.where(Bill.issue_date <= p.date_to)
 
     total = (await db.execute(select(func.count()).select_from(base.subquery()))).scalar() or 0
-    query = apply_sort(base, Bill, p).options(selectinload(Bill.line_items)).offset(p.offset).limit(p.limit)
+    query = apply_sort(base, Bill, p).options(selectinload(Bill.line_items), selectinload(Bill.contact)).offset(p.offset).limit(p.limit)
     items = (await db.execute(query)).scalars().all()
-    items = [BillResponse.model_validate(i) for i in items]
+    items = [with_contact_name(BillResponse, i) for i in items]
     return paginated_result(items, total, p)
 
 

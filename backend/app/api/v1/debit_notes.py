@@ -7,6 +7,7 @@ from app.core.database import get_db
 from app.core.security import get_current_user
 from app.core.permissions import require_write
 from app.core.pagination import PaginationParams, paginated_result, apply_sort
+from app.core.list_helpers import with_contact_name
 from app.models.models import (
     DebitNote, DebitNoteLineItem,
     SalesPayment, PaymentAllocation, Invoice, Contact,
@@ -56,9 +57,9 @@ async def list_debit_notes(
         base = base.where(DebitNote.issue_date <= p.date_to)
 
     total = (await db.execute(select(func.count()).select_from(base.subquery()))).scalar() or 0
-    query = apply_sort(base, DebitNote, p).options(selectinload(DebitNote.line_items)).offset(p.offset).limit(p.limit)
+    query = apply_sort(base, DebitNote, p).options(selectinload(DebitNote.line_items), selectinload(DebitNote.contact)).offset(p.offset).limit(p.limit)
     items = (await db.execute(query)).scalars().all()
-    items = [DebitNoteResponse.model_validate(i) for i in items]
+    items = [with_contact_name(DebitNoteResponse, i) for i in items]
     return paginated_result(items, total, p)
 
 

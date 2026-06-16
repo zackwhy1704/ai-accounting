@@ -22,6 +22,7 @@ from app.services.pricing import line_after_discount, line_tax
 from .gl_helpers import post_gl, post_gl_by_id, revert_gl
 from app.core.org_defaults import get_default_accounts
 from app.services.gl_posting import post_invoice_gl
+from app.core.list_helpers import with_contact_name
 
 router = APIRouter(prefix="/invoices", tags=["Invoices"])
 
@@ -55,9 +56,11 @@ async def list_invoices(
         base = base.where(Invoice.issue_date <= p.date_to)
 
     total = (await db.execute(select(func.count()).select_from(base.subquery()))).scalar() or 0
-    query = apply_sort(base, Invoice, p).options(selectinload(Invoice.line_items)).offset(p.offset).limit(p.limit)
+    query = apply_sort(base, Invoice, p).options(
+        selectinload(Invoice.line_items), selectinload(Invoice.contact)
+    ).offset(p.offset).limit(p.limit)
     items = (await db.execute(query)).scalars().all()
-    items = [InvoiceResponse.model_validate(i) for i in items]
+    items = [with_contact_name(InvoiceResponse, i) for i in items]
     return paginated_result(items, total, p)
 
 

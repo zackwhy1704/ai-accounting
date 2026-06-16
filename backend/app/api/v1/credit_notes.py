@@ -7,6 +7,7 @@ from app.core.database import get_db
 from app.core.security import get_current_user
 from app.core.permissions import require_write
 from app.core.pagination import PaginationParams, paginated_result, apply_sort
+from app.core.list_helpers import with_contact_name
 from app.models.models import (
     CreditNote, CreditNoteLineItem,
     CreditApplication as CreditApplicationModel,
@@ -59,10 +60,11 @@ async def list_credit_notes(
 
     total = (await db.execute(select(func.count()).select_from(base.subquery()))).scalar() or 0
     query = apply_sort(base, CreditNote, p).options(
-        selectinload(CreditNote.line_items), selectinload(CreditNote.credit_applications)
+        selectinload(CreditNote.line_items), selectinload(CreditNote.credit_applications),
+        selectinload(CreditNote.contact)
     ).offset(p.offset).limit(p.limit)
     items = (await db.execute(query)).scalars().all()
-    items = [CreditNoteResponse.model_validate(i) for i in items]
+    items = [with_contact_name(CreditNoteResponse, i) for i in items]
     return paginated_result(items, total, p)
 
 

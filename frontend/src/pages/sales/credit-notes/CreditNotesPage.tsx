@@ -156,7 +156,7 @@ export default function CreditNotesPage() {
                       <TableRow key={row.id} className="border-border hover:bg-muted/50">
                         <TableCell className="font-medium text-foreground">{row.credit_note_number ?? "—"}</TableCell>
                         <TableCell className="text-muted-foreground">{formatDate(row.issue_date)}</TableCell>
-                        <TableCell className="text-foreground">{contactMap.get(row.contact_id) ?? "\u2014"}</TableCell>
+                        <TableCell className="text-foreground">{row.contact_name ?? contactMap.get(row.contact_id) ?? "\u2014"}</TableCell>
                         <TableCell className="text-muted-foreground">{row.invoice_id ? (invoiceMap.get(row.invoice_id) ?? row.invoice_id) : "\u2014"}</TableCell>
                         <TableCell className="text-right text-foreground">{formatCurrency(row.total)}</TableCell>
                         <TableCell className="text-right text-foreground">{formatCurrency(row.credit_applied ?? 0)}</TableCell>

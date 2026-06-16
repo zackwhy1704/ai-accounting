@@ -18,6 +18,9 @@ interface SearchableSelectProps {
   triggerClassName?: string
   footerAction?: { label: string; onClick: () => void }
   allowClear?: boolean
+  /** When set, the parent does server-side search: this fires (debounced) as the
+   *  user types and client-side filtering is skipped (options are pre-filtered). */
+  onQueryChange?: (query: string) => void
 }
 
 export function SearchableSelect({
@@ -30,6 +33,7 @@ export function SearchableSelect({
   triggerClassName = "",
   footerAction,
   allowClear = false,
+  onQueryChange,
 }: SearchableSelectProps) {
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState("")
@@ -40,13 +44,22 @@ export function SearchableSelect({
 
   const selected = useMemo(() => options.find(o => o.value === value), [options, value])
 
+  // Debounced server-side search notification (only when onQueryChange is set).
+  useEffect(() => {
+    if (!onQueryChange) return
+    const t = setTimeout(() => onQueryChange(query), 250)
+    return () => clearTimeout(t)
+  }, [query, onQueryChange])
+
   const filtered = useMemo(() => {
+    // Server-side mode: parent already filtered; don't double-filter.
+    if (onQueryChange) return options
     if (!query.trim()) return options
     const q = query.toLowerCase()
     return options.filter(o =>
       o.label.toLowerCase().includes(q) || (o.hint?.toLowerCase().includes(q) ?? false),
     )
-  }, [options, query])
+  }, [options, query, onQueryChange])
 
   const updatePosition = () => {
     const trigger = triggerRef.current
