@@ -13,10 +13,23 @@ from uuid import uuid4
 
 
 def _route_methods(path: str) -> set[str]:
+    """Collect HTTP methods registered for an exact path, walking nested routers.
+
+    FastAPI usually flattens include_router routes into app.routes, but under some
+    Starlette versions included routers are Mounts whose routes live in a nested
+    `.routes`. Walking the tree makes this robust regardless of version.
+    """
     methods: set[str] = set()
-    for r in app.routes:
-        if getattr(r, "path", None) == path and hasattr(r, "methods"):
-            methods |= (r.methods - {"HEAD", "OPTIONS"})
+
+    def walk(routes):
+        for r in routes:
+            if getattr(r, "path", None) == path and getattr(r, "methods", None):
+                methods.update(r.methods - {"HEAD", "OPTIONS"})
+            sub = getattr(r, "routes", None)
+            if sub:
+                walk(sub)
+
+    walk(app.routes)
     return methods
 
 

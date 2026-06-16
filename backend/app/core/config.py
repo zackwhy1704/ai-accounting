@@ -13,6 +13,9 @@ class Settings(BaseSettings):
     SECRET_KEY: str = "change-me-in-production"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24  # 24 hours
     ALGORITHM: str = "HS256"
+    # Shared secret for internal ops endpoints (e.g. /api/health/integrity).
+    # When unset, the integrity endpoint is closed (503) rather than open.
+    INTERNAL_OPS_TOKEN: str = ""
 
     # Database - AWS-migratable (works with RDS PostgreSQL)
     DATABASE_URL: str = "postgresql+asyncpg://postgres:postgres@localhost:5432/ai_account"

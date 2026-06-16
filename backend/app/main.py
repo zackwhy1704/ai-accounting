@@ -134,6 +134,12 @@ app.include_router(sale_receipts.router, prefix=settings.API_V1_PREFIX)
 app.include_router(purchase_debit_notes_router, prefix=settings.API_V1_PREFIX)
 
 
+@app.get("/health")
+async def liveness():
+    """Public load-balancer liveness probe — no DB, no counts, no internals."""
+    return {"status": "ok"}
+
+
 @app.get("/api/health")
 async def health():
     return {"status": "healthy", "app": settings.APP_NAME, "version": "0.1.0"}
@@ -172,12 +178,21 @@ async def health_db():
 
 
 @app.get("/api/health/integrity")
-async def health_integrity():
-    """Accounting integrity indicators for observability/alerting:
+async def health_integrity(request: Request):
+    """Accounting integrity indicators for observability/alerting (INTERNAL):
       - unbalanced_transactions: should ALWAYS be 0 (every txn must balance)
       - orgs_missing_gl_defaults: orgs where a GL default account is unset
-        (these may be silently skipping postings — see post_gl warnings)
+
+    Cross-org aggregates — gated behind the X-Internal-Token header matching
+    INTERNAL_OPS_TOKEN. Closed (503) when the token isn't configured.
     """
+    from fastapi.responses import JSONResponse
+    expected = settings.INTERNAL_OPS_TOKEN
+    if not expected:
+        return JSONResponse(status_code=503, content={"status": "unavailable", "detail": "Integrity endpoint not configured"})
+    if request.headers.get("x-internal-token") != expected:
+        return JSONResponse(status_code=401, content={"status": "unauthorized"})
+
     from app.core.database import engine
     from sqlalchemy import text
     try:
@@ -207,7 +222,8 @@ async def health_integrity():
             "orgs_missing_gl_defaults": int(missing_defaults),
         }
     except Exception as e:
-        return {"status": "unhealthy", "error": str(e)}
+        logger.error(f"health/integrity check failed: {e}", exc_info=True)
+        return {"status": "unhealthy"}
 app.include_router(recurring_invoices.router, prefix=settings.API_V1_PREFIX)
 app.include_router(einvoice.router, prefix=settings.API_V1_PREFIX)
 app.include_router(payment_links.router, prefix=settings.API_V1_PREFIX)

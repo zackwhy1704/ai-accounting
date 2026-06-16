@@ -138,6 +138,40 @@ class TestOpeningBalances:
             )).one()
             assert abs(float(rows[0]) - float(rows[1])) < 0.01
 
+    async def test_opening_balances_idempotent_and_trial_balance_nets_zero(self, client, org_with_defaults):
+        """Running opening balances twice must NOT double the figures, and the
+        org's full ledger must net to zero (trial balance balances)."""
+        org_id = org_with_defaults["org_id"]
+        accts = org_with_defaults["accounts"]
+        payload = {
+            "as_of_date": datetime.now(timezone.utc).isoformat(),
+            "lines": [
+                {"account_id": str(accts["1000"]), "debit": 5000.0, "credit": 0.0},
+                {"account_id": str(accts["2000"]), "debit": 0.0, "credit": 1500.0},
+            ],
+        }
+        await client.post("/accounting/opening-balances", json=payload)
+        await client.post("/accounting/opening-balances", json=payload)  # run again
+
+        async with async_session() as s:
+            # Exactly ONE opening-balance transaction survives (idempotent replace)
+            txns = (await s.execute(
+                select(Transaction).where(
+                    Transaction.organization_id == org_id,
+                    Transaction.source == "opening_balance",
+                )
+            )).scalars().all()
+            assert len(txns) == 1, "running opening balances twice must not duplicate"
+
+            # Trial balance for the org nets to zero (all debits == all credits)
+            dr, cr = (await s.execute(
+                select(func.coalesce(func.sum(JournalEntry.debit), 0),
+                       func.coalesce(func.sum(JournalEntry.credit), 0))
+                .join(Transaction, JournalEntry.transaction_id == Transaction.id)
+                .where(Transaction.organization_id == org_id)
+            )).one()
+            assert abs(float(dr) - float(cr)) < 0.01, f"trial balance must net to zero: dr={dr} cr={cr}"
+
 
 class TestContactStatement:
     async def test_contact_statement_lists_invoice_and_balance(self, client, org_with_defaults):
@@ -187,7 +221,7 @@ class TestRecurringRunDue:
         body = run.json()
         assert body["generated"] >= 1, body
 
-    async def test_celery_sweep_fires_all_due(self, client, org_with_defaults):
+    async def test_celery_sweep_fires_all_due(self, client, org_with_defaults, monkeypatch):
         """1B: the Celery beat task _fire_all_due() sweeps every org and generates
         invoices for due templates (the automated path, not the manual button)."""
         org_id = org_with_defaults["org_id"]
@@ -204,6 +238,36 @@ class TestRecurringRunDue:
         })
         assert ri.status_code in (200, 201), ri.text
 
-        from app.tasks.recurring_tasks import _fire_all_due
-        result = await _fire_all_due()
+        import app.tasks.recurring_tasks as rt
+        monkeypatch.setattr(rt, "async_session", async_session)  # cross-loop-safe test engine
+        result = await rt._fire_all_due()
         assert result["generated"] >= 1, result
+        assert "failed" in result  # resilience contract: reports failures, doesn't abort
+
+    async def test_sweep_does_not_raise_when_a_template_fails(self, client, org_with_defaults, monkeypatch):
+        """Resilience contract: if materialising a template raises, the sweep must
+        catch it, count it as failed, and RETURN normally (never propagate) — one
+        bad template can't take down the daily job for everyone."""
+        org_id = org_with_defaults["org_id"]
+        contact_id = await _make_contact(org_id, "customer")
+        now = datetime.now(timezone.utc)
+        await client.post("/recurring-invoices", json={
+            "contact_id": str(contact_id),
+            "frequency": "monthly", "frequency_interval": 1,
+            "start_date": (now - timedelta(days=40)).isoformat(),
+            "due_days": 30, "currency": "MYR",
+            "line_items": [{"description": "Sub", "quantity": 1, "unit_price": 50.0, "tax_rate": 0.0}],
+        })
+
+        import app.tasks.recurring_tasks as rt
+
+        async def always_fail(db, ri, now):
+            raise RuntimeError("simulated template failure")
+
+        monkeypatch.setattr(rt, "_materialize_invoice", always_fail)
+        # Use the test NullPool session (cross-event-loop safe) for the sweep.
+        monkeypatch.setattr(rt, "async_session", async_session)
+        # Must NOT raise — failures are caught and counted, not propagated.
+        result = await rt._fire_all_due()
+        assert result["failed"] >= 1, result
+        assert result["generated"] == 0, result
