@@ -19,6 +19,14 @@ from .document_router import route_document_to_module, CONFIRM_LABELS
 from app.schemas.schemas import DocumentResponse, BillResponse
 from app.services.document_service import document_processor, storage_service
 
+# NOTE (P4 maintainability): this module is large (~1.2k lines) and a split into
+# a documents/ package (upload / extraction / conversion / sharing) is on the
+# roadmap. It is DEFERRED deliberately: unlike reports.py (independent endpoints),
+# the document routes share a tightly-coupled pipeline — _process_document_background,
+# _JOURNAL_TEMPLATES, _build_journal_lines, CATEGORY_KEYWORDS — and there is no test
+# coverage of the OCR/upload/conversion flows to catch a regression. Splitting blind
+# risks breaking core document processing for no functional gain. Add flow tests
+# first, then split behind that safety net.
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/documents", tags=["Documents"])
