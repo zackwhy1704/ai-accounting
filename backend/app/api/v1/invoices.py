@@ -206,18 +206,16 @@ async def update_invoice_status(
         tax_amount = float(invoice.tax_amount)
         total = float(invoice.total)
         defaults = await get_default_accounts(db, org_id)
-        if defaults.get("ar") and defaults.get("revenue"):
+        # Use org-configured accounts only if AR, Revenue, and (when taxed) the
+        # output-tax account are all set — otherwise the tax leg would have no
+        # home and the transaction could not balance. Post ALL legs in ONE call.
+        if defaults.get("ar") and defaults.get("revenue") and (tax_amount == 0 or defaults.get("output_tax")):
             id_entries = [
-                (defaults["ar"], total, 0.0),
-                (defaults["revenue"], 0.0, subtotal),
+                (defaults["ar"], total, 0.0),         # DR Accounts Receivable (incl. tax)
+                (defaults["revenue"], 0.0, subtotal),  # CR Revenue (excl. tax)
             ]
             if tax_amount > 0:
-                entries_code = [("2100", 0, tax_amount)]
-                await post_gl(
-                    db, org_id, invoice.issue_date,
-                    f"Invoice {invoice.invoice_number}",
-                    invoice.invoice_number, "invoice", invoice.id, entries_code,
-                )
+                id_entries.append((defaults["output_tax"], 0.0, tax_amount))  # CR Output Tax Payable
             await post_gl_by_id(
                 db, org_id, invoice.issue_date,
                 f"Invoice {invoice.invoice_number}",

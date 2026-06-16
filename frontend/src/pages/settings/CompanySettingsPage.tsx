@@ -50,6 +50,8 @@ interface Organization {
   default_bank_account_id: string | null
   default_revenue_account_id: string | null
   default_expense_account_id: string | null
+  default_tax_account_id: string | null
+  default_input_tax_account_id: string | null
 }
 
 interface SimpleItem {
@@ -275,6 +277,8 @@ export default function CompanySettingsPage() {
     default_bank_account_id: "",
     default_revenue_account_id: "",
     default_expense_account_id: "",
+    default_tax_account_id: "",
+    default_input_tax_account_id: "",
   })
 
   useEffect(() => {
@@ -293,6 +297,8 @@ export default function CompanySettingsPage() {
         default_bank_account_id: org.default_bank_account_id ?? "",
         default_revenue_account_id: org.default_revenue_account_id ?? "",
         default_expense_account_id: org.default_expense_account_id ?? "",
+        default_tax_account_id: org.default_tax_account_id ?? "",
+        default_input_tax_account_id: org.default_input_tax_account_id ?? "",
       })
     }
   }, [org])
@@ -547,6 +553,8 @@ export default function CompanySettingsPage() {
                     { key: "default_bank_account_id", label: "Bank / Cash Account", filter: (a: { type: string }) => a.type === "asset" },
                     { key: "default_revenue_account_id", label: "Revenue Account", filter: (a: { type: string }) => a.type === "revenue" },
                     { key: "default_expense_account_id", label: "Expense Account", filter: (a: { type: string }) => a.type === "expense" },
+                    { key: "default_tax_account_id", label: "Output Tax Payable (SST/GST on sales)", filter: (a: { type: string }) => a.type === "liability" },
+                    { key: "default_input_tax_account_id", label: "Input Tax / ITC (SST/GST on purchases)", filter: (a: { type: string }) => a.type === "asset" },
                   ] as { key: keyof typeof form; label: string; filter: (a: { type: string }) => boolean }[]).map(({ key, label, filter }) => {
                     const filtered = allAccounts.filter(filter)
                     return (

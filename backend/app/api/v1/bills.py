@@ -236,18 +236,15 @@ async def update_bill_status(
         tax_amount = float(bill.tax_amount)
         total = float(bill.total)
         defaults = await get_default_accounts(db, org_id)
-        if defaults.get("ap") and defaults.get("expense"):
+        # Use org-configured accounts only if AP, Expense, and (when taxed) the
+        # input-tax account are all set. Post ALL legs in ONE balanced call.
+        if defaults.get("ap") and defaults.get("expense") and (tax_amount == 0 or defaults.get("input_tax")):
             id_entries = [
-                (defaults["expense"], subtotal, 0.0),   # Dr Expense
-                (defaults["ap"], 0.0, total),            # Cr Accounts Payable
+                (defaults["expense"], subtotal, 0.0),   # Dr Expense (excl. tax)
+                (defaults["ap"], 0.0, total),            # Cr Accounts Payable (incl. tax)
             ]
             if tax_amount > 0:
-                gst_entries = [("1200", tax_amount, 0)]  # Dr GST Input (ITC)
-                await post_gl(
-                    db, org_id, bill.issue_date,
-                    f"Bill {bill.bill_number}",
-                    bill.bill_number, "bill", bill.id, gst_entries,
-                )
+                id_entries.append((defaults["input_tax"], tax_amount, 0.0))  # Dr GST Input (ITC)
             await post_gl_by_id(
                 db, org_id, bill.issue_date,
                 f"Bill {bill.bill_number}",

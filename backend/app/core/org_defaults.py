@@ -14,4 +14,6 @@ async def get_default_accounts(db: AsyncSession, org_id) -> dict:
         "bank": org.default_bank_account_id,
         "revenue": org.default_revenue_account_id,
         "expense": org.default_expense_account_id,
+        "output_tax": org.default_tax_account_id,
+        "input_tax": org.default_input_tax_account_id,
     }

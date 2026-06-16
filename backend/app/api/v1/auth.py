@@ -261,6 +261,8 @@ async def get_organization(
         "default_bank_account_id": str(org.default_bank_account_id) if org.default_bank_account_id else None,
         "default_revenue_account_id": str(org.default_revenue_account_id) if org.default_revenue_account_id else None,
         "default_expense_account_id": str(org.default_expense_account_id) if org.default_expense_account_id else None,
+        "default_tax_account_id": str(org.default_tax_account_id) if org.default_tax_account_id else None,
+        "default_input_tax_account_id": str(org.default_input_tax_account_id) if org.default_input_tax_account_id else None,
     }
 
 
@@ -280,6 +282,8 @@ class OrganizationUpdate(BaseModel):
     default_bank_account_id: str | None = None
     default_revenue_account_id: str | None = None
     default_expense_account_id: str | None = None
+    default_tax_account_id: str | None = None
+    default_input_tax_account_id: str | None = None
 
 
 @router.patch("/organizations/{org_id}")
@@ -302,7 +306,8 @@ async def update_organization(
     update_data = data.model_dump(exclude_unset=True)
     # UUID fields — parse string to UUID
     uuid_fields = {"default_ar_account_id", "default_ap_account_id", "default_bank_account_id",
-                   "default_revenue_account_id", "default_expense_account_id"}
+                   "default_revenue_account_id", "default_expense_account_id",
+                   "default_tax_account_id", "default_input_tax_account_id"}
     for field, value in update_data.items():
         if field in uuid_fields:
             try:
@@ -331,6 +336,8 @@ async def update_organization(
         "default_bank_account_id": str(org.default_bank_account_id) if org.default_bank_account_id else None,
         "default_revenue_account_id": str(org.default_revenue_account_id) if org.default_revenue_account_id else None,
         "default_expense_account_id": str(org.default_expense_account_id) if org.default_expense_account_id else None,
+        "default_tax_account_id": str(org.default_tax_account_id) if org.default_tax_account_id else None,
+        "default_input_tax_account_id": str(org.default_input_tax_account_id) if org.default_input_tax_account_id else None,
     }
 
 
