@@ -15,6 +15,7 @@ from app.models.models import (
 from app.models.sales import SalesRefund
 from app.models.accounting import Transaction, JournalEntry, Account as AccountModel
 from .gl_helpers import post_gl, revert_gl
+from app.services.gl_posting import post_credit_note_gl
 from app.core.audit import log_audit
 from app.schemas.schemas import (
     CreditNoteCreate, CreditNoteUpdate, CreditNoteResponse,
@@ -134,17 +135,15 @@ async def create_credit_note(data: CreditNoteCreate, current_user: dict = Depend
         obj.status = "draft"
         obj.credit_applied = 0
 
-    # GL: Dr Revenue / Cr AR (+ Dr GST Payable if tax)
-    entries = [
-        ("4000", float(subtotal - discount_total), 0),  # Dr Revenue
-        ("1100", 0, float(total)),                       # Cr AR
-    ]
-    if tax_amount > 0:
-        entries.append(("2100", float(tax_amount), 0))  # Dr GST Payable
-    await post_gl(
-        db, org_id, data.issue_date,
-        f"Credit Note {obj.credit_note_number}",
-        obj.credit_note_number, "credit_note", obj.id, entries,
+    # GL via shared service (org defaults -> hardcoded fallback, one balanced txn)
+    await post_credit_note_gl(
+        db, org_id,
+        issue_date=data.issue_date,
+        number=obj.credit_note_number,
+        cn_id=obj.id,
+        subtotal=float(subtotal),
+        tax_amount=float(tax_amount),
+        total=float(total),
     )
 
     await db.commit()

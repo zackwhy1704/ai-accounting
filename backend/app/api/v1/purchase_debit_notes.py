@@ -16,6 +16,7 @@ from app.schemas.schemas import (
 from app.core.sequences import next_sequence_number
 from app.core.line_items import calculate_line_items
 from .gl_helpers import post_gl
+from app.services.gl_posting import post_purchase_debit_note_gl
 
 router = APIRouter(prefix="/purchase-debit-notes", tags=["purchase-debit-notes"])
 
@@ -132,19 +133,15 @@ async def create_purchase_debit_note(
             sort_order=i,
         ))
 
-    # GL: Dr AP / Cr Expense reversal (buyer issues debit note to reduce payable)
-    dn_total = float(subtotal + tax_amount)
-    dn_subtotal = float(subtotal)
-    entries = [
-        ("2000", dn_total, 0),       # Dr AP (reduces payable)
-        ("5000", 0, dn_subtotal),    # Cr Expense
-    ]
-    if tax_amount > 0:
-        entries.append(("1150", float(tax_amount), 0))  # Dr GST Receivable reversal
-    await post_gl(
-        db, org_id, data.issue_date,
-        f"Purchase Debit Note {obj.debit_note_number}",
-        obj.debit_note_number, "purchase_debit_note", obj.id, entries,
+    # GL via shared service (org defaults -> hardcoded fallback, one balanced txn)
+    await post_purchase_debit_note_gl(
+        db, org_id,
+        issue_date=data.issue_date,
+        number=obj.debit_note_number,
+        pdn_id=obj.id,
+        subtotal=float(subtotal),
+        tax_amount=float(tax_amount),
+        total=float(subtotal + tax_amount),
     )
 
     await db.commit()

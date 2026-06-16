@@ -16,6 +16,7 @@ from app.core.audit import log_audit
 from app.models.models import SaleReceipt, Contact
 from app.schemas.schemas import SaleReceiptCreate, SaleReceiptResponse, SaleReceiptLineItem
 from .gl_helpers import post_gl, revert_gl
+from app.services.gl_posting import post_sale_receipt_gl
 
 router = APIRouter(prefix="/sale-receipts", tags=["sale-receipts"])
 
@@ -104,17 +105,15 @@ async def create_sale_receipt(
     db.add(receipt)
     await db.flush()
 
-    # GL: Dr Cash / Cr Revenue (+ Cr GST Payable if tax)
-    entries = [
-        ("1000", total, 0),        # Dr Cash/Bank
-        ("4000", 0, subtotal),     # Cr Revenue
-    ]
-    if tax_amount > 0:
-        entries.append(("2100", 0, tax_amount))  # Cr GST Payable
-    await post_gl(
-        db, current_user["org_id"], payload.receipt_date,
-        f"Sale Receipt {receipt_number}",
-        receipt_number, "sale_receipt", receipt.id, entries,
+    # GL via shared service (org defaults -> hardcoded fallback, one balanced txn)
+    await post_sale_receipt_gl(
+        db, current_user["org_id"],
+        receipt_date=payload.receipt_date,
+        number=receipt_number,
+        receipt_id=receipt.id,
+        subtotal=float(subtotal),
+        tax_amount=float(tax_amount),
+        total=float(total),
     )
 
     await db.commit()

@@ -14,6 +14,7 @@ from app.core.pagination import PaginationParams, paginated_result, apply_sort
 from app.core.audit import log_audit
 from app.models.models import PurchaseRefund, Bill, PurchaseCreditNote, Contact
 from .gl_helpers import post_gl, revert_gl
+from app.services.gl_posting import post_purchase_refund_gl
 
 router = APIRouter(prefix="/purchase-refunds", tags=["purchase-refunds"])
 
@@ -184,12 +185,13 @@ async def create_purchase_refund(
     if payload.pcn_id:
         await _deduct_pcn(db, payload.pcn_id, float(payload.amount))
 
-    # GL: Dr Cash/Bank (1000) / Cr AP (2000)
-    await post_gl(
-        db, org_id, payload.refund_date,
-        f"Purchase refund {refund.refund_no}",
-        refund.refund_no, "purchase_refund", refund.id,
-        [("1000", float(payload.amount), 0), ("2000", 0, float(payload.amount))],
+    # GL via shared service (org defaults -> hardcoded fallback)
+    await post_purchase_refund_gl(
+        db, org_id,
+        refund_date=payload.refund_date,
+        number=refund.refund_no,
+        refund_id=refund.id,
+        amount=float(payload.amount),
     )
 
     await db.commit()

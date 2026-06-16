@@ -1,7 +1,7 @@
 import { useMemo, useState, useRef, useEffect, useCallback } from "react"
 import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query"
 import { CircleAlert, CloudUpload, FileText, Loader2, Search, CheckCircle2, Link2, BookOpen, Pencil, Save, X, Check, AlertTriangle, Trash2, HelpCircle, Share2, Tag, Bot, UserCheck, Building2, Info, ChevronDown, ChevronUp, Sparkles, RefreshCw } from "lucide-react"
-import { useDocuments, useUpdateExtractedData, useDeleteDocument, useCategoriseDocument } from "../../lib/hooks"
+import { useDocuments, useUpdateExtractedData, useDeleteDocument, useCategoriseDocument, useDebounce } from "../../lib/hooks"
 import { useFeatureFlags } from "../../lib/features"
 import api from "../../lib/api"
 import { cn, formatDate } from "../../lib/utils"
@@ -322,7 +322,9 @@ export default function DocumentsPage() {
   const [editData, setEditData] = useState<Record<string, unknown> | null>(null)
   const [uploadQueue, setUploadQueue] = useState<UploadItem[]>([])
   const processingRef = useRef(false)
-  const { data: documents = [], isLoading } = useDocuments()
+  const [docSearch, setDocSearch] = useState("")
+  const debouncedDocSearch = useDebounce(docSearch, 300)
+  const { data: documents = [], isLoading } = useDocuments({ search: debouncedDocSearch || undefined })
   const updateExtractedMutation = useUpdateExtractedData()
   const deleteMutation = useDeleteDocument()
   const categorizeMutation = useCategoriseDocument()
@@ -579,7 +581,7 @@ export default function DocumentsPage() {
       <Card className="rounded-2xl border-border bg-card p-4 shadow-[0_0_0_1px_rgba(15,23,42,0.06),0_18px_55px_rgba(2,6,23,0.08)]">
         <div className="flex flex-col gap-3">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div className="relative w-full sm:max-w-sm"><Search className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" /><Input placeholder={t("documents.searchFileName")} className="h-10 rounded-xl pl-9 text-sm" /></div>
+            <div className="relative w-full sm:max-w-sm"><Search className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" /><Input value={docSearch} onChange={e => setDocSearch(e.target.value)} placeholder={t("documents.searchFileName")} className="h-10 rounded-xl pl-9 text-sm" /></div>
           </div>
           {/* Category filter */}
           <div className="flex flex-wrap gap-1.5">

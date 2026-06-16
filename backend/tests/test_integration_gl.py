@@ -286,3 +286,51 @@ class TestJournalEntriesEndpoints:
         bje = await client.get(f"/bills/{bill_id}/journal-entries")
         assert bje.status_code == 200, bje.text
         assert len(bje.json()["journal_entries"]) >= 1
+
+
+class TestCreditNoteGLViaService:
+    async def test_credit_note_with_line_discount_posts_balanced(self, client, org_with_defaults):
+        """Phase 1A regression: a credit note with a LINE DISCOUNT used to post an
+        unbalanced GL entry (revenue leg = subtotal - discount, double-counting the
+        discount) -> 400. The shared service uses the net subtotal so it balances."""
+        org_id = org_with_defaults["org_id"]
+        contact_id = await _make_contact(org_id, "customer")
+        now = datetime.now(timezone.utc)
+
+        cn = await client.post("/credit-notes", json={
+            "contact_id": str(contact_id),
+            "issue_date": now.isoformat(),
+            "currency": "MYR",
+            # 10% discount on 1000 + 6% tax — the exact shape that broke before
+            "line_items": [{
+                "description": "Return", "quantity": 1, "unit_price": 1000.0,
+                "discount": 10, "discount_mode": "percent", "tax_rate": 6.0,
+            }],
+        })
+        assert cn.status_code in (200, 201), cn.text  # used to 400 (unbalanced)
+        cn_id = cn.json()["id"]
+
+        je = await client.get(f"/credit-notes/{cn_id}/journal-entries")
+        assert je.status_code == 200, je.text
+        groups = je.json()["journal_entries"]
+        assert len(groups) >= 1
+        for g in groups:
+            dr = sum(l["debit"] for l in g["lines"])
+            cr = sum(l["credit"] for l in g["lines"])
+            assert abs(dr - cr) < 0.01, f"CN journal unbalanced: dr={dr} cr={cr}"
+
+    async def test_sale_receipt_posts_balanced_via_service(self, client, org_with_defaults):
+        org_id = org_with_defaults["org_id"]
+        contact_id = await _make_contact(org_id, "customer")
+        now = datetime.now(timezone.utc)
+        r = await client.post("/sale-receipts", json={
+            "contact_id": str(contact_id),
+            "receipt_date": now.isoformat(),
+            "currency": "MYR",
+            "line_items": [{"description": "Cash sale", "quantity": 1, "unit_price": 200.0, "tax_rate": 6.0}],
+        })
+        assert r.status_code in (200, 201), r.text
+        rid = r.json()["id"]
+        n, dr, cr = await _txn_balance(org_id, "sale_receipt", uuid.UUID(rid))
+        assert n == 1, f"expected 1 receipt txn, got {n}"
+        assert abs(dr - cr) < 0.01 and abs(dr - 212.0) < 0.01  # 200 + 12 tax

@@ -19,6 +19,7 @@ from app.schemas.schemas import (
     PurchaseCreditNoteLineItem as PCNLineItemSchema,
 )
 from .gl_helpers import post_gl, revert_gl
+from app.services.gl_posting import post_purchase_credit_note_gl
 
 router = APIRouter(prefix="/purchase-credit-notes", tags=["purchase-credit-notes"])
 
@@ -177,11 +178,15 @@ async def create_purchase_credit_note(
         pcn.credit_applied = credit_applied
         pcn.status = "applied" if credit_applied >= total else "issued"
 
-    await post_gl(
-        db, org_id, payload.issue_date,
-        f"Purchase Credit Note {pcn_number}",
-        pcn_number, "purchase_credit_note", pcn.id,
-        [("2000", total, 0), ("2200", 0, total)],
+    # GL via shared service (org defaults -> hardcoded fallback, one balanced txn)
+    await post_purchase_credit_note_gl(
+        db, org_id,
+        issue_date=payload.issue_date,
+        number=pcn_number,
+        pcn_id=pcn.id,
+        subtotal=float(subtotal),
+        tax_amount=float(tax_amount),
+        total=float(total),
     )
 
     await db.commit()

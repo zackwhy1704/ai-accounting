@@ -10,6 +10,7 @@ from app.models.models import (
     CreditNote, SalesRefund, Contact,
 )
 from .gl_helpers import post_gl
+from app.services.gl_posting import post_sales_refund_gl
 from app.schemas.schemas import (
     SalesRefundCreate, SalesRefundUpdate, SalesRefundResponse,
 )
@@ -116,12 +117,13 @@ async def create_sales_refund(data: SalesRefundCreate, current_user: dict = Depe
         if float(cn.credit_applied or 0) >= float(cn.total or 0) - 1e-6:
             cn.status = "applied"
 
-    # GL: Dr AR (1100) / Cr Cash/Bank (1000)
-    await post_gl(
-        db, org_id, data.refund_date,
-        f"Refund {obj.refund_number}",
-        obj.refund_number, "refund", obj.id,
-        [("1100", float(data.amount), 0), ("1000", 0, float(data.amount))],
+    # GL via shared service (org defaults -> hardcoded fallback)
+    await post_sales_refund_gl(
+        db, org_id,
+        refund_date=data.refund_date,
+        number=obj.refund_number,
+        refund_id=obj.id,
+        amount=float(data.amount),
     )
 
     await db.commit()

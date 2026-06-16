@@ -12,6 +12,7 @@ from app.models.models import (
     SalesPayment, PaymentAllocation, Invoice, Contact,
 )
 from .gl_helpers import post_gl, revert_gl
+from app.services.gl_posting import post_debit_note_gl
 from app.schemas.schemas import (
     DebitNoteCreate, DebitNoteUpdate, DebitNoteResponse,
     SalesPaymentCreate,
@@ -118,19 +119,15 @@ async def create_debit_note(data: DebitNoteCreate, current_user: dict = Depends(
             amount=line_total - disc_val, account_id=item.account_id, sort_order=i,
         ))
 
-    # GL: Dr AR / Cr Revenue (debit note increases what customer owes)
-    dn_total = float(subtotal + tax_amount)
-    dn_subtotal = float(subtotal)
-    entries = [
-        ("1100", dn_total, 0),       # Dr AR
-        ("4000", 0, dn_subtotal),    # Cr Revenue
-    ]
-    if tax_amount > 0:
-        entries.append(("2100", 0, float(tax_amount)))  # Cr GST Payable
-    await post_gl(
-        db, org_id, data.issue_date,
-        f"Debit Note {obj.debit_note_number}",
-        obj.debit_note_number, "debit_note", obj.id, entries,
+    # GL via shared service (org defaults -> hardcoded fallback, one balanced txn)
+    await post_debit_note_gl(
+        db, org_id,
+        issue_date=data.issue_date,
+        number=obj.debit_note_number,
+        dn_id=obj.id,
+        subtotal=float(subtotal),
+        tax_amount=float(tax_amount),
+        total=float(subtotal + tax_amount),
     )
 
     await db.commit()
