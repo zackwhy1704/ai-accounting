@@ -25,7 +25,7 @@ export default function StockValuesPage() {
     queryKey: ["products"],
     queryFn: async () => {
       const res = await api.get("/products")
-      return res.data
+      return Array.isArray(res.data) ? res.data : (res.data.items ?? [])
     },
   })
 

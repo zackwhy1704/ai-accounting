@@ -191,6 +191,40 @@ async def check_einvoice_status(
         return resp.json()
 
 
+@router.get("/submissions")
+async def list_einvoice_submissions(
+    db: AsyncSession = Depends(get_db),
+    current_user: dict = Depends(get_current_user),
+):
+    """List this org's invoices as e-invoice submission candidates.
+
+    There is no separate submission-tracking table yet, so this derives the list
+    from invoices (status defaults to "pending"). It gives the MyInvois page a
+    real endpoint to render; per-invoice submission still goes through
+    POST /einvoice/submit/{invoice_id}.
+    """
+    org_id = current_user["org_id"]
+    result = await db.execute(
+        select(Invoice).where(Invoice.organization_id == org_id).order_by(Invoice.issue_date.desc())
+    )
+    invoices = result.scalars().all()
+    return [
+        {
+            "id": str(inv.id),                # == invoice id; submit uses /einvoice/submit/{id}
+            "invoice_no": inv.invoice_number,
+            "invoice_date": inv.issue_date.isoformat() if inv.issue_date else None,
+            "amount": float(inv.total or 0),
+            "currency": inv.currency,
+            "submission_status": "pending",   # no tracking table yet
+            "uuid": None,
+            "submission_date": None,
+            "validation_status": None,
+            "rejection_reason": None,
+        }
+        for inv in invoices
+    ]
+
+
 @router.get("/config")
 async def get_einvoice_config(
     db: AsyncSession = Depends(get_db),

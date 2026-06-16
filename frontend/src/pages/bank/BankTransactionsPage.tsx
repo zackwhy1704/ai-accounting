@@ -66,7 +66,7 @@ export default function BankTransactionsPage({ type }: Props) {
     queryKey: ["bank-accounts"],
     queryFn: async () => {
       const res = await api.get("/bank-accounts")
-      return res.data
+      return Array.isArray(res.data) ? res.data : (res.data.items ?? [])
     },
   })
 

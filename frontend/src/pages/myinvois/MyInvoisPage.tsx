@@ -43,7 +43,7 @@ export default function MyInvoisPage() {
   })
 
   const submitMutation = useMutation({
-    mutationFn: (id: string) => api.post(`/einvoice/submissions/${id}/submit`).then(r => r.data),
+    mutationFn: (invoiceId: string) => api.post(`/einvoice/submit/${invoiceId}`).then(r => r.data),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["einvoice-submissions"] })
       toast("Submitted to LHDN", "success")

@@ -35,21 +35,29 @@ RAW_GET = re.compile(r'api\.get\(\s*[`"\']([^`"\']+)[`"\']')
 
 @pytest.mark.skipif(not FRONTEND_PAGES.exists(), reason="frontend not present")
 def test_no_raw_envelope_consumers():
+    """Flag any api.get('<envelope-endpoint>') whose result is returned/used as a
+    bare array without normalization, in BOTH forms:
+      - .then(r => r.data)                       (chained)
+      - const res = await api.get(...); return res.data   (async, multi-line)
+    """
     violations = []
     for tsx in FRONTEND_PAGES.rglob("*.tsx"):
-        text = tsx.read_text(encoding="utf-8", errors="ignore")
-        for i, line in enumerate(text.splitlines(), 1):
-            if ".then(r => r.data)" not in line:
-                continue
-            if "Array.isArray" in line or ".items" in line:
-                continue  # normalized — fine
+        lines = tsx.read_text(encoding="utf-8", errors="ignore").splitlines()
+        for i, line in enumerate(lines):
             m = RAW_GET.search(line)
             if not m:
                 continue
-            url = m.group(1)
-            path = url.split("?")[0]
-            if path in ENVELOPE_ENDPOINTS:
-                violations.append(f"{tsx.relative_to(FRONTEND_PAGES.parent.parent)}:{i}  ->  api.get('{url}') not normalized")
+            path = m.group(1).split("?")[0]
+            if path not in ENVELOPE_ENDPOINTS:
+                continue
+            # Inspect this line + the next 3 lines (covers chained and async forms).
+            window = "\n".join(lines[i:i + 4])
+            uses_data = (".then(r => r.data)" in window) or ("return res.data" in window) or ("return r.data" in window)
+            normalized = ("Array.isArray" in window) or (".items" in window)
+            if uses_data and not normalized:
+                violations.append(
+                    f"{tsx.relative_to(FRONTEND_PAGES.parent.parent)}:{i + 1}  ->  api.get('{m.group(1)}') not normalized"
+                )
     assert not violations, (
         "Raw api.get on a paginated-envelope endpoint without .items normalization "
         "(would break at runtime):\n  " + "\n  ".join(violations)
