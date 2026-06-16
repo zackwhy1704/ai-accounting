@@ -74,6 +74,19 @@ describe("TrialBalancePage", () => {
   })
 })
 
+// ── BUG-1 regression: report pages must show an error, not a blank panel ──────
+describe("Report error path (BUG-1)", () => {
+  it("TrialBalance renders an error message instead of a blank panel on query failure", async () => {
+    vi.mocked(api.get).mockRejectedValue({ response: { status: 500, data: { detail: "boom" } } })
+    wrapper(<TrialBalancePage />)
+    await waitFor(() => {
+      const text = document.body.textContent ?? ""
+      // The shared <QueryError> copy + the server detail must surface.
+      expect(text).toMatch(/Couldn't generate this report|boom/i)
+    })
+  })
+})
+
 // ── normaliseType pure logic ──────────────────────────────────
 describe("normaliseType (trial balance account type mapping)", () => {
   const normalise = (t: string | null | undefined) => {

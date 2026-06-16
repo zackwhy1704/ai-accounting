@@ -13,7 +13,10 @@ import {
 
 vi.mock("@/lib/hooks", () => ({
   useInvoices: vi.fn(),
+  useInvoicesPage: vi.fn(),
   useContacts: vi.fn(),
+  useContactSearch: () => ({ data: [], isLoading: false }),
+  useDebounce: (v: unknown) => v,
   useUpdateInvoiceStatus: () => ({ mutate: vi.fn(), mutateAsync: vi.fn(), isPending: false }),
   useDeleteInvoice: () => ({ mutate: vi.fn(), mutateAsync: vi.fn(), isPending: false }),
   useBankAccounts: () => ({ data: [], isLoading: false, error: null }),
@@ -30,7 +33,7 @@ const tFn = (k: string) => {
 }
 vi.mock("@/lib/theme", () => ({ useTheme: () => ({ theme: "light", lang: "en", t: tFn }) }))
 
-import { useInvoices, useContacts } from "@/lib/hooks"
+import { useInvoicesPage, useContacts } from "@/lib/hooks"
 import InvoicesPage from "@/pages/invoices/InvoicesPage"
 
 function wrapper(ui: React.ReactElement) {
@@ -46,14 +49,14 @@ afterEach(() => { vi.clearAllMocks() })
 
 describe("InvoicesPage", () => {
   it("renders page heading", () => {
-    vi.mocked(useInvoices).mockReturnValue({ data: [], isLoading: false, error: null } as any)
+    vi.mocked(useInvoicesPage).mockReturnValue({ data: { items: [], total: 0, page: 1, limit: 50, pages: 0 }, isLoading: false, error: null } as any)
     vi.mocked(useContacts).mockReturnValue({ data: [], isLoading: false, error: null } as any)
     wrapper(<InvoicesPage />)
     expect(screen.getByText("Invoices")).toBeInTheDocument()
   })
 
   it("shows invoice number after load", async () => {
-    vi.mocked(useInvoices).mockReturnValue({ data: mockInvoiceList, isLoading: false, error: null } as any)
+    vi.mocked(useInvoicesPage).mockReturnValue({ data: { items: mockInvoiceList, total: mockInvoiceList.length, page: 1, limit: 50, pages: 1 }, isLoading: false, error: null } as any)
     vi.mocked(useContacts).mockReturnValue({ data: [], isLoading: false, error: null } as any)
     wrapper(<InvoicesPage />)
     await waitFor(() =>
@@ -62,7 +65,7 @@ describe("InvoicesPage", () => {
   })
 
   it("shows customer name in rows", async () => {
-    vi.mocked(useInvoices).mockReturnValue({ data: mockInvoiceList, isLoading: false, error: null } as any)
+    vi.mocked(useInvoicesPage).mockReturnValue({ data: { items: mockInvoiceList, total: mockInvoiceList.length, page: 1, limit: 50, pages: 1 }, isLoading: false, error: null } as any)
     vi.mocked(useContacts).mockReturnValue({ data: [mockCustomer], isLoading: false, error: null } as any)
     wrapper(<InvoicesPage />)
     await waitFor(() =>
@@ -71,7 +74,7 @@ describe("InvoicesPage", () => {
   })
 
   it("shows status text in list", async () => {
-    vi.mocked(useInvoices).mockReturnValue({ data: mockInvoiceList, isLoading: false, error: null } as any)
+    vi.mocked(useInvoicesPage).mockReturnValue({ data: { items: mockInvoiceList, total: mockInvoiceList.length, page: 1, limit: 50, pages: 1 }, isLoading: false, error: null } as any)
     vi.mocked(useContacts).mockReturnValue({ data: [], isLoading: false, error: null } as any)
     wrapper(<InvoicesPage />)
     await waitFor(() => {
@@ -81,7 +84,7 @@ describe("InvoicesPage", () => {
   })
 
   it("shows empty state when no invoices", async () => {
-    vi.mocked(useInvoices).mockReturnValue({ data: [], isLoading: false, error: null } as any)
+    vi.mocked(useInvoicesPage).mockReturnValue({ data: { items: [], total: 0, page: 1, limit: 50, pages: 0 }, isLoading: false, error: null } as any)
     vi.mocked(useContacts).mockReturnValue({ data: [], isLoading: false, error: null } as any)
     wrapper(<InvoicesPage />)
     await waitFor(() =>

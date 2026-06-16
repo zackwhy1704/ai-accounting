@@ -13,21 +13,27 @@ from uuid import uuid4
 
 
 def _route_methods(path: str) -> set[str]:
-    """Collect HTTP methods registered for an exact path, walking nested routers.
+    """Collect HTTP methods registered for a path, walking nested routers.
 
-    FastAPI usually flattens include_router routes into app.routes, but under some
-    Starlette versions included routers are Mounts whose routes live in a nested
-    `.routes`. Walking the tree makes this robust regardless of version.
+    Version-robust: FastAPI usually flattens include_router routes into app.routes
+    with the full prefixed path, but under some Starlette versions included routers
+    are Mounts whose nested routes carry the UNprefixed path (e.g. "/tax-rates/{id}"
+    not "/api/v1/tax-rates/{id}"). We match either the exact path or a suffix match
+    on a mounted route, so the helper can't silently return empty on a version bump.
     """
     methods: set[str] = set()
 
-    def walk(routes):
+    def walk(routes, prefix=""):
         for r in routes:
-            if getattr(r, "path", None) == path and getattr(r, "methods", None):
-                methods.update(r.methods - {"HEAD", "OPTIONS"})
+            rp = getattr(r, "path", None)
             sub = getattr(r, "routes", None)
+            if rp and getattr(r, "methods", None):
+                full = prefix + rp
+                if full == path or rp == path or path.endswith(rp):
+                    methods.update(r.methods - {"HEAD", "OPTIONS"})
             if sub:
-                walk(sub)
+                # Mounts carry their own path prefix that nested routes are relative to.
+                walk(sub, prefix + (rp or ""))
 
     walk(app.routes)
     return methods

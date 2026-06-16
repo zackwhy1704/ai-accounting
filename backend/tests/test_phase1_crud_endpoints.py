@@ -10,16 +10,24 @@ from app.schemas.schemas import ManualJournalUpdate, ExchangeRateUpdate, Contact
 
 
 def _route_methods(path: str) -> set[str]:
-    """Collect HTTP methods for an exact path, walking nested routers (version-robust)."""
+    """Collect HTTP methods for a path, walking nested routers (version-robust).
+
+    Matches the exact prefixed path or a suffix match on a mounted (unprefixed)
+    route, so a Starlette version that stops flattening the prefix can't make this
+    silently return empty (false red). See test_crud_core for the rationale.
+    """
     methods: set[str] = set()
 
-    def walk(routes):
+    def walk(routes, prefix=""):
         for r in routes:
-            if getattr(r, "path", None) == path and getattr(r, "methods", None):
-                methods.update(r.methods - {"HEAD", "OPTIONS"})
+            rp = getattr(r, "path", None)
             sub = getattr(r, "routes", None)
+            if rp and getattr(r, "methods", None):
+                full = prefix + rp
+                if full == path or rp == path or path.endswith(rp):
+                    methods.update(r.methods - {"HEAD", "OPTIONS"})
             if sub:
-                walk(sub)
+                walk(sub, prefix + (rp or ""))
 
     walk(app.routes)
     return methods

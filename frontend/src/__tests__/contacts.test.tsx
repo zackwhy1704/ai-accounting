@@ -10,6 +10,8 @@ import { mockCustomer, mockVendor } from "./mocks/data"
 
 vi.mock("@/lib/hooks", () => ({
   useContacts: vi.fn(),
+  useContactsPage: vi.fn(),
+  useDebounce: (v: unknown) => v,
 }))
 vi.mock("@/components/ui/toast", () => ({ useToast: () => ({ toast: vi.fn() }) }))
 const tFn = (k: string) => {
@@ -23,7 +25,7 @@ const tFn = (k: string) => {
 }
 vi.mock("@/lib/theme", () => ({ useTheme: () => ({ theme: "light", lang: "en", t: tFn }) }))
 
-import { useContacts } from "@/lib/hooks"
+import { useContactsPage } from "@/lib/hooks"
 import ContactsPage from "@/pages/contacts/ContactsPage"
 
 function wrapper(ui: React.ReactElement) {
@@ -39,13 +41,13 @@ afterEach(() => { vi.clearAllMocks() })
 
 describe("ContactsPage", () => {
   it("renders page heading", () => {
-    vi.mocked(useContacts).mockReturnValue({ data: [], isLoading: false, error: null } as any)
+    vi.mocked(useContactsPage).mockReturnValue({ data: { items: [], total: 0, page: 1, limit: 50, pages: 0 }, isLoading: false, error: null } as any)
     wrapper(<ContactsPage />)
     expect(screen.getAllByText("Contacts").length).toBeGreaterThan(0)
   })
 
   it("shows customer contact after load", async () => {
-    vi.mocked(useContacts).mockReturnValue({ data: [mockCustomer, mockVendor], isLoading: false, error: null } as any)
+    vi.mocked(useContactsPage).mockReturnValue({ data: { items: [mockCustomer, mockVendor], total: 2, page: 1, limit: 50, pages: 1 }, isLoading: false, error: null } as any)
     wrapper(<ContactsPage />)
     await waitFor(() =>
       expect(screen.getAllByText("TechCorp Sdn Bhd").length).toBeGreaterThan(0)
@@ -53,7 +55,7 @@ describe("ContactsPage", () => {
   })
 
   it("shows vendor contact after load", async () => {
-    vi.mocked(useContacts).mockReturnValue({ data: [mockCustomer, mockVendor], isLoading: false, error: null } as any)
+    vi.mocked(useContactsPage).mockReturnValue({ data: { items: [mockCustomer, mockVendor], total: 2, page: 1, limit: 50, pages: 1 }, isLoading: false, error: null } as any)
     wrapper(<ContactsPage />)
     await waitFor(() =>
       expect(screen.getByText("Supplies Co")).toBeInTheDocument()
@@ -61,7 +63,7 @@ describe("ContactsPage", () => {
   })
 
   it("shows empty state when no contacts", async () => {
-    vi.mocked(useContacts).mockReturnValue({ data: [], isLoading: false, error: null } as any)
+    vi.mocked(useContactsPage).mockReturnValue({ data: { items: [], total: 0, page: 1, limit: 50, pages: 0 }, isLoading: false, error: null } as any)
     wrapper(<ContactsPage />)
     await waitFor(() =>
       expect(screen.getByText(/no contacts/i)).toBeInTheDocument()
