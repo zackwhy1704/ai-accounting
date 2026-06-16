@@ -186,3 +186,24 @@ class TestRecurringRunDue:
         assert run.status_code == 200, run.text
         body = run.json()
         assert body["generated"] >= 1, body
+
+    async def test_celery_sweep_fires_all_due(self, client, org_with_defaults):
+        """1B: the Celery beat task _fire_all_due() sweeps every org and generates
+        invoices for due templates (the automated path, not the manual button)."""
+        org_id = org_with_defaults["org_id"]
+        contact_id = await _make_contact(org_id, "customer")
+        now = datetime.now(timezone.utc)
+        ri = await client.post("/recurring-invoices", json={
+            "contact_id": str(contact_id),
+            "frequency": "monthly",
+            "frequency_interval": 1,
+            "start_date": (now - timedelta(days=40)).isoformat(),
+            "due_days": 30,
+            "currency": "MYR",
+            "line_items": [{"description": "Sub", "quantity": 1, "unit_price": 50.0, "tax_rate": 0.0}],
+        })
+        assert ri.status_code in (200, 201), ri.text
+
+        from app.tasks.recurring_tasks import _fire_all_due
+        result = await _fire_all_due()
+        assert result["generated"] >= 1, result

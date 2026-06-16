@@ -170,6 +170,12 @@ export default function NewInvoicePage() {
 
         </div>
 
+        {currency !== "MYR" && (
+          <div className="rounded-xl border border-amber-400/40 bg-amber-500/10 px-4 py-2.5 text-xs text-amber-700">
+            ⚠ This invoice is in {currency}. Foreign-currency GL conversion and FX gain/loss are not yet enabled — amounts post to the ledger at face value. Use your base currency (MYR) for accurate reporting until multi-currency is released.
+          </div>
+        )}
+
         <LineItemsEditor
           items={lineItems}
           updateLine={updateLine}

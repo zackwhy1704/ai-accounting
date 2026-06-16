@@ -37,17 +37,33 @@ def _base_url(sandbox: bool) -> str:
 
 
 async def _get_lhdn_token(org: Organization) -> str:
-    """Get LHDN access token using client credentials."""
+    """Get an LHDN MyInvois access token via client credentials.
+
+    Requires LHDN_CLIENT_ID and LHDN_CLIENT_SECRET (from the LHDN MyInvois portal)
+    in the environment. Until those are configured, submission is NOT operational
+    and this returns a clear 503 rather than attempting a doomed empty-secret auth.
+    """
+    from app.core.config import get_settings
+    settings = get_settings()
+
     if not org.einvoice_supplier_tin:
         raise HTTPException(status_code=400, detail="LHDN Supplier TIN not configured")
 
+    client_id = settings.LHDN_CLIENT_ID or org.einvoice_supplier_tin
+    client_secret = settings.LHDN_CLIENT_SECRET
+    if not client_secret:
+        raise HTTPException(
+            status_code=503,
+            detail=("MyInvois submission is not yet configured. Set LHDN_CLIENT_ID and "
+                    "LHDN_CLIENT_SECRET (from the LHDN MyInvois developer portal) to enable "
+                    "e-Invoice submission."),
+        )
+
     base = _base_url(org.einvoice_sandbox)
-    # LHDN uses client_id = TIN + NRIC/BRN and client_secret = set in org config
-    # For now we'll require client_secret to be stored separately — using TIN as client_id
     payload = {
         "grant_type": "client_credentials",
-        "client_id": org.einvoice_supplier_tin,
-        "client_secret": "",  # Would need a separate stored secret
+        "client_id": client_id,
+        "client_secret": client_secret,
         "scope": "InvoicingAPI",
     }
     async with httpx.AsyncClient(timeout=15) as client:

@@ -1,4 +1,18 @@
 """
+⚠️  NOT YET WIRED — see roadmap item FX-1.
+
+These helpers are correct and unit-tested, but NOTHING in the routers or
+gl_posting imports them yet. Today, a document in a non-base currency posts GL at
+FACE VALUE (no conversion), and no realised FX gain/loss is recorded on payment.
+Do NOT assume FX conversion happens anywhere. The 5900 Foreign Exchange Gain/Loss
+account is seeded but currently never receives a posting.
+
+To make multi-currency real, see the FX-1 plan:
+  1. snapshot the document-date rate on Invoice/Bill/SalesPayment/PurchasePayment
+  2. convert GL legs to base currency in gl_posting when currency != base
+  3. post realised_fx_gain_loss() to 5900 on settlement
+Until then the UI shows a single-currency advisory on multi-currency documents.
+
 Foreign-exchange helpers for multi-currency documents.
 
 - fx_rate(): look up the most recent rate at/before a date (1.0 if same currency

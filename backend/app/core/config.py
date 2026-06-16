@@ -44,6 +44,11 @@ class Settings(BaseSettings):
     STRIPE_PUBLISHABLE_KEY: str = ""
     STRIPE_WEBHOOK_SECRET: str = ""
 
+    # LHDN MyInvois (Malaysia e-Invoice) client credentials. Required to submit.
+    # Without these the submit endpoint returns a clear 503 (not a confusing auth failure).
+    LHDN_CLIENT_ID: str = ""
+    LHDN_CLIENT_SECRET: str = ""
+
     # Celery (async task queue) - uses Redis, migratable to SQS
     CELERY_BROKER_URL: str = "redis://localhost:6379/0"
     CELERY_RESULT_BACKEND: str = "redis://localhost:6379/0"
