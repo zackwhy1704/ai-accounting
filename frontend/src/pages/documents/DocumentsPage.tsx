@@ -1142,7 +1142,7 @@ function InlineJournalPreview({ documentId, category }: { documentId: string; ca
 
   const { data: accounts = [] } = useQuery<ChartAccount[]>({
     queryKey: ["accounts"],
-    queryFn: () => api.get("/accounts").then(r => r.data),
+    queryFn: () => api.get("/accounts").then(r => Array.isArray(r.data) ? r.data : (r.data.items ?? [])),
     staleTime: 5 * 60_000,
   })
 

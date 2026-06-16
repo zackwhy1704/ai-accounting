@@ -44,7 +44,7 @@ export default function NewPurchaseOrderPage() {
 
   const { data: products = [] } = useQuery<{ id: string; name: string; unit_price: number; account_id: string | null }[]>({
     queryKey: ["products"],
-    queryFn: () => api.get("/products").then(r => r.data),
+    queryFn: () => api.get("/products").then(r => Array.isArray(r.data) ? r.data : (r.data.items ?? [])),
     staleTime: 5 * 60_000,
   })
 

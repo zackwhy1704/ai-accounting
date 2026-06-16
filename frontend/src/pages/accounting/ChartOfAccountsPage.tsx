@@ -78,7 +78,7 @@ export default function ChartOfAccountsPage() {
 
   const { data: accounts = [], isLoading } = useQuery<Account[]>({
     queryKey: ["accounts"],
-    queryFn: () => api.get("/accounts").then(r => r.data),
+    queryFn: () => api.get("/accounts").then(r => Array.isArray(r.data) ? r.data : (r.data.items ?? [])),
   })
 
   const updateMutation = useMutation({

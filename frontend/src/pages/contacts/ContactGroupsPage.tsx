@@ -27,7 +27,7 @@ export default function ContactGroupsPage() {
 
   const { data: groups = [], isLoading } = useQuery<ContactGroup[]>({
     queryKey: ["contact-groups"],
-    queryFn: () => api.get("/contact-groups").then(r => r.data),
+    queryFn: () => api.get("/contact-groups").then(r => Array.isArray(r.data) ? r.data : (r.data.items ?? [])),
   })
 
   const createMutation = useMutation({

@@ -85,7 +85,7 @@ export default function InvoiceTemplatesPage() {
 
   const { data: templates = [], isLoading } = useQuery<InvoiceTemplate[]>({
     queryKey: ["invoice-templates"],
-    queryFn: () => api.get("/invoice-templates").then(r => r.data),
+    queryFn: () => api.get("/invoice-templates").then(r => Array.isArray(r.data) ? r.data : (r.data.items ?? [])),
   })
 
   const createMutation = useMutation({

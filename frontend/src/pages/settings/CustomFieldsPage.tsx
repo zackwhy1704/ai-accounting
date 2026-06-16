@@ -55,7 +55,7 @@ export default function CustomFieldsPage() {
 
   const { data: fields = [], isLoading } = useQuery<CustomField[]>({
     queryKey: ["custom-fields", selectedEntity],
-    queryFn: () => api.get(`/custom-fields?entity_type=${selectedEntity}`).then(r => r.data),
+    queryFn: () => api.get(`/custom-fields?entity_type=${selectedEntity}`).then(r => Array.isArray(r.data) ? r.data : (r.data.items ?? [])),
   })
 
   const createMutation = useMutation({
