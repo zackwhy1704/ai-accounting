@@ -154,3 +154,48 @@ class TestLedgerIntegrity:
                     ).where(JournalEntry.transaction_id == t.id)
                 )).one()
                 assert abs(float(rows[0]) - float(rows[1])) < 0.01, f"txn {t.id} unbalanced"
+
+
+class TestGLBasedProfitLoss:
+    async def test_pl_is_gl_based_and_captures_manual_journals(self, client, org_with_defaults):
+        """GL-based P&L must include revenue from BOTH an approved invoice AND a
+        manual journal — the manual journal is exactly what the old subledger
+        (Invoice.total) P&L would have missed."""
+        org_id = org_with_defaults["org_id"]
+        accts = org_with_defaults["accounts"]
+        contact_id = await _make_contact(org_id, "customer")
+        now = datetime.now(timezone.utc)
+
+        # 1) Approved taxed invoice -> revenue 100 (tax 6 is a liability, not revenue)
+        inv = await client.post("/invoices", json={
+            "contact_id": str(contact_id),
+            "issue_date": now.isoformat(),
+            "due_date": (now + timedelta(days=30)).isoformat(),
+            "currency": "MYR",
+            "line_items": [{"description": "Goods", "quantity": 1, "unit_price": 100.0, "tax_rate": 6.0}],
+        })
+        await client.patch(f"/invoices/{inv.json()['id']}/status", params={"status": "sent"})
+
+        # 2) Manual journal: DR Bank 50 / CR Revenue 50 (e.g. cash sale, no invoice)
+        mj = await client.post("/manual-journals", json={
+            "date": now.isoformat(),
+            "description": "Cash sale (no invoice)",
+            "lines": [
+                {"account_id": str(accts["1000"]), "debit": 50.0, "credit": 0.0},
+                {"account_id": str(accts["4000"]), "debit": 0.0, "credit": 50.0},
+            ],
+        })
+        assert mj.status_code in (200, 201), mj.text
+        post_r = await client.post(f"/manual-journals/{mj.json()['id']}/post")
+        assert post_r.status_code == 200, post_r.text
+
+        # 3) GL-based P&L over the period -> revenue must be 100 + 50 = 150
+        start = (now - timedelta(days=1)).strftime("%Y-%m-%d")
+        end = (now + timedelta(days=1)).strftime("%Y-%m-%d")
+        pl = await client.get("/reports/profit-loss", params={"start_date": start, "end_date": end})
+        assert pl.status_code == 200, pl.text
+        body = pl.json()
+        assert body.get("basis") == "accrual_gl"
+        assert abs(body["sections"]["revenue"]["total"] - 150.0) < 0.01, body["sections"]["revenue"]
+        # revenue lines come from the ledger (account-level), not invoices
+        assert any(l["code"] == "4000" for l in body["sections"]["revenue"]["lines"])

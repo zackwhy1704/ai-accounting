@@ -10,6 +10,7 @@ from app.core.security import get_current_user
 from app.models.models import (
     Invoice, Bill, Contact,
     InvoiceLineItem, BillLineItem,
+    Account, JournalEntry, Transaction,
 )
 
 router = APIRouter()
@@ -22,38 +23,60 @@ async def profit_loss_report(
     db: AsyncSession = Depends(get_db),
     current_user: dict = Depends(get_current_user),
 ):
-    """Profit & Loss statement for a date range."""
+    """Accrual-based Profit & Loss for a date range, computed from the GENERAL LEDGER.
+
+    Sums posted JournalEntry rows grouped by account over the period:
+      - Revenue accounts (type revenue/income): net CREDIT balance (credit - debit)
+      - Expense accounts (type expense/cogs):   net DEBIT balance (debit - credit)
+
+    This is the correct accounting approach: it captures manual journals, credit/
+    debit notes, and any non-invoice revenue, and never double-counts — unlike the
+    previous version which summed Invoice.total / Bill.total from the subledger.
+    """
     org_id = current_user["org_id"]
     start = datetime.fromisoformat(start_date).replace(tzinfo=timezone.utc)
     end = datetime.fromisoformat(end_date).replace(hour=23, minute=59, second=59, tzinfo=timezone.utc)
 
-    # Revenue: paid/partial invoices in period
-    inv_result = await db.execute(
-        select(func.sum(Invoice.total), func.count(Invoice.id))
-        .where(
-            Invoice.organization_id == org_id,
-            Invoice.issue_date >= start,
-            Invoice.issue_date <= end,
-            Invoice.status.in_(["outstanding", "partially_paid", "paid"]),
+    result = await db.execute(
+        select(
+            Account.id, Account.code, Account.name, Account.type,
+            func.coalesce(func.sum(JournalEntry.debit), 0).label("debit"),
+            func.coalesce(func.sum(JournalEntry.credit), 0).label("credit"),
         )
+        .join(JournalEntry, JournalEntry.account_id == Account.id)
+        .join(Transaction, JournalEntry.transaction_id == Transaction.id)
+        .where(
+            Account.organization_id == org_id,
+            Transaction.date >= start,
+            Transaction.date <= end,
+            Transaction.is_posted == True,
+        )
+        .group_by(Account.id, Account.code, Account.name, Account.type)
+        .order_by(Account.code)
     )
-    inv_row = inv_result.one()
-    total_revenue = float(inv_row[0] or 0)
-    invoice_count = int(inv_row[1] or 0)
+    rows = result.all()
 
-    # Expenses: bills in period
-    bill_result = await db.execute(
-        select(func.sum(Bill.total), func.count(Bill.id))
-        .where(
-            Bill.organization_id == org_id,
-            Bill.bill_date >= start,
-            Bill.bill_date <= end,
-            Bill.status.in_(["outstanding", "partially_paid", "paid"]),
-        )
-    )
-    bill_row = bill_result.one()
-    total_expenses = float(bill_row[0] or 0)
-    bill_count = int(bill_row[1] or 0)
+    revenue_lines: list[dict] = []
+    expense_lines: list[dict] = []
+    total_revenue = 0.0
+    total_expenses = 0.0
+
+    for row in rows:
+        t = (row.type or "").lower()
+        dr = float(row.debit or 0)
+        cr = float(row.credit or 0)
+        if t in ("revenue", "income"):
+            amount = cr - dr  # revenue is a credit-balance account
+            if abs(amount) < 0.005:
+                continue
+            revenue_lines.append({"code": row.code, "name": row.name, "amount": amount})
+            total_revenue += amount
+        elif t in ("expense", "cogs", "cost_of_sales"):
+            amount = dr - cr  # expense is a debit-balance account
+            if abs(amount) < 0.005:
+                continue
+            expense_lines.append({"code": row.code, "name": row.name, "amount": amount})
+            total_expenses += amount
 
     net_income = total_revenue - total_expenses
 
@@ -62,14 +85,17 @@ async def profit_loss_report(
         "start_date": start_date,
         "end_date": end_date,
         "currency": "MYR",
+        "basis": "accrual_gl",  # signals GL-based computation to clients
         "sections": {
             "revenue": {
                 "total": total_revenue,
-                "invoice_count": invoice_count,
+                "invoice_count": len(revenue_lines),  # legacy key: now = #revenue accounts
+                "lines": revenue_lines,
             },
             "expenses": {
                 "total": total_expenses,
-                "bill_count": bill_count,
+                "bill_count": len(expense_lines),      # legacy key: now = #expense accounts
+                "lines": expense_lines,
             },
         },
         "net_income": net_income,

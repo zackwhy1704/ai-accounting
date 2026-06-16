@@ -7,13 +7,20 @@ import { Input } from "../../components/ui/input"
 import { formatCurrency, downloadCSV, printReport } from "../../lib/utils"
 import api from "../../lib/api"
 
+interface PLLine {
+  code: string
+  name: string
+  amount: number
+}
+
 interface ProfitLossReport {
   start_date: string
   end_date: string
   currency: string
+  basis?: string
   sections: {
-    revenue: { total: number; invoice_count: number }
-    expenses: { total: number; bill_count: number }
+    revenue: { total: number; invoice_count: number; lines?: PLLine[] }
+    expenses: { total: number; bill_count: number; lines?: PLLine[] }
   }
   net_income: number
 }
@@ -46,13 +53,15 @@ export default function ProfitLossPage() {
       {data && (
         <div className="flex gap-2 print:hidden">
           <Button variant="outline" size="sm" onClick={() => downloadCSV(`profit-loss-${data.start_date}-${data.end_date}.csv`, [
-            ["Profit & Loss", `${data.start_date} to ${data.end_date}`],
+            ["Profit & Loss (GL-based)", `${data.start_date} to ${data.end_date}`],
             [],
-            ["Category", "Amount"],
-            [`Sales Revenue (${data.sections.revenue.invoice_count} invoices)`, data.sections.revenue.total.toFixed(2)],
+            ["Account", "Amount"],
+            ["REVENUE", ""],
+            ...((data.sections.revenue.lines ?? []).map(l => [`${l.code} ${l.name}`, l.amount.toFixed(2)])),
             ["Total Revenue", data.sections.revenue.total.toFixed(2)],
             [],
-            [`Operating Expenses (${data.sections.expenses.bill_count} bills)`, data.sections.expenses.total.toFixed(2)],
+            ["EXPENSES", ""],
+            ...((data.sections.expenses.lines ?? []).map(l => [`${l.code} ${l.name}`, l.amount.toFixed(2)])),
             ["Total Expenses", data.sections.expenses.total.toFixed(2)],
             [],
             ["Net Income", data.net_income.toFixed(2)],
@@ -90,13 +99,25 @@ export default function ProfitLossPage() {
         <Card className="rounded-2xl border-border bg-card p-6 shadow-[0_0_0_1px_rgba(15,23,42,0.06),0_18px_55px_rgba(2,6,23,0.08)]">
           <div className="mb-4 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Revenue</div>
           <div className="space-y-0 divide-y divide-border rounded-xl border border-border px-4">
-            <Row label={`Sales Revenue (${data.sections.revenue.invoice_count} invoices)`} value={formatCurrency(data.sections.revenue.total)} />
+            {data.sections.revenue.lines && data.sections.revenue.lines.length > 0 ? (
+              data.sections.revenue.lines.map(l => (
+                <Row key={l.code} label={`${l.code} — ${l.name}`} value={formatCurrency(l.amount)} />
+              ))
+            ) : (
+              <Row label="No revenue posted to the ledger in this period" value={formatCurrency(0)} />
+            )}
             <Row label="Total Revenue" value={formatCurrency(data.sections.revenue.total)} bold />
           </div>
 
           <div className="mt-6 mb-4 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Expenses</div>
           <div className="space-y-0 divide-y divide-border rounded-xl border border-border px-4">
-            <Row label={`Operating Expenses (${data.sections.expenses.bill_count} bills)`} value={formatCurrency(data.sections.expenses.total)} />
+            {data.sections.expenses.lines && data.sections.expenses.lines.length > 0 ? (
+              data.sections.expenses.lines.map(l => (
+                <Row key={l.code} label={`${l.code} — ${l.name}`} value={formatCurrency(l.amount)} />
+              ))
+            ) : (
+              <Row label="No expenses posted to the ledger in this period" value={formatCurrency(0)} />
+            )}
             <Row label="Total Expenses" value={formatCurrency(data.sections.expenses.total)} bold />
           </div>
 
