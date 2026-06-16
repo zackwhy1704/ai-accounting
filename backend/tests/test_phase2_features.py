@@ -67,6 +67,36 @@ class TestPeriodLocking:
         now_ok = await client.patch(f"/invoices/{old_id}/status", params={"status": "sent"})
         assert now_ok.status_code == 200, now_ok.text
 
+    async def test_void_in_locked_period_is_blocked(self, client, org_with_defaults):
+        """2B regression: revert_gl bypassed the lock because it created the
+        reversal Transaction directly. Cancelling a document dated in a locked
+        period posts a reversal into that closed period — must be blocked."""
+        org_id = org_with_defaults["org_id"]
+        contact_id = await _make_contact(org_id, "customer")
+        now = datetime.now(timezone.utc)
+
+        # Create + approve an invoice dated 40 days ago (period still open)
+        inv = await client.post("/invoices", json={
+            "contact_id": str(contact_id),
+            "issue_date": (now - timedelta(days=40)).isoformat(),
+            "due_date": now.isoformat(),
+            "currency": "MYR",
+            "line_items": [{"description": "X", "quantity": 1, "unit_price": 100.0, "tax_rate": 0.0}],
+        })
+        inv_id = inv.json()["id"]
+        approved = await client.patch(f"/invoices/{inv_id}/status", params={"status": "sent"})
+        assert approved.status_code == 200, approved.text
+
+        # Lock the books through 30 days ago — the invoice (40 days ago) is now closed
+        await client.post("/accounting/lock-period", json={"locked_through_date": (now - timedelta(days=30)).isoformat()})
+
+        # Cancelling it would post a reversal dated 40 days ago -> must be blocked
+        blocked = await client.patch(f"/invoices/{inv_id}/status", params={"status": "cancelled"})
+        assert blocked.status_code == 400, "voiding into a locked period must be blocked"
+        assert "locked" in blocked.text.lower()
+
+        await client.post("/accounting/unlock-period")
+
     async def test_get_period_lock_reflects_state(self, client, org_with_defaults):
         now = datetime.now(timezone.utc)
         await client.post("/accounting/lock-period", json={"locked_through_date": now.isoformat()})

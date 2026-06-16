@@ -208,6 +208,11 @@ async def revert_gl(
     if not original_txns:
         return None
 
+    # Period lock also covers reversals: voiding/cancelling a document posts a
+    # reversal Transaction dated `date`. If that date is in a closed period, block
+    # it (otherwise the lock could be bypassed by voiding).
+    await _assert_period_open(db, org_id, date)
+
     # Collect all entries across all original transactions
     reversal_entries: list[tuple[Account, float, float]] = []
     for orig in original_txns:
