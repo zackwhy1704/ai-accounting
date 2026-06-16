@@ -49,3 +49,39 @@ class RateLimiter:
 login_rate_limit = RateLimiter(max_requests=5, window_seconds=60)
 register_rate_limit = RateLimiter(max_requests=3, window_seconds=60)
 forgot_password_rate_limit = RateLimiter(max_requests=3, window_seconds=60)
+
+
+class OrgWriteRateLimiter:
+    """Sliding-window limiter keyed by organization id, for write-method requests.
+
+    Used as ASGI middleware so it covers every mutating endpoint without touching
+    each router. Reads org_id from the bearer JWT; no-ops if it can't decode one
+    (auth endpoints keep their own IP-based limiter).
+    """
+    def __init__(self, max_requests: int, window_seconds: int):
+        self.max_requests = max_requests
+        self.window_seconds = window_seconds
+        self._hits: dict[str, deque[float]] = defaultdict(deque)
+
+    def org_from_token(self, token: str) -> str | None:
+        try:
+            from app.core.security import decode_access_token
+            return decode_access_token(token).get("org_id")
+        except Exception:
+            return None
+
+    def allow(self, org_id: str) -> bool:
+        now = time.monotonic()
+        bucket = self._hits[org_id]
+        cutoff = now - self.window_seconds
+        while bucket and bucket[0] < cutoff:
+            bucket.popleft()
+        if len(bucket) >= self.max_requests:
+            return False
+        bucket.append(now)
+        return True
+
+
+# 500 writes/min/org — ample for real interactive use (incl. bulk imports),
+# blocks runaway scripted abuse from a single compromised token.
+org_write_rate_limiter = OrgWriteRateLimiter(max_requests=500, window_seconds=60)

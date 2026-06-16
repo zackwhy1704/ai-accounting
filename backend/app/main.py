@@ -83,6 +83,33 @@ async def request_logging(request: Request, call_next):
     return response
 
 
+_WRITE_METHODS = {"POST", "PATCH", "PUT", "DELETE"}
+_RATE_LIMIT_EXEMPT_PREFIXES = (f"{settings.API_V1_PREFIX}/auth", f"{settings.API_V1_PREFIX}/invitations")
+
+
+@app.middleware("http")
+async def org_write_rate_limit(request: Request, call_next):
+    """Per-org write rate limiting: 200 mutations/min/org. Protects against a
+    compromised token hammering POST /invoices etc. Auth endpoints are exempt
+    (they have their own IP limiter)."""
+    from fastapi.responses import JSONResponse
+    from app.core.rate_limit import org_write_rate_limiter
+
+    path = request.url.path
+    if request.method in _WRITE_METHODS and path.startswith(settings.API_V1_PREFIX) \
+            and not any(path.startswith(p) for p in _RATE_LIMIT_EXEMPT_PREFIXES):
+        auth = request.headers.get("authorization", "")
+        if auth.lower().startswith("bearer "):
+            org_id = org_write_rate_limiter.org_from_token(auth[7:])
+            if org_id and not org_write_rate_limiter.allow(org_id):
+                return JSONResponse(
+                    status_code=429,
+                    content={"detail": "Too many write requests for this organization. Please slow down."},
+                    headers={"Retry-After": "60"},
+                )
+    return await call_next(request)
+
+
 # API routes
 app.include_router(auth.router, prefix=settings.API_V1_PREFIX)
 app.include_router(dashboard.router, prefix=settings.API_V1_PREFIX)
@@ -142,6 +169,45 @@ async def health_db():
             return {"status": "healthy", "db": "connected", "result": result.scalar()}
     except Exception as e:
         return {"status": "unhealthy", "db": "failed", "error": str(e)}
+
+
+@app.get("/api/health/integrity")
+async def health_integrity():
+    """Accounting integrity indicators for observability/alerting:
+      - unbalanced_transactions: should ALWAYS be 0 (every txn must balance)
+      - orgs_missing_gl_defaults: orgs where a GL default account is unset
+        (these may be silently skipping postings — see post_gl warnings)
+    """
+    from app.core.database import engine
+    from sqlalchemy import text
+    try:
+        async with engine.connect() as conn:
+            unbalanced = (await conn.execute(text(
+                """
+                SELECT COUNT(*) FROM (
+                    SELECT je.transaction_id
+                    FROM journal_entries je
+                    GROUP BY je.transaction_id
+                    HAVING ABS(COALESCE(SUM(je.debit), 0) - COALESCE(SUM(je.credit), 0)) > 0.01
+                ) t
+                """
+            ))).scalar() or 0
+            missing_defaults = (await conn.execute(text(
+                """
+                SELECT COUNT(*) FROM organizations
+                WHERE default_ar_account_id IS NULL
+                   OR default_ap_account_id IS NULL
+                   OR default_revenue_account_id IS NULL
+                   OR default_expense_account_id IS NULL
+                """
+            ))).scalar() or 0
+        return {
+            "status": "healthy" if unbalanced == 0 else "degraded",
+            "unbalanced_transactions": int(unbalanced),
+            "orgs_missing_gl_defaults": int(missing_defaults),
+        }
+    except Exception as e:
+        return {"status": "unhealthy", "error": str(e)}
 app.include_router(recurring_invoices.router, prefix=settings.API_V1_PREFIX)
 app.include_router(einvoice.router, prefix=settings.API_V1_PREFIX)
 app.include_router(payment_links.router, prefix=settings.API_V1_PREFIX)
