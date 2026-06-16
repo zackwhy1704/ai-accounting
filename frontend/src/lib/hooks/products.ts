@@ -22,6 +22,17 @@ export function useProducts(activeOnly = true) {
     placeholderData: keepPreviousData,
   })
 }
+// Server-side product search for line-item pickers — removes the "first 50" ceiling.
+// Backend /products supports ?search= (name/code/description ilike).
+export function useProductSearch(search: string) {
+  return useQuery<Paginated<Product>, Error, Product[]>({
+    queryKey: ['products', 'search', search],
+    queryFn: () => api.get('/products', { params: { active_only: true, search: search || undefined, limit: 20 } }).then(r => r.data),
+    select: (d: any) => (Array.isArray(d) ? d : d.items),
+    placeholderData: keepPreviousData,
+  })
+}
+
 export function useProductsPage(params?: ListParams & { active_only?: boolean }) {
   const p = params ?? {}
   return useQuery<Paginated<Product>>({

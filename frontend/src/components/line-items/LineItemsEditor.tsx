@@ -64,6 +64,10 @@ export interface LineItemsEditorProps {
   /** Product quick-add search shown next to the Add Item button. */
   products?: ProductOption[]
   showProductSearch?: boolean
+  /** When set, the parent does server-side product search: this fires (debounced)
+   *  as the user types and the local client-side filter is skipped (products are
+   *  already server-filtered). Removes the "first 50 products" ceiling. */
+  onProductSearch?: (query: string) => void
   /** Wrapper className for the add-row controls row. */
   controlsClassName?: string
   /** Show a tooltip on the discount-mode toggle (invoices do; bills do not). */
@@ -93,12 +97,20 @@ export function LineItemsEditor({
   onTaxChanged,
   products = [],
   showProductSearch = false,
+  onProductSearch,
   controlsClassName = "mt-3",
   discountToggleTitle = false,
 }: LineItemsEditorProps) {
   const [productSearch, setProductSearch] = useState("")
   const [productDropdownOpen, setProductDropdownOpen] = useState(false)
   const productInputRef = useRef<HTMLInputElement>(null)
+
+  // Server-side product search: debounce the typed query up to the parent.
+  useEffect(() => {
+    if (!onProductSearch) return
+    const t = setTimeout(() => onProductSearch(productSearch), 250)
+    return () => clearTimeout(t)
+  }, [productSearch, onProductSearch])
 
   useEffect(() => {
     if (!productDropdownOpen) return
@@ -235,8 +247,9 @@ export function LineItemsEditor({
             />
             {productDropdownOpen && (
               <div className="absolute left-0 top-full z-50 mt-1 w-64 rounded-xl border border-border bg-card shadow-lg py-1">
-                {products
-                  .filter(p => !productSearch || p.name.toLowerCase().includes(productSearch.toLowerCase()))
+                {(onProductSearch
+                  ? products  // server already filtered by the typed query
+                  : products.filter(p => !productSearch || p.name.toLowerCase().includes(productSearch.toLowerCase())))
                   .slice(0, 10)
                   .map(p => (
                     <button
@@ -265,7 +278,9 @@ export function LineItemsEditor({
                       <span className="ml-2 shrink-0 text-muted-foreground">{p.unit_price.toFixed(2)}</span>
                     </button>
                   ))}
-                {products.filter(p => !productSearch || p.name.toLowerCase().includes(productSearch.toLowerCase())).length === 0 && (
+                {(onProductSearch
+                  ? products
+                  : products.filter(p => !productSearch || p.name.toLowerCase().includes(productSearch.toLowerCase()))).length === 0 && (
                   <div className="px-3 py-2 text-xs text-muted-foreground">No products found</div>
                 )}
               </div>

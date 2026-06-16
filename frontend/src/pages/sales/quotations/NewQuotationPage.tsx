@@ -1,10 +1,8 @@
 import { useState, useRef, useMemo } from "react"
 import { useNavigate } from "react-router-dom"
 import { Plus, Trash2 } from "lucide-react"
-import { useContacts, useAccounts, useCreateQuotation, useTaxRates } from "../../../lib/hooks"
+import { useContacts, useAccounts, useCreateQuotation, useTaxRates, useProductSearch } from "../../../lib/hooks"
 import { getContactPrefs } from "../../../lib/contact-prefs"
-import { useQuery } from "@tanstack/react-query"
-import api from "../../../lib/api"
 import { useTheme } from "../../../lib/theme"
 import { Card } from "../../../components/ui/card"
 import { Button } from "../../../components/ui/button"
@@ -60,11 +58,12 @@ export default function NewQuotationPage() {
     if (prefs.currency) setCurrency(prefs.currency)
   }
 
-  const { data: products = [] } = useQuery<{ id: string; name: string; unit_price: number; account_id: string | null }[]>({
-    queryKey: ["products"],
-    queryFn: () => api.get("/products").then(r => Array.isArray(r.data) ? r.data : (r.data.items ?? [])),
-    staleTime: 5 * 60_000,
-  })
+  const [productQuery, setProductQuery] = useState("")
+  const { data: searchedProducts = [] } = useProductSearch(productQuery)
+  const products = useMemo(
+    () => (searchedProducts as any[]).map(p => ({ id: p.id, name: p.name, unit_price: p.unit_price, account_id: p.income_account_id ?? null })),
+    [searchedProducts]
+  )
 
   const [notes, setNotes] = useState("")
   const [paymentInstructions, setPaymentInstructions] = useState("")
@@ -215,6 +214,7 @@ export default function NewQuotationPage() {
           taxRateCellClassName="w-[80px]"
           products={products}
           showProductSearch
+          onProductSearch={setProductQuery}
           controlsClassName="mt-3"
           discountToggleTitle
         />

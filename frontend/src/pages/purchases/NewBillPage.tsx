@@ -1,10 +1,8 @@
 import { useState, useEffect, useRef, useMemo } from "react"
 import { useNavigate, useSearchParams } from "react-router-dom"
 import { Loader2 } from "lucide-react"
-import { useContacts, useAccounts, useCreateBill, useTaxRates, usePurchaseOrder } from "../../lib/hooks"
+import { useContacts, useAccounts, useCreateBill, useTaxRates, usePurchaseOrder, useProductSearch } from "../../lib/hooks"
 import { getContactPrefs, saveContactPref } from "../../lib/contact-prefs"
-import { useQuery } from "@tanstack/react-query"
-import api from "../../lib/api"
 import { useToast } from "../../components/ui/toast"
 import { Card } from "../../components/ui/card"
 import { Button } from "../../components/ui/button"
@@ -54,11 +52,12 @@ export default function NewBillPage() {
   })
   const populated = useRef(false)
 
-  const { data: products = [] } = useQuery<{ id: string; name: string; unit_price: number; account_id: string | null }[]>({
-    queryKey: ["products"],
-    queryFn: () => api.get("/products").then(r => Array.isArray(r.data) ? r.data : (r.data.items ?? [])),
-    staleTime: 5 * 60_000,
-  })
+  const [productQuery, setProductQuery] = useState("")
+  const { data: searchedProducts = [] } = useProductSearch(productQuery)
+  const products = useMemo(
+    () => (searchedProducts as any[]).map(p => ({ id: p.id, name: p.name, unit_price: p.unit_price, account_id: p.expense_account_id ?? null })),
+    [searchedProducts]
+  )
 
   useEffect(() => {
     if (!sourcePO || populated.current) return
@@ -274,6 +273,7 @@ export default function NewBillPage() {
           typeTriggerClassName="text-xs"
           products={products}
           showProductSearch
+          onProductSearch={setProductQuery}
         />
 
         <div className="mt-6 flex justify-end">
