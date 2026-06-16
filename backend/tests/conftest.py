@@ -41,6 +41,7 @@ _SEED_ACCOUNTS = [
     ("1200", "Input Tax / ITC", "asset", "current"),
     ("2000", "Accounts Payable", "liability", "current"),
     ("2100", "Output Tax Payable", "liability", "current"),
+    ("3100", "Retained Earnings", "equity", "retained"),
     ("4000", "Sales Revenue", "revenue", "operating"),
     ("5000", "Cost of Goods Sold", "expense", "cogs"),
 ]

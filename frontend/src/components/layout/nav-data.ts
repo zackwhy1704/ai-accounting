@@ -139,6 +139,7 @@ export const navItems: NavItem[] = [
     feature: "settings",
     children: [
       { labelKey: "nav.companySettings", href: "/settings/company" },
+      { labelKey: "nav.openingBalances", href: "/settings/opening-balances" },
       { labelKey: "nav.invoiceTemplates", href: "/settings/invoice-templates" },
       { labelKey: "nav.customFields", href: "/settings/custom-fields" },
       { labelKey: "nav.paymentLinks", href: "/settings/payment-links" },

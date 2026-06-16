@@ -69,6 +69,7 @@ const translations = {
     "nav.myInvois": "MyInvois (LHDN)",
     "nav.sgCompliance": "IRAS E-Invoice",
     "nav.companySettings": "Company Settings",
+    "nav.openingBalances": "Opening Balances",
 
     // Header
     "header.search": "Search invoices, contacts, documents...",
@@ -591,6 +592,7 @@ const translations = {
     "nav.myInvois": "MyInvois (LHDN)",
     "nav.sgCompliance": "IRAS 电子发票",
     "nav.companySettings": "公司设置",
+    "nav.openingBalances": "期初余额",
 
     "header.search": "搜索发票、联系人、文件...",
     "header.switchDark": "切换到深色模式",
@@ -890,6 +892,7 @@ const translations = {
     "nav.myInvois": "MyInvois (LHDN)",
     "nav.sgCompliance": "IRAS E-Invois",
     "nav.companySettings": "Tetapan Syarikat",
+    "nav.openingBalances": "Baki Permulaan",
 
     "user.settings": "Tetapan Pengguna",
     "user.profile": "Profil",

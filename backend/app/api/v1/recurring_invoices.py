@@ -285,6 +285,51 @@ async def recurring_invoice_activity(ri_id: UUID, current_user: dict = Depends(g
     return {"total": float(obj.total or 0), "events": events}
 
 
+async def _materialize_invoice(db: AsyncSession, ri: RecurringInvoice, now: datetime) -> Invoice:
+    """Create one draft Invoice from a recurring template and advance its schedule.
+    Does NOT commit — caller controls the transaction boundary."""
+    org_id = ri.organization_id
+    inv_number = await next_sequence_number(db, Invoice, Invoice.invoice_number, org_id, "INV")
+    invoice = Invoice(
+        organization_id=org_id,
+        contact_id=ri.contact_id,
+        invoice_number=inv_number,
+        issue_date=now,
+        due_date=now + timedelta(days=ri.due_days or 30),
+        currency=ri.currency,
+        notes=ri.notes,
+        status="draft",
+        subtotal=0, tax_amount=0, total=0,
+    )
+    db.add(invoice)
+    await db.flush()
+
+    line_items_data = list(ri.line_items or [])
+    subtotal, tax_total, _, total = calculate_line_items(line_items_data)
+    for idx, li in enumerate(line_items_data):
+        db.add(InvoiceLineItem(
+            invoice_id=invoice.id,
+            description=li.get("description", ""),
+            quantity=float(li.get("quantity", 1) or 1),
+            unit_price=float(li.get("unit_price", 0) or 0),
+            discount=float(li.get("discount", 0) or 0),
+            discount_mode=li.get("discount_mode", "percent"),
+            tax_rate=float(li.get("tax_rate", 0) or 0),
+            amount=li["amount"],
+            sort_order=idx,
+        ))
+    invoice.subtotal = subtotal
+    invoice.tax_amount = tax_total
+    invoice.total = total
+
+    ri.last_run_date = now
+    ri.run_count = (ri.run_count or 0) + 1
+    ri.next_run_date = _calc_next_run(ri.start_date, ri.frequency, ri.frequency_interval, ri.next_run_date)
+    if ri.max_runs and ri.run_count >= ri.max_runs:
+        ri.status = "completed"
+    return invoice
+
+
 @router.post("/{ri_id}/run-now", response_model=dict)
 async def run_recurring_now(
     ri_id: UUID,
@@ -303,50 +348,43 @@ async def run_recurring_now(
         raise HTTPException(status_code=400, detail="Only active recurring invoices can be run now")
 
     now = datetime.now(timezone.utc)
-    inv_number = await next_sequence_number(db, Invoice, Invoice.invoice_number, org_id, "INV")
-    invoice = Invoice(
-        organization_id=org_id,
-        contact_id=ri.contact_id,
-        invoice_number=inv_number,
-        issue_date=now,
-        due_date=now + timedelta(days=ri.due_days or 30),
-        currency=ri.currency,
-        notes=ri.notes,
-        status="draft",
-        subtotal=0,
-        tax_amount=0,
-        total=0,
-    )
-    db.add(invoice)
-    await db.flush()
-
-    line_items_data = list(ri.line_items or [])
-    subtotal, tax_total, _, total = calculate_line_items(line_items_data)
-    for idx, li in enumerate(line_items_data):
-        line = InvoiceLineItem(
-            invoice_id=invoice.id,
-            description=li.get("description", ""),
-            quantity=float(li.get("quantity", 1) or 1),
-            unit_price=float(li.get("unit_price", 0) or 0),
-            discount=float(li.get("discount", 0) or 0),
-            discount_mode=li.get("discount_mode", "percent"),
-            tax_rate=float(li.get("tax_rate", 0) or 0),
-            amount=li["amount"],
-            sort_order=idx,
-        )
-        db.add(line)
-
-    invoice.subtotal = subtotal
-    invoice.tax_amount = tax_total
-    invoice.total = total
-
-    ri.last_run_date = now
-    ri.run_count = (ri.run_count or 0) + 1
-    ri.next_run_date = _calc_next_run(ri.start_date, ri.frequency, ri.frequency_interval, ri.next_run_date)
-
-    if ri.max_runs and ri.run_count >= ri.max_runs:
-        ri.status = "completed"
-
+    invoice = await _materialize_invoice(db, ri, now)
     await db.commit()
     await log_audit(db, org_id, current_user["sub"], "run_now", "recurring_invoice", ri_id)
-    return {"invoice_id": str(invoice.id), "invoice_number": inv_number, "next_run_date": ri.next_run_date.isoformat()}
+    return {"invoice_id": str(invoice.id), "invoice_number": invoice.invoice_number, "next_run_date": ri.next_run_date.isoformat()}
+
+
+@router.post("/run-due", response_model=dict)
+async def run_due_recurring(
+    db: AsyncSession = Depends(get_db),
+    current_user: dict = Depends(require_write()),
+):
+    """Generate invoices for every active recurring template whose next_run_date
+    has passed. Idempotent per fire: advancing next_run_date means a second call
+    won't re-generate the same period. Intended to be hit by a daily cron/worker.
+
+    Catches up multiple missed periods per template (e.g. after downtime), bounded
+    to avoid runaway loops.
+    """
+    org_id = current_user["org_id"]
+    now = datetime.now(timezone.utc)
+    due = (await db.execute(
+        select(RecurringInvoice).where(
+            RecurringInvoice.organization_id == org_id,
+            RecurringInvoice.status == "active",
+            RecurringInvoice.next_run_date <= now,
+        )
+    )).scalars().all()
+
+    generated = []
+    MAX_CATCHUP = 24  # bound back-fill per template
+    for ri in due:
+        guard = 0
+        while ri.status == "active" and ri.next_run_date and ri.next_run_date <= now and guard < MAX_CATCHUP:
+            invoice = await _materialize_invoice(db, ri, now)
+            generated.append(str(invoice.id))
+            guard += 1
+    await db.commit()
+    if generated:
+        await log_audit(db, org_id, current_user["sub"], "run_due", "recurring_invoice", org_id, {"generated": len(generated)})
+    return {"generated": len(generated), "invoice_ids": generated}

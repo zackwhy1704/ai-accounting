@@ -96,6 +96,8 @@ import CashFlowPage from './pages/reports/CashFlowPage'
 import InvoiceSummaryPage from './pages/reports/InvoiceSummaryPage'
 import BillSummaryPage from './pages/reports/BillSummaryPage'
 import PaymentSummaryPage from './pages/reports/PaymentSummaryPage'
+import ContactStatementPage from './pages/reports/ContactStatementPage'
+import OpeningBalancesPage from './pages/settings/OpeningBalancesPage'
 import ContactGroupsPage from './pages/contacts/ContactGroupsPage'
 import CompanySettingsPage from './pages/settings/CompanySettingsPage'
 import MyInvoisPage from './pages/myinvois/MyInvoisPage'
@@ -278,6 +280,8 @@ function App() {
         <Route path="/reports/stock-values" element={<StockValuesReportPage />} />
         <Route path="/reports/inventory-summary" element={<InventorySummaryPage />} />
         <Route path="/reports/bank-reconciliation" element={<BankReconciliationPage />} />
+        <Route path="/reports/contact-statement" element={<ContactStatementPage />} />
+        <Route path="/settings/opening-balances" element={<OpeningBalancesPage />} />
 
         {/* MyInvois (MY) / SG Compliance */}
         <Route path="/myinvois" element={<MyInvoisPage />} />

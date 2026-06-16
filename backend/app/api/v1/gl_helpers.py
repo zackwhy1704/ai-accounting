@@ -125,6 +125,29 @@ async def post_gl_by_id(
     return await _write_txn(db, org_id, date, description, reference, source, source_id, resolved)
 
 
+async def _assert_period_open(db: AsyncSession, org_id: str, date: datetime) -> None:
+    """Refuse to post a transaction dated on/before the org's locked_through_date.
+
+    Central guard: every GL write flows through _write_txn, so locking here covers
+    all financial mutations (invoices, bills, payments, CN/DN, receipts, refunds,
+    manual journals, adjustments) without touching each router.
+    """
+    from app.models.auth import Organization
+    org = (await db.execute(
+        select(Organization).where(Organization.id == org_id)
+    )).scalar_one_or_none()
+    locked = getattr(org, "locked_through_date", None) if org else None
+    if locked and date is not None:
+        d = date.date() if hasattr(date, "date") else date
+        ld = locked.date() if hasattr(locked, "date") else locked
+        if d <= ld:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Accounting period is locked through {ld.isoformat()}. "
+                       f"Cannot post a transaction dated {d.isoformat()} to a closed period.",
+            )
+
+
 async def _write_txn(
     db: AsyncSession,
     org_id: str,
@@ -136,6 +159,7 @@ async def _write_txn(
     resolved: list[tuple[Account, float, float]],
 ) -> Transaction:
 
+    await _assert_period_open(db, org_id, date)
     _assert_balanced(resolved)
     txn = Transaction(
         organization_id=org_id,

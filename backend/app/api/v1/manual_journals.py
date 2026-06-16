@@ -216,6 +216,11 @@ async def post_journal(
         raise HTTPException(status_code=404, detail="Journal not found")
     if journal.status != "draft":
         raise HTTPException(status_code=409, detail="Journal is already posted or void")
+
+    # Period lock: a manual journal posts its Transaction directly (not via _write_txn)
+    from app.api.v1.gl_helpers import _assert_period_open
+    await _assert_period_open(db, current_user["org_id"], journal.date)
+
     journal.status = "posted"
 
     # Post to GL ledger

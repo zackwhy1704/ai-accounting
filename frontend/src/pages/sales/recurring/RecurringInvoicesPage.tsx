@@ -2,7 +2,7 @@ import { useMemo, useState, useEffect } from "react"
 import { useNavigate } from "react-router-dom"
 import { Plus, Search, RefreshCw, Pause, Play, Pencil, Trash2 } from "lucide-react"
 import { RowActionsMenu } from "../../../components/ui/row-actions"
-import { useRecurringInvoicesPage, useContacts, usePauseRecurringInvoice, useResumeRecurringInvoice, useDeleteRecurringInvoice, useRunRecurringInvoiceNow, useDebounce } from "../../../lib/hooks"
+import { useRecurringInvoicesPage, useContacts, usePauseRecurringInvoice, useResumeRecurringInvoice, useDeleteRecurringInvoice, useRunRecurringInvoiceNow, useRunDueRecurringInvoices, useDebounce } from "../../../lib/hooks"
 import { PaginationControls } from "../../../components/ui/pagination-controls"
 import { formatDate, cn } from "../../../lib/utils"
 import { Card } from "../../../components/ui/card"
@@ -49,6 +49,7 @@ export default function RecurringInvoicesPage() {
   const pause = usePauseRecurringInvoice()
   const resume = useResumeRecurringInvoice()
   const runNow = useRunRecurringInvoiceNow()
+  const runDue = useRunDueRecurringInvoices()
   const deleteRecurring = useDeleteRecurringInvoice()
 
   const customers = useMemo(() => contacts.filter((c: any) => c.type === "customer" || c.type === "both"), [contacts])
@@ -77,9 +78,14 @@ export default function RecurringInvoicesPage() {
           <div className="mt-1 text-2xl font-semibold tracking-tight text-foreground">Recurring Invoices</div>
           <div className="mt-1 max-w-2xl text-sm text-muted-foreground">Automate repeating invoices sent on a schedule</div>
         </div>
-        <Button type="button" onClick={() => navigate("/sales/recurring/new")} className="h-9 rounded-xl bg-gradient-to-r from-[#7C9DFF] to-[#4D63FF] px-3 text-xs font-semibold text-white shadow-[0_0_0_1px_rgba(124,157,255,0.25),0_16px_40px_rgba(0,0,0,0.35)] hover:opacity-95">
-          <Plus className="mr-2 h-4 w-4" /> New Recurring Invoice
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button type="button" variant="secondary" onClick={() => { if (confirm("Generate invoices now for every active template that is due?")) runDue.mutate(undefined, { onSuccess: (d: any) => toast(d.generated > 0 ? `Generated ${d.generated} invoice(s)` : "No templates are due", "success"), onError: (e: any) => toast(e?.response?.data?.detail ?? "Failed to run due", "warning") }) }} disabled={runDue.isPending} className="h-9 rounded-xl px-3 text-xs font-semibold">
+            <RefreshCw className="mr-2 h-4 w-4" /> Run All Due
+          </Button>
+          <Button type="button" onClick={() => navigate("/sales/recurring/new")} className="h-9 rounded-xl bg-gradient-to-r from-[#7C9DFF] to-[#4D63FF] px-3 text-xs font-semibold text-white shadow-[0_0_0_1px_rgba(124,157,255,0.25),0_16px_40px_rgba(0,0,0,0.35)] hover:opacity-95">
+            <Plus className="mr-2 h-4 w-4" /> New Recurring Invoice
+          </Button>
+        </div>
       </div>
 
       <Card className="rounded-2xl border-border bg-card p-4 shadow-[0_0_0_1px_rgba(15,23,42,0.06),0_18px_55px_rgba(2,6,23,0.08)]">

@@ -135,7 +135,7 @@ export default function BankReconciliationPage() {
       {/* Upload Section */}
       <Card className="rounded-2xl border-border bg-card p-4 shadow-[0_0_0_1px_rgba(15,23,42,0.06),0_18px_55px_rgba(2,6,23,0.08)] print:hidden">
         <div className="flex items-center gap-4">
-          <input ref={fileInputRef} type="file" accept=".csv" className="hidden" onChange={handleFileChange} />
+          <input ref={fileInputRef} type="file" accept=".csv,.ofx,.qfx,.mt940,.sta,.txt" className="hidden" onChange={handleFileChange} />
           <Button
             type="button"
             onClick={() => fileInputRef.current?.click()}

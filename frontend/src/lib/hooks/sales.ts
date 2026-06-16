@@ -207,6 +207,17 @@ export function useRunRecurringInvoiceNow() {
   })
 }
 
+export function useRunDueRecurringInvoices() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: () => api.post(`/recurring-invoices/run-due`).then(r => r.data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['recurring-invoices'] })
+      qc.invalidateQueries({ queryKey: ['invoices'] })
+    },
+  })
+}
+
 // ── Single-entity fetch + update hooks for Edit pages ──
 export function useInvoice(id: string | undefined) {
   return useQuery({ queryKey: ['invoice', id], queryFn: () => api.get(`/invoices/${id}`).then(r => r.data), enabled: !!id })

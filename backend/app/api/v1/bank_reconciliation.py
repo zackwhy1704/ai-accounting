@@ -153,70 +153,41 @@ async def upload_bank_statement(
     db: AsyncSession = Depends(get_db),
     current_user: dict = Depends(require_write()),
 ):
-    """Upload a CSV bank statement and create BankStatementLine records."""
+    """Upload a bank statement (CSV, OFX/QFX, or MT940) and create BankStatementLine records."""
     org_id = current_user["org_id"]
+    from app.services.bank_statement_parser import parse_statement, SUPPORTED
 
-    if not file.filename or not file.filename.lower().endswith(".csv"):
-        raise HTTPException(status_code=400, detail="Only CSV files are supported")
+    if not file.filename:
+        raise HTTPException(status_code=400, detail="No file provided")
+    ext = file.filename.lower().rsplit(".", 1)[-1] if "." in file.filename else ""
+    if ext not in SUPPORTED:
+        raise HTTPException(status_code=400, detail=f"Unsupported format .{ext}. Supported: {', '.join(SUPPORTED)}")
 
     content = await file.read()
     try:
-        text = content.decode("utf-8-sig")
-    except UnicodeDecodeError:
-        text = content.decode("latin-1")
-
-    reader = csv.reader(io.StringIO(text))
-    rows = list(reader)
-    if len(rows) < 2:
-        raise HTTPException(status_code=400, detail="CSV file is empty or has no data rows")
-
-    col_map = _detect_columns(rows[0])
-    if col_map["date"] is None or col_map["description"] is None:
-        raise HTTPException(status_code=400, detail="Could not detect required columns (date, description)")
-    if col_map["amount"] is None and col_map["debit"] is None and col_map["credit"] is None:
-        raise HTTPException(status_code=400, detail="Could not detect amount columns (amount, debit, or credit)")
+        parsed = parse_statement(content, file.filename)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
     count = 0
-    for row in rows[1:]:
-        if not row or all(c.strip() == "" for c in row):
+    for tx in parsed:
+        if tx.get("amount") is None or tx.get("date") is None:
             continue
-
-        date = _parse_date(row[col_map["date"]]) if col_map["date"] is not None and col_map["date"] < len(row) else None
-        if not date:
-            continue
-
-        desc = row[col_map["description"]].strip() if col_map["description"] is not None and col_map["description"] < len(row) else ""
-        ref = row[col_map["reference"]].strip() if col_map["reference"] is not None and col_map["reference"] < len(row) else None
-
-        # Determine amount
-        if col_map["amount"] is not None and col_map["amount"] < len(row):
-            amount = _parse_amount(row[col_map["amount"]])
-        else:
-            debit = _parse_amount(row[col_map["debit"]] if col_map["debit"] is not None and col_map["debit"] < len(row) else None) or 0
-            credit = _parse_amount(row[col_map["credit"]] if col_map["credit"] is not None and col_map["credit"] < len(row) else None) or 0
-            amount = credit - debit
-
-        if amount is None:
-            continue
-
-        balance = _parse_amount(row[col_map["balance"]] if col_map["balance"] is not None and col_map["balance"] < len(row) else None)
-
-        line = BankStatementLine(
+        db.add(BankStatementLine(
             organization_id=org_id,
             bank_account_id=bank_account_id,
-            date=date,
-            description=desc,
-            reference=ref if ref else None,
-            amount=amount,
-            balance=balance,
+            date=tx["date"],
+            description=tx.get("description", ""),
+            reference=tx.get("reference") or None,
+            amount=tx["amount"],
+            balance=tx.get("balance"),
             status="unmatched",
-        )
-        db.add(line)
+        ))
         count += 1
 
     await db.commit()
-    await log_audit(db, org_id, current_user["sub"], "upload", "bank_statement", bank_account_id or org_id, {"imported": count})
-    return {"imported": count}
+    await log_audit(db, org_id, current_user["sub"], "upload", "bank_statement", bank_account_id or org_id, {"imported": count, "format": ext})
+    return {"imported": count, "format": ext}
 
 
 @router.get("/lines")

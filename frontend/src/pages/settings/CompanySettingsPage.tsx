@@ -9,7 +9,7 @@ import { useToast } from "../../components/ui/toast"
 import api from "../../lib/api"
 import { useAccounts } from "../../lib/hooks"
 
-type Tab = "general" | "tax" | "currencies" | "number_formats" | "payment_terms" | "payment_methods" | "locations" | "tags" | "default_gl"
+type Tab = "general" | "tax" | "currencies" | "number_formats" | "payment_terms" | "payment_methods" | "locations" | "tags" | "default_gl" | "period_lock"
 
 const TABS: { value: Tab; label: string }[] = [
   { value: "general", label: "General" },
@@ -21,6 +21,7 @@ const TABS: { value: Tab; label: string }[] = [
   { value: "locations", label: "Locations" },
   { value: "tags", label: "Tags" },
   { value: "default_gl", label: "Default GL Accounts" },
+  { value: "period_lock", label: "Period Lock" },
 ]
 
 const COUNTRIES = ["MY", "SG", "AU", "US", "UK", "HK"]
@@ -603,9 +604,61 @@ export default function CompanySettingsPage() {
                 </div>
               </div>
             )}
+
+            {activeTab === "period_lock" && <PeriodLockTab />}
           </>
         )}
       </Card>
+    </div>
+  )
+}
+
+function PeriodLockTab() {
+  const qc = useQueryClient()
+  const { toast } = useToast()
+  const [lockDate, setLockDate] = useState("")
+  const { data } = useQuery<{ locked_through_date: string | null }>({
+    queryKey: ["period-lock"],
+    queryFn: () => api.get("/accounting/period-lock").then(r => r.data),
+  })
+  useEffect(() => { if (data?.locked_through_date) setLockDate(data.locked_through_date.slice(0, 10)) }, [data])
+
+  const lock = useMutation({
+    mutationFn: () => api.post("/accounting/lock-period", { locked_through_date: new Date(lockDate).toISOString() }).then(r => r.data),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["period-lock"] }); toast("Period locked", "success") },
+    onError: (e: any) => toast(e?.response?.data?.detail ?? "Failed to lock period", "warning"),
+  })
+  const unlock = useMutation({
+    mutationFn: () => api.post("/accounting/unlock-period").then(r => r.data),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["period-lock"] }); toast("Period unlocked", "success") },
+    onError: (e: any) => toast(e?.response?.data?.detail ?? "Failed to unlock period", "warning"),
+  })
+
+  return (
+    <div className="space-y-4">
+      <div className="text-sm font-semibold text-foreground">Period Lock (Fiscal Close)</div>
+      <div className="rounded-xl bg-muted/40 border border-border p-4 text-xs text-muted-foreground">
+        Lock the books through a date so no transaction can be posted into a closed period. Existing records stay; only new postings (invoices, bills, payments, journals) dated on or before the lock date are blocked.
+      </div>
+      <div className="text-sm">
+        Current lock: {data?.locked_through_date
+          ? <span className="font-semibold text-amber-600">{new Date(data.locked_through_date).toLocaleDateString()}</span>
+          : <span className="text-muted-foreground">Not locked</span>}
+      </div>
+      <div className="flex items-end gap-3">
+        <div className="space-y-1.5">
+          <label className="text-xs font-medium text-muted-foreground">Lock through date</label>
+          <Input type="date" value={lockDate} onChange={e => setLockDate(e.target.value)} className="h-9 text-sm w-44" />
+        </div>
+        <Button type="button" onClick={() => lock.mutate()} disabled={!lockDate || lock.isPending} className="h-9 bg-gradient-to-r from-amber-500 to-amber-600 px-4 text-sm text-white">
+          {lock.isPending ? <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" /> : null} Lock Period
+        </Button>
+        {data?.locked_through_date && (
+          <Button type="button" variant="outline" onClick={() => { if (confirm("Unlock the period? This re-opens closed periods for posting.")) unlock.mutate() }} disabled={unlock.isPending} className="h-9 px-4 text-sm">
+            Unlock
+          </Button>
+        )}
+      </div>
     </div>
   )
 }
