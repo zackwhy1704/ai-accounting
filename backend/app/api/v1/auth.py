@@ -64,6 +64,7 @@ async def register(data: UserRegister, db: AsyncSession = Depends(get_db)):
     await db.flush()
 
     # Create default chart of accounts
+    accounts_by_code: dict[str, Account] = {}
     for code, name, acc_type, subtype in DEFAULT_ACCOUNTS:
         account = Account(
             organization_id=org.id,
@@ -74,6 +75,18 @@ async def register(data: UserRegister, db: AsyncSession = Depends(get_db)):
             is_system=True,
         )
         db.add(account)
+        accounts_by_code[code] = account
+    await db.flush()  # assign account IDs before wiring org defaults
+
+    # Wire org default posting accounts to the seeded standard chart so GL
+    # posting works out-of-the-box (no silent skips for a fresh org).
+    org.default_ar_account_id = accounts_by_code["1100"].id        # Accounts Receivable
+    org.default_ap_account_id = accounts_by_code["2000"].id        # Accounts Payable
+    org.default_bank_account_id = accounts_by_code["1000"].id      # Cash at Bank
+    org.default_revenue_account_id = accounts_by_code["4000"].id   # Sales Revenue
+    org.default_expense_account_id = accounts_by_code["5000"].id   # Cost of Goods Sold
+    org.default_tax_account_id = accounts_by_code["2100"].id       # GST Payable (output)
+    org.default_input_tax_account_id = accounts_by_code["1200"].id  # Prepaid/Input tax (ITC)
 
     # Create default tax codes
     for code, name, rate, tax_type, is_default, sst_cat in DEFAULT_TAX_CODES:

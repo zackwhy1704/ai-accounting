@@ -16,6 +16,7 @@ from app.core.pagination import PaginationParams, paginated_result, apply_sort
 from app.models.models import BankTransaction, Contact, BankAccount
 from app.api.v1.gl_helpers import post_gl_by_id, revert_gl
 from app.core.audit import log_audit
+from app.services.bank_gl import build_bank_entries
 from sqlalchemy import select as _select
 
 router = APIRouter(prefix="/bank-transactions", tags=["bank-transactions"])
@@ -141,18 +142,9 @@ async def create_bank_transaction(
             amount = float(payload.amount or 0)
             is_income = payload.transaction_type in ("income", "deposit", "credit")
             if payload.category_account_id:
-                if is_income:
-                    # DR Bank / CR Income category
-                    entries_by_id = [
-                        (bank_account.gl_account_id, amount, 0.0),
-                        (payload.category_account_id, 0.0, amount),
-                    ]
-                else:
-                    # DR Expense category / CR Bank
-                    entries_by_id = [
-                        (payload.category_account_id, amount, 0.0),
-                        (bank_account.gl_account_id, 0.0, amount),
-                    ]
+                entries_by_id = build_bank_entries(
+                    bank_account.gl_account_id, payload.category_account_id, amount, is_income
+                )
             else:
                 # No category selected — skip GL to avoid unbalanced entry
                 entries_by_id = None

@@ -10,12 +10,15 @@ revert_gl(db, org_id, source_id, source, date, description, reference)
 _acct(db, org_id, code) — fetch account by code, returns None if missing.
 """
 
+import logging
 from datetime import datetime
 from uuid import UUID
 from fastapi import HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from app.models.models import Account, Transaction, JournalEntry
+
+logger = logging.getLogger(__name__)
 
 
 def _assert_balanced(resolved: list[tuple]) -> None:
@@ -62,7 +65,15 @@ async def post_gl(
             continue
         acct = await _acct(db, org_id, code)
         if acct is None:
-            return None  # Missing COA entry — skip entire transaction
+            # Missing COA entry — the document is NOT posted to the ledger.
+            # Loudly warn: the subledger and GL will diverge silently otherwise.
+            logger.warning(
+                "GL posting skipped: account code %r not found for org %s "
+                "(source=%s ref=%s). Document is NOT in the ledger — configure "
+                "default accounts or add this code to the chart.",
+                code, org_id, source, reference,
+            )
+            return None
         if hasattr(acct, 'account_role') and acct.account_role in ("header", "subheader"):
             raise HTTPException(
                 status_code=400,
@@ -97,6 +108,11 @@ async def post_gl_by_id(
         )
         acct = result.scalar_one_or_none()
         if acct is None:
+            logger.warning(
+                "GL posting skipped: account id %s not found for org %s "
+                "(source=%s ref=%s). Document is NOT in the ledger.",
+                acct_id, org_id, source, reference,
+            )
             return None
         if hasattr(acct, 'account_role') and acct.account_role in ("header", "subheader"):
             raise HTTPException(

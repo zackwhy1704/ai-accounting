@@ -541,6 +541,18 @@ export default function CompanySettingsPage() {
             {activeTab === "default_gl" && (
               <div className="space-y-4">
                 <div className="text-sm font-semibold text-foreground">Default GL Accounts</div>
+                {([
+                  "default_ar_account_id", "default_ap_account_id", "default_bank_account_id",
+                  "default_revenue_account_id", "default_expense_account_id",
+                  "default_tax_account_id", "default_input_tax_account_id",
+                ] as (keyof typeof form)[]).some(k => !form[k]) && (
+                  <div className="rounded-xl border border-amber-400/40 bg-amber-500/10 p-4">
+                    <div className="text-xs font-semibold text-amber-700">⚠ Default posting accounts not fully configured</div>
+                    <div className="mt-1 text-xs text-amber-700/90">
+                      Some default GL accounts are unset. Invoices, bills, and payments may fall back to standard chart codes — and if those codes are missing from your chart, the document will not post to your ledger. Set all accounts below to guarantee every transaction posts.
+                    </div>
+                  </div>
+                )}
                 <div className="rounded-xl bg-muted/40 border border-border p-4">
                   <div className="text-xs text-muted-foreground">
                     Configure default GL accounts for automated journal posting. When set, these accounts are used instead of the system defaults when invoices, bills, and payments are posted.

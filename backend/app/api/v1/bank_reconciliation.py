@@ -15,6 +15,9 @@ from app.core.config import get_settings
 from app.core.database import get_db
 from app.core.security import get_current_user
 from app.core.permissions import require_write
+from app.core.audit import log_audit
+from app.api.v1.gl_helpers import post_gl_by_id
+from app.services.bank_gl import build_bank_entries
 from app.models.models import (
     BankStatementLine, ReconciliationRule, Transaction, JournalEntry,
     Account, Contact, Invoice, Bill, BankAccount,
@@ -212,6 +215,7 @@ async def upload_bank_statement(
         count += 1
 
     await db.commit()
+    await log_audit(db, org_id, current_user["sub"], "upload", "bank_statement", bank_account_id or org_id, {"imported": count})
     return {"imported": count}
 
 
@@ -392,6 +396,7 @@ async def auto_match(
                 ai_suggested += 1
 
     await db.commit()
+    await log_audit(db, org_id, current_user["sub"], "auto_match", "bank_reconciliation", org_id, {"auto_matched": auto_matched, "ai_suggested": ai_suggested})
 
     # Reload all lines for response
     result = await db.execute(
@@ -410,13 +415,29 @@ async def auto_match(
     }
 
 
+class ConfirmMatchRequest(BaseModel):
+    # Optional: when a line has no matched book transaction, supply a category
+    # account so the reconcile step CREATES the missing journal (Xero-style
+    # "create transaction during reconcile") instead of marking a line
+    # reconciled with no ledger entry behind it.
+    category_account_id: UUID | None = None
+
+
 @router.post("/confirm/{line_id}")
 async def confirm_match(
     line_id: UUID,
+    body: ConfirmMatchRequest | None = None,
     db: AsyncSession = Depends(get_db),
     current_user: dict = Depends(require_write()),
 ):
-    """Confirm a match — set status to reconciled and learn a new rule."""
+    """Confirm a reconciliation — guarantees a GL entry exists behind the line.
+
+    - If the line is matched to a book Transaction, ensure that transaction is
+      posted (is_posted=True) so the bank-rec -> GL guarantee holds.
+    - If the line has no matched transaction, require a category_account_id and
+      post a balanced bank <-> category journal for the line amount.
+    Then set status to reconciled and learn a description rule.
+    """
     org_id = current_user["org_id"]
 
     result = await db.execute(
@@ -427,13 +448,56 @@ async def confirm_match(
     line = result.scalar_one_or_none()
     if not line:
         raise HTTPException(status_code=404, detail="Statement line not found")
-    if not line.matched_transaction_id:
-        raise HTTPException(status_code=400, detail="Line has no match to confirm")
+
+    category_account_id = body.category_account_id if body else None
+
+    if line.matched_transaction_id:
+        # Ensure the matched transaction is actually posted to the ledger.
+        txn = (await db.execute(
+            select(Transaction).where(
+                Transaction.id == line.matched_transaction_id,
+                Transaction.organization_id == org_id,
+            )
+        )).scalar_one_or_none()
+        if not txn:
+            raise HTTPException(status_code=400, detail="Matched transaction no longer exists")
+        if not txn.is_posted:
+            txn.is_posted = True
+    elif category_account_id:
+        # Create-during-reconcile: post a balanced bank <-> category journal.
+        if not line.bank_account_id:
+            raise HTTPException(status_code=400, detail="Statement line has no bank account; cannot create a journal")
+        bank_account = (await db.execute(
+            select(BankAccount).where(
+                BankAccount.id == line.bank_account_id,
+                BankAccount.organization_id == org_id,
+            )
+        )).scalar_one_or_none()
+        if not bank_account or not bank_account.gl_account_id:
+            raise HTTPException(status_code=400, detail="Bank account has no linked GL account; configure it first")
+        amount = abs(float(line.amount or 0))
+        is_income = float(line.amount or 0) >= 0   # positive statement amount = money in
+        entries = build_bank_entries(bank_account.gl_account_id, category_account_id, amount, is_income)
+        txn = await post_gl_by_id(
+            db, org_id, line.date,
+            line.description or "Bank reconciliation entry",
+            line.reference or str(line.id),
+            "bank_reconciliation", line.id, entries,
+        )
+        if txn is not None:
+            line.matched_transaction_id = txn.id
+            line.match_confidence = 1.0
+            line.match_reason = "Created during reconciliation"
+    else:
+        raise HTTPException(
+            status_code=400,
+            detail="Line has no matched transaction. Provide category_account_id to create a journal during reconciliation.",
+        )
 
     line.status = "reconciled"
 
     # Learn: create a reconciliation rule from the description if it doesn't exist
-    pattern = line.description.strip()
+    pattern = (line.description or "").strip()
     if pattern:
         existing_rule = await db.execute(
             select(ReconciliationRule)
@@ -448,6 +512,7 @@ async def confirm_match(
             db.add(rule)
 
     await db.commit()
+    await log_audit(db, org_id, current_user["sub"], "reconcile", "bank_statement_line", line_id)
     await db.refresh(line)
     return _line_to_dict(line)
 
@@ -476,6 +541,7 @@ async def unmatch_line(
     line.status = "unmatched"
 
     await db.commit()
+    await log_audit(db, org_id, current_user["sub"], "unmatch", "bank_statement_line", line_id)
     await db.refresh(line)
     return _line_to_dict(line)
 
@@ -519,6 +585,7 @@ async def manual_match(
     line.status = "matched"
 
     await db.commit()
+    await log_audit(db, org_id, current_user["sub"], "manual_match", "bank_statement_line", line_id, {"transaction_id": str(body.transaction_id)})
     await db.refresh(line)
     return _line_to_dict(line)
 
