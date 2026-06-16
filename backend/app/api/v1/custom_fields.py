@@ -79,6 +79,24 @@ async def list_custom_fields(
     return paginated_result(items, total, p)
 
 
+@router.get("/{field_id}", response_model=CustomFieldResponse)
+async def get_custom_field(
+    field_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: dict = Depends(get_current_user),
+):
+    result = await db.execute(
+        select(CustomField).where(
+            CustomField.id == field_id,
+            CustomField.organization_id == current_user["org_id"],
+        )
+    )
+    cf = result.scalar_one_or_none()
+    if not cf:
+        raise HTTPException(status_code=404, detail="Custom field not found")
+    return cf
+
+
 @router.post("", response_model=CustomFieldResponse, status_code=201)
 async def create_custom_field(
     payload: CustomFieldCreate,

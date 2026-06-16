@@ -12,6 +12,7 @@ from app.core.database import get_db, async_session
 from app.core.security import get_current_user
 from app.core.permissions import require_write
 from app.core.pagination import PaginationParams, paginated_result, apply_sort
+from app.core.line_items import line_value
 from app.models.models import Document, Organization, Bill, BillLineItem, Contact, Account, Transaction, JournalEntry, GoodsReceivedNote, GRNLineItem
 from .gl_helpers import post_gl as do_post_gl
 from .document_router import route_document_to_module, CONFIRM_LABELS
@@ -398,7 +399,7 @@ async def create_bill_from_document(
 
     if extracted_items:
         for item in extracted_items:
-            amt = float(item.get("amount", 0) or item.get("quantity", 1) * item.get("unit_price", 0))
+            amt = float(item.get("amount", 0) or line_value(item.get("quantity", 1), item.get("unit_price", 0)))
             subtotal += amt
         tax_amount = float(data.get("tax_amount", 0) or 0)
     else:
@@ -516,7 +517,7 @@ async def suggest_grn_from_document(
         unit_price = float(item.get("unit_price", 0) or item.get("amount", 0) or 0)
         if unit_price == 0 and item.get("amount"):
             unit_price = float(item["amount"]) / qty
-        amt = qty * unit_price
+        amt = line_value(qty, unit_price)
         subtotal += amt
         line_items.append({
             "description": item.get("description", "Item"),
@@ -637,7 +638,7 @@ async def create_grn_from_document(
     for i, item in enumerate(body.line_items):
         qty_recv = float(item.get("quantity_received", item.get("quantity_ordered", 1)))
         unit_price = float(item.get("unit_price", 0))
-        subtotal += qty_recv * unit_price
+        subtotal += line_value(qty_recv, unit_price)
 
         line = GRNLineItem(
             grn_id=grn.id,

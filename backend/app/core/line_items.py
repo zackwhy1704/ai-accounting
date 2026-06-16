@@ -13,6 +13,17 @@ Returns (subtotal, total_tax, total_discount, total) where:
 from app.services import pricing
 
 
+def line_value(quantity: float, unit_price: float) -> float:
+    """Gross value of a single line (quantity * unit_price), no discount/tax.
+
+    Shared primitive for places that build a running subtotal from lines that
+    have no per-line discount or tax (e.g. AI-extracted documents, GRN values).
+    Prefer this over inline `subtotal += qty * price` so all total math flows
+    through one implementation.
+    """
+    return pricing.line_total(quantity, unit_price)
+
+
 def calculate_line_items(items: list[dict], discount_mode_field: str = "discount_mode"):
     subtotal = 0.0
     total_tax = 0.0
