@@ -1,3 +1,4 @@
+import { QueryError } from "../../components/ui/query-error"
 import { useState } from "react"
 import { Loader2, Download, Printer } from "lucide-react"
 import { useQuery } from "@tanstack/react-query"
@@ -31,7 +32,7 @@ export default function SSTSalesDetailPage() {
   const [toDate, setToDate] = useState(new Date().toISOString().slice(0, 10))
   const [queryParams, setQueryParams] = useState({ fromDate: `${thisYear}-01-01`, toDate: new Date().toISOString().slice(0, 10) })
 
-  const { data, isLoading, isFetching } = useQuery<SSTSalesDetailReport>({
+  const { data, isLoading, isFetching, isError, error } = useQuery<SSTSalesDetailReport>({
     queryKey: ["report-sst-sales-detail", queryParams],
     queryFn: () => api.get(`/reports/sst-sales-detail?start_date=${queryParams.fromDate}&end_date=${queryParams.toDate}`).then(r => r.data),
   })
@@ -83,7 +84,9 @@ export default function SSTSalesDetailPage() {
           <div className="py-12 text-center text-sm text-muted-foreground">
             <Loader2 className="h-4 w-4 animate-spin inline mr-2" /> Generating report…
           </div>
-        ) : !data || data.items.length === 0 ? (
+              ) : isError ? (
+        <Card className="rounded-2xl border-border bg-card p-4 shadow-sm"><QueryError error={error} message="Couldn't generate this report." /></Card>
+      ) : !data || data.items.length === 0 ? (
           <div className="py-12 text-center">
             <div className="text-sm font-semibold text-foreground">No SST sales records found</div>
             <div className="mt-1 text-xs text-muted-foreground">Try adjusting the date range</div>

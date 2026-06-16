@@ -1,3 +1,4 @@
+import { QueryError } from "../../components/ui/query-error"
 import { useState } from "react"
 import { Loader2, Download, Printer } from "lucide-react"
 import { useQuery } from "@tanstack/react-query"
@@ -21,7 +22,7 @@ export default function BalanceSheetPage() {
   const [asAt, setAsAt] = useState(today)
   const [activeAsAt, setActiveAsAt] = useState(today)
 
-  const { data, isLoading, isFetching } = useQuery<BalanceSheetReport>({
+  const { data, isLoading, isFetching, isError, error } = useQuery<BalanceSheetReport>({
     queryKey: ["report-balance-sheet", activeAsAt],
     queryFn: () => api.get(`/reports/balance-sheet?as_of_date=${activeAsAt}`).then(r => r.data),
   })
@@ -103,6 +104,8 @@ export default function BalanceSheetPage() {
             <Row label="Liabilities + Equity" value={formatCurrency(data.liabilities_and_equity)} bold />
           </div>
         </Card>
+      ) : isError ? (
+        <Card className="rounded-2xl border-border bg-card p-4 shadow-sm"><QueryError error={error} message="Couldn't generate this report." /></Card>
       ) : null}
     </div>
   )

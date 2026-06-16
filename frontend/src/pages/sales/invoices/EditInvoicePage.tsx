@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react"
 import { useNavigate, useParams } from "react-router-dom"
 import { Plus, Trash2, Loader2 } from "lucide-react"
-import { useInvoice, useUpdateInvoice, useContacts, useAccounts, useTaxRates, useInvoiceActivity, useInvoiceJournalEntries, useCreateAdjustment, useDeleteAdjustment, type InvoiceActivityEvent, type AdjustmentLine } from "../../../lib/hooks"
+import { useInvoice, useUpdateInvoice, useContacts, useAccounts, useTaxRates, useInvoiceActivity, useInvoiceJournalEntries, useCreateAdjustment, useDeleteAdjustment, useProductSearch, type InvoiceActivityEvent, type AdjustmentLine } from "../../../lib/hooks"
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "../../../components/ui/tabs"
 import { JournalEntriesPanel } from "../../../components/journal-entries-panel"
 import { Card } from "../../../components/ui/card"
@@ -79,6 +79,9 @@ export default function EditInvoicePage() {
   const { lineItems, setLineItems, updateLine, addLine, removeLine, subTotal, totalDiscount: totalLineDiscount, totalTax, total } = useLineItems({
     taxRates,
   })
+  const [productQuery, setProductQuery] = useState("")
+  const { data: searchedProducts = [] } = useProductSearch(productQuery)
+  const productOptions = (searchedProducts as any[]).map(p => ({ id: p.id, name: p.name, unit_price: p.unit_price, account_id: p.income_account_id ?? null }))
   const [lineItemErrors, setLineItemErrors] = useState<Record<number, { account?: boolean; tax?: boolean }>>({})
 
   const linesValid = lineItems.length > 0 && lineItems.every(li => li.account_id)
@@ -263,6 +266,10 @@ export default function EditInvoicePage() {
           taxCellClassName={idx => `w-[160px]${lineItemErrors[idx]?.tax ? " ring-1 ring-rose-400 rounded-lg" : ""}`}
           onAccountChanged={idx => setLineItemErrors(e => { const n = { ...e }; if (n[idx]) { delete n[idx].account; if (!Object.keys(n[idx]).length) delete n[idx] } return n })}
           onTaxChanged={idx => setLineItemErrors(e => { const n = { ...e }; if (n[idx]) { delete n[idx].tax; if (!Object.keys(n[idx]).length) delete n[idx] } return n })}
+          products={productOptions}
+          showProductSearch
+          onProductSearch={setProductQuery}
+          onAddProductLine={line => setLineItems(prev => [...prev, line])}
         />
 
         <div className="mt-6 flex justify-end">

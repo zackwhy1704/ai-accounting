@@ -1,3 +1,4 @@
+import { QueryError } from "../../components/ui/query-error"
 import { useState } from "react"
 import { Loader2, Download, Printer } from "lucide-react"
 import { useQuery } from "@tanstack/react-query"
@@ -61,7 +62,7 @@ export default function SST02Page() {
     }
   }
 
-  const { data, isLoading, isFetching } = useQuery<SST02Report>({
+  const { data, isLoading, isFetching, isError, error } = useQuery<SST02Report>({
     queryKey: ["report-sst02", queryParams],
     queryFn: () => api.get(`/reports/sst-02?from_date=${queryParams.fromDate}&to_date=${queryParams.toDate}`).then(r => r.data),
   })
@@ -142,6 +143,8 @@ export default function SST02Page() {
         <div className="py-12 text-center text-sm text-muted-foreground">
           <Loader2 className="h-4 w-4 animate-spin inline mr-2" /> Generating report…
         </div>
+            ) : isError ? (
+        <Card className="rounded-2xl border-border bg-card p-4 shadow-sm"><QueryError error={error} message="Couldn't generate this report." /></Card>
       ) : (
         <Card className="rounded-2xl border-border bg-card p-6 shadow-[0_0_0_1px_rgba(15,23,42,0.06),0_18px_55px_rgba(2,6,23,0.08)]">
           {/* Form header */}

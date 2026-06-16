@@ -1,3 +1,4 @@
+import { QueryError } from "../../components/ui/query-error"
 import { useMemo, useState } from "react"
 import { Loader2, Download, Printer, Search } from "lucide-react"
 import { useQuery } from "@tanstack/react-query"
@@ -39,7 +40,7 @@ export default function TransactionListPage() {
   const [accountFilter, setAccountFilter] = useState("all")
   const { data: accounts = [] } = useAccounts()
 
-  const { data, isLoading, isFetching } = useQuery<TransactionListReport>({
+  const { data, isLoading, isFetching, isError, error } = useQuery<TransactionListReport>({
     queryKey: ["report-transaction-list", queryParams],
     queryFn: () => {
       let url = `/reports/transaction-list?start_date=${queryParams.fromDate}&end_date=${queryParams.toDate}`
@@ -128,7 +129,9 @@ export default function TransactionListPage() {
           <div className="py-12 text-center text-sm text-muted-foreground">
             <Loader2 className="h-4 w-4 animate-spin inline mr-2" /> Generating report…
           </div>
-        ) : !data || data.transactions.length === 0 ? (
+              ) : isError ? (
+        <Card className="rounded-2xl border-border bg-card p-4 shadow-sm"><QueryError error={error} message="Couldn't generate this report." /></Card>
+      ) : !data || data.transactions.length === 0 ? (
           <div className="py-12 text-center">
             <div className="text-sm font-semibold text-foreground">No transactions found</div>
             <div className="mt-1 text-xs text-muted-foreground">Try adjusting the date range</div>

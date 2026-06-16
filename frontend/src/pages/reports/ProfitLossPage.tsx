@@ -1,3 +1,4 @@
+import { QueryError } from "../../components/ui/query-error"
 import { useState } from "react"
 import { Loader2, Download, Printer } from "lucide-react"
 import { useQuery } from "@tanstack/react-query"
@@ -31,7 +32,7 @@ export default function ProfitLossPage() {
   const [toDate, setToDate] = useState(new Date().toISOString().slice(0, 10))
   const [queryParams, setQueryParams] = useState({ fromDate: `${thisYear}-01-01`, toDate: new Date().toISOString().slice(0, 10) })
 
-  const { data, isLoading, isFetching } = useQuery<ProfitLossReport>({
+  const { data, isLoading, isFetching, isError, error } = useQuery<ProfitLossReport>({
     queryKey: ["report-profit-loss", queryParams],
     queryFn: () => api.get(`/reports/profit-loss?start_date=${queryParams.fromDate}&end_date=${queryParams.toDate}`).then(r => r.data),
   })
@@ -125,6 +126,8 @@ export default function ProfitLossPage() {
             <Row label="Net Income" value={formatCurrency(data.net_income)} bold negative={data.net_income < 0} />
           </div>
         </Card>
+      ) : isError ? (
+        <Card className="rounded-2xl border-border bg-card p-4 shadow-sm"><QueryError error={error} message="Couldn't generate this report." /></Card>
       ) : null}
     </div>
   )

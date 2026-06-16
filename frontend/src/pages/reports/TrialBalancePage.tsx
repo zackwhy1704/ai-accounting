@@ -1,3 +1,4 @@
+import { QueryError } from "../../components/ui/query-error"
 import { useState } from "react"
 import { Loader2, Download, Printer } from "lucide-react"
 import { useQuery } from "@tanstack/react-query"
@@ -41,7 +42,7 @@ export default function TrialBalancePage() {
   const [asAt, setAsAt] = useState(today)
   const [activeAsAt, setActiveAsAt] = useState(today)
 
-  const { data, isLoading, isFetching } = useQuery<TrialBalanceReport>({
+  const { data, isLoading, isFetching, isError, error } = useQuery<TrialBalanceReport>({
     queryKey: ["report-trial-balance", activeAsAt],
     queryFn: () => api.get(`/reports/trial-balance?as_of_date=${activeAsAt}`).then(r => r.data),
   })
@@ -111,7 +112,9 @@ export default function TrialBalancePage() {
           <div className="py-12 text-center text-sm text-muted-foreground">
             <Loader2 className="h-4 w-4 animate-spin inline mr-2" /> Generating report…
           </div>
-        ) : !data || data.lines.length === 0 ? (
+              ) : isError ? (
+        <Card className="rounded-2xl border-border bg-card p-4 shadow-sm"><QueryError error={error} message="Couldn't generate this report." /></Card>
+      ) : !data || data.lines.length === 0 ? (
           <div className="py-12 text-center">
             <div className="text-sm font-semibold text-foreground">No data available</div>
             <div className="mt-1 text-xs text-muted-foreground">No journal entries found for the selected date</div>

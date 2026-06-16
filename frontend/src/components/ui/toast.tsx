@@ -16,6 +16,13 @@ const ToastContext = createContext<ToastContextType | null>(null)
 
 let nextId = 0
 
+// Imperative escape hatch so non-React code (e.g. the React Query QueryCache
+// onError handler, which lives outside the provider tree) can raise a toast.
+let _emit: ((message: string, type?: Toast["type"]) => void) | null = null
+export function notifyToast(message: string, type: Toast["type"] = "info") {
+  _emit?.(message, type)
+}
+
 export function ToastProvider({ children }: { children: ReactNode }) {
   const [toasts, setToasts] = useState<Toast[]>([])
 
@@ -23,6 +30,12 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     const id = ++nextId
     setToasts(prev => [...prev, { id, message, type }])
   }, [])
+
+  // Register the imperative emitter for the lifetime of the provider.
+  useEffect(() => {
+    _emit = addToast
+    return () => { if (_emit === addToast) _emit = null }
+  }, [addToast])
 
   const removeToast = useCallback((id: number) => {
     setToasts(prev => prev.filter(t => t.id !== id))

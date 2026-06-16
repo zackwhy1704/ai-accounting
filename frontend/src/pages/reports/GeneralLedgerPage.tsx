@@ -1,3 +1,4 @@
+import { QueryError } from "../../components/ui/query-error"
 import { useState } from "react"
 import { Loader2, Download, Printer } from "lucide-react"
 import { useQuery } from "@tanstack/react-query"
@@ -38,7 +39,7 @@ export default function GeneralLedgerPage() {
   const [account, setAccount] = useState("")
   const [queryParams, setQueryParams] = useState({ fromDate: `${thisYear}-01-01`, toDate: new Date().toISOString().slice(0, 10), account: "" })
 
-  const { data, isLoading, isFetching } = useQuery<GeneralLedgerReport>({
+  const { data, isLoading, isFetching, isError, error } = useQuery<GeneralLedgerReport>({
     queryKey: ["report-general-ledger", queryParams],
     queryFn: () => {
       const params = new URLSearchParams({
@@ -115,6 +116,8 @@ export default function GeneralLedgerPage() {
         <div className="py-12 text-center text-sm text-muted-foreground">
           <Loader2 className="h-4 w-4 animate-spin inline mr-2" /> Generating report…
         </div>
+            ) : isError ? (
+        <Card className="rounded-2xl border-border bg-card p-4 shadow-sm"><QueryError error={error} message="Couldn't generate this report." /></Card>
       ) : !data || data.accounts.length === 0 ? (
         <Card className="rounded-2xl border-border bg-card p-12 text-center shadow-[0_0_0_1px_rgba(15,23,42,0.06)]">
           <div className="text-sm font-semibold text-foreground">No transactions found</div>

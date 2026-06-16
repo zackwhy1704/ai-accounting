@@ -1,3 +1,4 @@
+import { QueryError } from "../../components/ui/query-error"
 import { useState } from "react"
 import { Loader2, Download, Printer } from "lucide-react"
 import { useQuery } from "@tanstack/react-query"
@@ -23,7 +24,7 @@ export default function CashFlowPage() {
   const [toDate, setToDate] = useState(new Date().toISOString().slice(0, 10))
   const [queryParams, setQueryParams] = useState({ fromDate: `${thisYear}-01-01`, toDate: new Date().toISOString().slice(0, 10) })
 
-  const { data, isLoading, isFetching } = useQuery<CashFlowReport>({
+  const { data, isLoading, isFetching, isError, error } = useQuery<CashFlowReport>({
     queryKey: ["report-cash-flow", queryParams],
     queryFn: () => api.get(`/reports/cash-flow?start_date=${queryParams.fromDate}&end_date=${queryParams.toDate}`).then(r => r.data),
   })
@@ -96,6 +97,8 @@ export default function CashFlowPage() {
             <Row label="Closing Cash Balance" value={formatCurrency(data.closing_cash)} bold />
           </div>
         </Card>
+      ) : isError ? (
+        <Card className="rounded-2xl border-border bg-card p-4 shadow-sm"><QueryError error={error} message="Couldn't generate this report." /></Card>
       ) : null}
     </div>
   )

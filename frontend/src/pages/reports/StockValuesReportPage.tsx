@@ -1,3 +1,4 @@
+import { QueryError } from "../../components/ui/query-error"
 import { Loader2, Download, Printer } from "lucide-react"
 import { useQuery } from "@tanstack/react-query"
 import { Card } from "../../components/ui/card"
@@ -21,7 +22,7 @@ interface StockValuesReport {
 }
 
 export default function StockValuesReportPage() {
-  const { data, isLoading } = useQuery<StockValuesReport>({
+  const { data, isLoading, isError, error } = useQuery<StockValuesReport>({
     queryKey: ["report-stock-values"],
     queryFn: () => api.get("/reports/stock-values").then(r => r.data),
   })
@@ -56,7 +57,9 @@ export default function StockValuesReportPage() {
           <div className="py-12 text-center text-sm text-muted-foreground">
             <Loader2 className="h-4 w-4 animate-spin inline mr-2" /> Generating report…
           </div>
-        ) : !data || data.items.length === 0 ? (
+              ) : isError ? (
+        <Card className="rounded-2xl border-border bg-card p-4 shadow-sm"><QueryError error={error} message="Couldn't generate this report." /></Card>
+      ) : !data || data.items.length === 0 ? (
           <div className="py-12 text-center">
             <div className="text-sm font-semibold text-foreground">No stock items found</div>
             <div className="mt-1 text-xs text-muted-foreground">Add products to see stock values</div>

@@ -1,6 +1,6 @@
 import { useState } from "react"
 import { useNavigate } from "react-router-dom"
-import { useContacts, useContactSearch, useAccounts, useCreateInvoice, useTaxRates } from "../../../lib/hooks"
+import { useContacts, useContactSearch, useAccounts, useCreateInvoice, useTaxRates, useProductSearch } from "../../../lib/hooks"
 import { useTheme } from "../../../lib/theme"
 import { getContactPrefs } from "../../../lib/contact-prefs"
 import { Card } from "../../../components/ui/card"
@@ -19,6 +19,9 @@ export default function NewInvoicePage() {
   const { data: accounts = [] } = useAccounts()
   const createInvoice = useCreateInvoice()
   const { data: taxRates = [] } = useTaxRates()
+  const [productQuery, setProductQuery] = useState("")
+  const { data: searchedProducts = [] } = useProductSearch(productQuery)
+  const productOptions = (searchedProducts as any[]).map(p => ({ id: p.id, name: p.name, unit_price: p.unit_price, account_id: p.income_account_id ?? null }))
 
   const [invoiceNumber, setInvoiceNumber] = useState("")
   const [contactId, setContactId] = useState("")
@@ -53,7 +56,7 @@ export default function NewInvoicePage() {
   const [currency, setCurrency] = useState("MYR")
   const [journalMemo, setJournalMemo] = useState("")
 
-  const { lineItems, updateLine, addLine, removeLine, subTotal, totalDiscount: totalLineDiscount, totalTax, total } = useLineItems({
+  const { lineItems, setLineItems, updateLine, addLine, removeLine, subTotal, totalDiscount: totalLineDiscount, totalTax, total } = useLineItems({
     taxRates,
   })
 
@@ -203,6 +206,10 @@ export default function NewInvoicePage() {
           taxRateCellClassName="w-[80px]"
           controlsClassName="mt-3 flex flex-wrap items-center gap-3"
           discountToggleTitle
+          products={productOptions}
+          showProductSearch
+          onProductSearch={setProductQuery}
+          onAddProductLine={line => setLineItems(prev => [...prev, line])}
         />
 
         <div className="mt-6 flex justify-end">

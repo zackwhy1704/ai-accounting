@@ -110,6 +110,11 @@ async def create_grn(
     db: AsyncSession = Depends(get_db),
     current_user: dict = Depends(require_write()),
 ):
+    # ACCOUNTING POLICY (decided): GRN posts NO GL — this product uses bill-date
+    # accrual, not goods-received-not-invoiced (GRNI). The expense/inventory hits
+    # the ledger when the Bill is approved (post_bill_gl), not on physical receipt.
+    # This is the simpler, SME-appropriate model; a GRNI clearing account is
+    # intentionally NOT implemented. The GRN records receipt + qty only.
     org_id = current_user["org_id"]
 
     if payload.grn_number:

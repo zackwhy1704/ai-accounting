@@ -1,3 +1,4 @@
+import { QueryError } from "../../components/ui/query-error"
 import { useState } from "react"
 import { Loader2, Download, Printer } from "lucide-react"
 import { useQuery } from "@tanstack/react-query"
@@ -50,7 +51,7 @@ export default function AgedReceivablesPage() {
   const [periodDate, setPeriodDate] = useState(new Date().toISOString().slice(0, 10))
   const [activePeriodDate, setActivePeriodDate] = useState(periodDate)
 
-  const { data, isLoading, isFetching } = useQuery<AgedReceivablesReport>({
+  const { data, isLoading, isFetching, isError, error } = useQuery<AgedReceivablesReport>({
     queryKey: ["report-ar-aging", activePeriodDate],
     queryFn: () => api.get(`/reports/ar-aging?as_of_date=${activePeriodDate}`).then(r => r.data),
   })
@@ -120,7 +121,9 @@ export default function AgedReceivablesPage() {
           <div className="py-12 text-center text-sm text-muted-foreground">
             <Loader2 className="h-4 w-4 animate-spin inline mr-2" /> Generating report…
           </div>
-        ) : !hasData ? (
+              ) : isError ? (
+        <Card className="rounded-2xl border-border bg-card p-4 shadow-sm"><QueryError error={error} message="Couldn't generate this report." /></Card>
+      ) : !hasData ? (
           <div className="py-12 text-center">
             <div className="text-sm font-semibold text-foreground">No outstanding receivables</div>
             <div className="mt-1 text-xs text-muted-foreground">All invoices are paid or no data for the selected period</div>

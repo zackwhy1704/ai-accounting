@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react"
 import { useNavigate, useParams } from "react-router-dom"
 import { Plus, Trash2, ChevronDown, Loader2 } from "lucide-react"
-import { useQuotation, useUpdateQuotation, useContacts, useAccounts, useTaxRates, useQuotationActivity, type InvoiceActivityEvent } from "../../../lib/hooks"
+import { useQuotation, useUpdateQuotation, useContacts, useAccounts, useTaxRates, useQuotationActivity, useProductSearch, type InvoiceActivityEvent } from "../../../lib/hooks"
 import { getContactPrefs, saveContactPref } from "../../../lib/contact-prefs"
 import { Card } from "../../../components/ui/card"
 import { Button } from "../../../components/ui/button"
@@ -54,6 +54,8 @@ export default function EditQuotationPage() {
   const [billingPostcode, setBillingPostcode] = useState("")
   const [billingCountry, setBillingCountry] = useState("")
   const [productSearch, setProductSearch] = useState("")
+  const [productDropdownOpen, setProductDropdownOpen] = useState(false)
+  const { data: searchedProducts = [] } = useProductSearch(productSearch)
   const [lineItems, setLineItems] = useState<LineItem[]>([
     { line_type: "goods", description: "", account_id: "", quantity: 1, unit_price: 0, amount: 0, discount: 0, discount_mode: "percent", tax_rate: 0, tax_code_id: "" },
   ])
@@ -126,6 +128,23 @@ export default function EditQuotationPage() {
 
   const addLineItem = () => {
     setLineItems(prev => [...prev, { line_type: "goods", description: "", account_id: "", quantity: 1, unit_price: 0, amount: 0, discount: 0, discount_mode: "percent", tax_rate: 0, tax_code_id: "" }])
+  }
+
+  const addProductLine = (p: any) => {
+    setLineItems(prev => [...prev, {
+      line_type: "goods",
+      description: p.name,
+      account_id: p.income_account_id ?? "",
+      quantity: 1,
+      unit_price: p.unit_price ?? 0,
+      amount: p.unit_price ?? 0,
+      discount: 0,
+      discount_mode: "percent",
+      tax_rate: 0,
+      tax_code_id: "",
+    }])
+    setProductSearch("")
+    setProductDropdownOpen(false)
   }
 
   const removeLineItem = (index: number) => {
@@ -339,8 +358,30 @@ export default function EditQuotationPage() {
             <Plus className="mr-1.5 h-4 w-4" /> Item
           </Button>
           <div className="relative">
-            <Input value={productSearch} onChange={e => setProductSearch(e.target.value)} placeholder="Add Product..." className="h-9 w-48 rounded-xl pl-3 pr-8 text-xs" />
+            <Input
+              value={productSearch}
+              onChange={e => { setProductSearch(e.target.value); setProductDropdownOpen(true) }}
+              onFocus={() => setProductDropdownOpen(true)}
+              onBlur={() => setTimeout(() => setProductDropdownOpen(false), 150)}
+              placeholder="Add Product..."
+              className="h-9 w-48 rounded-xl pl-3 pr-8 text-xs"
+            />
             <ChevronDown className="pointer-events-none absolute right-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+            {productDropdownOpen && (searchedProducts as any[]).length > 0 && (
+              <div className="absolute left-0 top-full z-50 mt-1 w-64 rounded-xl border border-border bg-card shadow-lg py-1">
+                {(searchedProducts as any[]).slice(0, 10).map(p => (
+                  <button
+                    key={p.id}
+                    type="button"
+                    className="w-full text-left px-3 py-2 text-xs hover:bg-muted/60 flex items-center justify-between"
+                    onMouseDown={e => { e.preventDefault(); addProductLine(p) }}
+                  >
+                    <span className="truncate">{p.name}</span>
+                    <span className="ml-2 shrink-0 text-muted-foreground">{(p.unit_price ?? 0).toFixed(2)}</span>
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
         </div>
 

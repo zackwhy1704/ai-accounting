@@ -91,17 +91,20 @@ export default function InvoiceTemplatesPage() {
   const createMutation = useMutation({
     mutationFn: (data: Partial<InvoiceTemplate>) => api.post("/invoice-templates", data).then(r => r.data),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["invoice-templates"] }); setShowNew(false); toast("Template created", "success") },
+    onError: (e: any) => toast(e?.response?.data?.detail ?? "Failed to create template", "warning"),
   })
 
   const updateMutation = useMutation({
     mutationFn: ({ id, ...data }: Partial<InvoiceTemplate> & { id: string }) =>
       api.patch(`/invoice-templates/${id}`, data).then(r => r.data),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["invoice-templates"] }); setEditing(null); toast("Template saved", "success") },
+    onError: (e: any) => toast(e?.response?.data?.detail ?? "Failed to save template", "warning"),
   })
 
   const deleteMutation = useMutation({
     mutationFn: (id: string) => api.delete(`/invoice-templates/${id}`),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["invoice-templates"] }); toast("Template deleted", "success") },
+    onError: (e: any) => toast(e?.response?.data?.detail ?? "Failed to delete template", "warning"),
   })
 
   const newTemplate: Partial<InvoiceTemplate> = {

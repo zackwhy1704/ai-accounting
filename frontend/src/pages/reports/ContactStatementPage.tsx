@@ -1,3 +1,4 @@
+import { QueryError } from "../../components/ui/query-error"
 import { useState } from "react"
 import { useSearchParams } from "react-router-dom"
 import { Loader2, Download, Printer } from "lucide-react"
@@ -44,7 +45,7 @@ export default function ContactStatementPage() {
     searchParams.get("contact_id") ? { contactId: searchParams.get("contact_id")!, fromDate: `${thisYear}-01-01`, toDate: new Date().toISOString().slice(0, 10) } : null
   )
 
-  const { data, isLoading, isFetching } = useQuery<ContactStatement>({
+  const { data, isLoading, isFetching, isError, error } = useQuery<ContactStatement>({
     queryKey: ["contact-statement", query],
     queryFn: () => api.get(`/reports/contact-statement?contact_id=${query!.contactId}&start_date=${query!.fromDate}&end_date=${query!.toDate}`).then(r => r.data),
     enabled: !!query?.contactId,
@@ -135,6 +136,8 @@ export default function ContactStatementPage() {
             </table>
           )}
         </Card>
+      ) : isError ? (
+        <Card className="rounded-2xl border-border bg-card p-4 shadow-sm"><QueryError error={error} message="Couldn't generate this report." /></Card>
       ) : null}
     </div>
   )
