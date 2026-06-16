@@ -397,9 +397,15 @@ export default function DocumentsPage() {
         setUploadQueue(prev => prev.map(i => i.id === item.id ? { ...i, status: "done" as const } : i))
         qc.invalidateQueries({ queryKey: ["documents"] })
         setSelectedId(data.id)
-      } catch (err: unknown) {
-        const msg = err instanceof Error ? err.message : "Upload failed"
+      } catch (err: any) {
+        const status = err?.response?.status
+        const detail = err?.response?.data?.detail
+        const msg = detail ?? (err instanceof Error ? err.message : "Upload failed")
         setUploadQueue(prev => prev.map(i => i.id === item.id ? { ...i, status: "failed" as const, error: msg } : i))
+        if (status === 402) {
+          // AI scan limit reached — surface an upgrade CTA (link to billing).
+          toast(detail ?? "AI scan limit reached. Visit Billing to upgrade or add a scan pack.", "warning")
+        }
       }
 
       // Yield to let React re-render before processing the next item
@@ -408,7 +414,7 @@ export default function DocumentsPage() {
     }
 
     await processNext()
-  }, [qc])
+  }, [qc, toast])
 
   // Start processing when queue gets new items
   useEffect(() => {

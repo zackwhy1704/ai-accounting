@@ -135,6 +135,7 @@ async def upgrade_plan(
     sub_result = await stripe_service.create_subscription(org.stripe_customer_id, plan, currency.upper())
     org.plan = plan
     org.ai_scans_limit = PLANS[plan]["ai_scans_limit"]
+    org.users_limit = PLANS[plan]["users_limit"]
     org.stripe_subscription_id = sub_result.get("id")
     await db.commit()
 
@@ -234,8 +235,34 @@ async def add_addon(
 
 
 @router.post("/webhook")
-async def stripe_webhook(request: Request):
+async def stripe_webhook(request: Request, db: AsyncSession = Depends(get_db)):
     payload = await request.body()
     sig = request.headers.get("stripe-signature", "")
     result = await stripe_service.handle_webhook(payload, sig)
-    return {"received": True, "type": result["type"]}
+    event_type = result.get("type")
+    obj = result.get("data") or {}
+
+    # Resolve the org from the Stripe customer id on the event.
+    customer_id = obj.get("customer") if isinstance(obj, dict) else getattr(obj, "customer", None)
+    org = None
+    if customer_id:
+        org = (await db.execute(
+            select(Organization).where(Organization.stripe_customer_id == customer_id)
+        )).scalar_one_or_none()
+
+    if org:
+        if event_type == "invoice.paid":
+            # Billing cycle rolled over (or first payment) — reset the AI-scan
+            # meter so the customer gets their full monthly allowance. Without
+            # this the counter only ever climbs and paying users hit the cap.
+            org.ai_scans_used = 0
+            await db.commit()
+        elif event_type == "subscription.deleted":
+            # Subscription cancelled — drop back to the free Starter limits.
+            from app.services.stripe_service import PLANS as _PLANS
+            org.plan = "starter"
+            org.ai_scans_limit = _PLANS["starter"]["ai_scans_limit"]
+            org.users_limit = _PLANS["starter"]["users_limit"]
+            await db.commit()
+
+    return {"received": True, "type": event_type}

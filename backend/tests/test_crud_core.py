@@ -12,31 +12,11 @@ from datetime import datetime, timezone
 from uuid import uuid4
 
 
+from tests.conftest import route_methods as _shared_route_methods
+
+
 def _route_methods(path: str) -> set[str]:
-    """Collect HTTP methods registered for a path, walking nested routers.
-
-    Version-robust: FastAPI usually flattens include_router routes into app.routes
-    with the full prefixed path, but under some Starlette versions included routers
-    are Mounts whose nested routes carry the UNprefixed path (e.g. "/tax-rates/{id}"
-    not "/api/v1/tax-rates/{id}"). We match either the exact path or a suffix match
-    on a mounted route, so the helper can't silently return empty on a version bump.
-    """
-    methods: set[str] = set()
-
-    def walk(routes, prefix=""):
-        for r in routes:
-            rp = getattr(r, "path", None)
-            sub = getattr(r, "routes", None)
-            if rp and getattr(r, "methods", None):
-                full = prefix + rp
-                if full == path or rp == path or path.endswith(rp):
-                    methods.update(r.methods - {"HEAD", "OPTIONS"})
-            if sub:
-                # Mounts carry their own path prefix that nested routes are relative to.
-                walk(sub, prefix + (rp or ""))
-
-    walk(app.routes)
-    return methods
+    return _shared_route_methods(app, path)
 
 
 # ── Invoice route registration ─────────────────────────────────────────────────

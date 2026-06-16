@@ -81,12 +81,8 @@ async def _process_document_background(doc_id: UUID, org_id: UUID, file_content:
             doc.status = "unrecognized" if confidence < 0.4 else "processed"
             doc.processed_at = datetime.now(timezone.utc)
 
-            # Increment org scan count
-            org_result = await db.execute(select(Organization).where(Organization.id == org_id))
-            org = org_result.scalar_one_or_none()
-            if org:
-                org.ai_scans_used += 1
-
+            # NOTE: the AI-scan slot was already reserved (incremented) in
+            # upload_document before this task ran, so we do NOT increment here.
             await db.commit()
             logger.info(f"Background OCR complete: {doc_id} → {doc.status} (confidence={confidence:.2f})")
         except Exception as e:
@@ -103,6 +99,13 @@ async def _process_document_background(doc_id: UUID, org_id: UUID, file_content:
                     else:
                         doc.status = "failed"
                         doc.error_message = error_msg[:500]
+                    # Refund the AI-scan slot reserved at upload time — a failed
+                    # scan shouldn't permanently consume the org's quota.
+                    org = (await db.execute(
+                        select(Organization).where(Organization.id == org_id).with_for_update()
+                    )).scalar_one_or_none()
+                    if org and (org.ai_scans_used or 0) > 0:
+                        org.ai_scans_used -= 1
                     await db.commit()
             except Exception:
                 logger.exception(f"Failed to update document {doc_id} status after OCR error")
@@ -124,6 +127,25 @@ async def upload_document(
         raise HTTPException(status_code=400, detail="File too large (max 10MB)")
 
     org_id = current_user["org_id"]
+
+    # Plan enforcement: reserve an AI-scan slot BEFORE consuming Azure OCR + Claude.
+    # Lock the org row so concurrent uploads can't race past the cap, then reserve
+    # by incrementing here (the background task no longer increments — the slot is
+    # already counted). ai_scans_limit == -1 means unlimited.
+    org = (await db.execute(
+        select(Organization).where(Organization.id == org_id).with_for_update()
+    )).scalar_one_or_none()
+    if org is None:
+        raise HTTPException(status_code=404, detail="Organization not found")
+    limit = org.ai_scans_limit
+    used = org.ai_scans_used or 0
+    if limit != -1 and used >= limit:
+        raise HTTPException(
+            status_code=402,
+            detail="AI scan limit reached for your plan. Upgrade or add a scan pack to continue.",
+        )
+    org.ai_scans_used = used + 1   # reserve the slot atomically under the row lock
+    await db.flush()
 
     # Upload to storage
     file_url = await storage_service.upload_file(content, file.filename, file.content_type)

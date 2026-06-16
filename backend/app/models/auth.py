@@ -51,6 +51,7 @@ class Organization(Base):
     stripe_subscription_id: Mapped[str | None] = mapped_column(String(255))
     ai_scans_used: Mapped[int] = mapped_column(Integer, default=0)
     ai_scans_limit: Mapped[int] = mapped_column(Integer, default=10)
+    users_limit: Mapped[int] = mapped_column(Integer, default=1, server_default="1")  # seats; -1 = unlimited
     # ── Country / Tax compliance ──
     # tax_regime: MY_SST | SG_GST | AU_GST | EU_VAT | NONE
     tax_regime: Mapped[str] = mapped_column(String(20), default="MY_SST")

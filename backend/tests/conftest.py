@@ -34,6 +34,32 @@ from app.models.auth import Organization, User
 from app.models.accounting import Account
 
 
+def route_methods(app, path: str) -> set[str]:
+    """Shared CRUD route-introspection helper (single source of truth for the
+    route-existence tests, so the two test files can't drift).
+
+    Version-robust: walks the router tree tracking prefixes and matches either the
+    exact prefixed path or a suffix match on a mounted (unprefixed) route, so a
+    Starlette version that stops flattening the /api/v1 prefix can't make these
+    tests silently return empty (false red).
+    """
+    methods: set[str] = set()
+
+    def walk(routes, prefix=""):
+        for r in routes:
+            rp = getattr(r, "path", None)
+            sub = getattr(r, "routes", None)
+            if rp and getattr(r, "methods", None):
+                full = prefix + rp
+                if full == path or rp == path or path.endswith(rp):
+                    methods.update(r.methods - {"HEAD", "OPTIONS"})
+            if sub:
+                walk(sub, prefix + (rp or ""))
+
+    walk(app.routes)
+    return methods
+
+
 # Standard chart subset needed for posting (mirrors auth.DEFAULT_ACCOUNTS codes used by GL)
 _SEED_ACCOUNTS = [
     ("1000", "Cash at Bank", "asset", "bank"),

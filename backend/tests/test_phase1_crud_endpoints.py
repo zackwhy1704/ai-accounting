@@ -9,28 +9,11 @@ from app.main import app
 from app.schemas.schemas import ManualJournalUpdate, ExchangeRateUpdate, ContactUpdate
 
 
+from tests.conftest import route_methods as _shared_route_methods
+
+
 def _route_methods(path: str) -> set[str]:
-    """Collect HTTP methods for a path, walking nested routers (version-robust).
-
-    Matches the exact prefixed path or a suffix match on a mounted (unprefixed)
-    route, so a Starlette version that stops flattening the prefix can't make this
-    silently return empty (false red). See test_crud_core for the rationale.
-    """
-    methods: set[str] = set()
-
-    def walk(routes, prefix=""):
-        for r in routes:
-            rp = getattr(r, "path", None)
-            sub = getattr(r, "routes", None)
-            if rp and getattr(r, "methods", None):
-                full = prefix + rp
-                if full == path or rp == path or path.endswith(rp):
-                    methods.update(r.methods - {"HEAD", "OPTIONS"})
-            if sub:
-                walk(sub, prefix + (rp or ""))
-
-    walk(app.routes)
-    return methods
+    return _shared_route_methods(app, path)
 
 
 class TestRouteRegistration:
