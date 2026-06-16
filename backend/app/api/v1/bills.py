@@ -89,7 +89,7 @@ async def create_bill(
             raise HTTPException(status_code=400, detail="Bill number already in use")
         bill_number = data.bill_number
     else:
-        from .sales import next_sequence_number
+        from app.core.sequences import next_sequence_number
         bill_number = await next_sequence_number(db, Bill, Bill.bill_number, org_id, "BILL")
 
     # Calculate totals
@@ -438,7 +438,7 @@ async def pay_bill(
     apply_amount = min(payload.amount, remaining)
 
     # Sequential payment number
-    from .sales import next_sequence_number
+    from app.core.sequences import next_sequence_number
     payment_no = payload.payment_no or await next_sequence_number(db, PurchasePayment, PurchasePayment.payment_no, org_id, "PPY")
 
     payment = PurchasePayment(

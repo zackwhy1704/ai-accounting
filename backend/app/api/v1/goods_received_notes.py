@@ -118,7 +118,7 @@ async def create_grn(
             raise HTTPException(status_code=400, detail="GRN number already in use")
         grn_number = payload.grn_number
     else:
-        from .sales import next_sequence_number
+        from app.core.sequences import next_sequence_number
         grn_number = await next_sequence_number(db, GoodsReceivedNote, GoodsReceivedNote.grn_number, org_id, "GRN")
 
     grn = GoodsReceivedNote(

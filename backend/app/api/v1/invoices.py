@@ -71,7 +71,7 @@ async def create_invoice(
     if data.invoice_number:
         invoice_number = data.invoice_number
     else:
-        from .sales import next_sequence_number
+        from app.core.sequences import next_sequence_number
         invoice_number = await next_sequence_number(db, Invoice, Invoice.invoice_number, org_id, "INV")
 
     # Calculate totals
@@ -545,7 +545,8 @@ async def refund_overpaid(
     if body.amount <= 0 or body.amount > overpaid:
         raise HTTPException(status_code=400, detail=f"Amount must be between 0 and {overpaid:.2f}")
 
-    from .sales import next_sequence_number, SalesRefund
+    from app.core.sequences import next_sequence_number
+    from app.models.models import SalesRefund
     ref_number = await next_sequence_number(db, SalesRefund, SalesRefund.refund_number, org_id, "REF")
     if body.payment_date:
         refund_date = datetime.fromisoformat(body.payment_date).replace(tzinfo=timezone.utc)

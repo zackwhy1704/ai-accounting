@@ -137,7 +137,7 @@ async def create_purchase_order(
             raise HTTPException(status_code=400, detail="PO number already in use")
         po_number = payload.po_number
     else:
-        from .sales import next_sequence_number
+        from app.core.sequences import next_sequence_number
         po_number = await next_sequence_number(db, PurchaseOrder, PurchaseOrder.po_number, org_id, "PO")
 
     po = PurchaseOrder(

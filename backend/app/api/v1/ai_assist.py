@@ -1,3 +1,4 @@
+import logging
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from typing import Any
@@ -8,6 +9,7 @@ from app.core.permissions import require_write
 
 router = APIRouter(prefix="/ai", tags=["ai"])
 settings = get_settings()
+logger = logging.getLogger(__name__)
 
 
 class CategorizeRequest(BaseModel):
@@ -99,7 +101,8 @@ Common account codes: 4000=Revenue, 5000=COGS, 6000=Rent, 6100=Office Supplies, 
     try:
         data = json.loads(raw)
         return CategorizeResponse(**data)
-    except Exception:
+    except Exception as e:
+        logger.warning("AI categorize parse failed, using fallback: %s", e)
         return CategorizeResponse(
             category="Miscellaneous",
             account_code="6900",
@@ -154,7 +157,8 @@ Reply with ONLY valid JSON:
     try:
         data = json.loads(raw)
         return TaxSuggestResponse(**data)
-    except Exception:
+    except Exception as e:
+        logger.warning("AI tax-suggest parse failed, using default rate: %s", e)
         default_rate = 6.0 if payload.country == "MY" else 9.0
         return TaxSuggestResponse(
             tax_code="SR",

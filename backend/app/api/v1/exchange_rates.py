@@ -1,4 +1,5 @@
 """Exchange rate endpoints + BNM/MAS auto-fetch service."""
+import logging
 import httpx
 from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
@@ -15,6 +16,7 @@ from app.models.models import ExchangeRate, Organization
 from app.schemas.schemas import ExchangeRateCreate, ExchangeRateUpdate, ExchangeRateResponse
 
 router = APIRouter(prefix="/exchange-rates", tags=["exchange-rates"])
+logger = logging.getLogger(__name__)
 
 BNM_FX_URL = "https://api.bnm.gov.my/public/kl-usd-interbank-avg-rate"
 BNM_HEADERS = {"Accept": "application/vnd.BNM.API.v1+json"}
@@ -45,7 +47,8 @@ async def _fetch_bnm_rates(org_id: UUID, db: AsyncSession) -> list[ExchangeRate]
         await db.commit()
         await db.refresh(er)
         return [er]
-    except Exception:
+    except Exception as e:
+        logger.warning("BNM FX fetch failed for org %s: %s", org_id, e)
         return []
 
 
@@ -75,7 +78,8 @@ async def _fetch_mas_rates(org_id: UUID, db: AsyncSession) -> list[ExchangeRate]
         if created:
             await db.commit()
         return created
-    except Exception:
+    except Exception as e:
+        logger.warning("MAS FX fetch failed for org %s: %s", org_id, e)
         return []
 
 
