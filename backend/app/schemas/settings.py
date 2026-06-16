@@ -32,6 +32,7 @@ class ContactCreate(BaseModel):
     shipping_country: str | None = None
     default_currency: str | None = None
     default_payment_terms: str | None = None
+    default_payment_terms_days: int | None = None
 
     @field_validator("name")
     @classmethod
@@ -73,6 +74,7 @@ class ContactUpdate(BaseModel):
     shipping_country: str | None = None
     default_currency: str | None = None
     default_payment_terms: str | None = None
+    default_payment_terms_days: int | None = None
 
 class ContactResponse(BaseModel):
     id: UUID
@@ -102,6 +104,7 @@ class ContactResponse(BaseModel):
     shipping_country: str | None = None
     default_currency: str | None = None
     default_payment_terms: str | None = None
+    default_payment_terms_days: int | None = None
     created_at: datetime
     model_config = {"from_attributes": True}
 

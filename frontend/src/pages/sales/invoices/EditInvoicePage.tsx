@@ -10,10 +10,13 @@ import { Input } from "../../../components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../../components/ui/select"
 import { SearchableSelect } from "../../../components/ui/searchable-select"
 import { LineItemsEditor, useLineItems } from "../../../components/line-items"
+import { useToast } from "../../../components/ui/toast"
+import api from "../../../lib/api"
 
 export default function EditInvoicePage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
+  const { toast } = useToast()
   const { data: invoice, isLoading } = useInvoice(id)
   const { data: contacts = [] } = useContacts()
   const { data: accounts = [] } = useAccounts()
@@ -22,6 +25,43 @@ export default function EditInvoicePage() {
   const { data: activity } = useInvoiceActivity(id)
   const { data: journalData, isLoading: journalLoading } = useInvoiceJournalEntries(id)
   const populated = useRef(false)
+  const [pdfBusy, setPdfBusy] = useState(false)
+  const [emailOpen, setEmailOpen] = useState(false)
+  const [emailTo, setEmailTo] = useState("")
+  const [emailMsg, setEmailMsg] = useState("Please find attached your invoice.")
+  const [emailBusy, setEmailBusy] = useState(false)
+
+  const downloadPdf = async () => {
+    if (!id) return
+    setPdfBusy(true)
+    try {
+      const res = await api.get(`/invoices/${id}/pdf`, { responseType: "blob" })
+      const url = URL.createObjectURL(res.data)
+      const a = document.createElement("a")
+      a.href = url
+      a.download = `invoice-${id}.pdf`
+      a.click()
+      URL.revokeObjectURL(url)
+    } catch (e: any) {
+      toast(e?.response?.data?.detail ?? "Failed to generate PDF", "warning")
+    } finally {
+      setPdfBusy(false)
+    }
+  }
+
+  const sendEmail = async () => {
+    if (!id) return
+    setEmailBusy(true)
+    try {
+      await api.post(`/invoices/${id}/send-email`, { to: emailTo, message: emailMsg })
+      toast(`Invoice emailed to ${emailTo}`, "success")
+      setEmailOpen(false)
+    } catch (e: any) {
+      toast(e?.response?.data?.detail ?? "Failed to send email", "warning")
+    } finally {
+      setEmailBusy(false)
+    }
+  }
 
   const [invoiceNumber, setInvoiceNumber] = useState("")
   const [contactId, setContactId] = useState("")
@@ -375,11 +415,35 @@ export default function EditInvoicePage() {
 
       {/* Save/Cancel Footer */}
       <div className="flex items-center justify-end gap-3">
+        {id && <Button type="button" variant="outline" onClick={downloadPdf} disabled={pdfBusy}>{pdfBusy ? "…" : "Download PDF"}</Button>}
+        {id && <Button type="button" variant="outline" onClick={() => setEmailOpen(true)}>Send by Email</Button>}
         <Button type="button" variant="outline" onClick={() => navigate("/sales/invoices")}>Cancel</Button>
         <Button type="button" onClick={handleSave} disabled={updateInvoice.isPending || !contactId || !lineItems.some(li => li.description.trim()) || !linesValid} className="h-10 rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-600 px-6 text-sm font-semibold text-white shadow-sm hover:opacity-95">
           {updateInvoice.isPending ? "Saving..." : "Save Changes"}
         </Button>
       </div>
+
+      {emailOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={() => setEmailOpen(false)}>
+          <Card className="w-full max-w-md rounded-2xl border-border bg-card p-5 shadow-xl" onClick={e => e.stopPropagation()}>
+            <div className="mb-3 text-sm font-semibold text-foreground">Email Invoice</div>
+            <div className="space-y-3">
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-muted-foreground">To</label>
+                <Input value={emailTo} onChange={e => setEmailTo(e.target.value)} placeholder="customer@example.com" className="h-9 text-sm" />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-muted-foreground">Message</label>
+                <Input value={emailMsg} onChange={e => setEmailMsg(e.target.value)} className="h-9 text-sm" />
+              </div>
+            </div>
+            <div className="mt-4 flex justify-end gap-2">
+              <Button type="button" variant="outline" onClick={() => setEmailOpen(false)}>Cancel</Button>
+              <Button type="button" onClick={sendEmail} disabled={emailBusy || !emailTo} className="bg-gradient-to-r from-[#7C9DFF] to-[#4D63FF] text-white">{emailBusy ? "Sending…" : "Send"}</Button>
+            </div>
+          </Card>
+        </div>
+      )}
     </div>
   )
 }

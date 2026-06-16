@@ -47,6 +47,7 @@ class Contact(Base):
     # Default preferences
     default_currency: Mapped[str | None] = mapped_column(String(3))
     default_payment_terms: Mapped[str | None] = mapped_column(String(50))
+    default_payment_terms_days: Mapped[int | None] = mapped_column(Integer, nullable=True)  # auto due-date offset
     notes: Mapped[str | None] = mapped_column(Text)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)

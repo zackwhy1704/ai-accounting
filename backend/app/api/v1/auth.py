@@ -35,6 +35,7 @@ DEFAULT_ACCOUNTS = [
     ("5600", "Travel Expense", "expense", "operating"),
     ("5700", "Office Supplies", "expense", "operating"),
     ("5800", "Inventory Adjustment", "expense", "operating"),
+    ("5900", "Foreign Exchange Gain/Loss", "expense", "operating"),
 ]
 
 # Default tax codes seeded for every new organization

@@ -83,14 +83,19 @@ async def ar_aging_report(
 @router.get("/ap-aging")
 async def ap_aging_report(
     as_of_date: str = Query(None, description="YYYY-MM-DD"),
+    contact_id: UUID = Query(None, description="Drill down into one supplier's individual bills"),
     db: AsyncSession = Depends(get_db),
     current_user: dict = Depends(get_current_user),
 ):
-    """Accounts Payable aging: Current, 1-30, 31-60, 61-90, 90+ days."""
+    """Accounts Payable aging: Current, 1-30, 31-60, 61-90, 90+ days.
+
+    When contact_id is supplied, returns the individual outstanding bills for that
+    supplier (drill-down) alongside the bucketed totals.
+    """
     org_id = current_user["org_id"]
     as_of = datetime.fromisoformat(as_of_date).replace(tzinfo=timezone.utc) if as_of_date else datetime.now(timezone.utc)
 
-    result = await db.execute(
+    q = (
         select(Bill, Contact)
         .join(Contact, Bill.contact_id == Contact.id, isouter=True)
         .where(
@@ -99,6 +104,9 @@ async def ap_aging_report(
             (Bill.total - Bill.amount_paid) > 0,
         )
     )
+    if contact_id:
+        q = q.where(Bill.contact_id == contact_id)
+    result = await db.execute(q)
     rows = result.all()
 
     buckets = {"current": [], "1_30": [], "31_60": [], "61_90": [], "over_90": []}
@@ -139,6 +147,7 @@ async def ap_aging_report(
         "report_type": "ap_aging",
         "as_of_date": as_of.strftime("%Y-%m-%d"),
         "currency": "MYR",
+        "contact_id": str(contact_id) if contact_id else None,
         "buckets": buckets,
         "summary": summary,
         "grand_total": sum(v["total"] for v in summary.values()),

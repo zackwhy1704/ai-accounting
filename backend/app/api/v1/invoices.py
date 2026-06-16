@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Body, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, delete, update
 from sqlalchemy.orm import selectinload
@@ -79,12 +79,24 @@ async def create_invoice(
     items = [li.model_dump() for li in data.line_items]
     subtotal, tax_amount, _, total = calculate_line_items(items)
 
+    # Payment terms automation: if the contact has default terms and no explicit
+    # later due date was given, derive due_date = issue_date + terms days.
+    due_date = data.due_date
+    if data.contact_id and data.issue_date:
+        from datetime import timedelta as _td
+        contact = (await db.execute(
+            select(Contact).where(Contact.id == data.contact_id, Contact.organization_id == org_id)
+        )).scalar_one_or_none()
+        terms_days = getattr(contact, "default_payment_terms_days", None) if contact else None
+        if terms_days and (due_date is None or due_date <= data.issue_date):
+            due_date = data.issue_date + _td(days=int(terms_days))
+
     invoice = Invoice(
         organization_id=org_id,
         contact_id=data.contact_id,
         invoice_number=invoice_number,
         issue_date=data.issue_date,
-        due_date=data.due_date,
+        due_date=due_date,
         subtotal=subtotal,
         tax_amount=tax_amount,
         total=total,
@@ -274,6 +286,82 @@ async def invoice_journal_entries(
             "lines": lines,
         })
     return {"invoice_id": str(invoice_id), "journal_entries": journal_events}
+
+
+async def _load_invoice_for_pdf(db, org_id, invoice_id):
+    from app.models.auth import Organization
+    inv = (await db.execute(
+        select(Invoice).options(selectinload(Invoice.line_items)).where(
+            Invoice.id == invoice_id, Invoice.organization_id == org_id)
+    )).scalar_one_or_none()
+    if not inv:
+        raise HTTPException(status_code=404, detail="Invoice not found")
+    org = (await db.execute(select(Organization).where(Organization.id == org_id))).scalar_one_or_none()
+    contact = (await db.execute(select(Contact).where(Contact.id == inv.contact_id))).scalar_one_or_none() if inv.contact_id else None
+    line_items = sorted(inv.line_items, key=lambda li: getattr(li, "sort_order", 0))
+    return inv, org, contact, line_items
+
+
+@router.get("/{invoice_id}/pdf")
+async def get_invoice_pdf(
+    invoice_id: UUID,
+    current_user: dict = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Generate the invoice as a PDF (inline)."""
+    from app.services.invoice_pdf import render_invoice_pdf
+    inv, org, contact, line_items = await _load_invoice_for_pdf(db, current_user["org_id"], invoice_id)
+    pdf = render_invoice_pdf(inv, org, contact, line_items)
+    return Response(
+        content=pdf, media_type="application/pdf",
+        headers={"Content-Disposition": f'inline; filename="{inv.invoice_number}.pdf"'},
+    )
+
+
+@router.post("/{invoice_id}/send-email")
+async def send_invoice_email(
+    invoice_id: UUID,
+    body: dict = Body(...),
+    current_user: dict = Depends(require_write()),
+    db: AsyncSession = Depends(get_db),
+):
+    """Email the invoice PDF to a recipient via Resend. body: {to, subject, message}."""
+    import base64
+    from app.core.config import get_settings
+    from app.services.invoice_pdf import render_invoice_pdf
+    settings = get_settings()
+
+    inv, org, contact, line_items = await _load_invoice_for_pdf(db, current_user["org_id"], invoice_id)
+    to = (body.get("to") or (contact.email if contact else None) or "").strip()
+    if not to:
+        raise HTTPException(status_code=400, detail="No recipient email. Provide 'to' or set the contact's email.")
+    if not settings.RESEND_API_KEY:
+        raise HTTPException(status_code=503, detail="Email is not configured (RESEND_API_KEY missing)")
+
+    subject = body.get("subject") or f"Invoice {inv.invoice_number} from {getattr(org, 'name', '')}"
+    message = body.get("message") or f"Please find attached invoice {inv.invoice_number}."
+    pdf = render_invoice_pdf(inv, org, contact, line_items)
+
+    try:
+        import resend
+        resend.api_key = settings.RESEND_API_KEY
+        resend.Emails.send({
+            "from": settings.EMAIL_FROM,
+            "to": [to],
+            "subject": subject,
+            "html": f"<p>{message}</p>",
+            "attachments": [{
+                "filename": f"{inv.invoice_number}.pdf",
+                "content": base64.b64encode(pdf).decode("ascii"),
+            }],
+        })
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"Failed to send email: {e}")
+
+    await log_audit(db, current_user["org_id"], current_user["sub"], "email_sent", "invoice", invoice_id, {"to": to})
+    return {"status": "sent", "to": to, "invoice_number": inv.invoice_number}
 
 
 @router.get("/{invoice_id}/activity")
