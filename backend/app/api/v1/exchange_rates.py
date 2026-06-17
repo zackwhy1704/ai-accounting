@@ -121,7 +121,7 @@ async def create_exchange_rate(
     )
     db.add(er)
     await db.commit()
-    await log_audit(db, current_user["org_id"], current_user["sub"], "create", "exchange_rate", rate.id)
+    await log_audit(db, current_user["org_id"], current_user["sub"], "create", "exchange_rate", er.id)
     await db.refresh(er)
     return er
 

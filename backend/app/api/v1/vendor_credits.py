@@ -61,7 +61,7 @@ async def update_vendor_credit(
     db: AsyncSession = Depends(get_db),
     current_user: dict = Depends(require_write()),
 ):
-    return await update_purchase_credit_note(pcn_id=pcn_id, payload=payload, db=db, current_user=current_user)
+    return await update_purchase_credit_note(pcn_id=pcn_id, data=payload, db=db, current_user=current_user)
 
 
 @router.patch("/{pcn_id}/status", response_model=PurchaseCreditNoteResponse)

@@ -108,7 +108,7 @@ async def update_tax_rate(
     for key, val in payload.model_dump(exclude_unset=True).items():
         setattr(tax_rate, key, val)
     await db.commit()
-    await log_audit(db, current_user["org_id"], current_user["sub"], "update", "tax_rate", rate_id)
+    await log_audit(db, current_user["org_id"], current_user["sub"], "update", "tax_rate", tax_rate_id)
     await db.refresh(tax_rate)
     return tax_rate
 
@@ -130,7 +130,7 @@ async def delete_tax_rate(
         raise HTTPException(status_code=404, detail="Tax rate not found")
     await db.delete(tax_rate)
     await db.commit()
-    await log_audit(db, current_user["org_id"], current_user["sub"], "delete", "tax_rate", rate_id)
+    await log_audit(db, current_user["org_id"], current_user["sub"], "delete", "tax_rate", tax_rate_id)
 
 
 @router.post("/upload-csv", response_model=list[TaxRateResponse], status_code=201)
