@@ -27,7 +27,7 @@ interface CreditorVendor {
 }
 
 interface CreditorLedgerReport {
-  customers: CreditorVendor[]
+  vendors: CreditorVendor[]
   grand_total_invoiced: number
   grand_total_paid: number
   grand_total_balance: number
@@ -61,7 +61,7 @@ export default function CreditorLedgerPage() {
         <div className="mt-1 text-2xl font-semibold tracking-tight text-foreground">Creditor Ledger</div>
         <div className="mt-1 text-sm text-muted-foreground">Outstanding bills grouped by vendor</div>
       </div>
-      {data && data.customers.length > 0 && (
+      {data && (data.vendors?.length ?? 0) > 0 && (
         <div className="flex gap-2 print:hidden">
           <Button variant="outline" size="sm" onClick={() => {
             const rows: string[][] = [
@@ -69,7 +69,7 @@ export default function CreditorLedgerPage() {
               [],
               ["Vendor", "Bill #", "Date", "Due Date", "Total", "Paid", "Balance", "Status"],
             ]
-            data.customers.forEach(v => {
+            data.vendors.forEach(v => {
               v.bills.forEach(bill => {
                 rows.push([v.vendor_name, bill.bill_number, bill.date, bill.due_date, bill.total.toFixed(2), bill.paid.toFixed(2), bill.balance.toFixed(2), bill.status])
               })
@@ -110,7 +110,7 @@ export default function CreditorLedgerPage() {
           </div>
               ) : isError ? (
         <Card className="rounded-2xl border-border bg-card p-4 shadow-sm"><QueryError error={error} message="Couldn't generate this report." /></Card>
-      ) : !data || data.customers.length === 0 ? (
+      ) : !data || (data.vendors?.length ?? 0) === 0 ? (
           <div className="py-12 text-center">
             <div className="text-sm font-semibold text-foreground">No creditor records found</div>
             <div className="mt-1 text-xs text-muted-foreground">Try adjusting the date range</div>
@@ -129,7 +129,7 @@ export default function CreditorLedgerPage() {
               </tr>
             </thead>
             <tbody>
-              {data.customers.map((vendor, vi) => (
+              {data.vendors.map((vendor, vi) => (
                 <Fragment key={vi}>
                   <tr className="bg-muted/20">
                     <td colSpan={7} className="px-4 py-2.5 text-sm font-semibold text-foreground">{vendor.vendor_name}</td>

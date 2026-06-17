@@ -25,10 +25,13 @@ interface BankStatementLine {
 }
 
 interface ReconciliationSummary {
-  total: number
+  total_lines: number
   matched: number
   reconciled: number
   unmatched: number
+  bank_balance?: number
+  book_balance?: number
+  difference?: number
 }
 
 export default function BankReconciliationPage() {
@@ -163,7 +166,7 @@ export default function BankReconciliationPage() {
           <div className="grid grid-cols-4 gap-3">
             <Card className="rounded-xl border-border bg-card p-3 shadow-sm">
               <div className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Total Lines</div>
-              <div className="mt-1 text-lg font-bold tabular-nums text-foreground">{summary.total}</div>
+              <div className="mt-1 text-lg font-bold tabular-nums text-foreground">{summary.total_lines}</div>
             </Card>
             <Card className="rounded-xl border-border bg-card p-3 shadow-sm">
               <div className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Matched</div>
