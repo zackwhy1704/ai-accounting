@@ -39,13 +39,13 @@ export default function InventorySummaryPage() {
         <div className="mt-1 text-2xl font-semibold tracking-tight text-foreground">Inventory Summary</div>
         <div className="mt-1 text-sm text-muted-foreground">Stock movements and closing quantities for a period</div>
       </div>
-      {data && data.items.length > 0 && (
+      {(data?.items?.length ?? 0) > 0 && (
         <div className="flex gap-2 print:hidden">
           <Button variant="outline" size="sm" onClick={() => downloadCSV(`inventory-summary-${queryParams.fromDate}-${queryParams.toDate}.csv`, [
             ["Inventory Summary", `${queryParams.fromDate} to ${queryParams.toDate}`],
             [],
             ["Code", "Name", "Opening Qty", "Adjustments In", "Adjustments Out", "Closing Qty"],
-            ...data.items.map(i => [i.code, i.name, String(i.opening_qty), String(i.adjustments_in), String(i.adjustments_out), String(i.closing_qty)]),
+            ...(data?.items ?? []).map(i => [i.code, i.name, String(i.opening_qty), String(i.adjustments_in), String(i.adjustments_out), String(i.closing_qty)]),
           ])}>
             <Download className="mr-1.5 h-3.5 w-3.5" /> CSV
           </Button>
@@ -79,7 +79,7 @@ export default function InventorySummaryPage() {
           </div>
               ) : isError ? (
         <Card className="rounded-2xl border-border bg-card p-4 shadow-sm"><QueryError error={error} message="Couldn't generate this report." /></Card>
-      ) : !data || data.items.length === 0 ? (
+      ) : !data?.items?.length ? (
           <div className="py-12 text-center">
             <div className="text-sm font-semibold text-foreground">No inventory records found</div>
             <div className="mt-1 text-xs text-muted-foreground">Try adjusting the date range</div>
@@ -97,7 +97,7 @@ export default function InventorySummaryPage() {
               </tr>
             </thead>
             <tbody>
-              {data.items.map((item, i) => (
+              {(data?.items ?? []).map((item, i) => (
                 <tr key={i} className="border-b border-border last:border-0 hover:bg-muted/30">
                   <td className="px-4 py-2.5 text-sm font-medium text-foreground">{item.code}</td>
                   <td className="px-4 py-2.5 text-sm text-foreground">{item.name}</td>

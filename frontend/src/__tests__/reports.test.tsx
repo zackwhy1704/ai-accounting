@@ -85,6 +85,17 @@ describe("Report error path (BUG-1)", () => {
       expect(text).toMatch(/Couldn't generate this report|boom/i)
     })
   })
+
+  it("TrialBalance does not crash on a 200 with a malformed/partial shape (error-window)", async () => {
+    // A resolved-but-shapeless response (data truthy, `lines` undefined) used to
+    // throw 'Cannot read properties of undefined (reading length)' in the export
+    // block above the guards. Optional chaining must degrade to the empty state.
+    vi.mocked(api.get).mockResolvedValue({ data: { report_type: "trial_balance" } })
+    wrapper(<TrialBalancePage />)
+    await waitFor(() => {
+      expect(screen.getByText("Trial Balance")).toBeInTheDocument()
+    })
+  })
 })
 
 // ── normaliseType pure logic ──────────────────────────────────

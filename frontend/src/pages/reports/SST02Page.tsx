@@ -93,7 +93,7 @@ export default function SST02Page() {
             ["SST-02 Return", `${data.period_from} to ${data.period_to}`],
             [],
             ["Rate", "Description", "Taxable Amount", "Tax Amount"],
-            ...data.taxable_items.map(i => [i.rate, i.description, i.taxable_amount.toFixed(2), i.tax_amount.toFixed(2)]),
+            ...(data?.taxable_items ?? []).map(i => [i.rate, i.description, i.taxable_amount.toFixed(2), i.tax_amount.toFixed(2)]),
             [],
             ["", "Total Output Tax", data.total_taxable_amount.toFixed(2), data.total_tax_payable.toFixed(2)],
             ["", "Less: Input Tax Credit", "", data.total_input_tax.toFixed(2)],
@@ -181,8 +181,8 @@ export default function SST02Page() {
                   </tr>
                 </thead>
                 <tbody>
-                  {data && data.taxable_items.length > 0 ? (
-                    data.taxable_items.map((item, i) => (
+                  {(data?.taxable_items?.length ?? 0) > 0 ? (
+                    (data?.taxable_items ?? []).map((item, i) => (
                       <tr key={i} className="border-b border-border last:border-0 hover:bg-muted/30">
                         <td className="px-4 py-2.5 text-sm font-medium text-foreground">{item.rate}</td>
                         <td className="px-4 py-2.5 text-sm text-foreground">{item.description}</td>

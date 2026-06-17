@@ -44,15 +44,15 @@ export default function SSTPurchaseDetailPage() {
         <div className="mt-1 text-2xl font-semibold tracking-tight text-foreground">SST Purchase Detail</div>
         <div className="mt-1 text-sm text-muted-foreground">Purchase tax detail by bill line item</div>
       </div>
-      {data && data.items.length > 0 && (
+      {(data?.items?.length ?? 0) > 0 && (
         <div className="flex gap-2 print:hidden">
           <Button variant="outline" size="sm" onClick={() => downloadCSV(`sst-purchase-detail-${queryParams.fromDate}-${queryParams.toDate}.csv`, [
             ["SST Purchase Detail", `${queryParams.fromDate} to ${queryParams.toDate}`],
             [],
             ["Bill #", "Date", "Vendor", "Description", "Qty", "Unit Price", "Taxable Amount", "Tax Rate %", "Tax Amount"],
-            ...data.items.map(i => [i.bill_number, i.date, i.vendor_name, i.description, String(i.quantity), i.unit_price.toFixed(2), i.taxable_amount.toFixed(2), i.tax_rate.toFixed(2), i.tax_amount.toFixed(2)]),
+            ...(data?.items ?? []).map(i => [i.bill_number, i.date, i.vendor_name, i.description, String(i.quantity), i.unit_price.toFixed(2), i.taxable_amount.toFixed(2), i.tax_rate.toFixed(2), i.tax_amount.toFixed(2)]),
             [],
-            ["", "", "", "", "", "", data.total_taxable.toFixed(2), "", data.total_tax.toFixed(2)],
+            ["", "", "", "", "", "", (data?.total_taxable ?? 0).toFixed(2), "", (data?.total_tax ?? 0).toFixed(2)],
           ])}>
             <Download className="mr-1.5 h-3.5 w-3.5" /> CSV
           </Button>
@@ -86,7 +86,7 @@ export default function SSTPurchaseDetailPage() {
           </div>
               ) : isError ? (
         <Card className="rounded-2xl border-border bg-card p-4 shadow-sm"><QueryError error={error} message="Couldn't generate this report." /></Card>
-      ) : !data || data.items.length === 0 ? (
+      ) : !data?.items?.length ? (
           <div className="py-12 text-center">
             <div className="text-sm font-semibold text-foreground">No SST purchase records found</div>
             <div className="mt-1 text-xs text-muted-foreground">Try adjusting the date range</div>
@@ -107,7 +107,7 @@ export default function SSTPurchaseDetailPage() {
               </tr>
             </thead>
             <tbody>
-              {data.items.map((item, i) => (
+              {(data?.items ?? []).map((item, i) => (
                 <tr key={i} className="border-b border-border last:border-0 hover:bg-muted/30">
                   <td className="px-4 py-2.5 text-sm font-medium text-foreground">{item.bill_number}</td>
                   <td className="px-4 py-2.5 text-sm text-foreground">{item.date}</td>

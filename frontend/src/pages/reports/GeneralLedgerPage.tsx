@@ -65,7 +65,7 @@ export default function GeneralLedgerPage() {
         </div>
       </div>
 
-      {data && data.accounts.length > 0 && (
+      {(data?.accounts?.length ?? 0) > 0 && (
         <div className="flex gap-2 print:hidden">
           <Button variant="outline" size="sm" onClick={() => {
             const rows: string[][] = [
@@ -73,7 +73,7 @@ export default function GeneralLedgerPage() {
               [],
               ["Account Code", "Account Name", "Date", "Description", "Reference", "Debit", "Credit", "Balance"],
             ]
-            data.accounts.forEach(acc => {
+            data?.accounts?.forEach(acc => {
               acc.entries.forEach(e => {
                 rows.push([acc.account_code, acc.account_name, e.date, e.description, e.reference ?? "", e.debit > 0 ? e.debit.toFixed(2) : "", e.credit > 0 ? e.credit.toFixed(2) : "", e.balance.toFixed(2)])
               })
@@ -118,14 +118,14 @@ export default function GeneralLedgerPage() {
         </div>
             ) : isError ? (
         <Card className="rounded-2xl border-border bg-card p-4 shadow-sm"><QueryError error={error} message="Couldn't generate this report." /></Card>
-      ) : !data || data.accounts.length === 0 ? (
+      ) : !data?.accounts?.length ? (
         <Card className="rounded-2xl border-border bg-card p-12 text-center shadow-[0_0_0_1px_rgba(15,23,42,0.06)]">
           <div className="text-sm font-semibold text-foreground">No transactions found</div>
           <div className="mt-1 text-xs text-muted-foreground">Try adjusting the date range or account filter</div>
         </Card>
       ) : (
         <div className="space-y-4">
-          {data.accounts.map(acc => (
+          {(data?.accounts ?? []).map(acc => (
             <Card key={acc.account_code} className="rounded-2xl border-border bg-card shadow-[0_0_0_1px_rgba(15,23,42,0.06)] overflow-hidden">
               {/* Account header */}
               <div className="border-b border-border bg-muted/30 px-4 py-3">

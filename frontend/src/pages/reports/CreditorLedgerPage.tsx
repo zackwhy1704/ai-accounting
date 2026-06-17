@@ -69,7 +69,7 @@ export default function CreditorLedgerPage() {
               [],
               ["Vendor", "Bill #", "Date", "Due Date", "Total", "Paid", "Balance", "Status"],
             ]
-            data.vendors.forEach(v => {
+            data?.vendors?.forEach(v => {
               v.bills.forEach(bill => {
                 rows.push([v.vendor_name, bill.bill_number, bill.date, bill.due_date, bill.total.toFixed(2), bill.paid.toFixed(2), bill.balance.toFixed(2), bill.status])
               })
@@ -129,7 +129,7 @@ export default function CreditorLedgerPage() {
               </tr>
             </thead>
             <tbody>
-              {data.vendors.map((vendor, vi) => (
+              {(data?.vendors ?? []).map((vendor, vi) => (
                 <Fragment key={vi}>
                   <tr className="bg-muted/20">
                     <td colSpan={7} className="px-4 py-2.5 text-sm font-semibold text-foreground">{vendor.vendor_name}</td>

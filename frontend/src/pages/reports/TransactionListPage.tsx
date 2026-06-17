@@ -131,7 +131,7 @@ export default function TransactionListPage() {
           </div>
               ) : isError ? (
         <Card className="rounded-2xl border-border bg-card p-4 shadow-sm"><QueryError error={error} message="Couldn't generate this report." /></Card>
-      ) : !data || data.transactions.length === 0 ? (
+      ) : !data?.transactions?.length ? (
           <div className="py-12 text-center">
             <div className="text-sm font-semibold text-foreground">No transactions found</div>
             <div className="mt-1 text-xs text-muted-foreground">Try adjusting the date range</div>
@@ -150,7 +150,7 @@ export default function TransactionListPage() {
               </tr>
             </thead>
             <tbody>
-              {data.transactions.map((txn, ti) =>
+              {(data?.transactions ?? []).map((txn, ti) =>
                 txn.entries.map((entry, ei) => (
                   <tr key={`${ti}-${ei}`} className="border-b border-border last:border-0 hover:bg-muted/30">
                     <td className="px-4 py-2.5 text-sm text-foreground">{ei === 0 ? txn.date : ""}</td>

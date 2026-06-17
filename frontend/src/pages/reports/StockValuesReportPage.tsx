@@ -34,15 +34,15 @@ export default function StockValuesReportPage() {
         <div className="mt-1 text-2xl font-semibold tracking-tight text-foreground">Stock Values</div>
         <div className="mt-1 text-sm text-muted-foreground">Current stock on hand and valuation</div>
       </div>
-      {data && data.items.length > 0 && (
+      {(data?.items?.length ?? 0) > 0 && (
         <div className="flex gap-2 print:hidden">
           <Button variant="outline" size="sm" onClick={() => downloadCSV("stock-values.csv", [
             ["Stock Values Report"],
             [],
             ["Code", "Name", "Type", "Unit", "Qty on Hand", "Cost Price", "Total Value"],
-            ...data.items.map(i => [i.code, i.name, i.product_type, i.unit, String(i.qty_on_hand), i.cost_price.toFixed(2), i.total_value.toFixed(2)]),
+            ...(data?.items ?? []).map(i => [i.code, i.name, i.product_type, i.unit, String(i.qty_on_hand), i.cost_price.toFixed(2), i.total_value.toFixed(2)]),
             [],
-            ["", "", "", "", "", "Total", data.total_value.toFixed(2)],
+            ["", "", "", "", "", "Total", (data?.total_value ?? 0).toFixed(2)],
           ])}>
             <Download className="mr-1.5 h-3.5 w-3.5" /> CSV
           </Button>
@@ -59,7 +59,7 @@ export default function StockValuesReportPage() {
           </div>
               ) : isError ? (
         <Card className="rounded-2xl border-border bg-card p-4 shadow-sm"><QueryError error={error} message="Couldn't generate this report." /></Card>
-      ) : !data || data.items.length === 0 ? (
+      ) : !data?.items?.length ? (
           <div className="py-12 text-center">
             <div className="text-sm font-semibold text-foreground">No stock items found</div>
             <div className="mt-1 text-xs text-muted-foreground">Add products to see stock values</div>
@@ -78,7 +78,7 @@ export default function StockValuesReportPage() {
               </tr>
             </thead>
             <tbody>
-              {data.items.map((item, i) => (
+              {(data?.items ?? []).map((item, i) => (
                 <tr key={i} className="border-b border-border last:border-0 hover:bg-muted/30">
                   <td className="px-4 py-2.5 text-sm font-medium text-foreground">{item.code}</td>
                   <td className="px-4 py-2.5 text-sm text-foreground">{item.name}</td>

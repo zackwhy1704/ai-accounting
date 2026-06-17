@@ -143,6 +143,9 @@ async def create_purchase_payment(
         bill_result = await db.execute(select(Bill).where(Bill.id == payload.bill_id))
         bill = bill_result.scalar_one_or_none()
         if bill:
+            outstanding = float(bill.total or 0) - float(bill.amount_paid or 0)
+            if float(payload.amount) > outstanding + 0.01:
+                raise HTTPException(status_code=400, detail="Payment exceeds outstanding bill balance")
             bill.amount_paid = float(bill.amount_paid or 0) + float(payload.amount)
             bill.mark_paid()
 
@@ -151,6 +154,9 @@ async def create_purchase_payment(
         dn_result = await db.execute(select(PurchaseDebitNote).where(PurchaseDebitNote.id == payload.debit_note_id))
         dn = dn_result.scalar_one_or_none()
         if dn:
+            dn_outstanding = float(dn.total or 0) - float(dn.amount_paid or 0)
+            if float(payload.amount) > dn_outstanding + 0.01:
+                raise HTTPException(status_code=400, detail="Payment exceeds outstanding debit note balance")
             dn.amount_paid = float(dn.amount_paid or 0) + float(payload.amount)
             dn_total = float(dn.total or 0)
             if float(dn.amount_paid) >= dn_total:
@@ -236,6 +242,9 @@ async def update_purchase_payment(
             bill_result = await db.execute(select(Bill).where(Bill.id == new_bill_id))
             bill = bill_result.scalar_one_or_none()
             if bill:
+                outstanding = float(bill.total or 0) - float(bill.amount_paid or 0)
+                if new_amount > outstanding + 0.01:
+                    raise HTTPException(status_code=400, detail="Payment exceeds outstanding bill balance")
                 bill.amount_paid = float(bill.amount_paid or 0) + new_amount
                 bill.mark_paid()
 

@@ -39,15 +39,15 @@ export default function PaymentSummaryPage() {
         <div className="mt-1 text-2xl font-semibold tracking-tight text-foreground">Payment Summary</div>
         <div className="mt-1 text-sm text-muted-foreground">Sales payments received by customer</div>
       </div>
-      {data && data.items.length > 0 && (
+      {(data?.items?.length ?? 0) > 0 && (
         <div className="flex gap-2 print:hidden">
-          <Button variant="outline" size="sm" onClick={() => downloadCSV(`payment-summary-${data.start_date}-${data.end_date}.csv`, [
-            ["Payment Summary", `${data.start_date} to ${data.end_date}`],
+          <Button variant="outline" size="sm" onClick={() => downloadCSV(`payment-summary-${data?.start_date}-${data?.end_date}.csv`, [
+            ["Payment Summary", `${data?.start_date} to ${data?.end_date}`],
             [],
             ["Customer", "Invoices", "Total Paid"],
-            ...data.items.map(i => [i.customer_name, String(i.invoice_count), i.total_paid.toFixed(2)]),
+            ...(data?.items ?? []).map(i => [i.customer_name, String(i.invoice_count), i.total_paid.toFixed(2)]),
             [],
-            ["", "Total", data.total.toFixed(2)],
+            ["", "Total", (data?.total ?? 0).toFixed(2)],
           ])}>
             <Download className="mr-1.5 h-3.5 w-3.5" /> CSV
           </Button>
@@ -81,7 +81,7 @@ export default function PaymentSummaryPage() {
           </div>
               ) : isError ? (
         <Card className="rounded-2xl border-border bg-card p-4 shadow-sm"><QueryError error={error} message="Couldn't generate this report." /></Card>
-      ) : !data || data.items.length === 0 ? (
+      ) : !data?.items?.length ? (
           <div className="py-12 text-center">
             <div className="text-sm font-semibold text-foreground">No payments found</div>
             <div className="mt-1 text-xs text-muted-foreground">Try adjusting the date range</div>
@@ -96,7 +96,7 @@ export default function PaymentSummaryPage() {
               </tr>
             </thead>
             <tbody>
-              {data.items.map((item, i) => (
+              {(data?.items ?? []).map((item, i) => (
                 <tr key={i} className="border-b border-border last:border-0 hover:bg-muted/30">
                   <td className="px-4 py-2.5 text-sm font-medium text-foreground">{item.customer_name}</td>
                   <td className="px-4 py-2.5 text-right text-sm tabular-nums text-foreground">{item.invoice_count}</td>

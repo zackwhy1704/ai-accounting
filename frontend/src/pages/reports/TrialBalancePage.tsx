@@ -68,15 +68,15 @@ export default function TrialBalancePage() {
         </div>
       </div>
 
-      {data && data.lines.length > 0 && (
+      {(data?.lines?.length ?? 0) > 0 && (
         <div className="flex gap-2 print:hidden">
           <Button variant="outline" size="sm" onClick={() => downloadCSV(`trial-balance-${activeAsAt}.csv`, [
             ["Trial Balance", `As at ${activeAsAt}`],
             [],
             ["Code", "Account Name", "Type", "Debit", "Credit"],
-            ...data.lines.map(l => [l.code, l.name, l.account_type, l.debit > 0 ? l.debit.toFixed(2) : "", l.credit > 0 ? l.credit.toFixed(2) : ""]),
+            ...(data?.lines ?? []).map(l => [l.code, l.name, l.account_type, l.debit > 0 ? l.debit.toFixed(2) : "", l.credit > 0 ? l.credit.toFixed(2) : ""]),
             [],
-            ["", "Total", "", data.totals.debit.toFixed(2), data.totals.credit.toFixed(2)],
+            ["", "Total", "", (data?.totals?.debit ?? 0).toFixed(2), (data?.totals?.credit ?? 0).toFixed(2)],
           ])}>
             <Download className="mr-1.5 h-3.5 w-3.5" /> CSV
           </Button>
@@ -114,7 +114,7 @@ export default function TrialBalancePage() {
           </div>
               ) : isError ? (
         <Card className="rounded-2xl border-border bg-card p-4 shadow-sm"><QueryError error={error} message="Couldn't generate this report." /></Card>
-      ) : !data || data.lines.length === 0 ? (
+      ) : !data?.lines?.length ? (
           <div className="py-12 text-center">
             <div className="text-sm font-semibold text-foreground">No data available</div>
             <div className="mt-1 text-xs text-muted-foreground">No journal entries found for the selected date</div>

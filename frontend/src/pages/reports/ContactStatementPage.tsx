@@ -88,7 +88,7 @@ export default function ContactStatementPage() {
             ["Statement", data.contact_name, `${data.start_date} to ${data.end_date}`],
             [],
             ["Date", "Type", "Reference", "Amount", "Balance"],
-            ...data.lines.map(l => [l.ts ? new Date(l.ts).toLocaleDateString() : "", TYPE_LABEL[l.type] ?? l.type, l.ref, l.amount.toFixed(2), l.balance.toFixed(2)]),
+            ...(data?.lines ?? []).map(l => [l.ts ? new Date(l.ts).toLocaleDateString() : "", TYPE_LABEL[l.type] ?? l.type, l.ref, l.amount.toFixed(2), l.balance.toFixed(2)]),
             [],
             ["Closing Balance", "", "", "", data.closing_balance.toFixed(2)],
           ])}>
@@ -103,7 +103,7 @@ export default function ContactStatementPage() {
       ) : data ? (
         <Card className="rounded-2xl border-border bg-card p-6 shadow-[0_0_0_1px_rgba(15,23,42,0.06),0_18px_55px_rgba(2,6,23,0.08)] overflow-hidden">
           <div className="mb-4 text-sm font-semibold text-foreground">{data.contact_name}</div>
-          {data.lines.length === 0 ? (
+          {(data?.lines?.length ?? 0) === 0 ? (
             <div className="text-sm text-muted-foreground">No transactions in this period.</div>
           ) : (
             <table className="w-full text-sm">
@@ -117,7 +117,7 @@ export default function ContactStatementPage() {
                 </tr>
               </thead>
               <tbody>
-                {data.lines.map((l, i) => (
+                {(data?.lines ?? []).map((l, i) => (
                   <tr key={i} className="border-b border-border last:border-0">
                     <td className="px-2 py-2 text-muted-foreground">{l.ts ? new Date(l.ts).toLocaleDateString() : "—"}</td>
                     <td className="px-2 py-2">{TYPE_LABEL[l.type] ?? l.type}</td>

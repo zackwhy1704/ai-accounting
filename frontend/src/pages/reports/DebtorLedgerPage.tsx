@@ -61,7 +61,7 @@ export default function DebtorLedgerPage() {
         <div className="mt-1 text-2xl font-semibold tracking-tight text-foreground">Debtor Ledger</div>
         <div className="mt-1 text-sm text-muted-foreground">Outstanding invoices grouped by customer</div>
       </div>
-      {data && data.customers.length > 0 && (
+      {(data?.customers?.length ?? 0) > 0 && (
         <div className="flex gap-2 print:hidden">
           <Button variant="outline" size="sm" onClick={() => {
             const rows: string[][] = [
@@ -69,13 +69,13 @@ export default function DebtorLedgerPage() {
               [],
               ["Customer", "Invoice #", "Date", "Due Date", "Total", "Paid", "Balance", "Status"],
             ]
-            data.customers.forEach(c => {
+            data?.customers?.forEach(c => {
               c.invoices.forEach(inv => {
                 rows.push([c.customer_name, inv.invoice_number, inv.date, inv.due_date, inv.total.toFixed(2), inv.paid.toFixed(2), inv.balance.toFixed(2), inv.status])
               })
               rows.push(["", "", "", "Subtotal", c.total_invoiced.toFixed(2), c.total_paid.toFixed(2), c.total_balance.toFixed(2), ""])
             })
-            rows.push([], ["", "", "", "Grand Total", data.grand_total_invoiced.toFixed(2), data.grand_total_paid.toFixed(2), data.grand_total_balance.toFixed(2), ""])
+            rows.push([], ["", "", "", "Grand Total", (data?.grand_total_invoiced ?? 0).toFixed(2), (data?.grand_total_paid ?? 0).toFixed(2), (data?.grand_total_balance ?? 0).toFixed(2), ""])
             downloadCSV(`debtor-ledger-${queryParams.fromDate}-${queryParams.toDate}.csv`, rows)
           }}>
             <Download className="mr-1.5 h-3.5 w-3.5" /> CSV
@@ -110,7 +110,7 @@ export default function DebtorLedgerPage() {
           </div>
               ) : isError ? (
         <Card className="rounded-2xl border-border bg-card p-4 shadow-sm"><QueryError error={error} message="Couldn't generate this report." /></Card>
-      ) : !data || data.customers.length === 0 ? (
+      ) : !data?.customers?.length ? (
           <div className="py-12 text-center">
             <div className="text-sm font-semibold text-foreground">No debtor records found</div>
             <div className="mt-1 text-xs text-muted-foreground">Try adjusting the date range</div>
@@ -129,7 +129,7 @@ export default function DebtorLedgerPage() {
               </tr>
             </thead>
             <tbody>
-              {data.customers.map((customer, ci) => (
+              {(data?.customers ?? []).map((customer, ci) => (
                 <Fragment key={ci}>
                   <tr className="bg-muted/20">
                     <td colSpan={7} className="px-4 py-2.5 text-sm font-semibold text-foreground">{customer.customer_name}</td>
