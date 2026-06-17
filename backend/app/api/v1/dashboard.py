@@ -38,7 +38,7 @@ async def get_dashboard(
     ar_result = await db.execute(
         select(func.coalesce(func.sum(Invoice.total - Invoice.amount_paid), 0)).where(
             Invoice.organization_id == org_id,
-            Invoice.status.in_(["sent", "viewed", "outstanding", "overdue", "partially paid"]),
+            Invoice.status.in_(["sent", "viewed", "outstanding", "overdue", "partially_paid", "partially paid"]),
             Invoice.total > Invoice.amount_paid,
         )
     )
@@ -48,7 +48,7 @@ async def get_dashboard(
     ap_result = await db.execute(
         select(func.coalesce(func.sum(Bill.total - Bill.amount_paid), 0)).where(
             Bill.organization_id == org_id,
-            Bill.status.in_(["received", "approved", "outstanding", "overdue", "partially paid"]),
+            Bill.status.in_(["received", "approved", "outstanding", "overdue", "partially_paid", "partially paid"]),
             Bill.total > Bill.amount_paid,
         )
     )
@@ -69,7 +69,7 @@ async def get_dashboard(
             or_(
                 Invoice.status == "overdue",
                 and_(
-                    Invoice.status.in_(["sent", "viewed", "outstanding", "partially paid"]),
+                    Invoice.status.in_(["sent", "viewed", "outstanding", "partially_paid", "partially paid"]),
                     Invoice.due_date < now,
                 )
             )
@@ -81,7 +81,7 @@ async def get_dashboard(
     overdue_bills_result = await db.execute(
         select(func.count(Bill.id)).where(
             Bill.organization_id == org_id,
-            Bill.status.in_(["received", "approved", "outstanding", "partially paid"]),
+            Bill.status.in_(["received", "approved", "outstanding", "partially_paid", "partially paid"]),
             Bill.total > Bill.amount_paid,
         )
     )

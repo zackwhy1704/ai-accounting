@@ -6,6 +6,7 @@ from sqlalchemy import select, func
 
 from app.core.database import get_db
 from app.core.security import get_current_user
+from ._util import parse_date
 from app.models.models import Account, JournalEntry, Transaction
 
 router = APIRouter()
@@ -19,7 +20,7 @@ async def balance_sheet_report(
 ):
     """Balance Sheet as of a given date."""
     org_id = current_user["org_id"]
-    as_of = datetime.fromisoformat(as_of_date).replace(hour=23, minute=59, second=59, tzinfo=timezone.utc) if as_of_date else datetime.now(timezone.utc)
+    as_of = parse_date(as_of_date, "as_of_date", end_of_day=True) if as_of_date else datetime.now(timezone.utc)
 
     result = await db.execute(
         select(
@@ -84,7 +85,7 @@ async def trial_balance_report(
 ):
     """Trial balance as of a given date — sum of journal entry debits/credits by account."""
     org_id = current_user["org_id"]
-    as_of = datetime.fromisoformat(as_of_date).replace(hour=23, minute=59, second=59, tzinfo=timezone.utc) if as_of_date else datetime.now(timezone.utc)
+    as_of = parse_date(as_of_date, "as_of_date", end_of_day=True) if as_of_date else datetime.now(timezone.utc)
 
     result = await db.execute(
         select(
@@ -144,8 +145,8 @@ async def cash_flow_report(
 ):
     """Cash Flow Statement summary."""
     org_id = current_user["org_id"]
-    start = datetime.fromisoformat(start_date).replace(tzinfo=timezone.utc)
-    end = datetime.fromisoformat(end_date).replace(hour=23, minute=59, second=59, tzinfo=timezone.utc)
+    start = parse_date(start_date, "start_date")
+    end = parse_date(end_date, "end_date", end_of_day=True)
 
     # Cash/bank accounts — movements during period
     cash_accounts = await db.execute(

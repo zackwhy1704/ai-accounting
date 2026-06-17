@@ -271,7 +271,7 @@ async def pay_debit_note(
     if float(dn.amount_paid) >= dn_total:
         dn.status = "applied"
     elif float(dn.amount_paid) > 0:
-        dn.status = "partially paid"
+        dn.status = "partially_paid"
     else:
         dn.status = "issued"
 
@@ -291,7 +291,7 @@ async def pay_debit_note(
                 if float(inv.amount_paid) >= inv_total:
                     inv.status = "paid"
                 elif float(inv.amount_paid) > 0:
-                    inv.status = "partially paid"
+                    inv.status = "partially_paid"
                 else:
                     inv.status = "outstanding"
 

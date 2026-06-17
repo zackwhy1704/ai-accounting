@@ -192,7 +192,7 @@ async def update_bill(
         bill.total = total
 
         # Recalculate payment status when total changes
-        if bill.status in ("paid", "partially paid", "outstanding"):
+        if bill.status in ("paid", "partially_paid", "partially paid", "outstanding"):
             bill.mark_paid()
 
         for i, item in enumerate(new_items):

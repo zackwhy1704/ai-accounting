@@ -8,6 +8,7 @@ from uuid import UUID
 
 from app.core.database import get_db
 from app.core.security import get_current_user
+from ._util import parse_date
 from app.models.models import (
     Invoice, Bill, Contact, Account, JournalEntry, Transaction,
 )
@@ -26,62 +27,82 @@ async def general_ledger_report(
     """General Ledger — all journal entries grouped by account."""
     org_id = current_user["org_id"]
     now = datetime.now(timezone.utc)
-    start = datetime.fromisoformat(from_date).replace(tzinfo=timezone.utc) if from_date else datetime(now.year, 1, 1, tzinfo=timezone.utc)
-    end = datetime.fromisoformat(to_date).replace(hour=23, minute=59, second=59, tzinfo=timezone.utc) if to_date else now
+    start = parse_date(from_date, "from_date") if from_date else datetime(now.year, 1, 1, tzinfo=timezone.utc)
+    end = parse_date(to_date, "to_date", end_of_day=True) if to_date else now
 
-    # Get all accounts
+    # Get all accounts (optionally filtered)
     acct_q = select(Account).where(Account.organization_id == org_id).order_by(Account.code)
     if account:
         acct_q = acct_q.where(
             Account.code.ilike(f"%{account}%") | Account.name.ilike(f"%{account}%")
         )
-    acct_result = await db.execute(acct_q)
-    accounts = acct_result.scalars().all()
+    accounts = (await db.execute(acct_q)).scalars().all()
+    acct_ids = [a.id for a in accounts]
+    if not acct_ids:
+        return {
+            "report_type": "general_ledger",
+            "from_date": start.strftime("%Y-%m-%d"), "to_date": end.strftime("%Y-%m-%d"),
+            "currency": "MYR", "accounts": [], "generated_at": datetime.now(timezone.utc).isoformat(),
+        }
 
+    # ONE query: opening balances for ALL accounts before `start`, grouped by account.
+    # Org-scoped via Account join (CODE-2: pin organization_id explicitly).
+    opening_rows = (await db.execute(
+        select(
+            JournalEntry.account_id,
+            func.coalesce(func.sum(JournalEntry.debit), 0).label("dr"),
+            func.coalesce(func.sum(JournalEntry.credit), 0).label("cr"),
+        )
+        .join(Transaction, JournalEntry.transaction_id == Transaction.id)
+        .join(Account, Account.id == JournalEntry.account_id)
+        .where(
+            Account.organization_id == org_id,
+            Transaction.organization_id == org_id,
+            JournalEntry.account_id.in_(acct_ids),
+            Transaction.date < start,
+            Transaction.is_posted == True,
+        )
+        .group_by(JournalEntry.account_id)
+    )).all()
+    opening_by_acct = {r.account_id: float(r.dr) - float(r.cr) for r in opening_rows}
+
+    # ONE query: all period entries for these accounts, ordered by account then date.
+    entry_rows = (await db.execute(
+        select(
+            JournalEntry.account_id,
+            Transaction.date,
+            Transaction.description,
+            Transaction.reference,
+            JournalEntry.debit,
+            JournalEntry.credit,
+        )
+        .join(Transaction, JournalEntry.transaction_id == Transaction.id)
+        .join(Account, Account.id == JournalEntry.account_id)
+        .where(
+            Account.organization_id == org_id,
+            Transaction.organization_id == org_id,
+            JournalEntry.account_id.in_(acct_ids),
+            Transaction.date >= start,
+            Transaction.date <= end,
+            Transaction.is_posted == True,
+        )
+        .order_by(JournalEntry.account_id, Transaction.date)
+    )).all()
+    entries_by_acct: dict = defaultdict(list)
+    for r in entry_rows:
+        entries_by_acct[r.account_id].append(r)
+
+    # Assemble per-account in Python from the two result sets (2 queries total).
     ledger_accounts = []
     for acct in accounts:
-        # Opening balance: sum of all entries before start date
-        opening_q = await db.execute(
-            select(
-                func.coalesce(func.sum(JournalEntry.debit), 0).label("dr"),
-                func.coalesce(func.sum(JournalEntry.credit), 0).label("cr"),
-            )
-            .join(Transaction, JournalEntry.transaction_id == Transaction.id)
-            .where(
-                JournalEntry.account_id == acct.id,
-                Transaction.date < start,
-                Transaction.is_posted == True,
-            )
-        )
-        opening_row = opening_q.one()
-        opening_balance = float(opening_row.dr) - float(opening_row.cr)
-
-        # Entries in period
-        entries_q = await db.execute(
-            select(
-                Transaction.date,
-                Transaction.description,
-                Transaction.reference,
-                JournalEntry.debit,
-                JournalEntry.credit,
-            )
-            .join(Transaction, JournalEntry.transaction_id == Transaction.id)
-            .where(
-                JournalEntry.account_id == acct.id,
-                Transaction.date >= start,
-                Transaction.date <= end,
-                Transaction.is_posted == True,
-            )
-            .order_by(Transaction.date)
-        )
-        entry_rows = entries_q.all()
-
-        if not entry_rows and abs(opening_balance) < 0.01:
+        opening_balance = opening_by_acct.get(acct.id, 0.0)
+        rows = entries_by_acct.get(acct.id, [])
+        if not rows and abs(opening_balance) < 0.01:
             continue  # Skip accounts with no activity
 
         entries = []
         running = opening_balance
-        for row in entry_rows:
+        for row in rows:
             dr = float(row.debit or 0)
             cr = float(row.credit or 0)
             running += dr - cr
@@ -123,8 +144,8 @@ async def transaction_list_report(
 ):
     """Transaction list with journal entries for a date range."""
     org_id = current_user["org_id"]
-    start = datetime.fromisoformat(start_date).replace(tzinfo=timezone.utc)
-    end = datetime.fromisoformat(end_date).replace(hour=23, minute=59, second=59, tzinfo=timezone.utc)
+    start = parse_date(start_date, "start_date")
+    end = parse_date(end_date, "end_date", end_of_day=True)
 
     txn_query = (
         select(Transaction)
@@ -199,8 +220,8 @@ async def debtor_ledger_report(
 ):
     """Debtor ledger — invoices grouped by customer."""
     org_id = current_user["org_id"]
-    start = datetime.fromisoformat(start_date).replace(tzinfo=timezone.utc)
-    end = datetime.fromisoformat(end_date).replace(hour=23, minute=59, second=59, tzinfo=timezone.utc)
+    start = parse_date(start_date, "start_date")
+    end = parse_date(end_date, "end_date", end_of_day=True)
 
     result = await db.execute(
         select(Invoice, Contact)
@@ -275,18 +296,18 @@ async def creditor_ledger_report(
 ):
     """Creditor ledger — bills grouped by vendor."""
     org_id = current_user["org_id"]
-    start = datetime.fromisoformat(start_date).replace(tzinfo=timezone.utc)
-    end = datetime.fromisoformat(end_date).replace(hour=23, minute=59, second=59, tzinfo=timezone.utc)
+    start = parse_date(start_date, "start_date")
+    end = parse_date(end_date, "end_date", end_of_day=True)
 
     result = await db.execute(
         select(Bill, Contact)
         .join(Contact, Bill.contact_id == Contact.id, isouter=True)
         .where(
             Bill.organization_id == org_id,
-            Bill.bill_date >= start,
-            Bill.bill_date <= end,
+            Bill.issue_date >= start,
+            Bill.issue_date <= end,
         )
-        .order_by(Contact.name, Bill.bill_date)
+        .order_by(Contact.name, Bill.issue_date)
     )
     rows = result.all()
 
@@ -314,7 +335,7 @@ async def creditor_ledger_report(
             total_balance += b
             bill_list.append({
                 "bill_number": bill.bill_number,
-                "date": bill.bill_date.strftime("%Y-%m-%d") if bill.bill_date else None,
+                "date": bill.issue_date.strftime("%Y-%m-%d") if bill.issue_date else None,
                 "due_date": bill.due_date.strftime("%Y-%m-%d") if bill.due_date else None,
                 "total": t,
                 "paid": p,

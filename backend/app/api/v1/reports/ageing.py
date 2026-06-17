@@ -7,6 +7,7 @@ from sqlalchemy import select
 
 from app.core.database import get_db
 from app.core.security import get_current_user
+from ._util import parse_date
 from app.models.models import (
     Invoice, Bill, Contact, CreditNote, SalesPayment, PaymentAllocation, SalesRefund,
 )
@@ -22,7 +23,7 @@ async def ar_aging_report(
 ):
     """Accounts Receivable aging: Current, 1-30, 31-60, 61-90, 90+ days."""
     org_id = current_user["org_id"]
-    as_of = datetime.fromisoformat(as_of_date).replace(tzinfo=timezone.utc) if as_of_date else datetime.now(timezone.utc)
+    as_of = parse_date(as_of_date, "as_of_date") if as_of_date else datetime.now(timezone.utc)
 
     result = await db.execute(
         select(Invoice, Contact)
@@ -93,7 +94,7 @@ async def ap_aging_report(
     supplier (drill-down) alongside the bucketed totals.
     """
     org_id = current_user["org_id"]
-    as_of = datetime.fromisoformat(as_of_date).replace(tzinfo=timezone.utc) if as_of_date else datetime.now(timezone.utc)
+    as_of = parse_date(as_of_date, "as_of_date") if as_of_date else datetime.now(timezone.utc)
 
     q = (
         select(Bill, Contact)
@@ -166,8 +167,8 @@ async def contact_statement(
     """Per-contact statement: invoices, payments, credit notes and refunds in a
     date range with a running balance (Xero-style statement to email customers)."""
     org_id = current_user["org_id"]
-    start = datetime.fromisoformat(start_date).replace(tzinfo=timezone.utc)
-    end = datetime.fromisoformat(end_date).replace(hour=23, minute=59, second=59, tzinfo=timezone.utc)
+    start = parse_date(start_date, "start_date")
+    end = parse_date(end_date, "end_date", end_of_day=True)
 
     contact = (await db.execute(
         select(Contact).where(Contact.id == contact_id, Contact.organization_id == org_id)

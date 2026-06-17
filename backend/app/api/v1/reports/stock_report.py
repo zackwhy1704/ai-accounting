@@ -7,6 +7,7 @@ from sqlalchemy import select
 
 from app.core.database import get_db
 from app.core.security import get_current_user
+from ._util import parse_date
 from app.models.models import Product, StockAdjustment
 
 router = APIRouter()
@@ -64,8 +65,8 @@ async def inventory_summary_report(
 ):
     """Inventory summary — movements per tracked product in period."""
     org_id = current_user["org_id"]
-    start = datetime.fromisoformat(start_date).replace(tzinfo=timezone.utc)
-    end = datetime.fromisoformat(end_date).replace(hour=23, minute=59, second=59, tzinfo=timezone.utc)
+    start = parse_date(start_date, "start_date")
+    end = parse_date(end_date, "end_date", end_of_day=True)
 
     # Get all tracked products
     prod_result = await db.execute(

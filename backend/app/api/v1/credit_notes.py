@@ -292,7 +292,7 @@ async def remove_single_credit_application(cn_id: UUID, app_id: UUID, current_us
         if float(inv.amount_paid) >= inv_total:
             inv.status = "paid"
         elif float(inv.amount_paid) > 0:
-            inv.status = "partially paid"
+            inv.status = "partially_paid"
         else:
             inv.status = "outstanding"
     await db.delete(app)
@@ -337,7 +337,7 @@ async def remove_credit_applications(cn_id: UUID, current_user: dict = Depends(r
             if float(inv.amount_paid) >= inv_total:
                 inv.status = "paid"
             elif float(inv.amount_paid) > 0:
-                inv.status = "partially paid"
+                inv.status = "partially_paid"
             else:
                 inv.status = "outstanding"
     await db.execute(delete(CreditApplicationModel).where(CreditApplicationModel.credit_note_id == obj.id))

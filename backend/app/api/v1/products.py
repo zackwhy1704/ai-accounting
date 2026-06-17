@@ -56,7 +56,7 @@ async def create_product(
     )
     db.add(product)
     await db.commit()
-    await log_audit(db, current_user["org_id"], current_user["sub"], "create", "product", p.id)
+    await log_audit(db, current_user["org_id"], current_user["sub"], "create", "product", product.id)
     await db.refresh(product)
     return product
 

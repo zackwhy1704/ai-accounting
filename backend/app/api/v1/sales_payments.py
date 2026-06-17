@@ -186,6 +186,36 @@ async def update_sales_payment(sp_id: UUID, data: SalesPaymentUpdate, current_us
                     dn_total = float(dn.total or 0)
                     dn.status = "applied" if float(dn.amount_paid) >= dn_total else "issued"
 
+    elif "amount" in update_data:
+        # Amount amended WITHOUT an explicit allocations array. The payment record
+        # and the sum of its allocations must stay in sync, otherwise the invoice
+        # balance would not reflect the new amount ("invoice amount does not return
+        # to original"). Reconcile the single existing allocation; if the payment
+        # spreads across several invoices we can't infer the split, so require the
+        # caller to send allocations explicitly.
+        new_amount = round(float(update_data["amount"]), 2)
+        if len(obj.allocations) > 1:
+            raise HTTPException(
+                status_code=400,
+                detail="This payment is split across multiple invoices — send the full allocations to amend the amount.",
+            )
+        if obj.allocations:
+            existing_alloc = obj.allocations[0]
+            old_amt = float(existing_alloc.amount)
+            delta = new_amount - old_amt
+            if existing_alloc.invoice_id:
+                inv = (await db.execute(select(Invoice).where(Invoice.id == existing_alloc.invoice_id))).scalar_one_or_none()
+                if inv:
+                    inv.amount_paid = max(0.0, float(inv.amount_paid or 0) + delta)
+                    inv.mark_paid()
+            if existing_alloc.debit_note_id:
+                dn = (await db.execute(select(DebitNote).where(DebitNote.id == existing_alloc.debit_note_id))).scalar_one_or_none()
+                if dn:
+                    dn.amount_paid = max(0.0, float(dn.amount_paid or 0) + delta)
+                    dn_total = float(dn.total or 0)
+                    dn.status = "applied" if float(dn.amount_paid) >= dn_total else "issued"
+            existing_alloc.amount = new_amount
+
     new_num = update_data.get("payment_number")
     if new_num and new_num != obj.payment_number:
         existing = (await db.execute(select(SalesPayment.id).where(SalesPayment.organization_id == obj.organization_id, SalesPayment.payment_number == new_num, SalesPayment.id != obj.id))).first()
@@ -265,7 +295,7 @@ async def delete_sales_payment(sp_id: UUID, current_user: dict = Depends(require
                 if float(inv.amount_paid) >= inv_total:
                     inv.status = "paid"
                 elif float(inv.amount_paid) > 0:
-                    inv.status = "partially paid"
+                    inv.status = "partially_paid"
                 else:
                     inv.status = "outstanding"
         await revert_gl(

@@ -80,7 +80,7 @@ async def _recalc_bill_status(bill: Bill) -> None:
     if float(bill.amount_paid or 0) >= bill_total:
         bill.status = "paid"
     elif float(bill.amount_paid or 0) > 0:
-        bill.status = "partially paid"
+        bill.status = "partially_paid"
     else:
         bill.status = "outstanding"
 

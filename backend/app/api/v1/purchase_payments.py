@@ -144,13 +144,7 @@ async def create_purchase_payment(
         bill = bill_result.scalar_one_or_none()
         if bill:
             bill.amount_paid = float(bill.amount_paid or 0) + float(payload.amount)
-            bill_total = float(bill.total or 0)
-            if float(bill.amount_paid) >= bill_total:
-                bill.status = "paid"
-            elif float(bill.amount_paid) > 0:
-                bill.status = "partially paid"
-            else:
-                bill.status = "outstanding"
+            bill.mark_paid()
 
     # Update linked debit note balance
     if payload.debit_note_id:
@@ -162,7 +156,7 @@ async def create_purchase_payment(
             if float(dn.amount_paid) >= dn_total:
                 dn.status = "applied"
             elif float(dn.amount_paid) > 0:
-                dn.status = "partially paid"
+                dn.status = "partially_paid"
 
     # GL: Dr AP / Cr Cash/Bank via shared service
     await post_purchase_payment_gl(
@@ -236,26 +230,14 @@ async def update_purchase_payment(
             bill = bill_result.scalar_one_or_none()
             if bill:
                 bill.amount_paid = max(0.0, float(bill.amount_paid or 0) - old_amount)
-                bill_total = float(bill.total or 0)
-                if float(bill.amount_paid) >= bill_total:
-                    bill.status = "paid"
-                elif float(bill.amount_paid) > 0:
-                    bill.status = "partially paid"
-                else:
-                    bill.status = "outstanding"
+                bill.mark_paid()
         # Apply to new bill
         if new_bill_id:
             bill_result = await db.execute(select(Bill).where(Bill.id == new_bill_id))
             bill = bill_result.scalar_one_or_none()
             if bill:
                 bill.amount_paid = float(bill.amount_paid or 0) + new_amount
-                bill_total = float(bill.total or 0)
-                if float(bill.amount_paid) >= bill_total:
-                    bill.status = "paid"
-                elif float(bill.amount_paid) > 0:
-                    bill.status = "partially paid"
-                else:
-                    bill.status = "outstanding"
+                bill.mark_paid()
 
     for key, val in update_data.items():
         setattr(payment, key, val)
@@ -273,13 +255,7 @@ async def _revert_bill_balance(db: AsyncSession, payment: PurchasePayment) -> No
     if not bill:
         return
     bill.amount_paid = max(0.0, float(bill.amount_paid or 0) - float(payment.amount or 0))
-    bill_total = float(bill.total or 0)
-    if float(bill.amount_paid) >= bill_total:
-        bill.status = "paid"
-    elif float(bill.amount_paid) > 0:
-        bill.status = "partially paid"
-    else:
-        bill.status = "outstanding"
+    bill.mark_paid()
 
 
 @router.delete("/{payment_id}", status_code=204)

@@ -7,6 +7,7 @@ from sqlalchemy import select, func
 
 from app.core.database import get_db
 from app.core.security import get_current_user
+from ._util import parse_date
 from app.models.models import (
     Invoice, Bill, Contact,
     InvoiceLineItem, BillLineItem,
@@ -34,8 +35,8 @@ async def profit_loss_report(
     previous version which summed Invoice.total / Bill.total from the subledger.
     """
     org_id = current_user["org_id"]
-    start = datetime.fromisoformat(start_date).replace(tzinfo=timezone.utc)
-    end = datetime.fromisoformat(end_date).replace(hour=23, minute=59, second=59, tzinfo=timezone.utc)
+    start = parse_date(start_date, "start_date")
+    end = parse_date(end_date, "end_date", end_of_day=True)
 
     result = await db.execute(
         select(
@@ -112,8 +113,8 @@ async def invoice_summary_report(
 ):
     """Invoice Summary — aggregated invoices by status and customer."""
     org_id = current_user["org_id"]
-    start = datetime.fromisoformat(start_date).replace(tzinfo=timezone.utc)
-    end = datetime.fromisoformat(end_date).replace(hour=23, minute=59, second=59, tzinfo=timezone.utc)
+    start = parse_date(start_date, "start_date")
+    end = parse_date(end_date, "end_date", end_of_day=True)
 
     result = await db.execute(
         select(
@@ -163,8 +164,8 @@ async def bill_summary_report(
 ):
     """Bill Summary — aggregated bills by status and vendor."""
     org_id = current_user["org_id"]
-    start = datetime.fromisoformat(start_date).replace(tzinfo=timezone.utc)
-    end = datetime.fromisoformat(end_date).replace(hour=23, minute=59, second=59, tzinfo=timezone.utc)
+    start = parse_date(start_date, "start_date")
+    end = parse_date(end_date, "end_date", end_of_day=True)
 
     result = await db.execute(
         select(
@@ -177,8 +178,8 @@ async def bill_summary_report(
         .join(Contact, Bill.contact_id == Contact.id, isouter=True)
         .where(
             Bill.organization_id == org_id,
-            Bill.bill_date >= start,
-            Bill.bill_date <= end,
+            Bill.issue_date >= start,
+            Bill.issue_date <= end,
         )
         .group_by(Contact.name, Bill.status)
         .order_by(Contact.name)
@@ -214,8 +215,8 @@ async def payment_summary_report(
 ):
     """Payment Summary — sales payments received in period."""
     org_id = current_user["org_id"]
-    start = datetime.fromisoformat(start_date).replace(tzinfo=timezone.utc)
-    end = datetime.fromisoformat(end_date).replace(hour=23, minute=59, second=59, tzinfo=timezone.utc)
+    start = parse_date(start_date, "start_date")
+    end = parse_date(end_date, "end_date", end_of_day=True)
 
     # Payments are invoices that have been paid
     result = await db.execute(
@@ -263,8 +264,8 @@ async def sst02_report(
 ):
     """SST-02 Malaysia Sales & Service Tax return summary."""
     org_id = current_user["org_id"]
-    start = datetime.fromisoformat(from_date).replace(tzinfo=timezone.utc)
-    end = datetime.fromisoformat(to_date).replace(hour=23, minute=59, second=59, tzinfo=timezone.utc)
+    start = parse_date(from_date, "from_date")
+    end = parse_date(to_date, "to_date", end_of_day=True)
 
     # Output tax from invoices (SST on sales)
     inv_result = await db.execute(
@@ -291,8 +292,8 @@ async def sst02_report(
         )
         .where(
             Bill.organization_id == org_id,
-            Bill.bill_date >= start,
-            Bill.bill_date <= end,
+            Bill.issue_date >= start,
+            Bill.issue_date <= end,
             Bill.status.in_(["outstanding", "partially_paid", "paid"]),
         )
     )
@@ -312,7 +313,7 @@ async def sst02_report(
     net_tax = sales_tax - purchase_tax
 
     # Due date: last day of month following the quarter end
-    end_dt = datetime.fromisoformat(to_date)
+    end_dt = parse_date(to_date, "to_date")
     due_month = end_dt.month + 1
     due_year = end_dt.year
     if due_month > 12:
@@ -346,8 +347,8 @@ async def sst_sales_detail_report(
 ):
     """SST Sales Detail — taxable invoice line items."""
     org_id = current_user["org_id"]
-    start = datetime.fromisoformat(start_date).replace(tzinfo=timezone.utc)
-    end = datetime.fromisoformat(end_date).replace(hour=23, minute=59, second=59, tzinfo=timezone.utc)
+    start = parse_date(start_date, "start_date")
+    end = parse_date(end_date, "end_date", end_of_day=True)
 
     result = await db.execute(
         select(InvoiceLineItem, Invoice, Contact)
@@ -405,8 +406,8 @@ async def sst_purchase_detail_report(
 ):
     """SST Purchase Detail — taxable bill line items."""
     org_id = current_user["org_id"]
-    start = datetime.fromisoformat(start_date).replace(tzinfo=timezone.utc)
-    end = datetime.fromisoformat(end_date).replace(hour=23, minute=59, second=59, tzinfo=timezone.utc)
+    start = parse_date(start_date, "start_date")
+    end = parse_date(end_date, "end_date", end_of_day=True)
 
     result = await db.execute(
         select(BillLineItem, Bill, Contact)
@@ -414,11 +415,11 @@ async def sst_purchase_detail_report(
         .join(Contact, Bill.contact_id == Contact.id, isouter=True)
         .where(
             Bill.organization_id == org_id,
-            Bill.bill_date >= start,
-            Bill.bill_date <= end,
+            Bill.issue_date >= start,
+            Bill.issue_date <= end,
             BillLineItem.tax_rate > 0,
         )
-        .order_by(Bill.bill_date)
+        .order_by(Bill.issue_date)
     )
     rows = result.all()
 
@@ -436,7 +437,7 @@ async def sst_purchase_detail_report(
         total_tax += tax_amount
         items.append({
             "bill_number": bill.bill_number,
-            "date": bill.bill_date.strftime("%Y-%m-%d") if bill.bill_date else None,
+            "date": bill.issue_date.strftime("%Y-%m-%d") if bill.issue_date else None,
             "vendor_name": contact.name if contact else "Unknown",
             "description": line.description or "",
             "quantity": qty,
