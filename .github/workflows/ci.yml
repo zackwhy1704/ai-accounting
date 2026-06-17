@@ -57,9 +57,10 @@ jobs:
         run: alembic upgrade head
 
       - name: Run test suite
-        # -p no:randomly keeps order stable; -rs shows why anything skipped so a
-        # silently-skipped guard can't hide.
-        run: pytest -q -rs
+        # -rs shows skip reasons; -ra also surfaces the short failure summary.
+        # Full tracebacks so a CI-only failure is diagnosable from the run page
+        # without needing repo-admin log access.
+        run: pytest -ra -v --tb=short
 
   frontend:
     runs-on: ubuntu-latest
