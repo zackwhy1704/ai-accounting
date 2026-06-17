@@ -4,7 +4,10 @@ echo "=== Accruly Backend Starting ==="
 echo "PORT=${PORT:-8000}"
 
 echo "Running database migrations..."
-alembic upgrade head 2>&1 || echo "WARNING: migrations failed"
+# Migrations MUST succeed. Swallowing failures here meant the app booted against a
+# schema-incomplete DB (e.g. missing bank_statement_lines), serving 500s in prod
+# that looked like a "successful" deploy. Fail the boot instead.
+alembic upgrade head || { echo "FATAL: migrations failed"; exit 1; }
 echo "Migrations complete."
 
 echo "Testing async DB connection..."
@@ -27,7 +30,7 @@ asyncio.run(test())
 " 2>&1 || echo "FATAL: async DB connection failed"
 
 echo "Testing app import..."
-python -c "from app.main import app; print('OK: app imported')" 2>&1 || echo "FATAL: app import failed"
+python -c "from app.main import app; print('OK: app imported')" 2>&1 || { echo "FATAL: app import failed"; exit 1; }
 
 echo "Starting uvicorn on port ${PORT:-8000}..."
 exec uvicorn app.main:app --host 0.0.0.0 --port "${PORT:-8000}" --log-level info 2>&1

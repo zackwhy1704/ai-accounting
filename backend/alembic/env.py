@@ -10,7 +10,12 @@ settings = get_settings()
 
 # Set sqlalchemy.url from settings (use sync driver for migrations)
 # Handle both postgresql+asyncpg:// and plain postgresql:// (Railway)
-sync_url = settings.DATABASE_URL.replace("+asyncpg", "")
+# Allow an explicit override (used by tests that migrate a throwaway DB); fall
+# back to settings.DATABASE_URL for normal CLI / deploy runs.
+_raw_url = config.get_main_option("sqlalchemy.url")
+if not _raw_url or _raw_url.startswith("driver://"):
+    _raw_url = settings.DATABASE_URL
+sync_url = _raw_url.replace("+asyncpg", "")
 if sync_url.startswith("postgres://"):
     sync_url = sync_url.replace("postgres://", "postgresql://", 1)
 config.set_main_option("sqlalchemy.url", sync_url)

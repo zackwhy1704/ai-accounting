@@ -5,6 +5,7 @@ import { Card } from "../../components/ui/card"
 import { Button } from "../../components/ui/button"
 import { formatCurrency, formatDate, downloadCSV, printReport } from "../../lib/utils"
 import api from "../../lib/api"
+import { QueryError } from "../../components/ui/query-error"
 
 interface BankStatementLine {
   id: string
@@ -38,7 +39,7 @@ export default function BankReconciliationPage() {
   const queryClient = useQueryClient()
   const fileInputRef = useRef<HTMLInputElement>(null)
 
-  const { data: lines, isLoading: linesLoading } = useQuery<BankStatementLine[]>({
+  const { data: lines, isLoading: linesLoading, isError: linesError, error: linesErr } = useQuery<BankStatementLine[]>({
     queryKey: ["bank-reconciliation-lines"],
     queryFn: () => api.get("/bank-reconciliation/lines").then(r => r.data),
   })
@@ -205,6 +206,8 @@ export default function BankReconciliationPage() {
           <div className="py-12 text-center text-sm text-muted-foreground">
             <Loader2 className="h-4 w-4 animate-spin inline mr-2" /> Loading statement lines…
           </div>
+        ) : linesError ? (
+          <div className="p-4"><QueryError error={linesErr} message="Couldn't load statement lines." /></div>
         ) : !hasLines ? (
           <div className="py-12 text-center">
             <div className="text-sm font-semibold text-foreground">No statement lines</div>
