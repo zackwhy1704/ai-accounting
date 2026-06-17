@@ -1,0 +1,5 @@
+# Test-only dependencies (kept out of the runtime image).
+# Pinned to the versions the suite is developed against so CI matches local.
+-r requirements.txt
+pytest==9.0.2
+pytest-asyncio==1.3.0
