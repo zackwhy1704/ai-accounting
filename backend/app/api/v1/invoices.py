@@ -214,7 +214,11 @@ async def update_invoice_status(
     if not invoice:
         raise HTTPException(status_code=404, detail="Invoice not found")
 
-    valid_statuses = {"draft", "sent", "viewed", "paid", "overdue", "cancelled", "void"}
+    # Include outstanding/partially_paid: the system already sets these internally
+    # (via payments / credit notes) and reports depend on them, so the manual
+    # endpoint's valid set must recognise them rather than reject the app's own
+    # lifecycle vocabulary.
+    valid_statuses = {"draft", "sent", "viewed", "outstanding", "partially_paid", "paid", "overdue", "cancelled", "void"}
     if status not in valid_statuses:
         raise HTTPException(status_code=400, detail=f"Invalid status. Must be one of: {valid_statuses}")
 
@@ -226,8 +230,12 @@ async def update_invoice_status(
     prev_status = invoice.status
     invoice.status = status
 
-    # draft → sent: post Dr AR / Cr Revenue (+ Cr GST Payable) via shared service
-    if status == "sent" and prev_status == "draft":
+    # draft → finalized (sent/outstanding/...): post Dr AR / Cr Revenue (+ Cr GST
+    # Payable). Any non-draft target finalizes the invoice and must post the GL
+    # once, so a user finalizing straight to 'outstanding' doesn't leave the books
+    # unbalanced.
+    _POSTED = {"sent", "viewed", "outstanding", "partially_paid", "overdue"}
+    if status in _POSTED and prev_status == "draft":
         await post_invoice_gl(
             db, org_id,
             issue_date=invoice.issue_date,

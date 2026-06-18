@@ -277,7 +277,11 @@ async def sst02_report(
             Invoice.organization_id == org_id,
             Invoice.issue_date >= start,
             Invoice.issue_date <= end,
-            Invoice.status.in_(["outstanding", "partially_paid", "paid"]),
+            # Every finalized (GL-posted) invoice owes output tax regardless of
+            # payment — include 'sent'/'viewed'/'overdue', exclude only drafts and
+            # voided/cancelled. (Filtering by the unpaid-only set under-reported
+            # output tax on issued-but-unpaid invoices.)
+            Invoice.status.notin_(["draft", "void", "cancelled"]),
         )
     )
     inv_row = inv_result.one()
@@ -294,7 +298,11 @@ async def sst02_report(
             Bill.organization_id == org_id,
             Bill.issue_date >= start,
             Bill.issue_date <= end,
-            Bill.status.in_(["outstanding", "partially_paid", "paid"]),
+            # Same as the sales side: a finalized bill posts input tax at
+            # 'approved'/'outstanding'. Include all GL-posted statuses, exclude
+            # only drafts/received-not-approved and voids. (The unpaid-only set
+            # dropped 'approved' bills from SST input tax.)
+            Bill.status.notin_(["draft", "received", "void", "cancelled"]),
         )
     )
     bill_row = bill_result.one()
@@ -359,6 +367,8 @@ async def sst_sales_detail_report(
             Invoice.issue_date >= start,
             Invoice.issue_date <= end,
             InvoiceLineItem.tax_rate > 0,
+            # Match the SST-02 summary: finalized invoices only (no drafts/voids).
+            Invoice.status.notin_(["draft", "void", "cancelled"]),
         )
         .order_by(Invoice.issue_date)
     )
@@ -418,6 +428,8 @@ async def sst_purchase_detail_report(
             Bill.issue_date >= start,
             Bill.issue_date <= end,
             BillLineItem.tax_rate > 0,
+            # Match the SST-02 summary: finalized bills only.
+            Bill.status.notin_(["draft", "received", "void", "cancelled"]),
         )
         .order_by(Bill.issue_date)
     )
