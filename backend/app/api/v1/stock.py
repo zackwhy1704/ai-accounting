@@ -146,6 +146,17 @@ async def create_adjustment(
 ):
     # Frontend sends "items"; normalize to the model's "lines" JSONB column.
     raw_lines = payload.items or payload.lines
+    # Lines live in a JSONB column (no FK), so a bad product_id would silently
+    # persist and then be quietly skipped at stock-apply time. Validate up front.
+    org_id = current_user["org_id"]
+    line_pids = {l.product_id for l in raw_lines if l.product_id}
+    if line_pids:
+        found = set((await db.execute(
+            select(Product.id).where(Product.id.in_(line_pids), Product.organization_id == org_id)
+        )).scalars().all())
+        missing = line_pids - found
+        if missing:
+            raise HTTPException(status_code=404, detail="One or more products on this adjustment do not exist")
     lines = [l.model_dump(mode="json") for l in raw_lines]
     adj = StockAdjustment(
         organization_id=current_user["org_id"],

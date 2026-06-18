@@ -72,6 +72,16 @@ async def create_invoice(
 ):
     org_id = current_user["org_id"]
 
+    # Validate the referenced contact exists in this org BEFORE inserting, so a
+    # bad/foreign contact_id returns a clean 404 instead of leaking a raw FK
+    # IntegrityError 500 to the toast.
+    if data.contact_id:
+        exists = (await db.execute(
+            select(Contact.id).where(Contact.id == data.contact_id, Contact.organization_id == org_id)
+        )).scalar_one_or_none()
+        if exists is None:
+            raise HTTPException(status_code=404, detail="Contact not found")
+
     if data.invoice_number:
         invoice_number = data.invoice_number
     else:

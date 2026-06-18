@@ -95,27 +95,38 @@ async def create_sales_payment(data: SalesPaymentCreate, current_user: dict = De
     db.add(obj)
     await db.flush()
 
-    # Allocate to invoices/debit notes and update balances
+    # Allocate to invoices/debit notes and update balances. Validate each target
+    # exists in this org BEFORE inserting the allocation row, so a bad invoice_id
+    # returns a clean 404 instead of a raw FK IntegrityError 500 — and we never
+    # silently drop an allocation against a non-existent target.
     for alloc in data.allocations:
+        inv = dn = None
+        if alloc.invoice_id:
+            inv = (await db.execute(
+                select(Invoice).where(Invoice.id == alloc.invoice_id, Invoice.organization_id == org_id)
+            )).scalar_one_or_none()
+            if inv is None:
+                raise HTTPException(status_code=404, detail="Invoice not found for allocation")
+        if alloc.debit_note_id:
+            dn = (await db.execute(
+                select(DebitNote).where(DebitNote.id == alloc.debit_note_id, DebitNote.organization_id == org_id)
+            )).scalar_one_or_none()
+            if dn is None:
+                raise HTTPException(status_code=404, detail="Debit note not found for allocation")
+
         db.add(PaymentAllocation(
             payment_id=obj.id,
             invoice_id=alloc.invoice_id,
             debit_note_id=alloc.debit_note_id,
             amount=alloc.amount,
         ))
-        if alloc.invoice_id:
-            inv_result = await db.execute(select(Invoice).where(Invoice.id == alloc.invoice_id))
-            inv = inv_result.scalar_one_or_none()
-            if inv:
-                inv.amount_paid = float(inv.amount_paid or 0) + float(alloc.amount)
-                inv.mark_paid()
-        if alloc.debit_note_id:
-            dn_result = await db.execute(select(DebitNote).where(DebitNote.id == alloc.debit_note_id))
-            dn = dn_result.scalar_one_or_none()
-            if dn:
-                dn.amount_paid = float(dn.amount_paid or 0) + float(alloc.amount)
-                dn_total = float(dn.total or 0)
-                dn.status = "applied" if float(dn.amount_paid) >= dn_total else "issued"
+        if inv:
+            inv.amount_paid = float(inv.amount_paid or 0) + float(alloc.amount)
+            inv.mark_paid()
+        if dn:
+            dn.amount_paid = float(dn.amount_paid or 0) + float(alloc.amount)
+            dn_total = float(dn.total or 0)
+            dn.status = "applied" if float(dn.amount_paid) >= dn_total else "issued"
 
     # GL: Dr Cash/Bank / Cr AR via shared service
     await post_sales_payment_gl(

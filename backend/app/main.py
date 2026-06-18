@@ -7,6 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.exceptions import RequestValidationError
 from starlette.exceptions import HTTPException as StarletteHTTPException
+from sqlalchemy.exc import IntegrityError
 from app.core.config import get_settings
 from app.core.permissions import require_role
 from app.api.v1 import (
@@ -59,6 +60,29 @@ async def http_exception_passthrough(request: Request, exc: StarletteHTTPExcepti
 async def validation_handler(request: Request, exc: RequestValidationError):
     errors = [{"field": ".".join(str(l) for l in e["loc"]), "message": e["msg"]} for e in exc.errors()]
     return JSONResponse(status_code=422, content={"error": "Validation error", "details": errors})
+
+
+@app.exception_handler(IntegrityError)
+async def integrity_error_handler(request: Request, exc: IntegrityError):
+    """Turn DB constraint violations into clean 4xx with a human message instead
+    of leaking a raw asyncpg/SQLAlchemy 500 to the user's toast. The full error
+    is still logged server-side with an id for debugging."""
+    error_id = str(_uuid.uuid4())[:8]
+    logger.error(f"[{error_id}] IntegrityError on {request.method} {request.url.path}: {exc.orig if hasattr(exc, 'orig') else exc}")
+    msg = str(getattr(exc, "orig", exc)).lower()
+    if "foreign key" in msg or "violates foreign key" in msg:
+        detail = "A referenced record does not exist or belongs to another organization."
+        status = 400
+    elif "unique" in msg or "duplicate key" in msg:
+        detail = "A record with these details already exists."
+        status = 409
+    elif "not null" in msg or "null value" in msg:
+        detail = "A required field is missing."
+        status = 400
+    else:
+        detail = "The request could not be completed due to a data constraint."
+        status = 400
+    return JSONResponse(status_code=status, content={"detail": detail, "error_id": error_id})
 
 
 @app.exception_handler(Exception)
