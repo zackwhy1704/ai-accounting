@@ -16,6 +16,29 @@ from datetime import date, timedelta
 
 BASE_URL = "http://localhost:8000/api/v1"
 
+
+def _server_up() -> bool:
+    """These E2E tests drive a LIVE backend over HTTP (not the in-process ASGI
+    client the rest of the suite uses). If nothing is listening on :8000 — e.g.
+    in CI, which doesn't boot uvicorn — skip the whole module instead of erroring
+    with ConnectionRefused. Run them with the server up:  uvicorn app.main:app."""
+    try:
+        requests.get("http://localhost:8000/health", timeout=1)
+        return True
+    except requests.exceptions.RequestException:
+        try:
+            # /health may not exist; any HTTP response means the server is up.
+            requests.get("http://localhost:8000/", timeout=1)
+            return True
+        except requests.exceptions.RequestException:
+            return False
+
+
+pytestmark = pytest.mark.skipif(
+    not _server_up(),
+    reason="live backend on :8000 not running — E2E tests need `uvicorn app.main:app`",
+)
+
 # ── Helpers ──────────────────────────────────────────────
 def uid() -> str:
     return uuid.uuid4().hex[:8]
