@@ -1,5 +1,6 @@
 import { useState } from "react"
 import { useNavigate } from "react-router-dom"
+import { useToast } from "../../../components/ui/toast"
 import { useContacts, useAccounts, useTaxRates, useCreateRecurringInvoice } from "../../../lib/hooks"
 import { Card } from "../../../components/ui/card"
 import { Button } from "../../../components/ui/button"
@@ -22,6 +23,7 @@ const CURRENCIES = ["MYR", "SGD", "USD", "HKD", "AUD", "EUR", "GBP", "JPY", "CNY
 
 export default function NewRecurringInvoicePage() {
   const navigate = useNavigate()
+  const { toast } = useToast()
   const { data: contacts = [] } = useContacts()
   const { data: accounts = [] } = useAccounts()
   const { data: taxRates = [] } = useTaxRates()
@@ -79,7 +81,7 @@ export default function NewRecurringInvoicePage() {
       })
       navigate("/sales/recurring")
     } catch (err: any) {
-      alert(err?.response?.data?.detail ?? "Failed to save recurring invoice")
+      toast(err?.response?.data?.detail ?? "Failed to save recurring invoice", "warning")
     }
   }
 

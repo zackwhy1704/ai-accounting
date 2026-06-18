@@ -6,6 +6,7 @@ import { Card } from "../../components/ui/card"
 import { Button } from "../../components/ui/button"
 import { Check, Zap } from "lucide-react"
 import { cn } from "../../lib/utils"
+import { useToast } from "../../components/ui/toast"
 
 function detectDefaultCurrency(orgCountry?: string): "MYR" | "SGD" {
   if (orgCountry) {
@@ -28,6 +29,7 @@ function detectDefaultCurrency(orgCountry?: string): "MYR" | "SGD" {
 
 export default function BillingPage() {
   const { user } = useAuth()
+  const { toast } = useToast()
   const defaultCurrency = useMemo(() => detectDefaultCurrency((user as any)?.country), [user])
   const [currency, setCurrency] = useState<"MYR" | "SGD">(defaultCurrency)
   const { data: plans = [] } = useBillingPlans(currency)
@@ -46,7 +48,7 @@ export default function BillingPage() {
       const res = await createCheckout.mutateAsync({ plan: planId, currency })
       if (res?.url) window.location.href = res.url
     } catch (err: any) {
-      alert(err?.response?.data?.detail || "Unable to start checkout")
+      toast(err?.response?.data?.detail || "Unable to start checkout", "warning")
     }
   }
 
@@ -55,14 +57,14 @@ export default function BillingPage() {
       if (usage?.plan && usage.plan !== "starter") {
         // Already subscribed — attach as an extra item
         const res = await addAddon.mutateAsync({ addon: addonId, currency })
-        alert(`Add-on activated. New scan limit: ${res?.new_scan_limit ?? "updated"}.`)
+        toast(`Add-on activated. New scan limit: ${res?.new_scan_limit ?? "updated"}.`, "success")
       } else {
         // No active sub — send them through checkout so Stripe collects payment
         const res = await createCheckout.mutateAsync({ addon: addonId, currency })
         if (res?.url) window.location.href = res.url
       }
     } catch (err: any) {
-      alert(err?.response?.data?.detail || "Unable to add add-on")
+      toast(err?.response?.data?.detail || "Unable to add add-on", "warning")
     }
   }
 

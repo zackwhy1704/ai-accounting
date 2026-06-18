@@ -1,5 +1,6 @@
 import { useState } from "react"
 import { useNavigate } from "react-router-dom"
+import { useToast } from "../../../components/ui/toast"
 import { useContacts, useAccounts, useInvoices, useCreateDebitNote, useTaxRates } from "../../../lib/hooks"
 import { getContactPrefs } from "../../../lib/contact-prefs"
 import { Card } from "../../../components/ui/card"
@@ -34,6 +35,7 @@ function lineDiscountAmount(item: LineItem): number {
 
 export default function NewDebitNotePage() {
   const navigate = useNavigate()
+  const { toast } = useToast()
   const { data: contacts = [] } = useContacts()
   const { data: accounts = [] } = useAccounts()
   const { data: invoices = [] } = useInvoices()
@@ -165,7 +167,7 @@ export default function NewDebitNotePage() {
       } as any,
       {
         onSuccess: () => navigate("/sales/debit-notes"),
-        onError: (err: any) => alert(err?.response?.data?.detail ?? "Failed to save debit note"),
+        onError: (err: any) => toast(err?.response?.data?.detail ?? "Failed to save debit note", "warning"),
       }
     )
   }

@@ -10,12 +10,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from ".
 import { SearchableSelect } from "../../../components/ui/searchable-select"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../../../components/ui/table"
 import { getContactPrefs, saveContactPref } from "../../../lib/contact-prefs"
+import { useToast } from "../../../components/ui/toast"
 
 const cardClass = "rounded-2xl border-border bg-card p-6 shadow-[0_0_0_1px_rgba(15,23,42,0.06),0_18px_55px_rgba(2,6,23,0.08)]"
 
 export default function EditPaymentPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
+  const { toast } = useToast()
   const { data: payment, isLoading } = useSalesPayment(id)
   const { data: contacts } = useContacts()
   const { data: bankAccounts = [] } = useBankAccounts()
@@ -107,9 +109,10 @@ export default function EditPaymentPage() {
         currency,
         allocations: allocationsList,
       })
+      toast("Payment updated", "success")
       navigate("/sales/payments")
     } catch (err: any) {
-      alert(err?.response?.data?.detail || err?.message || "Failed to save payment")
+      toast(err?.response?.data?.detail || err?.message || "Failed to save payment", "warning")
     }
   }
 

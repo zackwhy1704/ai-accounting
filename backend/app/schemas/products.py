@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from uuid import UUID
 from datetime import datetime
 
@@ -10,8 +10,8 @@ class ProductCreate(BaseModel):
     description: str | None = None
     product_type: str = "service"          # service | inventory | non_inventory
     unit: str | None = None
-    unit_price: float = 0.0
-    cost_price: float = 0.0
+    unit_price: float = Field(default=0.0, ge=0, description="Selling price; must be >= 0")
+    cost_price: float = Field(default=0.0, ge=0, description="Cost price; must be >= 0")
     currency: str = "MYR"
     tax_rate_id: UUID | None = None
     income_account_id: UUID | None = None
@@ -28,8 +28,8 @@ class ProductUpdate(BaseModel):
     description: str | None = None
     product_type: str | None = None
     unit: str | None = None
-    unit_price: float | None = None
-    cost_price: float | None = None
+    unit_price: float | None = Field(default=None, ge=0)
+    cost_price: float | None = Field(default=None, ge=0)
     currency: str | None = None
     tax_rate_id: UUID | None = None
     income_account_id: UUID | None = None

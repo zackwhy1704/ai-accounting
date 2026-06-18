@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react"
 import { useNavigate, useParams } from "react-router-dom"
+import { useToast } from "../../../components/ui/toast"
 import { Loader2, Plus, Trash2 } from "lucide-react"
 import { useRecurringInvoice, useUpdateRecurringInvoice, useContacts, useAccounts, useTaxRates, useRecurringInvoiceActivity, type InvoiceActivityEvent } from "../../../lib/hooks"
 import { Card } from "../../../components/ui/card"
@@ -23,6 +24,7 @@ const CURRENCIES = ["MYR", "SGD", "USD", "HKD", "AUD", "EUR", "GBP", "JPY", "CNY
 export default function EditRecurringInvoicePage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
+  const { toast } = useToast()
   const { data: recurringInvoice, isLoading } = useRecurringInvoice(id)
   const { data: contacts = [] } = useContacts()
   const { data: accounts = [] } = useAccounts()
@@ -115,7 +117,7 @@ export default function EditRecurringInvoicePage() {
       })
       navigate("/sales/recurring")
     } catch (err: any) {
-      alert(err?.response?.data?.detail ?? "Failed to save recurring invoice")
+      toast(err?.response?.data?.detail ?? "Failed to save recurring invoice", "warning")
     }
   }
 
