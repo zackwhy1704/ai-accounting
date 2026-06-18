@@ -172,34 +172,37 @@ async def transaction_list_report(
     total_credit = 0.0
     tx_list = []
 
-    for txn in transactions:
-        entries_result = await db.execute(
+    # ONE query for all journal entries across all matched transactions, instead
+    # of a per-transaction query in the loop (was an N+1 — thousands of round-trips
+    # for a busy date range). Group in Python by transaction_id.
+    txn_ids = [t.id for t in transactions]
+    entries_by_txn: dict = defaultdict(list)
+    if txn_ids:
+        je_rows = (await db.execute(
             select(JournalEntry, Account)
             .join(Account, JournalEntry.account_id == Account.id, isouter=True)
-            .where(JournalEntry.transaction_id == txn.id)
+            .where(JournalEntry.transaction_id.in_(txn_ids))
             .order_by(Account.code)
-        )
-        entry_rows = entries_result.all()
-
-        entries = []
-        for je, acct in entry_rows:
+        )).all()
+        for je, acct in je_rows:
             dr = float(je.debit or 0)
             cr = float(je.credit or 0)
             total_debit += dr
             total_credit += cr
-            entries.append({
+            entries_by_txn[je.transaction_id].append({
                 "account_code": acct.code if acct else None,
                 "account_name": acct.name if acct else "Unknown",
                 "debit": dr,
                 "credit": cr,
             })
 
+    for txn in transactions:
         tx_list.append({
             "date": txn.date.strftime("%Y-%m-%d") if txn.date else None,
             "description": txn.description or "",
             "reference": txn.reference,
             "source": txn.source,
-            "entries": entries,
+            "entries": entries_by_txn.get(txn.id, []),
         })
 
     return {

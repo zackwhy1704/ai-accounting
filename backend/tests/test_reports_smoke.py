@@ -26,6 +26,7 @@ REPORT_CASES = [
     (f"/reports/trial-balance?as_of_date={TO}", {"lines", "totals", "is_balanced"}),
     (f"/reports/cash-flow?start_date={FROM}&end_date={TO}", {"cash_inflows", "cash_outflows", "net_change"}),
     (f"/reports/general-ledger?from_date={FROM}&to_date={TO}", {"accounts"}),
+    (f"/reports/transaction-list?start_date={FROM}&end_date={TO}", {"transactions", "total_debit", "total_credit"}),
     (f"/reports/debtor-ledger?start_date={FROM}&end_date={TO}", {"customers", "grand_total_balance"}),
     (f"/reports/creditor-ledger?start_date={FROM}&end_date={TO}", {"vendors", "grand_total_balance"}),
     ("/reports/ar-aging", {"buckets", "summary", "grand_total"}),

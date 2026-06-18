@@ -264,20 +264,28 @@ async def auto_match(
     txn_result = await db.execute(txn_q)
     candidate_txns = list(txn_result.scalars().all())
 
-    # Build transaction dicts with net amounts from journal entries
+    # Net amount per candidate txn = sum(debit - credit). Compute it in ONE grouped
+    # query over all candidates instead of a per-transaction query in the loop
+    # (was an N+1 — auto-match scaled linearly with the org's whole txn history).
     txn_dicts: list[dict] = []
+    cand_ids = [t.id for t in candidate_txns]
+    net_by_txn: dict = {}
+    if cand_ids:
+        net_rows = (await db.execute(
+            select(
+                JournalEntry.transaction_id,
+                (func.coalesce(func.sum(JournalEntry.debit), 0) - func.coalesce(func.sum(JournalEntry.credit), 0)).label("net"),
+            )
+            .where(JournalEntry.transaction_id.in_(cand_ids))
+            .group_by(JournalEntry.transaction_id)
+        )).all()
+        net_by_txn = {r.transaction_id: float(r.net) for r in net_rows}
     for txn in candidate_txns:
-        entries_result = await db.execute(
-            select(JournalEntry).where(JournalEntry.transaction_id == txn.id)
-        )
-        entries = entries_result.scalars().all()
-        # Net amount: total debits - total credits (bank perspective)
-        net = sum(float(e.debit) - float(e.credit) for e in entries)
         txn_dicts.append({
             "id": str(txn.id),
             "date": txn.date.isoformat() if txn.date else None,
             "description": txn.description,
-            "amount": net,
+            "amount": net_by_txn.get(txn.id, 0.0),
             "reference": txn.reference,
         })
 
