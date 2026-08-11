@@ -11,7 +11,7 @@ from app.core.database import get_db
 from app.core.security import get_current_user
 from app.core.permissions import require_write
 from app.core.pagination import PaginationParams, paginated_result, apply_sort
-from app.models.models import PurchasePayment, Bill, PurchaseDebitNote, Contact
+from app.models.models import PurchasePayment, PurchasePaymentAllocation, Bill, PurchaseDebitNote, Contact
 from .gl_helpers import post_gl, post_gl_by_id, revert_gl
 from app.core.org_defaults import get_default_accounts
 from app.services.gl_posting import post_purchase_payment_gl
@@ -21,14 +21,21 @@ from app.core.audit import log_audit
 router = APIRouter(prefix="/purchase-payments", tags=["purchase-payments"])
 
 
+class PurchasePaymentAllocationIn(BaseModel):
+    bill_id: Optional[UUID] = None
+    debit_note_id: Optional[UUID] = None
+    amount: float
+
+
 class PurchasePaymentCreate(BaseModel):
     payment_no: Optional[str] = None
     payment_date: datetime
-    amount: float
+    amount: float = 0.0
     currency: str = "MYR"
     contact_id: Optional[UUID] = None
     bill_id: Optional[UUID] = None
     debit_note_id: Optional[UUID] = None
+    allocations: list[PurchasePaymentAllocationIn] = []
     payment_method: str = "bank_transfer"
     bank_account_id: Optional[str] = None
     reference_no: Optional[str] = None
@@ -123,6 +130,11 @@ async def create_purchase_payment(
 ):
     org_id = current_user["org_id"]
     data = payload.model_dump()
+    allocations = data.pop("allocations", []) or []
+    # Multi-bill payments: the payment amount is always the sum of allocations
+    if allocations:
+        data["amount"] = round(sum(float(a["amount"]) for a in allocations), 2)
+        data["bill_id"] = data.get("bill_id") or allocations[0].get("bill_id")
     custom_no = data.pop("payment_no", None)
     if custom_no:
         existing = (await db.execute(select(PurchasePayment.id).where(PurchasePayment.organization_id == org_id, PurchasePayment.payment_no == custom_no))).first()
@@ -144,8 +156,45 @@ async def create_purchase_payment(
     # rate); the gap vs bank-at-payment-rate posts to 5900 as realised FX.
     cleared_base = None
 
-    # Update linked bill balance
-    if payload.bill_id:
+    if allocations:
+        # Multi-bill path: validate + apply each allocation; cleared_base sums
+        # each target's booked base value for realised-FX purposes.
+        cleared_base = 0.0
+        for alloc in allocations:
+            amt = float(alloc["amount"] or 0)
+            if amt <= 0:
+                raise HTTPException(status_code=400, detail="Allocation amounts must be positive")
+            target_bill = target_dn = None
+            if alloc.get("bill_id"):
+                target_bill = (await db.execute(
+                    select(Bill).where(Bill.id == alloc["bill_id"], Bill.organization_id == org_id)
+                )).scalar_one_or_none()
+                if target_bill is None:
+                    raise HTTPException(status_code=404, detail="Bill not found for allocation")
+                outstanding = float(target_bill.total or 0) - float(target_bill.amount_paid or 0)
+                if amt > outstanding + 0.01:
+                    raise HTTPException(status_code=400, detail=f"Allocation exceeds outstanding balance of bill {target_bill.bill_number}")
+                target_bill.amount_paid = float(target_bill.amount_paid or 0) + amt
+                target_bill.mark_paid()
+                cleared_base += to_base(amt, float(target_bill.exchange_rate or 1.0))
+            elif alloc.get("debit_note_id"):
+                target_dn = (await db.execute(
+                    select(PurchaseDebitNote).where(PurchaseDebitNote.id == alloc["debit_note_id"], PurchaseDebitNote.organization_id == org_id)
+                )).scalar_one_or_none()
+                if target_dn is None:
+                    raise HTTPException(status_code=404, detail="Debit note not found for allocation")
+                target_dn.amount_paid = float(target_dn.amount_paid or 0) + amt
+                target_dn.status = "applied" if float(target_dn.amount_paid) >= float(target_dn.total or 0) else "partially_paid"
+                cleared_base += to_base(amt, float(target_dn.exchange_rate or 1.0))
+            else:
+                raise HTTPException(status_code=400, detail="Each allocation needs a bill_id or debit_note_id")
+            db.add(PurchasePaymentAllocation(
+                payment_id=payment.id, bill_id=alloc.get("bill_id"),
+                debit_note_id=alloc.get("debit_note_id"), amount=amt,
+            ))
+
+    # Update linked bill balance (single-target path, kept for backward compat)
+    if not allocations and payload.bill_id:
         bill_result = await db.execute(select(Bill).where(Bill.id == payload.bill_id))
         bill = bill_result.scalar_one_or_none()
         if bill:
@@ -156,8 +205,8 @@ async def create_purchase_payment(
             bill.mark_paid()
             cleared_base = to_base(payload.amount, float(bill.exchange_rate or 1.0))
 
-    # Update linked debit note balance
-    if payload.debit_note_id:
+    # Update linked debit note balance (single-target path)
+    if not allocations and payload.debit_note_id:
         dn_result = await db.execute(select(PurchaseDebitNote).where(PurchaseDebitNote.id == payload.debit_note_id))
         dn = dn_result.scalar_one_or_none()
         if dn:
@@ -266,7 +315,24 @@ async def update_purchase_payment(
 
 
 async def _revert_bill_balance(db: AsyncSession, payment: PurchasePayment) -> None:
-    """Reverse the bill's amount_paid and recalculate its status after voiding a payment."""
+    """Reverse settled balances after voiding a payment — allocation rows when
+    they exist (multi-bill), else the legacy single bill_id link."""
+    allocs = (await db.execute(
+        select(PurchasePaymentAllocation).where(PurchasePaymentAllocation.payment_id == payment.id)
+    )).scalars().all()
+    if allocs:
+        for alloc in allocs:
+            if alloc.bill_id:
+                bill = (await db.execute(select(Bill).where(Bill.id == alloc.bill_id))).scalar_one_or_none()
+                if bill:
+                    bill.amount_paid = max(0.0, float(bill.amount_paid or 0) - float(alloc.amount))
+                    bill.mark_paid()
+            if alloc.debit_note_id:
+                dn = (await db.execute(select(PurchaseDebitNote).where(PurchaseDebitNote.id == alloc.debit_note_id))).scalar_one_or_none()
+                if dn:
+                    dn.amount_paid = max(0.0, float(dn.amount_paid or 0) - float(alloc.amount))
+                    dn.status = "applied" if float(dn.amount_paid) >= float(dn.total or 0) else ("partially_paid" if float(dn.amount_paid) > 0 else "issued")
+        return
     if not payment.bill_id:
         return
     result = await db.execute(select(Bill).where(Bill.id == payment.bill_id))

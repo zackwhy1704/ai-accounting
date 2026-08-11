@@ -45,6 +45,8 @@ class Contact(Base):
     shipping_postcode: Mapped[str | None] = mapped_column(String(20))
     shipping_country: Mapped[str | None] = mapped_column(String(100))
     # Default preferences
+    credit_limit: Mapped[float | None] = mapped_column(Numeric(15, 2), nullable=True)  # None = no limit
+    credit_hold: Mapped[bool] = mapped_column(Boolean, default=False)  # block new sales documents
     default_currency: Mapped[str | None] = mapped_column(String(3))
     default_payment_terms: Mapped[str | None] = mapped_column(String(50))
     default_payment_terms_days: Mapped[int | None] = mapped_column(Integer, nullable=True)  # auto due-date offset

@@ -23,6 +23,7 @@ from app.core.sequences import next_sequence_number
 from app.models.models import Contact, Invoice, InvoiceLineItem, SalesOrder, SalesOrderLineItem
 from app.schemas.sales import SalesOrderCreate, SalesOrderResponse
 from app.services.fx import document_rate
+from app.services.credit import assert_within_credit
 
 router = APIRouter(prefix="/sales-orders", tags=["sales-orders"])
 
@@ -86,6 +87,7 @@ async def create_sales_order(
         raise HTTPException(status_code=422, detail="At least one line item is required")
 
     subtotal, tax_amount, discount_total, total = _totals(data.line_items)
+    await assert_within_credit(db, org_id, data.contact_id, total)
     so = SalesOrder(
         organization_id=org_id,
         contact_id=data.contact_id,

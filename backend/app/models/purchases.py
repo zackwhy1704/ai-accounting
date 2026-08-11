@@ -397,6 +397,18 @@ class PurchasePayment(Base):
 
 
 # ── Purchase Refunds ───────────────────────────
+class PurchasePaymentAllocation(Base):
+    """Split one purchase payment across several bills / purchase debit notes
+    (mirrors the sales-side PaymentAllocation)."""
+    __tablename__ = "purchase_payment_allocations"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=new_uuid)
+    payment_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("purchase_payments.id", ondelete="CASCADE"), index=True)
+    bill_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("bills.id"), nullable=True)
+    debit_note_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("purchase_debit_notes.id"), nullable=True)
+    amount: Mapped[float] = mapped_column(Numeric(15, 2))
+
+
 class PurchaseRefund(Base):
     __tablename__ = "purchase_refunds"
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=new_uuid)

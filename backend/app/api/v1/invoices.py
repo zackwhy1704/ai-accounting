@@ -25,6 +25,7 @@ from app.services.gl_posting import post_invoice_gl
 from app.services.fx import document_rate
 from app.services.inventory import issue_for_document_lines, reverse_moves
 from app.services.gl_posting import post_inventory_gl
+from app.services.credit import assert_within_credit
 from app.core.list_helpers import with_contact_name
 
 router = APIRouter(prefix="/invoices", tags=["Invoices"])
@@ -94,6 +95,10 @@ async def create_invoice(
     # Calculate totals
     items = [li.model_dump() for li in data.line_items]
     subtotal, tax_amount, _, total = calculate_line_items(items)
+
+    # Credit control: block when on hold or when this invoice would push the
+    # contact's outstanding balance past their credit limit.
+    await assert_within_credit(db, org_id, data.contact_id, total)
 
     # Payment terms automation: if the contact has default terms and no explicit
     # later due date was given, derive due_date = issue_date + terms days.
