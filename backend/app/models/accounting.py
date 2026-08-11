@@ -259,3 +259,34 @@ class FixedAsset(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
 
 # ── Purchase Payments ──────────────────────────
+
+
+# ──────────────────────────────────────────────
+# Recurring Journals (template → ManualJournal on schedule)
+# ──────────────────────────────────────────────
+class RecurringJournal(Base):
+    __tablename__ = "recurring_journals"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=new_uuid)
+    organization_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("organizations.id", ondelete="CASCADE"), index=True)
+    name: Mapped[str] = mapped_column(String(255))
+    status: Mapped[str] = mapped_column(String(20), default="active")  # active | paused | completed | cancelled
+    frequency: Mapped[str] = mapped_column(String(20))   # daily | weekly | monthly | yearly
+    frequency_interval: Mapped[int] = mapped_column(Integer, default=1)
+    start_date: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    end_date: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    next_run_date: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    last_run_date: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    run_count: Mapped[int] = mapped_column(Integer, default=0)
+    max_runs: Mapped[int | None] = mapped_column(Integer)  # null = unlimited
+    reference: Mapped[str | None] = mapped_column(String(100))
+    description: Mapped[str | None] = mapped_column(Text)
+    auto_post: Mapped[bool] = mapped_column(Boolean, default=True)  # post GL immediately vs leave draft
+    # [{account_id, description, debit, credit}] — balanced, >= 2 lines
+    lines: Mapped[dict] = mapped_column(JSONB, default=list)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
+
+    __table_args__ = (
+        Index("ix_recurring_journals_org_next", "organization_id", "next_run_date"),
+    )
