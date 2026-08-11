@@ -204,3 +204,23 @@ class ClientInvitation(Base):
 # ──────────────────────────────────────────────
 # Chart of Accounts (double-entry bookkeeping)
 # ──────────────────────────────────────────────
+
+
+# ──────────────────────────────────────────────
+# Org user invitations (team member invites)
+# ──────────────────────────────────────────────
+class OrgUserInvite(Base):
+    """Invite a colleague into YOUR org (distinct from firm↔client links in
+    invitations.py). Accepting adds a UserOrganization membership with the
+    invited role, creating the user account first if the email is new."""
+    __tablename__ = "org_user_invites"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=new_uuid)
+    organization_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("organizations.id", ondelete="CASCADE"), index=True)
+    email: Mapped[str] = mapped_column(String(255))
+    role: Mapped[str] = mapped_column(String(20), default="viewer")  # admin/accountant/bookkeeper/viewer (never owner)
+    token: Mapped[str] = mapped_column(String(64), unique=True, index=True)
+    status: Mapped[str] = mapped_column(String(20), default="pending")  # pending | accepted | cancelled | expired
+    invited_by: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("users.id"))
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
