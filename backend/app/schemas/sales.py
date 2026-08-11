@@ -114,6 +114,7 @@ class InvoiceResponse(BaseModel):
     total: float
     amount_paid: float
     currency: str
+    exchange_rate: float | None = None
     notes: str | None
     terms: str | None = None
     billing_address_line1: str | None = None
@@ -442,6 +443,7 @@ class CreditNoteResponse(BaseModel):
     total: float
     credit_applied: float
     currency: str
+    exchange_rate: float | None = None
     notes: str | None
     billing_address_line1: str | None = None
     billing_address_line2: str | None = None
@@ -548,6 +550,7 @@ class DebitNoteResponse(BaseModel):
     total: float
     amount_paid: float = 0
     currency: str
+    exchange_rate: float | None = None
     notes: str | None
     created_at: datetime
     line_items: list[DebitNoteLineItemResponse] = []
@@ -596,6 +599,7 @@ class SalesPaymentResponse(BaseModel):
     amount: float
     bank_account_id: UUID | None
     currency: str
+    exchange_rate: float | None = None
     notes: str | None
     created_at: datetime
     model_config = {"from_attributes": True}
@@ -639,6 +643,7 @@ class SalesRefundResponse(BaseModel):
     amount: float
     bank_account_id: UUID | None
     currency: str
+    exchange_rate: float | None = None
     notes: str | None
     created_at: datetime
     model_config = {"from_attributes": True}
@@ -670,6 +675,7 @@ class SaleReceiptResponse(BaseModel):
     receipt_date: datetime
     status: str
     currency: str
+    exchange_rate: float | None = None
     subtotal: float
     tax_amount: float
     total: float

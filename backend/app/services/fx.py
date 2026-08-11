@@ -1,19 +1,12 @@
 """
-⚠️  NOT YET WIRED — see roadmap item FX-1.
-
-These helpers are correct and unit-tested, but NOTHING in the routers or
-gl_posting imports them yet. Today, a document in a non-base currency posts GL at
-FACE VALUE (no conversion), and no realised FX gain/loss is recorded on payment.
-Do NOT assume FX conversion happens anywhere. The 5900 Foreign Exchange Gain/Loss
-account is seeded but currently never receives a posting.
-
-To make multi-currency real, see the FX-1 plan:
-  1. snapshot the document-date rate on Invoice/Bill/SalesPayment/PurchasePayment
-  2. convert GL legs to base currency in gl_posting when currency != base
-  3. post realised_fx_gain_loss() to 5900 on settlement
-Until then the UI shows a single-currency advisory on multi-currency documents.
-
 Foreign-exchange helpers for multi-currency documents.
+
+WIRED (FX-1, migration a035): every posting document snapshots its document-date
+rate in an `exchange_rate` column, gl_posting converts all GL legs to the org
+base currency via that rate, and payments post the realised FX difference
+between invoice-date and payment-date base values to 5900 Foreign Exchange
+Gain/Loss. Legacy rows default exchange_rate=1 (they were booked at face
+value), so settlements against them clear AR/AP at exactly the booked amount.
 
 - fx_rate(): look up the most recent rate at/before a date (1.0 if same currency
   or no rate on file — callers post at face value rather than fail).
@@ -31,7 +24,7 @@ from datetime import datetime
 from sqlalchemy import select, desc
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.models import ExchangeRate
+from app.models.models import ExchangeRate, Organization
 
 
 async def fx_rate(db: AsyncSession, org_id, from_currency: str, to_currency: str, on_date: datetime | None = None) -> float:
@@ -66,6 +59,26 @@ async def fx_rate(db: AsyncSession, org_id, from_currency: str, to_currency: str
 
 def to_base(amount: float, rate: float) -> float:
     return round(float(amount or 0) * float(rate or 1.0), 2)
+
+
+async def document_rate(db: AsyncSession, org_id, doc_currency: str | None, on_date: datetime | None = None) -> float:
+    """Document-date rate from doc_currency to the org base currency (1.0 if same/none)."""
+    if not doc_currency:
+        return 1.0
+    org = (await db.execute(select(Organization).where(Organization.id == org_id))).scalar_one_or_none()
+    base = (org.base_currency if org and org.base_currency else "MYR")
+    return await fx_rate(db, org_id, doc_currency, base, on_date)
+
+
+def convert_doc_amounts(subtotal: float, tax_amount: float, total: float, rate: float) -> tuple[float, float, float]:
+    """Convert (subtotal, tax, total) to base currency, guaranteed to satisfy
+    total_base == subtotal_base + tax_base so the GL transaction stays balanced
+    after per-leg rounding. The tax leg absorbs the rounding remainder."""
+    total_b = to_base(total, rate)
+    if not tax_amount or float(tax_amount) <= 0:
+        return total_b, 0.0, total_b
+    sub_b = to_base(subtotal, rate)
+    return sub_b, round(total_b - sub_b, 2), total_b
 
 
 def realised_fx_gain_loss(amount_doc_ccy: float, rate_at_invoice: float, rate_at_payment: float) -> float:

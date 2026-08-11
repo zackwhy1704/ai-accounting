@@ -40,6 +40,7 @@ class Bill(Base):
     total: Mapped[float] = mapped_column(Numeric(15, 2), default=0)
     amount_paid: Mapped[float] = mapped_column(Numeric(15, 2), default=0)
     currency: Mapped[str] = mapped_column(String(3), default="SGD")
+    exchange_rate: Mapped[float] = mapped_column(Numeric(15, 6), default=1)  # doc-date rate to org base currency
     notes: Mapped[str | None] = mapped_column(Text)
     terms: Mapped[str | None] = mapped_column(String(100))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
@@ -227,6 +228,7 @@ class PurchaseCreditNote(Base):
     reference: Mapped[str | None] = mapped_column(String(100))
     status: Mapped[str] = mapped_column(String(20), default="draft")  # draft | issued | applied | void
     currency: Mapped[str] = mapped_column(String(3), default="MYR")
+    exchange_rate: Mapped[float] = mapped_column(Numeric(15, 6), default=1)  # doc-date rate to org base currency
     subtotal: Mapped[float] = mapped_column(Numeric(15, 2), default=0)
     discount_amount: Mapped[float] = mapped_column(Numeric(15, 2), default=0)
     tax_amount: Mapped[float] = mapped_column(Numeric(15, 2), default=0)
@@ -322,6 +324,7 @@ class PurchaseDebitNote(Base):
     total: Mapped[float] = mapped_column(Numeric(15, 2), default=0)
     amount_paid: Mapped[float] = mapped_column(Numeric(15, 2), default=0)
     currency: Mapped[str] = mapped_column(String(3), default="MYR")
+    exchange_rate: Mapped[float] = mapped_column(Numeric(15, 6), default=1)  # doc-date rate to org base currency
     notes: Mapped[str | None] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
@@ -374,6 +377,7 @@ class PurchasePayment(Base):
     payment_date: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     amount: Mapped[float] = mapped_column(Numeric(18,4), default=0)
     currency: Mapped[str] = mapped_column(String(3), default="MYR")
+    exchange_rate: Mapped[float] = mapped_column(Numeric(15, 6), default=1)  # doc-date rate to org base currency
     payment_method: Mapped[str] = mapped_column(String(30), default="bank_transfer")
     bank_account_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("bank_accounts.id", ondelete="SET NULL"))
     reference_no: Mapped[str | None] = mapped_column(String(100))
@@ -398,6 +402,7 @@ class PurchaseRefund(Base):
     refund_date: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     amount: Mapped[float] = mapped_column(Numeric(18,4), default=0)
     currency: Mapped[str] = mapped_column(String(3), default="MYR")
+    exchange_rate: Mapped[float] = mapped_column(Numeric(15, 6), default=1)  # doc-date rate to org base currency
     payment_method: Mapped[str] = mapped_column(String(30), default="bank_transfer")
     bank_account_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("bank_accounts.id", ondelete="SET NULL"))
     bill_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("bills.id", ondelete="SET NULL"), nullable=True)

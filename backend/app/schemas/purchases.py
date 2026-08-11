@@ -55,6 +55,7 @@ class PurchaseDebitNoteResponse(BaseModel):
     total: float
     amount_paid: float = 0.0
     currency: str
+    exchange_rate: float | None = None
     notes: str | None
     created_at: datetime
     line_items: list[PurchaseDebitNoteLineItemResponse] = []
@@ -133,6 +134,7 @@ class BillResponse(BaseModel):
     total: float
     amount_paid: float
     currency: str
+    exchange_rate: float | None = None
     notes: str | None
     terms: str | None = None
     created_at: datetime
@@ -214,6 +216,7 @@ class PurchaseCreditNoteResponse(BaseModel):
     reference: str | None
     status: str
     currency: str
+    exchange_rate: float | None = None
     subtotal: float
     discount_amount: float
     tax_amount: float

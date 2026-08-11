@@ -13,6 +13,7 @@ from app.models.models import (
 from .gl_helpers import post_gl, post_gl_by_id, revert_gl
 from app.core.org_defaults import get_default_accounts
 from app.services.gl_posting import post_sales_payment_gl
+from app.services.fx import document_rate, to_base
 from app.core.audit import log_audit
 from app.schemas.schemas import (
     SalesPaymentCreate, SalesPaymentUpdate, SalesPaymentResponse,
@@ -85,15 +86,20 @@ async def create_sales_payment(data: SalesPaymentCreate, current_user: dict = De
     # Derive amount from allocations so payment total always equals sum of allocated amounts
     effective_amount = round(sum(float(a.amount) for a in data.allocations), 2) if data.allocations else float(data.amount)
 
+    rate_pay = await document_rate(db, org_id, data.currency, data.payment_date)
     obj = SalesPayment(
         organization_id=org_id, contact_id=data.contact_id,
         payment_number=pmt_number, payment_date=data.payment_date,
         payment_method=data.payment_method, reference=data.reference,
         amount=effective_amount, bank_account_id=data.bank_account_id,
-        currency=data.currency, notes=data.notes, status="completed",
+        currency=data.currency, exchange_rate=rate_pay, notes=data.notes, status="completed",
     )
     db.add(obj)
     await db.flush()
+
+    # Base-currency value at which the settled documents were booked — the CR AR
+    # leg clears at this value; the gap vs bank-at-payment is realised FX (5900).
+    cleared_base = 0.0
 
     # Allocate to invoices/debit notes and update balances. Validate each target
     # exists in this org BEFORE inserting the allocation row, so a bad invoice_id
@@ -123,18 +129,22 @@ async def create_sales_payment(data: SalesPaymentCreate, current_user: dict = De
         if inv:
             inv.amount_paid = float(inv.amount_paid or 0) + float(alloc.amount)
             inv.mark_paid()
+            cleared_base += to_base(alloc.amount, float(inv.exchange_rate or 1.0))
         if dn:
             dn.amount_paid = float(dn.amount_paid or 0) + float(alloc.amount)
             dn_total = float(dn.total or 0)
             dn.status = "applied" if float(dn.amount_paid) >= dn_total else "issued"
+            cleared_base += to_base(alloc.amount, float(dn.exchange_rate or 1.0))
 
-    # GL: Dr Cash/Bank / Cr AR via shared service
+    # GL: Dr Cash/Bank / Cr AR (± realised FX to 5900) via shared service
     await post_sales_payment_gl(
         db, org_id,
         payment_date=data.payment_date,
         number=obj.payment_number,
         payment_id=obj.id,
         amount=effective_amount,
+        rate=rate_pay,
+        cleared_base=cleared_base if data.allocations else None,
     )
 
     await db.commit()

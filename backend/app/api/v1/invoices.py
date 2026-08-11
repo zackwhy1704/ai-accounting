@@ -22,6 +22,7 @@ from app.services.pricing import line_after_discount, line_tax
 from .gl_helpers import post_gl, post_gl_by_id, revert_gl
 from app.core.org_defaults import get_default_accounts
 from app.services.gl_posting import post_invoice_gl
+from app.services.fx import document_rate
 from app.core.list_helpers import with_contact_name
 
 router = APIRouter(prefix="/invoices", tags=["Invoices"])
@@ -114,6 +115,7 @@ async def create_invoice(
         tax_amount=tax_amount,
         total=total,
         currency=data.currency,
+        exchange_rate=await document_rate(db, org_id, data.currency, data.issue_date),
         notes=data.notes,
         terms=data.terms,
         billing_address_line1=data.billing_address_line1,
@@ -191,6 +193,11 @@ async def update_invoice(
     for field, value in update_data.items():
         setattr(invoice, field, value)
 
+    # Re-snapshot the FX rate while still draft (currency/date may have changed);
+    # once posted the booked rate is frozen.
+    if invoice.status == "draft":
+        invoice.exchange_rate = await document_rate(db, org_id, invoice.currency, invoice.issue_date)
+
     await db.commit()
     await log_audit(db, current_user["org_id"], current_user["sub"], "update", "invoice", invoice_id)
     result2 = await db.execute(
@@ -236,6 +243,12 @@ async def update_invoice_status(
     # unbalanced.
     _POSTED = {"sent", "viewed", "outstanding", "partially_paid", "overdue"}
     if status in _POSTED and prev_status == "draft":
+        # Use the stored doc-date rate; drafts created before a rate was on file
+        # (snapshot 1.0) get one last lookup at posting time.
+        rate = float(invoice.exchange_rate or 1.0)
+        if rate == 1.0:
+            rate = await document_rate(db, org_id, invoice.currency, invoice.issue_date)
+            invoice.exchange_rate = rate
         await post_invoice_gl(
             db, org_id,
             issue_date=invoice.issue_date,
@@ -244,6 +257,7 @@ async def update_invoice_status(
             subtotal=float(invoice.subtotal),
             tax_amount=float(invoice.tax_amount),
             total=float(invoice.total),
+            rate=rate,
         )
 
     # cancelled: reverse any previously posted GL entries

@@ -20,6 +20,7 @@ from app.schemas.schemas import (
 )
 from .gl_helpers import post_gl, revert_gl
 from app.services.gl_posting import post_purchase_credit_note_gl
+from app.services.fx import document_rate
 
 router = APIRouter(prefix="/purchase-credit-notes", tags=["purchase-credit-notes"])
 
@@ -179,6 +180,7 @@ async def create_purchase_credit_note(
         pcn.status = "applied" if credit_applied >= total else "issued"
 
     # GL via shared service (org defaults -> hardcoded fallback, one balanced txn)
+    pcn.exchange_rate = await document_rate(db, org_id, pcn.currency, payload.issue_date)
     await post_purchase_credit_note_gl(
         db, org_id,
         issue_date=payload.issue_date,
@@ -187,6 +189,7 @@ async def create_purchase_credit_note(
         subtotal=float(subtotal),
         tax_amount=float(tax_amount),
         total=float(total),
+        rate=float(pcn.exchange_rate),
     )
 
     await db.commit()

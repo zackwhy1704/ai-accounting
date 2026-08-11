@@ -14,6 +14,7 @@ from app.models.models import (
 )
 from .gl_helpers import post_gl, revert_gl
 from app.services.gl_posting import post_debit_note_gl
+from app.services.fx import document_rate
 from app.schemas.schemas import (
     DebitNoteCreate, DebitNoteUpdate, DebitNoteResponse,
     SalesPaymentCreate,
@@ -121,6 +122,7 @@ async def create_debit_note(data: DebitNoteCreate, current_user: dict = Depends(
         ))
 
     # GL via shared service (org defaults -> hardcoded fallback, one balanced txn)
+    obj.exchange_rate = await document_rate(db, org_id, obj.currency, data.issue_date)
     await post_debit_note_gl(
         db, org_id,
         issue_date=data.issue_date,
@@ -129,6 +131,7 @@ async def create_debit_note(data: DebitNoteCreate, current_user: dict = Depends(
         subtotal=float(subtotal),
         tax_amount=float(tax_amount),
         total=float(subtotal + tax_amount),
+        rate=float(obj.exchange_rate),
     )
 
     await db.commit()

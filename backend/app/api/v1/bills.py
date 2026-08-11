@@ -18,6 +18,7 @@ from app.services.pricing import line_after_discount, line_tax
 from .gl_helpers import post_gl, post_gl_by_id, revert_gl
 from app.core.org_defaults import get_default_accounts
 from app.services.gl_posting import post_bill_gl
+from app.services.fx import document_rate
 from app.core.audit import log_audit
 
 router = APIRouter(prefix="/bills", tags=["Bills"])
@@ -108,6 +109,7 @@ async def create_bill(
         tax_amount=tax_amount,
         total=total,
         currency=data.currency,
+        exchange_rate=await document_rate(db, org_id, data.currency, data.issue_date),
         notes=data.notes,
         terms=data.terms,
         billing_address_line1=data.billing_address_line1,
@@ -202,6 +204,10 @@ async def update_bill(
     for field, value in update_data.items():
         setattr(bill, field, value)
 
+    # Re-snapshot the FX rate while unposted; once posted the booked rate is frozen.
+    if bill.status in ("draft", "received"):
+        bill.exchange_rate = await document_rate(db, current_user["org_id"], bill.currency, bill.issue_date)
+
     await db.commit()
     await log_audit(db, current_user["org_id"], current_user["sub"], "update", "bill", bill_id)
     result2 = await db.execute(
@@ -234,6 +240,11 @@ async def update_bill_status(
 
     # draft/received → approved/outstanding: post Dr Expense (+ Dr GST Input) / Cr AP via shared service
     if status in ("approved", "outstanding") and prev_status in ("draft", "received"):
+        # Stored doc-date rate; drafts snapshotted at 1.0 get one lookup at posting.
+        rate = float(bill.exchange_rate or 1.0)
+        if rate == 1.0:
+            rate = await document_rate(db, org_id, bill.currency, bill.issue_date)
+            bill.exchange_rate = rate
         await post_bill_gl(
             db, org_id,
             issue_date=bill.issue_date,
@@ -242,6 +253,7 @@ async def update_bill_status(
             subtotal=float(bill.subtotal),
             tax_amount=float(bill.tax_amount),
             total=float(bill.total),
+            rate=rate,
         )
 
     # void/cancelled: reverse any posted GL entries

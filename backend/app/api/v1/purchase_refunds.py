@@ -15,6 +15,7 @@ from app.core.audit import log_audit
 from app.models.models import PurchaseRefund, Bill, PurchaseCreditNote, Contact
 from .gl_helpers import post_gl, revert_gl
 from app.services.gl_posting import post_purchase_refund_gl
+from app.services.fx import document_rate
 
 router = APIRouter(prefix="/purchase-refunds", tags=["purchase-refunds"])
 
@@ -186,12 +187,14 @@ async def create_purchase_refund(
         await _deduct_pcn(db, payload.pcn_id, float(payload.amount))
 
     # GL via shared service (org defaults -> hardcoded fallback)
+    refund.exchange_rate = await document_rate(db, org_id, refund.currency, payload.refund_date)
     await post_purchase_refund_gl(
         db, org_id,
         refund_date=payload.refund_date,
         number=refund.refund_no,
         refund_id=refund.id,
         amount=float(payload.amount),
+        rate=float(refund.exchange_rate),
     )
 
     await db.commit()

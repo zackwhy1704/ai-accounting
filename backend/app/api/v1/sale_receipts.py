@@ -17,6 +17,7 @@ from app.models.models import SaleReceipt, Contact
 from app.schemas.schemas import SaleReceiptCreate, SaleReceiptResponse, SaleReceiptLineItem
 from .gl_helpers import post_gl, revert_gl
 from app.services.gl_posting import post_sale_receipt_gl
+from app.services.fx import document_rate
 
 router = APIRouter(prefix="/sale-receipts", tags=["sale-receipts"])
 
@@ -106,6 +107,7 @@ async def create_sale_receipt(
     await db.flush()
 
     # GL via shared service (org defaults -> hardcoded fallback, one balanced txn)
+    receipt.exchange_rate = await document_rate(db, current_user["org_id"], receipt.currency, payload.receipt_date)
     await post_sale_receipt_gl(
         db, current_user["org_id"],
         receipt_date=payload.receipt_date,
@@ -114,6 +116,7 @@ async def create_sale_receipt(
         subtotal=float(subtotal),
         tax_amount=float(tax_amount),
         total=float(total),
+        rate=float(receipt.exchange_rate),
     )
 
     await db.commit()

@@ -17,6 +17,7 @@ from app.models.sales import SalesRefund
 from app.models.accounting import Transaction, JournalEntry, Account as AccountModel
 from .gl_helpers import post_gl, revert_gl
 from app.services.gl_posting import post_credit_note_gl
+from app.services.fx import document_rate
 from app.core.audit import log_audit
 from app.schemas.schemas import (
     CreditNoteCreate, CreditNoteUpdate, CreditNoteResponse,
@@ -138,6 +139,7 @@ async def create_credit_note(data: CreditNoteCreate, current_user: dict = Depend
         obj.credit_applied = 0
 
     # GL via shared service (org defaults -> hardcoded fallback, one balanced txn)
+    obj.exchange_rate = await document_rate(db, org_id, obj.currency, data.issue_date)
     await post_credit_note_gl(
         db, org_id,
         issue_date=data.issue_date,
@@ -146,6 +148,7 @@ async def create_credit_note(data: CreditNoteCreate, current_user: dict = Depend
         subtotal=float(subtotal),
         tax_amount=float(tax_amount),
         total=float(total),
+        rate=float(obj.exchange_rate),
     )
 
     await db.commit()

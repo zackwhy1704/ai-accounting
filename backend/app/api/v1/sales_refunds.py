@@ -11,6 +11,7 @@ from app.models.models import (
 )
 from .gl_helpers import post_gl
 from app.services.gl_posting import post_sales_refund_gl
+from app.services.fx import document_rate
 from app.schemas.schemas import (
     SalesRefundCreate, SalesRefundUpdate, SalesRefundResponse,
 )
@@ -118,12 +119,14 @@ async def create_sales_refund(data: SalesRefundCreate, current_user: dict = Depe
             cn.status = "applied"
 
     # GL via shared service (org defaults -> hardcoded fallback)
+    obj.exchange_rate = await document_rate(db, org_id, obj.currency, data.refund_date)
     await post_sales_refund_gl(
         db, org_id,
         refund_date=data.refund_date,
         number=obj.refund_number,
         refund_id=obj.id,
         amount=float(data.amount),
+        rate=float(obj.exchange_rate),
     )
 
     await db.commit()

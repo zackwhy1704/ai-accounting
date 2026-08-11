@@ -15,6 +15,7 @@ from app.models.models import PurchasePayment, Bill, PurchaseDebitNote, Contact
 from .gl_helpers import post_gl, post_gl_by_id, revert_gl
 from app.core.org_defaults import get_default_accounts
 from app.services.gl_posting import post_purchase_payment_gl
+from app.services.fx import document_rate, to_base
 from app.core.audit import log_audit
 
 router = APIRouter(prefix="/purchase-payments", tags=["purchase-payments"])
@@ -135,8 +136,13 @@ async def create_purchase_payment(
         payment_no=payment_no,
         **data,
     )
+    payment.exchange_rate = await document_rate(db, org_id, payment.currency, payload.payment_date)
     db.add(payment)
     await db.flush()
+
+    # Base value at which the settled bill/debit note was booked (its doc-date
+    # rate); the gap vs bank-at-payment-rate posts to 5900 as realised FX.
+    cleared_base = None
 
     # Update linked bill balance
     if payload.bill_id:
@@ -148,6 +154,7 @@ async def create_purchase_payment(
                 raise HTTPException(status_code=400, detail="Payment exceeds outstanding bill balance")
             bill.amount_paid = float(bill.amount_paid or 0) + float(payload.amount)
             bill.mark_paid()
+            cleared_base = to_base(payload.amount, float(bill.exchange_rate or 1.0))
 
     # Update linked debit note balance
     if payload.debit_note_id:
@@ -163,14 +170,17 @@ async def create_purchase_payment(
                 dn.status = "applied"
             elif float(dn.amount_paid) > 0:
                 dn.status = "partially_paid"
+            cleared_base = to_base(payload.amount, float(dn.exchange_rate or 1.0))
 
-    # GL: Dr AP / Cr Cash/Bank via shared service
+    # GL: Dr AP / Cr Cash/Bank (± realised FX to 5900) via shared service
     await post_purchase_payment_gl(
         db, org_id,
         payment_date=payload.payment_date,
         number=payment.payment_no,
         payment_id=payment.id,
         amount=float(payload.amount),
+        rate=float(payment.exchange_rate),
+        cleared_base=cleared_base,
     )
 
     await db.commit()

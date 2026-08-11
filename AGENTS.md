@@ -7,7 +7,7 @@
 |---|---|---|
 | Frontend | React 19 + TypeScript + TanStack Query v5 + Vite + Tailwind | `frontend/src/App.tsx` |
 | Backend | FastAPI + SQLAlchemy async + PostgreSQL (Neon) | `backend/app/main.py` |
-| DB migrations | Alembic — single linear chain. Current head: **`a026`** | `backend/alembic/versions/` |
+| DB migrations | Alembic — single linear chain. Current head: **`a035`** | `backend/alembic/versions/` |
 
 **Backend** on port 8000 with `--reload`. DB on port 5433. **Frontend dev** on port 5173.
 
@@ -150,7 +150,8 @@ ChartOfAccountsPage renders headers in bold uppercase, subheaders in italic semi
 - **Status values** — Invoice: `draft/outstanding/partially_paid/paid/void`. Bill: same. CreditNote: `draft/issued/applied/void`. PO: `draft/sent/received/billed/declined/cancelled`. Never use `"sent"` for invoice status.
 - **Numeric**: SQLAlchemy `Numeric(15,2)` → `Decimal`. Always `float()` wrap in arithmetic.
 - **FK deletes**: null out FK references first. Pattern from `invoices.py` delete endpoint.
-- **Migrations**: new column = new migration. Never edit existing. Head: **`a026`**.
+- **Migrations**: new column = new migration. Never edit existing. Head: **`a035`**.
+- **Multi-currency (FX-1, `a035`)**: every posting document snapshots `exchange_rate` (doc-date rate to org base) at create; `gl_posting` converts all legs to base via `convert_doc_amounts()` (tax leg absorbs rounding so the txn always balances); payments pass `cleared_base` (Σ allocation × booked doc rate) and the realised difference posts to **5900 Foreign Exchange Gain/Loss**. Once a doc is posted its rate is frozen — only drafts re-snapshot. Helpers in `app.services.fx`: `document_rate()`, `to_base()`, `convert_doc_amounts()`.
 - **Account filter in reports**: use `JournalEntry` subquery — `select(JournalEntry.transaction_id).where(JournalEntry.account_id == account_id).scalar_subquery()`.
 
 ---

@@ -17,6 +17,7 @@ from app.core.sequences import next_sequence_number
 from app.core.line_items import calculate_line_items
 from .gl_helpers import post_gl
 from app.services.gl_posting import post_purchase_debit_note_gl
+from app.services.fx import document_rate
 
 router = APIRouter(prefix="/purchase-debit-notes", tags=["purchase-debit-notes"])
 
@@ -134,6 +135,7 @@ async def create_purchase_debit_note(
         ))
 
     # GL via shared service (org defaults -> hardcoded fallback, one balanced txn)
+    obj.exchange_rate = await document_rate(db, org_id, obj.currency, data.issue_date)
     await post_purchase_debit_note_gl(
         db, org_id,
         issue_date=data.issue_date,
@@ -142,6 +144,7 @@ async def create_purchase_debit_note(
         subtotal=float(subtotal),
         tax_amount=float(tax_amount),
         total=float(subtotal + tax_amount),
+        rate=float(obj.exchange_rate),
     )
 
     await db.commit()
