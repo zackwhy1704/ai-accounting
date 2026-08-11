@@ -33,6 +33,7 @@ from app.api.v1.dimensions import router as dimensions_router
 from app.api.v1.stock_ledger import router as stock_ledger_router
 from app.api.v1.sales_orders import router as sales_orders_router
 from app.api.v1.audit_logs import router as audit_logs_router
+from app.api.v1.document_pdf import router as document_pdf_router
 from app.api.v1.sg_compliance import router as sg_compliance_router
 
 settings = get_settings()
@@ -292,4 +293,5 @@ app.include_router(dimensions_router, prefix=settings.API_V1_PREFIX)
 app.include_router(stock_ledger_router, prefix=settings.API_V1_PREFIX)
 app.include_router(sales_orders_router, prefix=settings.API_V1_PREFIX)
 app.include_router(audit_logs_router, prefix=settings.API_V1_PREFIX)
+app.include_router(document_pdf_router, prefix=settings.API_V1_PREFIX)
 app.include_router(sg_compliance_router, prefix=settings.API_V1_PREFIX)
