@@ -6,3 +6,4 @@ from .banking import *
 from .stock import *
 from .documents import *
 from .settings import *
+from .einvoice import *

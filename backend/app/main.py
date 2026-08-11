@@ -13,7 +13,7 @@ from app.core.permissions import require_role
 from app.api.v1 import (
     auth, invoices, bills, documents, contacts, accounts, dashboard, billing, firm,
     quotations, delivery_orders, credit_notes, debit_notes, sales_payments, sales_refunds,
-    products, tax_rates, exchange_rates, manual_journals, sale_receipts, recurring_invoices, einvoice, payment_links, reports, custom_fields, invoice_templates, ai_assist,
+    products, tax_rates, exchange_rates, manual_journals, sale_receipts, recurring_invoices, einvoice, einvoice_batch, einvoice_config, payment_links, reports, custom_fields, invoice_templates, ai_assist,
     bank_accounts, bank_transactions, bank_transfers_router, stock, fixed_assets, purchase_payments, purchase_refunds, contact_groups, settings_data, bank_reconciliation,
 )
 from app.api.v1.adjustments import router as adjustments_router
@@ -250,6 +250,8 @@ async def health_integrity(request: Request):
         return {"status": "unhealthy"}
 app.include_router(recurring_invoices.router, prefix=settings.API_V1_PREFIX)
 app.include_router(einvoice.router, prefix=settings.API_V1_PREFIX)
+app.include_router(einvoice_batch.router, prefix=settings.API_V1_PREFIX)
+app.include_router(einvoice_config.router, prefix=settings.API_V1_PREFIX)
 app.include_router(payment_links.router, prefix=settings.API_V1_PREFIX)
 app.include_router(reports.router, prefix=settings.API_V1_PREFIX)
 app.include_router(custom_fields.router, prefix=settings.API_V1_PREFIX)

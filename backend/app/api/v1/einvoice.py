@@ -1,244 +1,217 @@
 """
-MyInvois (LHDN) e-Invoice integration for Malaysia.
+MyInvois (LHDN) e-Invoice endpoints for Malaysia.
 
-Supports:
-- Sandbox: https://preprod.api.myinvois.hasil.gov.my
-- Production: https://api.myinvois.hasil.gov.my
+Thin router: UBL construction lives in services/einvoice_ubl.py, the LHDN HTTP
+client + submission lifecycle in services/einvoice_service.py, tracking rows in
+models/einvoice.py (EInvoiceSubmission).
 
-Endpoints used:
-- POST /connect/token  → get access token
-- POST /api/v1.0/documentsubmissions  → submit invoice
-- GET  /api/v1.0/documents/{uuid}/details  → get document status
-- PUT  /api/v1.0/documents/state/{uuid}/state  → cancel/reject
-
-Reference: https://sdk.myinvois.hasil.gov.my/
+Doc types: invoice 01 · credit note 02 · debit note 03 · refund note 04.
+Consolidated e-invoices aggregate a month's cash sales + no-TIN invoices under
+the LHDN "General Public" buyer. Cancellation only within 72h of validation.
 """
-
-import httpx
 from datetime import datetime, timezone
-from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
 from uuid import UUID
 
+from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel
+from sqlalchemy import select
+from sqlalchemy.orm import selectinload
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.core.audit import log_audit
 from app.core.database import get_db
-from app.core.security import get_current_user
 from app.core.permissions import require_write
-from app.models.models import Organization, Invoice
+from app.core.security import get_current_user
+from app.models.models import (
+    Contact, CreditNote, DebitNote, EInvoiceSubmission, Invoice, Organization,
+    SalesRefund,
+)
+from app.services import einvoice_service as svc
+from app.services import einvoice_ubl as ubl
 
 router = APIRouter(prefix="/einvoice", tags=["e-invoice"])
 
-SANDBOX_BASE = "https://preprod.api.myinvois.hasil.gov.my"
-PROD_BASE = "https://api.myinvois.hasil.gov.my"
+_ACTIVE = ("submitted", "valid")  # submission states that block a re-submit
 
 
-def _base_url(sandbox: bool) -> str:
-    return SANDBOX_BASE if sandbox else PROD_BASE
+async def _org(db: AsyncSession, org_id) -> Organization:
+    org = (await db.execute(select(Organization).where(Organization.id == org_id))).scalar_one_or_none()
+    return svc.require_einvoice_org(org)
 
 
-async def _get_lhdn_token(org: Organization) -> str:
-    """Get an LHDN MyInvois access token via client credentials.
+async def _contact(db: AsyncSession, org_id, contact_id) -> Contact | None:
+    if not contact_id:
+        return None
+    return (await db.execute(
+        select(Contact).where(Contact.id == contact_id, Contact.organization_id == org_id)
+    )).scalar_one_or_none()
 
-    Requires LHDN_CLIENT_ID and LHDN_CLIENT_SECRET (from the LHDN MyInvois portal)
-    in the environment. Until those are configured, submission is NOT operational
-    and this returns a clear 503 rather than attempting a doomed empty-secret auth.
-    """
-    from app.core.config import get_settings
-    settings = get_settings()
 
-    if not org.einvoice_supplier_tin:
-        raise HTTPException(status_code=400, detail="LHDN Supplier TIN not configured")
-
-    client_id = settings.LHDN_CLIENT_ID or org.einvoice_supplier_tin
-    client_secret = settings.LHDN_CLIENT_SECRET
-    if not client_secret:
-        raise HTTPException(
-            status_code=503,
-            detail=("MyInvois submission is not yet configured. Set LHDN_CLIENT_ID and "
-                    "LHDN_CLIENT_SECRET (from the LHDN MyInvois developer portal) to enable "
-                    "e-Invoice submission."),
+async def _guard_not_already_submitted(db: AsyncSession, org_id, source_type: str, source_id) -> None:
+    existing = (await db.execute(
+        select(EInvoiceSubmission).where(
+            EInvoiceSubmission.organization_id == org_id,
+            EInvoiceSubmission.source_type == source_type,
+            EInvoiceSubmission.source_id == source_id,
+            EInvoiceSubmission.status.in_(_ACTIVE),
         )
-
-    base = _base_url(org.einvoice_sandbox)
-    payload = {
-        "grant_type": "client_credentials",
-        "client_id": client_id,
-        "client_secret": client_secret,
-        "scope": "InvoicingAPI",
-    }
-    async with httpx.AsyncClient(timeout=15) as client:
-        resp = await client.post(f"{base}/connect/token", data=payload)
-        if resp.status_code != 200:
-            raise HTTPException(status_code=502, detail=f"LHDN auth failed: {resp.text}")
-        return resp.json()["access_token"]
+    )).scalars().first()
+    if existing:
+        raise HTTPException(status_code=400, detail=f"Document already submitted (status: {existing.status}). Cancel it first to resubmit.")
 
 
-def _build_ubl_invoice(invoice: Invoice, org: Organization) -> dict:
-    """Build LHDN UBL 2.1 invoice document."""
-    now = datetime.now(timezone.utc)
+async def _invoice_billing_reference(db: AsyncSession, org_id, invoice_id) -> dict | None:
+    """BillingReference for CN/DN/refund: original invoice number + LHDN UUID if known."""
+    if not invoice_id:
+        return None
+    inv = (await db.execute(select(Invoice).where(Invoice.id == invoice_id, Invoice.organization_id == org_id))).scalar_one_or_none()
+    if not inv:
+        return None
+    sub = (await db.execute(
+        select(EInvoiceSubmission).where(
+            EInvoiceSubmission.organization_id == org_id,
+            EInvoiceSubmission.source_type == "invoice",
+            EInvoiceSubmission.source_id == inv.id,
+            EInvoiceSubmission.status == "valid",
+        ).order_by(EInvoiceSubmission.created_at.desc())
+    )).scalars().first()
+    return {"number": inv.invoice_number, "uuid": sub.document_uuid if sub else None}
+
+
+async def _submit_and_log(db, org, current_user, **kwargs) -> dict:
+    sub = await svc.submit_document(db, org, **kwargs)
+    await db.commit()
+    await log_audit(db, org.id, current_user["sub"], "create", "einvoice_submission", sub.id)
     return {
-        "_D": "urn:oasis:names:specification:ubl:schema:xsd:Invoice-2",
-        "_A": "urn:oasis:names:specification:ubl:schema:xsd:CommonAggregateComponents-2",
-        "_B": "urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2",
-        "Invoice": [{
-            "ID": [{"_": invoice.invoice_number}],
-            "IssueDate": [{"_": invoice.issue_date.strftime("%Y-%m-%d") if invoice.issue_date else now.strftime("%Y-%m-%d")}],
-            "IssueTime": [{"_": now.strftime("%H:%M:%SZ")}],
-            "InvoiceTypeCode": [{"_": "01", "listVersionID": "1.0"}],  # 01 = invoice
-            "DocumentCurrencyCode": [{"_": invoice.currency or "MYR"}],
-            "TaxCurrencyCode": [{"_": invoice.currency or "MYR"}],
-            "AccountingSupplierParty": [{
-                "Party": [{
-                    "IndustryClassificationCode": [{"_": "46510", "name": "Wholesale of computers, peripheral equipment and software"}],
-                    "PartyIdentification": [{"ID": [{"_": org.einvoice_supplier_tin, "schemeID": "TIN"}]}],
-                    "PostalAddress": [{"CountrySubentityCode": [{"_": "14"}], "Country": [{"IdentificationCode": [{"_": "MYS"}]}]}],
-                    "PartyLegalEntity": [{"RegistrationName": [{"_": org.name}]}],
-                    "Contact": [{"Telephone": [{"_": ""}], "ElectronicMail": [{"_": ""}]}],
-                }]
-            }],
-            "LegalMonetaryTotal": [{
-                "PayableAmount": [{"_": str(invoice.total or 0), "currencyID": invoice.currency or "MYR"}],
-                "TaxExclusiveAmount": [{"_": str(invoice.subtotal or 0), "currencyID": invoice.currency or "MYR"}],
-                "TaxInclusiveAmount": [{"_": str(invoice.total or 0), "currencyID": invoice.currency or "MYR"}],
-            }],
-            "TaxTotal": [{
-                "TaxAmount": [{"_": str(invoice.tax_amount or 0), "currencyID": invoice.currency or "MYR"}],
-            }],
-        }]
+        "submission_id": str(sub.id), "submission_uid": sub.submission_uid,
+        "document_uuid": sub.document_uuid, "status": sub.status,
+        "status_reason": sub.status_reason, "sandbox": sub.sandbox,
     }
 
 
 @router.post("/submit/{invoice_id}")
-async def submit_einvoice(
-    invoice_id: UUID,
-    db: AsyncSession = Depends(get_db),
-    current_user: dict = Depends(require_write()),
-):
-    """Submit an invoice to LHDN MyInvois."""
-    # Load org
-    org_result = await db.execute(select(Organization).where(Organization.id == current_user["org_id"]))
-    org = org_result.scalar_one_or_none()
-    if not org or not org.einvoice_enabled:
-        raise HTTPException(status_code=400, detail="e-Invoice not enabled for this organization")
-    if org.country != "MY":
-        raise HTTPException(status_code=400, detail="MyInvois is only for Malaysian organizations")
-
-    # Load invoice
-    inv_result = await db.execute(
-        select(Invoice).where(Invoice.id == invoice_id, Invoice.organization_id == current_user["org_id"])
-    )
-    invoice = inv_result.scalar_one_or_none()
-    if not invoice:
+async def submit_invoice(invoice_id: UUID, db: AsyncSession = Depends(get_db), current_user: dict = Depends(require_write())):
+    org = await _org(db, current_user["org_id"])
+    inv = (await db.execute(
+        select(Invoice).options(selectinload(Invoice.line_items))
+        .where(Invoice.id == invoice_id, Invoice.organization_id == org.id)
+    )).scalar_one_or_none()
+    if not inv:
         raise HTTPException(status_code=404, detail="Invoice not found")
+    if inv.status in ("draft", "void", "cancelled"):
+        raise HTTPException(status_code=400, detail=f"Cannot submit a {inv.status} invoice")
+    await _guard_not_already_submitted(db, org.id, "invoice", inv.id)
+    return await _submit_and_log(
+        db, org, current_user,
+        source_type="invoice", source_id=inv.id, doc_type_code=ubl.DOC_TYPE_INVOICE,
+        number=inv.invoice_number, issue_datetime=inv.issue_date or datetime.now(timezone.utc),
+        currency=inv.currency or "MYR", exchange_rate=float(inv.exchange_rate or 1),
+        buyer=svc.buyer_dict(await _contact(db, org.id, inv.contact_id)),
+        lines=await svc.resolve_lines(db, org.id, inv.line_items),
+        subtotal=float(inv.subtotal or 0), tax_amount=float(inv.tax_amount or 0), total=float(inv.total or 0),
+    )
 
-    token = await _get_lhdn_token(org)
-    base = _base_url(org.einvoice_sandbox)
-    ubl_doc = _build_ubl_invoice(invoice, org)
 
-    import hashlib, base64, json
-    doc_str = json.dumps(ubl_doc)
-    doc_hash = base64.b64encode(hashlib.sha256(doc_str.encode()).digest()).decode()
+@router.post("/submit/credit-note/{cn_id}")
+async def submit_credit_note(cn_id: UUID, db: AsyncSession = Depends(get_db), current_user: dict = Depends(require_write())):
+    org = await _org(db, current_user["org_id"])
+    cn = (await db.execute(
+        select(CreditNote).options(selectinload(CreditNote.line_items))
+        .where(CreditNote.id == cn_id, CreditNote.organization_id == org.id)
+    )).scalar_one_or_none()
+    if not cn:
+        raise HTTPException(status_code=404, detail="Credit note not found")
+    if cn.status in ("draft", "void"):
+        raise HTTPException(status_code=400, detail=f"Cannot submit a {cn.status} credit note")
+    await _guard_not_already_submitted(db, org.id, "credit_note", cn.id)
+    return await _submit_and_log(
+        db, org, current_user,
+        source_type="credit_note", source_id=cn.id, doc_type_code=ubl.DOC_TYPE_CREDIT_NOTE,
+        number=cn.credit_note_number, issue_datetime=cn.issue_date or datetime.now(timezone.utc),
+        currency=cn.currency or "MYR", exchange_rate=float(cn.exchange_rate or 1),
+        buyer=svc.buyer_dict(await _contact(db, org.id, cn.contact_id)),
+        lines=await svc.resolve_lines(db, org.id, cn.line_items),
+        subtotal=float(cn.subtotal or 0), tax_amount=float(cn.tax_amount or 0), total=float(cn.total or 0),
+        billing_reference=await _invoice_billing_reference(db, org.id, cn.invoice_id),
+    )
 
-    payload = {
-        "documents": [{
-            "format": "JSON",
-            "documentHash": doc_hash,
-            "codeNumber": invoice.invoice_number,
-            "document": base64.b64encode(doc_str.encode()).decode(),
-        }]
-    }
 
-    async with httpx.AsyncClient(timeout=30) as client:
-        resp = await client.post(
-            f"{base}/api/v1.0/documentsubmissions",
-            json=payload,
-            headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
-        )
-        if resp.status_code not in (200, 202):
-            raise HTTPException(status_code=502, detail=f"LHDN submission failed: {resp.text}")
-        result = resp.json()
+@router.post("/submit/debit-note/{dn_id}")
+async def submit_debit_note(dn_id: UUID, db: AsyncSession = Depends(get_db), current_user: dict = Depends(require_write())):
+    org = await _org(db, current_user["org_id"])
+    dn = (await db.execute(
+        select(DebitNote).options(selectinload(DebitNote.line_items))
+        .where(DebitNote.id == dn_id, DebitNote.organization_id == org.id)
+    )).scalar_one_or_none()
+    if not dn:
+        raise HTTPException(status_code=404, detail="Debit note not found")
+    if dn.status in ("draft", "void"):
+        raise HTTPException(status_code=400, detail=f"Cannot submit a {dn.status} debit note")
+    await _guard_not_already_submitted(db, org.id, "debit_note", dn.id)
+    return await _submit_and_log(
+        db, org, current_user,
+        source_type="debit_note", source_id=dn.id, doc_type_code=ubl.DOC_TYPE_DEBIT_NOTE,
+        number=dn.debit_note_number, issue_datetime=dn.issue_date or datetime.now(timezone.utc),
+        currency=dn.currency or "MYR", exchange_rate=float(dn.exchange_rate or 1),
+        buyer=svc.buyer_dict(await _contact(db, org.id, dn.contact_id)),
+        lines=await svc.resolve_lines(db, org.id, dn.line_items),
+        subtotal=float(dn.subtotal or 0), tax_amount=float(dn.tax_amount or 0), total=float(dn.total or 0),
+        billing_reference=await _invoice_billing_reference(db, org.id, dn.invoice_id),
+    )
 
-    return {
-        "submission_id": result.get("submissionUid"),
-        "accepted_documents": result.get("acceptedDocuments", []),
-        "rejected_documents": result.get("rejectedDocuments", []),
-        "sandbox": org.einvoice_sandbox,
-    }
+
+@router.post("/submit/refund/{refund_id}")
+async def submit_refund(refund_id: UUID, db: AsyncSession = Depends(get_db), current_user: dict = Depends(require_write())):
+    org = await _org(db, current_user["org_id"])
+    rf = (await db.execute(
+        select(SalesRefund).where(SalesRefund.id == refund_id, SalesRefund.organization_id == org.id)
+    )).scalar_one_or_none()
+    if not rf:
+        raise HTTPException(status_code=404, detail="Refund not found")
+    if rf.status == "void":
+        raise HTTPException(status_code=400, detail="Cannot submit a voided refund")
+    await _guard_not_already_submitted(db, org.id, "refund", rf.id)
+    # Refund notes reference the credit note's original invoice when available
+    billing_ref = None
+    if rf.credit_note_id:
+        cn = (await db.execute(select(CreditNote).where(CreditNote.id == rf.credit_note_id))).scalar_one_or_none()
+        if cn:
+            billing_ref = await _invoice_billing_reference(db, org.id, cn.invoice_id) or {"number": cn.credit_note_number}
+    amount = float(rf.amount or 0)
+    return await _submit_and_log(
+        db, org, current_user,
+        source_type="refund", source_id=rf.id, doc_type_code=ubl.DOC_TYPE_REFUND_NOTE,
+        number=rf.refund_number, issue_datetime=rf.refund_date or datetime.now(timezone.utc),
+        currency=rf.currency or "MYR", exchange_rate=float(rf.exchange_rate or 1),
+        buyer=svc.buyer_dict(await _contact(db, org.id, rf.contact_id)),
+        lines=[{"description": f"Refund {rf.refund_number}", "quantity": 1, "unit_price": amount,
+                "amount": amount, "tax_rate": 0, "tax_amount": 0}],
+        subtotal=amount, tax_amount=0.0, total=amount, billing_reference=billing_ref,
+    )
 
 
 @router.get("/status/{submission_uid}")
-async def check_einvoice_status(
-    submission_uid: str,
-    db: AsyncSession = Depends(get_db),
-    current_user: dict = Depends(get_current_user),
-):
-    """Check submission status from LHDN."""
-    org_result = await db.execute(select(Organization).where(Organization.id == current_user["org_id"]))
-    org = org_result.scalar_one_or_none()
-    if not org or not org.einvoice_enabled:
-        raise HTTPException(status_code=400, detail="e-Invoice not enabled")
-
-    token = await _get_lhdn_token(org)
-    base = _base_url(org.einvoice_sandbox)
-
-    async with httpx.AsyncClient(timeout=15) as client:
-        resp = await client.get(
-            f"{base}/api/v1.0/documentsubmissions/{submission_uid}",
-            headers={"Authorization": f"Bearer {token}"},
-        )
-        if resp.status_code != 200:
-            raise HTTPException(status_code=502, detail=f"LHDN status check failed: {resp.text}")
-        return resp.json()
+async def check_status(submission_uid: str, db: AsyncSession = Depends(get_db), current_user: dict = Depends(get_current_user)):
+    """Poll LHDN and sync our tracking rows (valid/invalid/cancelled, long ID, link)."""
+    org = await _org(db, current_user["org_id"])
+    body = await svc.refresh_submission_status(db, org, submission_uid)
+    await db.commit()
+    return body
 
 
-@router.get("/submissions")
-async def list_einvoice_submissions(
-    db: AsyncSession = Depends(get_db),
-    current_user: dict = Depends(get_current_user),
-):
-    """List this org's invoices as e-invoice submission candidates.
-
-    There is no separate submission-tracking table yet, so this derives the list
-    from invoices (status defaults to "pending"). It gives the MyInvois page a
-    real endpoint to render; per-invoice submission still goes through
-    POST /einvoice/submit/{invoice_id}.
-    """
-    org_id = current_user["org_id"]
-    result = await db.execute(
-        select(Invoice).where(Invoice.organization_id == org_id).order_by(Invoice.issue_date.desc())
-    )
-    invoices = result.scalars().all()
-    return [
-        {
-            "id": str(inv.id),                # == invoice id; submit uses /einvoice/submit/{id}
-            "invoice_no": inv.invoice_number,
-            "invoice_date": inv.issue_date.isoformat() if inv.issue_date else None,
-            "amount": float(inv.total or 0),
-            "currency": inv.currency,
-            "submission_status": "pending",   # no tracking table yet
-            "uuid": None,
-            "submission_date": None,
-            "validation_status": None,
-            "rejection_reason": None,
-        }
-        for inv in invoices
-    ]
+class CancelRequest(BaseModel):
+    reason: str
 
 
-@router.get("/config")
-async def get_einvoice_config(
-    db: AsyncSession = Depends(get_db),
-    current_user: dict = Depends(get_current_user),
-):
-    """Get e-invoice config for this org."""
-    org_result = await db.execute(select(Organization).where(Organization.id == current_user["org_id"]))
-    org = org_result.scalar_one_or_none()
-    if not org:
-        raise HTTPException(status_code=404, detail="Org not found")
-    return {
-        "einvoice_enabled": org.einvoice_enabled,
-        "einvoice_supplier_tin": org.einvoice_supplier_tin,
-        "einvoice_sandbox": org.einvoice_sandbox,
-        "tax_regime": org.tax_regime,
-        "country": org.country,
-    }
+@router.post("/cancel/{submission_id}")
+async def cancel_submission(submission_id: UUID, payload: CancelRequest, db: AsyncSession = Depends(get_db), current_user: dict = Depends(require_write())):
+    org = await _org(db, current_user["org_id"])
+    sub = (await db.execute(select(EInvoiceSubmission).where(
+        EInvoiceSubmission.id == submission_id, EInvoiceSubmission.organization_id == org.id
+    ))).scalar_one_or_none()
+    if not sub:
+        raise HTTPException(status_code=404, detail="Submission not found")
+    await svc.cancel_document(db, org, sub, payload.reason)
+    await db.commit()
+    await log_audit(db, org.id, current_user["sub"], "void", "einvoice_submission", sub.id, {"reason": payload.reason})
+    return {"submission_id": str(sub.id), "status": sub.status, "cancelled_at": sub.cancelled_at.isoformat()}

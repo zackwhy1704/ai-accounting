@@ -60,6 +60,16 @@ class Organization(Base):
     einvoice_enabled: Mapped[bool] = mapped_column(Boolean, default=False)  # MY MyInvois / SG InvoiceNow
     einvoice_supplier_tin: Mapped[str | None] = mapped_column(String(30))   # MY TIN for LHDN
     einvoice_sandbox: Mapped[bool] = mapped_column(Boolean, default=True)   # use sandbox API
+    # MyInvois supplier profile (mandatory UBL supplier-party fields)
+    brn: Mapped[str | None] = mapped_column(String(50))                     # business registration number
+    msic_code: Mapped[str | None] = mapped_column(String(10))               # 5-digit MSIC 2008
+    msic_description: Mapped[str | None] = mapped_column(String(300))
+    einvoice_phone: Mapped[str | None] = mapped_column(String(30))
+    einvoice_email: Mapped[str | None] = mapped_column(String(255))
+    einvoice_address_line1: Mapped[str | None] = mapped_column(String(255))
+    einvoice_city: Mapped[str | None] = mapped_column(String(100))
+    einvoice_postcode: Mapped[str | None] = mapped_column(String(20))
+    einvoice_state_code: Mapped[str | None] = mapped_column(String(2))      # LHDN state code 01-17
     # Exchange rates: manual override or auto from BNM/MAS
     base_currency: Mapped[str] = mapped_column(String(3), default="MYR")
     fx_auto_update: Mapped[bool] = mapped_column(Boolean, default=True)
