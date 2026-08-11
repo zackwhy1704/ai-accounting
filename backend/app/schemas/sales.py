@@ -49,6 +49,8 @@ class InvoiceCreate(BaseModel):
     issue_date: datetime
     due_date: datetime
     currency: str = "SGD"
+    project_id: UUID | None = None
+    department_id: UUID | None = None
     notes: str | None = None
     terms: str | None = None
     billing_address_line1: str | None = None
@@ -85,6 +87,8 @@ class InvoiceUpdate(BaseModel):
     issue_date: datetime | None = None
     due_date: datetime | None = None
     currency: str | None = None
+    project_id: UUID | None = None
+    department_id: UUID | None = None
     notes: str | None = None
     terms: str | None = None
     billing_address_line1: str | None = None
@@ -115,6 +119,8 @@ class InvoiceResponse(BaseModel):
     amount_paid: float
     currency: str
     exchange_rate: float | None = None
+    project_id: UUID | None = None
+    department_id: UUID | None = None
     notes: str | None
     terms: str | None = None
     billing_address_line1: str | None = None

@@ -7,7 +7,7 @@
 |---|---|---|
 | Frontend | React 19 + TypeScript + TanStack Query v5 + Vite + Tailwind | `frontend/src/App.tsx` |
 | Backend | FastAPI + SQLAlchemy async + PostgreSQL (Neon) | `backend/app/main.py` |
-| DB migrations | Alembic — single linear chain. Current head: **`a036`** | `backend/alembic/versions/` |
+| DB migrations | Alembic — single linear chain. Current head: **`a039`** | `backend/alembic/versions/` |
 
 **Backend** on port 8000 with `--reload`. DB on port 5433. **Frontend dev** on port 5173.
 
@@ -150,7 +150,11 @@ ChartOfAccountsPage renders headers in bold uppercase, subheaders in italic semi
 - **Status values** — Invoice: `draft/outstanding/partially_paid/paid/void`. Bill: same. CreditNote: `draft/issued/applied/void`. PO: `draft/sent/received/billed/declined/cancelled`. Never use `"sent"` for invoice status.
 - **Numeric**: SQLAlchemy `Numeric(15,2)` → `Decimal`. Always `float()` wrap in arithmetic.
 - **FK deletes**: null out FK references first. Pattern from `invoices.py` delete endpoint.
-- **Migrations**: new column = new migration. Never edit existing. Head: **`a036`**.
+- **Migrations**: new column = new migration. Never edit existing. Head: **`a039`**.
+- **Recurring journals** (`recurring_journals.py`, migration `a037`): JSONB balanced line templates → materialize `ManualJournal`s on schedule; `auto_post` posts GL unless the period is locked (then drafts). Sweep via `POST /recurring-journals/run-due`.
+- **Budgets** (`budgets.py`, migration `a038`): `BudgetLine` = per-account, per-fiscal-year, 12 monthly buckets. P&L takes `?include_budget=true` for budget/variance columns.
+- **Dimensions** (`dimensions.py`, migration `a039`): `Project`/`Department` masters; `project_id`/`department_id` on Transaction (document level), JournalEntry (line override), Invoice, Bill, ManualJournalLine. Reports filter on `coalesce(JournalEntry.dim, Transaction.dim)` — P&L takes `?project_id=`/`?department_id=`. Dimension delete is soft (deactivate).
+- **Depreciation** (`fixed_asset_depreciation.py`): `POST /fixed-assets/run-depreciation` computes straight-line/reducing-balance monthly amounts (`services/depreciation.py`), idempotent per period; schedule + register endpoints.
 - **Year-end close** (`year_end.py`, `/accounting/year-end-close`): zeroes revenue/expense accounts at FY end, plugs net income to Retained Earnings 3100 via `build_close_entries()`, optionally advances the period lock. Cumulative-through-date balances net out prior closes, so re-running for the next FY only sweeps new activity. GET = preview, POST = close (admin), POST /undo deletes the latest close.
 - **MyInvois e-Invoice (`a036`)**: routers `einvoice.py` (submit invoice/CN/DN/refund, status, cancel), `einvoice_batch.py` (batch + consolidated), `einvoice_config.py` (config, TIN validation, submissions list). UBL builder is PURE (`services/einvoice_ubl.py`, doc types 01-04); LHDN HTTP + row lifecycle in `services/einvoice_service.py`; tracking rows in `EInvoiceSubmission` (pending→submitted→valid/invalid/cancelled, 72h cancel window via `.can_cancel(now)`). Needs `LHDN_CLIENT_ID`/`LHDN_CLIENT_SECRET` env to reach LHDN — without them network calls 503 cleanly and nothing persists.
 - **Multi-currency (FX-1, `a035`)**: every posting document snapshots `exchange_rate` (doc-date rate to org base) at create; `gl_posting` converts all legs to base via `convert_doc_amounts()` (tax leg absorbs rounding so the txn always balances); payments pass `cleared_base` (Σ allocation × booked doc rate) and the realised difference posts to **5900 Foreign Exchange Gain/Loss**. Once a doc is posted its rate is frozen — only drafts re-snapshot. Helpers in `app.services.fx`: `document_rate()`, `to_base()`, `convert_doc_amounts()`.

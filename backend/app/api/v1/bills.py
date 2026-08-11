@@ -110,6 +110,8 @@ async def create_bill(
         total=total,
         currency=data.currency,
         exchange_rate=await document_rate(db, org_id, data.currency, data.issue_date),
+        project_id=data.project_id,
+        department_id=data.department_id,
         notes=data.notes,
         terms=data.terms,
         billing_address_line1=data.billing_address_line1,
@@ -254,6 +256,8 @@ async def update_bill_status(
             tax_amount=float(bill.tax_amount),
             total=float(bill.total),
             rate=rate,
+            project_id=bill.project_id,
+            department_id=bill.department_id,
         )
 
     # void/cancelled: reverse any posted GL entries

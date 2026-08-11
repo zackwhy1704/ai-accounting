@@ -52,6 +52,8 @@ async def post_gl(
     source: str,
     source_id: UUID,
     entries: list[tuple[str, float, float]],  # (account_code, debit, credit)
+    project_id: UUID | None = None,
+    department_id: UUID | None = None,
 ) -> Transaction | None:
     """
     Create a balanced Transaction + JournalEntry rows.
@@ -83,7 +85,8 @@ async def post_gl(
 
     if not resolved:
         return None
-    return await _write_txn(db, org_id, date, description, reference, source, source_id, resolved)
+    return await _write_txn(db, org_id, date, description, reference, source, source_id, resolved,
+                            project_id=project_id, department_id=department_id)
 
 
 async def post_gl_by_id(
@@ -95,6 +98,8 @@ async def post_gl_by_id(
     source: str,
     source_id: UUID,
     entries: list[tuple[UUID, float, float]],  # (account_id, debit, credit)
+    project_id: UUID | None = None,
+    department_id: UUID | None = None,
 ) -> Transaction | None:
     """Same as post_gl, but takes account UUIDs directly. For modules that
     already store account_id (bank transfers, fixed-asset accounts wired by
@@ -122,7 +127,8 @@ async def post_gl_by_id(
         resolved.append((acct, debit, credit))
     if not resolved:
         return None
-    return await _write_txn(db, org_id, date, description, reference, source, source_id, resolved)
+    return await _write_txn(db, org_id, date, description, reference, source, source_id, resolved,
+                            project_id=project_id, department_id=department_id)
 
 
 async def _assert_period_open(db: AsyncSession, org_id: str, date: datetime) -> None:
@@ -157,6 +163,8 @@ async def _write_txn(
     source: str,
     source_id: UUID,
     resolved: list[tuple[Account, float, float]],
+    project_id: UUID | None = None,
+    department_id: UUID | None = None,
 ) -> Transaction:
 
     await _assert_period_open(db, org_id, date)
@@ -168,6 +176,8 @@ async def _write_txn(
         reference=reference,
         source=source,
         source_id=source_id,
+        project_id=project_id,
+        department_id=department_id,
     )
     db.add(txn)
     await db.flush()

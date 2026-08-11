@@ -238,6 +238,8 @@ async def post_journal(
         db.add(JournalEntry(
             transaction_id=txn.id,
             account_id=line.account_id,
+            project_id=line.project_id,
+            department_id=line.department_id,
             debit=round(float(line.debit), 2),
             credit=round(float(line.credit), 2),
         ))

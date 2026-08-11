@@ -17,11 +17,11 @@ class _Capture:
         self.by_id = None
         self.by_code = None
 
-    async def fake_post_gl_by_id(self, db, org_id, date, desc, ref, source, sid, entries):
+    async def fake_post_gl_by_id(self, db, org_id, date, desc, ref, source, sid, entries, **kwargs):
         self.by_id = entries
         return object()
 
-    async def fake_post_gl(self, db, org_id, date, desc, ref, source, sid, entries):
+    async def fake_post_gl(self, db, org_id, date, desc, ref, source, sid, entries, **kwargs):
         self.by_code = entries
         return object()
 

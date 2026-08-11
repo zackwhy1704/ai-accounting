@@ -71,6 +71,8 @@ class Transaction(Base):
     reference: Mapped[str | None] = mapped_column(String(100))
     source: Mapped[str] = mapped_column(String(50), default="manual")  # manual, invoice, bill, bank, ai
     source_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True))  # linked invoice/bill id
+    project_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("projects.id"), nullable=True)
+    department_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("departments.id"), nullable=True)
     is_posted: Mapped[bool] = mapped_column(Boolean, default=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
@@ -91,6 +93,8 @@ class JournalEntry(Base):
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=new_uuid)
     transaction_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("transactions.id", ondelete="CASCADE"))
     account_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("accounts.id"))
+    project_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("projects.id"), nullable=True)
+    department_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("departments.id"), nullable=True)
     debit: Mapped[float] = mapped_column(Numeric(15, 2), default=0)
     credit: Mapped[float] = mapped_column(Numeric(15, 2), default=0)
 
@@ -160,6 +164,8 @@ class ManualJournalLine(Base):
     debit: Mapped[float] = mapped_column(Numeric(18, 4), default=0)
     credit: Mapped[float] = mapped_column(Numeric(18, 4), default=0)
     contact_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("contacts.id"))
+    project_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("projects.id"), nullable=True)
+    department_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("departments.id"), nullable=True)
 
     journal: Mapped["ManualJournal"] = relationship(back_populates="lines")
     account: Mapped["Account"] = relationship("Account", foreign_keys=[account_id])

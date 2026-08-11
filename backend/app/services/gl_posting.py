@@ -36,7 +36,7 @@ async def _fx_account_id(db: AsyncSession, org_id):
 async def post_invoice_gl(
     db: AsyncSession, org_id, *, issue_date: datetime, number: str,
     invoice_id: UUID, subtotal: float, tax_amount: float, total: float,
-    rate: float = 1.0,
+    rate: float = 1.0, project_id=None, department_id=None,
 ):
     """DR AR (total) / CR Revenue (subtotal) / CR Output Tax (tax) — one balanced txn.
     Amounts arrive in document currency; `rate` converts them to org base currency."""
@@ -46,17 +46,19 @@ async def post_invoice_gl(
         entries = [(defaults["ar"], total, 0.0), (defaults["revenue"], 0.0, subtotal)]
         if tax_amount > 0:
             entries.append((defaults["output_tax"], 0.0, tax_amount))
-        return await post_gl_by_id(db, org_id, issue_date, f"Invoice {number}", number, "invoice", invoice_id, entries)
+        return await post_gl_by_id(db, org_id, issue_date, f"Invoice {number}", number, "invoice", invoice_id, entries,
+                                   project_id=project_id, department_id=department_id)
     entries_code = [("1100", total, 0), ("4000", 0, subtotal)]
     if tax_amount > 0:
         entries_code.append(("2100", 0, tax_amount))
-    return await post_gl(db, org_id, issue_date, f"Invoice {number}", number, "invoice", invoice_id, entries_code)
+    return await post_gl(db, org_id, issue_date, f"Invoice {number}", number, "invoice", invoice_id, entries_code,
+                         project_id=project_id, department_id=department_id)
 
 
 async def post_bill_gl(
     db: AsyncSession, org_id, *, issue_date: datetime, number: str,
     bill_id: UUID, subtotal: float, tax_amount: float, total: float,
-    rate: float = 1.0,
+    rate: float = 1.0, project_id=None, department_id=None,
 ):
     """DR Expense (subtotal) / DR Input Tax (tax) / CR AP (total) — one balanced txn."""
     subtotal, tax_amount, total = convert_doc_amounts(subtotal, tax_amount, total, rate)
@@ -65,11 +67,13 @@ async def post_bill_gl(
         entries = [(defaults["expense"], subtotal, 0.0), (defaults["ap"], 0.0, total)]
         if tax_amount > 0:
             entries.append((defaults["input_tax"], tax_amount, 0.0))
-        return await post_gl_by_id(db, org_id, issue_date, f"Bill {number}", number, "bill", bill_id, entries)
+        return await post_gl_by_id(db, org_id, issue_date, f"Bill {number}", number, "bill", bill_id, entries,
+                                   project_id=project_id, department_id=department_id)
     entries_code = [("5000", subtotal, 0), ("2000", 0, total)]
     if tax_amount > 0:
         entries_code.append(("1200", tax_amount, 0))
-    return await post_gl(db, org_id, issue_date, f"Bill {number}", number, "bill", bill_id, entries_code)
+    return await post_gl(db, org_id, issue_date, f"Bill {number}", number, "bill", bill_id, entries_code,
+                         project_id=project_id, department_id=department_id)
 
 
 async def post_sales_payment_gl(

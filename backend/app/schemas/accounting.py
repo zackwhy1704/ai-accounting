@@ -120,6 +120,8 @@ class ExchangeRateResponse(BaseModel):
 # ── Manual Journals ──
 class ManualJournalLineCreate(BaseModel):
     account_id: UUID
+    project_id: UUID | None = None
+    department_id: UUID | None = None
     description: str | None = None
     debit: float = 0.0
     credit: float = 0.0
@@ -133,6 +135,8 @@ class ManualJournalLineResponse(BaseModel):
     debit: float
     credit: float
     contact_id: UUID | None
+    project_id: UUID | None = None
+    department_id: UUID | None = None
     model_config = {"from_attributes": True}
 
 class ManualJournalCreate(BaseModel):

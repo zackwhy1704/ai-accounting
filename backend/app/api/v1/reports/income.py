@@ -22,6 +22,8 @@ async def profit_loss_report(
     start_date: str = Query(..., description="YYYY-MM-DD"),
     end_date: str = Query(..., description="YYYY-MM-DD"),
     include_budget: bool = Query(False, description="Add budget + variance columns from the fiscal-year budget"),
+    project_id: str | None = Query(None, description="Filter to one project dimension"),
+    department_id: str | None = Query(None, description="Filter to one department dimension"),
     db: AsyncSession = Depends(get_db),
     current_user: dict = Depends(get_current_user),
 ):
@@ -39,7 +41,7 @@ async def profit_loss_report(
     start = parse_date(start_date, "start_date")
     end = parse_date(end_date, "end_date", end_of_day=True)
 
-    result = await db.execute(
+    pl_query = (
         select(
             Account.id, Account.code, Account.name, Account.type,
             func.coalesce(func.sum(JournalEntry.debit), 0).label("debit"),
@@ -53,8 +55,19 @@ async def profit_loss_report(
             Transaction.date <= end,
             Transaction.is_posted == True,
         )
-        .group_by(Account.id, Account.code, Account.name, Account.type)
-        .order_by(Account.code)
+    )
+    # Dimension filters: the journal-entry value (manual-journal lines) overrides
+    # the transaction value (document header); match on the effective dimension.
+    if project_id:
+        pl_query = pl_query.where(
+            func.coalesce(JournalEntry.project_id, Transaction.project_id) == project_id
+        )
+    if department_id:
+        pl_query = pl_query.where(
+            func.coalesce(JournalEntry.department_id, Transaction.department_id) == department_id
+        )
+    result = await db.execute(
+        pl_query.group_by(Account.id, Account.code, Account.name, Account.type).order_by(Account.code)
     )
     rows = result.all()
 

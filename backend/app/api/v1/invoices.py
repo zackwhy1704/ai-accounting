@@ -116,6 +116,8 @@ async def create_invoice(
         total=total,
         currency=data.currency,
         exchange_rate=await document_rate(db, org_id, data.currency, data.issue_date),
+        project_id=data.project_id,
+        department_id=data.department_id,
         notes=data.notes,
         terms=data.terms,
         billing_address_line1=data.billing_address_line1,
@@ -258,6 +260,8 @@ async def update_invoice_status(
             tax_amount=float(invoice.tax_amount),
             total=float(invoice.total),
             rate=rate,
+            project_id=invoice.project_id,
+            department_id=invoice.department_id,
         )
 
     # cancelled: reverse any previously posted GL entries
