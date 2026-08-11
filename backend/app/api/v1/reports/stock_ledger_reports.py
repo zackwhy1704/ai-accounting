@@ -179,3 +179,38 @@ async def stock_movement_report(
             "qty_out": round(-qty_out, 4), "closing": round(o + qty_in + qty_out, 4),
         })
     return {"rows": rows, "start_date": start_date, "end_date": end_date}
+
+
+@router.get("/batch-expiry")
+async def batch_expiry_report(
+    within_days: int = Query(90, ge=1, le=730, description="Show batches expiring within N days (expired included)"),
+    db: AsyncSession = Depends(get_db),
+    current_user: dict = Depends(get_current_user),
+):
+    """Batches with stock on hand that are expired or expiring soon."""
+    from app.models.models import StockBatch
+    org_id = current_user["org_id"]
+    now = datetime.now(timezone.utc)
+    horizon = now + timedelta(days=within_days)
+    rows = (await db.execute(
+        select(StockBatch, Product)
+        .join(Product, Product.id == StockBatch.product_id)
+        .where(
+            StockBatch.organization_id == org_id,
+            StockBatch.qty_on_hand > 0,
+            StockBatch.expiry_date.isnot(None),
+            StockBatch.expiry_date <= horizon,
+        )
+        .order_by(StockBatch.expiry_date)
+    )).all()
+    return {
+        "as_of": now.isoformat(), "within_days": within_days,
+        "rows": [{
+            "product_code": p.code, "product_name": p.name,
+            "batch_no": b.batch_no,
+            "expiry_date": b.expiry_date.isoformat(),
+            "days_to_expiry": (b.expiry_date - now).days,
+            "expired": b.expiry_date < now,
+            "qty_on_hand": float(b.qty_on_hand or 0),
+        } for b, p in rows],
+    }

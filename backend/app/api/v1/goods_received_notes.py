@@ -23,6 +23,8 @@ class GRNLineItemCreate(BaseModel):
     product_id: Optional[UUID] = None
     uom: Optional[str] = None
     uom_factor: float = 1.0
+    batch_no: Optional[str] = None
+    expiry_date: Optional[datetime] = None
     description: str
     quantity_ordered: float = 0.0
     quantity_received: float
@@ -149,6 +151,8 @@ async def create_grn(
             product_id=item.product_id,
             uom=item.uom,
             uom_factor=item.uom_factor,
+            batch_no=item.batch_no,
+            expiry_date=item.expiry_date,
             description=item.description,
             quantity_ordered=item.quantity_ordered,
             quantity_received=item.quantity_received,

@@ -33,6 +33,7 @@ class Product(Base):
     inventory_account_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("accounts.id"))
     # Inventory tracking
     track_inventory: Mapped[bool] = mapped_column(Boolean, default=False)
+    tracking_mode: Mapped[str] = mapped_column(String(10), default="none")  # none | batch | serial
     qty_on_hand: Mapped[float] = mapped_column(Numeric(18, 4), default=0)
     reorder_point: Mapped[float | None] = mapped_column(Numeric(18, 4))
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
@@ -108,6 +109,7 @@ class StockMove(Base):
     organization_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("organizations.id", ondelete="CASCADE"), index=True)
     product_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("products.id", ondelete="CASCADE"))
     location_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("locations.id"), nullable=True)
+    batch_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("stock_batches.id"), nullable=True)
     date: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     qty: Mapped[float] = mapped_column(Numeric(18, 4))       # positive = in, negative = out
     unit_cost: Mapped[float] = mapped_column(Numeric(18, 4), default=0)
@@ -167,3 +169,23 @@ class ProductUom(Base):
     barcode: Mapped[str | None] = mapped_column(String(64))
 
     __table_args__ = (UniqueConstraint("product_id", "name", name="uq_product_uom_name"),)
+
+
+# ──────────────────────────────────────────────
+# Stock Batches / Serial numbers
+# ──────────────────────────────────────────────
+class StockBatch(Base):
+    """A batch/lot (or a single serialized unit — tracking_mode 'serial' uses
+    qty-1 batches whose batch_no is the serial number). Issues auto-consume
+    FEFO: earliest expiry first, then oldest batch."""
+    __tablename__ = "stock_batches"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=new_uuid)
+    organization_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("organizations.id", ondelete="CASCADE"), index=True)
+    product_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("products.id", ondelete="CASCADE"), index=True)
+    batch_no: Mapped[str] = mapped_column(String(64))
+    expiry_date: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    qty_on_hand: Mapped[float] = mapped_column(Numeric(18, 4), default=0)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+    __table_args__ = (UniqueConstraint("product_id", "batch_no", name="uq_product_batch_no"),)

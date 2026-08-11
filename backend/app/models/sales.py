@@ -92,6 +92,8 @@ class InvoiceLineItem(Base):
     product_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("products.id"), nullable=True)
     uom: Mapped[str | None] = mapped_column(String(30), nullable=True)  # selected unit; None = base unit
     uom_factor: Mapped[float] = mapped_column(Numeric(18, 6), default=1)  # base units per selected unit
+    batch_no: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    expiry_date: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     invoice_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("invoices.id", ondelete="CASCADE"))
     line_type: Mapped[str] = mapped_column(String(10), default="goods")  # goods, services
     description: Mapped[str] = mapped_column(String(500))
@@ -296,6 +298,8 @@ class DeliveryOrderLineItem(Base):
     product_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("products.id"), nullable=True)
     uom: Mapped[str | None] = mapped_column(String(30), nullable=True)  # selected unit; None = base unit
     uom_factor: Mapped[float] = mapped_column(Numeric(18, 6), default=1)  # base units per selected unit
+    batch_no: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    expiry_date: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     delivery_order_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("delivery_orders.id", ondelete="CASCADE"))
     line_type: Mapped[str] = mapped_column(String(10), default="goods")  # goods, services
     description: Mapped[str] = mapped_column(String(500))
@@ -383,6 +387,8 @@ class CreditNoteLineItem(Base):
     product_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("products.id"), nullable=True)
     uom: Mapped[str | None] = mapped_column(String(30), nullable=True)  # selected unit; None = base unit
     uom_factor: Mapped[float] = mapped_column(Numeric(18, 6), default=1)  # base units per selected unit
+    batch_no: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    expiry_date: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     credit_note_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("credit_notes.id", ondelete="CASCADE"))
     line_type: Mapped[str] = mapped_column(String(10), default="goods")  # goods, services
     description: Mapped[str] = mapped_column(String(500))

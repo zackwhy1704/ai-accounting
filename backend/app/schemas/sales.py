@@ -8,6 +8,8 @@ class LineItemCreate(BaseModel):
     product_id: UUID | None = None
     uom: str | None = None
     uom_factor: float = 1.0
+    batch_no: str | None = None
+    expiry_date: datetime | None = None
     line_type: str = "goods"  # goods, services
     description: str
     quantity: float = Field(default=1.0, ge=0)
@@ -35,6 +37,8 @@ class LineItemResponse(BaseModel):
     product_id: UUID | None = None
     uom: str | None = None
     uom_factor: float = 1.0
+    batch_no: str | None = None
+    expiry_date: datetime | None = None
     id: UUID
     description: str
     quantity: float
@@ -286,6 +290,8 @@ class DeliveryOrderLineItemCreate(BaseModel):
     product_id: UUID | None = None
     uom: str | None = None
     uom_factor: float = 1.0
+    batch_no: str | None = None
+    expiry_date: datetime | None = None
     line_type: str = "goods"  # goods, services
     description: str
     quantity: float = 1.0
@@ -365,6 +371,8 @@ class CreditNoteLineItemCreate(BaseModel):
     product_id: UUID | None = None
     uom: str | None = None
     uom_factor: float = 1.0
+    batch_no: str | None = None
+    expiry_date: datetime | None = None
     line_type: str = "goods"  # goods, services
     description: str
     quantity: float = 1.0
@@ -672,6 +680,8 @@ class SaleReceiptLineItem(BaseModel):
     product_id: UUID | None = None
     uom: str | None = None
     uom_factor: float = 1.0
+    batch_no: str | None = None
+    expiry_date: datetime | None = None
     description: str
     quantity: float = 1.0
     unit_price: float

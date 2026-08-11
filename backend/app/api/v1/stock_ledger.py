@@ -182,3 +182,35 @@ async def set_product_uoms(product_id: UUID, payload: UomsUpsert, db: AsyncSessi
         db.add(ProductUom(product_id=product_id, name=u.name.strip(), factor=round(float(u.factor), 6), barcode=u.barcode))
     await db.commit()
     return await list_product_uoms(product_id, db, current_user)
+
+
+# ── Batches / serial numbers ───────────────────────────────────────────────────
+
+from app.models.models import StockBatch
+
+
+@router.get("/products/{product_id}/batches")
+async def list_product_batches(
+    product_id: UUID,
+    include_empty: bool = False,
+    db: AsyncSession = Depends(get_db),
+    current_user: dict = Depends(get_current_user),
+):
+    product = (await db.execute(
+        select(Product).where(Product.id == product_id, Product.organization_id == current_user["org_id"])
+    )).scalar_one_or_none()
+    if not product:
+        raise HTTPException(status_code=404, detail="Product not found")
+    q = select(StockBatch).where(StockBatch.product_id == product_id)
+    if not include_empty:
+        q = q.where(StockBatch.qty_on_hand > 0)
+    rows = (await db.execute(q.order_by(StockBatch.expiry_date.nullslast(), StockBatch.created_at))).scalars().all()
+    return {
+        "product_id": str(product_id),
+        "tracking_mode": product.tracking_mode,
+        "batches": [{
+            "id": str(b.id), "batch_no": b.batch_no,
+            "expiry_date": b.expiry_date.isoformat() if b.expiry_date else None,
+            "qty_on_hand": float(b.qty_on_hand or 0),
+        } for b in rows],
+    }
