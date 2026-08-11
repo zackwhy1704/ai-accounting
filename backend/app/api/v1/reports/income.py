@@ -21,6 +21,7 @@ router = APIRouter()
 async def profit_loss_report(
     start_date: str = Query(..., description="YYYY-MM-DD"),
     end_date: str = Query(..., description="YYYY-MM-DD"),
+    include_budget: bool = Query(False, description="Add budget + variance columns from the fiscal-year budget"),
     db: AsyncSession = Depends(get_db),
     current_user: dict = Depends(get_current_user),
 ):
@@ -57,10 +58,30 @@ async def profit_loss_report(
     )
     rows = result.all()
 
+    # Optional budget overlay: sum monthly buckets for the calendar months the
+    # report period covers (single-fiscal-year periods only, keyed by start year).
+    budget_by_account: dict = {}
+    if include_budget:
+        from app.api.v1.budgets import budget_amount_for_period
+        from app.models.models import BudgetLine
+        budget_rows = (await db.execute(
+            select(BudgetLine).where(
+                BudgetLine.organization_id == org_id,
+                BudgetLine.fiscal_year == start.year,
+            )
+        )).scalars().all()
+        end_month = end.month if end.year == start.year else 12
+        budget_by_account = {
+            b.account_id: budget_amount_for_period(b.amounts, start.month, end_month)
+            for b in budget_rows
+        }
+
     revenue_lines: list[dict] = []
     expense_lines: list[dict] = []
     total_revenue = 0.0
     total_expenses = 0.0
+    budget_revenue = 0.0
+    budget_expenses = 0.0
 
     for row in rows:
         t = (row.type or "").lower()
@@ -68,16 +89,46 @@ async def profit_loss_report(
         cr = float(row.credit or 0)
         if t in ("revenue", "income"):
             amount = cr - dr  # revenue is a credit-balance account
-            if abs(amount) < 0.005:
+            if abs(amount) < 0.005 and row.id not in budget_by_account:
                 continue
-            revenue_lines.append({"code": row.code, "name": row.name, "amount": amount})
+            line = {"code": row.code, "name": row.name, "amount": amount}
+            if include_budget:
+                b = budget_by_account.pop(row.id, 0.0)
+                line["budget"] = b
+                line["variance"] = round(amount - b, 2)
+                budget_revenue += b
+            revenue_lines.append(line)
             total_revenue += amount
         elif t in ("expense", "cogs", "cost_of_sales"):
             amount = dr - cr  # expense is a debit-balance account
-            if abs(amount) < 0.005:
+            if abs(amount) < 0.005 and row.id not in budget_by_account:
                 continue
-            expense_lines.append({"code": row.code, "name": row.name, "amount": amount})
+            line = {"code": row.code, "name": row.name, "amount": amount}
+            if include_budget:
+                b = budget_by_account.pop(row.id, 0.0)
+                line["budget"] = b
+                line["variance"] = round(amount - b, 2)
+                budget_expenses += b
+            expense_lines.append(line)
             total_expenses += amount
+
+    # Budgeted P&L accounts with no actuals in the period still belong on the report
+    if include_budget and budget_by_account:
+        leftover = (await db.execute(
+            select(Account).where(Account.id.in_(budget_by_account.keys()))
+        )).scalars().all()
+        for acct in leftover:
+            b = budget_by_account.get(acct.id, 0.0)
+            if b == 0:
+                continue
+            t = (acct.type or "").lower()
+            line = {"code": acct.code, "name": acct.name, "amount": 0.0, "budget": b, "variance": round(-b, 2)}
+            if t in ("revenue", "income"):
+                revenue_lines.append(line)
+                budget_revenue += b
+            elif t in ("expense", "cogs", "cost_of_sales"):
+                expense_lines.append(line)
+                budget_expenses += b
 
     net_income = total_revenue - total_expenses
 
@@ -100,6 +151,12 @@ async def profit_loss_report(
             },
         },
         "net_income": net_income,
+        **({"budget": {
+            "revenue_total": round(budget_revenue, 2),
+            "expense_total": round(budget_expenses, 2),
+            "net_income": round(budget_revenue - budget_expenses, 2),
+            "net_variance": round(net_income - (budget_revenue - budget_expenses), 2),
+        }} if include_budget else {}),
         "generated_at": datetime.now(timezone.utc).isoformat(),
     }
 

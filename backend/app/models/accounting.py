@@ -290,3 +290,31 @@ class RecurringJournal(Base):
     __table_args__ = (
         Index("ix_recurring_journals_org_next", "organization_id", "next_run_date"),
     )
+
+
+# ──────────────────────────────────────────────
+# Budgets (per account, per fiscal year, monthly buckets)
+# ──────────────────────────────────────────────
+class BudgetLine(Base):
+    __tablename__ = "budget_lines"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=new_uuid)
+    organization_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("organizations.id", ondelete="CASCADE"), index=True)
+    fiscal_year: Mapped[int] = mapped_column(Integer)
+    account_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("accounts.id", ondelete="CASCADE"))
+    # 12 floats, index 0 = January .. 11 = December
+    amounts: Mapped[dict] = mapped_column(JSONB, default=list)
+    notes: Mapped[str | None] = mapped_column(String(500))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
+
+    account: Mapped["Account"] = relationship("Account", foreign_keys=[account_id])
+
+    __table_args__ = (
+        UniqueConstraint("organization_id", "fiscal_year", "account_id", name="uq_budget_org_year_account"),
+        Index("ix_budget_lines_org_year", "organization_id", "fiscal_year"),
+    )
+
+    @property
+    def annual_total(self) -> float:
+        return round(sum(float(a or 0) for a in (self.amounts or [])), 2)
