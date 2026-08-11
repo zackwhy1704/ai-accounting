@@ -12,16 +12,8 @@ from app.models.models import Account, JournalEntry, Transaction
 router = APIRouter()
 
 
-@router.get("/balance-sheet")
-async def balance_sheet_report(
-    as_of_date: str = Query(None, description="YYYY-MM-DD"),
-    db: AsyncSession = Depends(get_db),
-    current_user: dict = Depends(get_current_user),
-):
-    """Balance Sheet as of a given date."""
-    org_id = current_user["org_id"]
-    as_of = parse_date(as_of_date, "as_of_date", end_of_day=True) if as_of_date else datetime.now(timezone.utc)
-
+async def _bs_sections(db: AsyncSession, org_id, as_of: datetime) -> dict:
+    """Assets / liabilities / equity totals as of a date (P&L folds into equity)."""
     result = await db.execute(
         select(
             Account.type,
@@ -37,32 +29,52 @@ async def balance_sheet_report(
         )
         .group_by(Account.type)
     )
-    rows = result.all()
-
-    sections = {}
-    for row in rows:
+    sections: dict = {}
+    for row in result.all():
         dr = float(row.total_debit or 0)
         cr = float(row.total_credit or 0)
         t = row.type.lower() if row.type else "other"
         if t in ("asset", "assets"):
-            sections.setdefault("assets", 0)
-            sections["assets"] += dr - cr
+            sections["assets"] = sections.get("assets", 0) + dr - cr
         elif t in ("liability", "liabilities"):
-            sections.setdefault("liabilities", 0)
-            sections["liabilities"] += cr - dr
+            sections["liabilities"] = sections.get("liabilities", 0) + cr - dr
         elif t in ("equity",):
-            sections.setdefault("equity", 0)
-            sections["equity"] += cr - dr
+            sections["equity"] = sections.get("equity", 0) + cr - dr
         elif t in ("revenue", "income"):
-            sections.setdefault("equity", 0)
-            sections["equity"] += cr - dr  # Retained earnings
+            sections["equity"] = sections.get("equity", 0) + cr - dr  # Retained earnings
         elif t in ("expense", "expenses"):
-            sections.setdefault("equity", 0)
-            sections["equity"] -= dr - cr  # Reduces retained earnings
+            sections["equity"] = sections.get("equity", 0) - (dr - cr)  # Reduces retained earnings
+    return sections
 
+
+@router.get("/balance-sheet")
+async def balance_sheet_report(
+    as_of_date: str = Query(None, description="YYYY-MM-DD"),
+    compare: str | None = Query(None, description="previous_year | previous_month — adds a comparative column"),
+    db: AsyncSession = Depends(get_db),
+    current_user: dict = Depends(get_current_user),
+):
+    """Balance Sheet as of a given date, optionally with a comparative date."""
+    org_id = current_user["org_id"]
+    as_of = parse_date(as_of_date, "as_of_date", end_of_day=True) if as_of_date else datetime.now(timezone.utc)
+
+    sections = await _bs_sections(db, org_id, as_of)
     total_assets = sections.get("assets", 0)
     total_liabilities = sections.get("liabilities", 0)
     total_equity = sections.get("equity", 0)
+
+    comparative = None
+    if compare in ("previous_year", "previous_month"):
+        from dateutil.relativedelta import relativedelta
+        comp_as_of = as_of - relativedelta(years=1) if compare == "previous_year" else as_of - relativedelta(months=1)
+        comp = await _bs_sections(db, org_id, comp_as_of)
+        comparative = {
+            "as_of_date": comp_as_of.strftime("%Y-%m-%d"),
+            "assets": comp.get("assets", 0),
+            "liabilities": comp.get("liabilities", 0),
+            "equity": comp.get("equity", 0),
+            "liabilities_and_equity": comp.get("liabilities", 0) + comp.get("equity", 0),
+        }
 
     return {
         "report_type": "balance_sheet",
@@ -73,6 +85,7 @@ async def balance_sheet_report(
         "equity": total_equity,
         "liabilities_and_equity": total_liabilities + total_equity,
         "is_balanced": abs(total_assets - (total_liabilities + total_equity)) < 0.01,
+        **({"comparative": comparative} if comparative else {}),
         "generated_at": datetime.now(timezone.utc).isoformat(),
     }
 

@@ -24,6 +24,7 @@ async def profit_loss_report(
     include_budget: bool = Query(False, description="Add budget + variance columns from the fiscal-year budget"),
     project_id: str | None = Query(None, description="Filter to one project dimension"),
     department_id: str | None = Query(None, description="Filter to one department dimension"),
+    compare: str | None = Query(None, description="previous_period | previous_year — adds comparative columns"),
     db: AsyncSession = Depends(get_db),
     current_user: dict = Depends(get_current_user),
 ):
@@ -71,6 +72,49 @@ async def profit_loss_report(
     )
     rows = result.all()
 
+    # Comparative window: the immediately-preceding period of the same length,
+    # or the same dates one year earlier. Same dimension filters apply.
+    comparative_by_account: dict = {}
+    comp_range = None
+    if compare in ("previous_period", "previous_year"):
+        if compare == "previous_year":
+            from dateutil.relativedelta import relativedelta
+            cstart, cend = start - relativedelta(years=1), end - relativedelta(years=1)
+        else:
+            span = end - start
+            cend = start
+            cstart = start - span
+        comp_range = (cstart, cend)
+        comp_query = (
+            select(
+                Account.id, Account.type,
+                func.coalesce(func.sum(JournalEntry.debit), 0).label("debit"),
+                func.coalesce(func.sum(JournalEntry.credit), 0).label("credit"),
+            )
+            .join(JournalEntry, JournalEntry.account_id == Account.id)
+            .join(Transaction, JournalEntry.transaction_id == Transaction.id)
+            .where(
+                Account.organization_id == org_id,
+                Transaction.date >= cstart,
+                Transaction.date <= cend,
+                Transaction.is_posted == True,
+            )
+        )
+        if project_id:
+            comp_query = comp_query.where(
+                func.coalesce(JournalEntry.project_id, Transaction.project_id) == project_id
+            )
+        if department_id:
+            comp_query = comp_query.where(
+                func.coalesce(JournalEntry.department_id, Transaction.department_id) == department_id
+            )
+        for r in (await db.execute(comp_query.group_by(Account.id, Account.type))).all():
+            t = (r.type or "").lower()
+            if t in ("revenue", "income"):
+                comparative_by_account[r.id] = float(r.credit or 0) - float(r.debit or 0)
+            elif t in ("expense", "cogs", "cost_of_sales"):
+                comparative_by_account[r.id] = float(r.debit or 0) - float(r.credit or 0)
+
     # Optional budget overlay: sum monthly buckets for the calendar months the
     # report period covers (single-fiscal-year periods only, keyed by start year).
     budget_by_account: dict = {}
@@ -102,7 +146,7 @@ async def profit_loss_report(
         cr = float(row.credit or 0)
         if t in ("revenue", "income"):
             amount = cr - dr  # revenue is a credit-balance account
-            if abs(amount) < 0.005 and row.id not in budget_by_account:
+            if abs(amount) < 0.005 and row.id not in budget_by_account and row.id not in comparative_by_account:
                 continue
             line = {"code": row.code, "name": row.name, "amount": amount}
             if include_budget:
@@ -110,11 +154,15 @@ async def profit_loss_report(
                 line["budget"] = b
                 line["variance"] = round(amount - b, 2)
                 budget_revenue += b
+            if comp_range:
+                c = comparative_by_account.pop(row.id, 0.0)
+                line["comparative"] = round(c, 2)
+                line["change"] = round(amount - c, 2)
             revenue_lines.append(line)
             total_revenue += amount
         elif t in ("expense", "cogs", "cost_of_sales"):
             amount = dr - cr  # expense is a debit-balance account
-            if abs(amount) < 0.005 and row.id not in budget_by_account:
+            if abs(amount) < 0.005 and row.id not in budget_by_account and row.id not in comparative_by_account:
                 continue
             line = {"code": row.code, "name": row.name, "amount": amount}
             if include_budget:
@@ -122,8 +170,29 @@ async def profit_loss_report(
                 line["budget"] = b
                 line["variance"] = round(amount - b, 2)
                 budget_expenses += b
+            if comp_range:
+                c = comparative_by_account.pop(row.id, 0.0)
+                line["comparative"] = round(c, 2)
+                line["change"] = round(amount - c, 2)
             expense_lines.append(line)
             total_expenses += amount
+
+    # Accounts with activity only in the comparison period still belong on the report
+    if comp_range and comparative_by_account:
+        leftover_comp = (await db.execute(
+            select(Account).where(Account.id.in_(comparative_by_account.keys()))
+        )).scalars().all()
+        for acct in leftover_comp:
+            c = comparative_by_account.get(acct.id, 0.0)
+            if abs(c) < 0.005:
+                continue
+            t = (acct.type or "").lower()
+            line = {"code": acct.code, "name": acct.name, "amount": 0.0,
+                    "comparative": round(c, 2), "change": round(-c, 2)}
+            if t in ("revenue", "income"):
+                revenue_lines.append(line)
+            elif t in ("expense", "cogs", "cost_of_sales"):
+                expense_lines.append(line)
 
     # Budgeted P&L accounts with no actuals in the period still belong on the report
     if include_budget and budget_by_account:
@@ -170,6 +239,15 @@ async def profit_loss_report(
             "net_income": round(budget_revenue - budget_expenses, 2),
             "net_variance": round(net_income - (budget_revenue - budget_expenses), 2),
         }} if include_budget else {}),
+        **({"comparative": {
+            "start_date": comp_range[0].strftime("%Y-%m-%d"),
+            "end_date": comp_range[1].strftime("%Y-%m-%d"),
+            "revenue_total": round(sum(l.get("comparative", 0.0) for l in revenue_lines), 2),
+            "expense_total": round(sum(l.get("comparative", 0.0) for l in expense_lines), 2),
+            "net_income": round(
+                sum(l.get("comparative", 0.0) for l in revenue_lines)
+                - sum(l.get("comparative", 0.0) for l in expense_lines), 2),
+        }} if comp_range else {}),
         "generated_at": datetime.now(timezone.utc).isoformat(),
     }
 
