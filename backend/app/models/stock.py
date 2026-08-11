@@ -189,3 +189,28 @@ class StockBatch(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
     __table_args__ = (UniqueConstraint("product_id", "batch_no", name="uq_product_batch_no"),)
+
+
+# ──────────────────────────────────────────────
+# Stock Takes (physical count worksheets)
+# ──────────────────────────────────────────────
+class StockTake(Base):
+    """Physical count: snapshot expected quantities into a worksheet, enter
+    counted quantities, then complete — variances post as stock movements with
+    GL (Inventory 1300 <-> Adjustment 5800), source 'stock_take'."""
+    __tablename__ = "stock_takes"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=new_uuid)
+    organization_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("organizations.id", ondelete="CASCADE"), index=True)
+    stock_take_number: Mapped[str] = mapped_column(String(50))
+    status: Mapped[str] = mapped_column(String(20), default="draft")  # draft | completed | void
+    count_date: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    location_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("locations.id"), nullable=True)
+    notes: Mapped[str | None] = mapped_column(Text)
+    # [{product_id, code, name, unit, expected_qty, counted_qty|null, unit_cost}]
+    lines: Mapped[dict] = mapped_column(JSONB, default=list)
+    created_by: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("users.id"))
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+    __table_args__ = (UniqueConstraint("organization_id", "stock_take_number", name="uq_org_stock_take_number"),)

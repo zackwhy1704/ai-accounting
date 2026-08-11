@@ -38,6 +38,7 @@ from app.api.v1.price_levels import router as price_levels_router
 from app.api.v1.org_users import router as org_users_router
 from app.api.v1.purchase_requisitions import router as purchase_requisitions_router
 from app.api.v1.three_way_match import router as three_way_match_router
+from app.api.v1.stock_takes import router as stock_takes_router
 from app.api.v1.sg_compliance import router as sg_compliance_router
 
 settings = get_settings()
@@ -302,4 +303,5 @@ app.include_router(price_levels_router, prefix=settings.API_V1_PREFIX)
 app.include_router(org_users_router, prefix=settings.API_V1_PREFIX)
 app.include_router(purchase_requisitions_router, prefix=settings.API_V1_PREFIX)
 app.include_router(three_way_match_router, prefix=settings.API_V1_PREFIX)
+app.include_router(stock_takes_router, prefix=settings.API_V1_PREFIX)
 app.include_router(sg_compliance_router, prefix=settings.API_V1_PREFIX)

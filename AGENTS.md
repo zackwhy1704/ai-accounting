@@ -7,7 +7,7 @@
 |---|---|---|
 | Frontend | React 19 + TypeScript + TanStack Query v5 + Vite + Tailwind | `frontend/src/App.tsx` |
 | Backend | FastAPI + SQLAlchemy async + PostgreSQL (Neon) | `backend/app/main.py` |
-| DB migrations | Alembic — single linear chain. Current head: **`a039`** | `backend/alembic/versions/` |
+| DB migrations | Alembic — single linear chain. Current head: **`a047`** | `backend/alembic/versions/` |
 
 **Backend** on port 8000 with `--reload`. DB on port 5433. **Frontend dev** on port 5173.
 
@@ -150,7 +150,19 @@ ChartOfAccountsPage renders headers in bold uppercase, subheaders in italic semi
 - **Status values** — Invoice: `draft/outstanding/partially_paid/paid/void`. Bill: same. CreditNote: `draft/issued/applied/void`. PO: `draft/sent/received/billed/declined/cancelled`. Never use `"sent"` for invoice status.
 - **Numeric**: SQLAlchemy `Numeric(15,2)` → `Decimal`. Always `float()` wrap in arithmetic.
 - **FK deletes**: null out FK references first. Pattern from `invoices.py` delete endpoint.
-- **Migrations**: new column = new migration. Never edit existing. Head: **`a039`**.
+- **Migrations**: new column = new migration. Never edit existing. Head: **`a047`**.
+- **Perpetual inventory (`a040`)**: `services/inventory.py` is the ONLY mutator of `Product.qty_on_hand`/`avg_cost`. Weighted-average costing; every movement writes a `StockMove` (idempotent per source via `has_moves`). Invoice/receipt posting issues stock + posts DR COGS/CR Inventory (`post_inventory_gl`, per-product accounts, 5000/1300 fallback); GRN moves qty (GL at bill approval reclasses DR Inventory/CR expense); CN returns at avg cost; transfers write paired location moves (no GL). Reads: `/stock/moves`, `/stock/levels-by-location`, `/products/{id}/stock-card`.
+- **Batch/serial (`a045`)**: `Product.tracking_mode` none|batch|serial; `StockBatch` per product (serial = qty-1 batches); issues auto-pick FEFO (`fefo_allocate`); receipts credit the named/auto batch. `/products/{id}/batches`, `/reports/batch-expiry`.
+- **Multi-UOM (`a044`)**: `ProductUom` (factor = base units per 1); line `uom_factor` converts movements to base units, receipt cost divides by factor. `GET/PUT /products/{id}/uoms`.
+- **Credit control (`a041`)**: `contacts.credit_limit`/`credit_hold`; `services/credit.assert_within_credit()` blocks invoice/SO creation.
+- **Price levels (`a042`)**: `PriceLevel` + `ProductPrice` + `contacts.price_level_id`; resolve via `GET /pricing/resolve?product_id&contact_id`.
+- **Team management (`a043`)**: `/org/users` list/invite/role-change/remove; last owner protected; seats from `users_limit`.
+- **Requisitions + 3-way match (`a046`)**: `/purchase-requisitions` workflow → PO; `GET /bills/{id}/three-way-match` (advisory) via `bills.purchase_order_id` or GRN links.
+- **Stock takes (`a047`)**: `/stock-takes` snapshot → count → complete (variances via costing service + GL 1300↔5800, source `stock_take`) → voidable.
+- **Document PDFs**: `GET /pdf/{kind}/{id}` + `/send-email` for 9 doc types + `/pdf/statement/{contact_id}` (`services/document_pdf.py`); invoices keep their own renderer.
+- **XLSX export**: `POST /reports/export-xlsx` {headers, rows} → styled workbook (openpyxl).
+- **Audit log read**: `GET /audit-logs` (admin, filterable).
+- **Comparative reports**: P&L `?compare=previous_period|previous_year` (per-line comparative/change), balance sheet `?compare=previous_year|previous_month`.
 - **Recurring journals** (`recurring_journals.py`, migration `a037`): JSONB balanced line templates → materialize `ManualJournal`s on schedule; `auto_post` posts GL unless the period is locked (then drafts). Sweep via `POST /recurring-journals/run-due`.
 - **Budgets** (`budgets.py`, migration `a038`): `BudgetLine` = per-account, per-fiscal-year, 12 monthly buckets. P&L takes `?include_budget=true` for budget/variance columns.
 - **Dimensions** (`dimensions.py`, migration `a039`): `Project`/`Department` masters; `project_id`/`department_id` on Transaction (document level), JournalEntry (line override), Invoice, Bill, ManualJournalLine. Reports filter on `coalesce(JournalEntry.dim, Transaction.dim)` — P&L takes `?project_id=`/`?department_id=`. Dimension delete is soft (deactivate).
