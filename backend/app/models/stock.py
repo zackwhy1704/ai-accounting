@@ -120,3 +120,32 @@ class StockMove(Base):
         Index("ix_stock_moves_org_product", "organization_id", "product_id"),
         Index("ix_stock_moves_source", "source_type", "source_id"),
     )
+
+
+# ──────────────────────────────────────────────
+# Price Levels (customer-tier pricing)
+# ──────────────────────────────────────────────
+class PriceLevel(Base):
+    """A named price tier (e.g. Retail, Wholesale, VIP). Contacts are assigned a
+    tier; products carry one price per tier in ProductPrice."""
+    __tablename__ = "price_levels"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=new_uuid)
+    organization_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("organizations.id", ondelete="CASCADE"), index=True)
+    name: Mapped[str] = mapped_column(String(100))
+    description: Mapped[str | None] = mapped_column(String(300))
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+    __table_args__ = (UniqueConstraint("organization_id", "name", name="uq_org_price_level"),)
+
+
+class ProductPrice(Base):
+    __tablename__ = "product_prices"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=new_uuid)
+    product_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("products.id", ondelete="CASCADE"), index=True)
+    price_level_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("price_levels.id", ondelete="CASCADE"))
+    unit_price: Mapped[float] = mapped_column(Numeric(18, 4))
+
+    __table_args__ = (UniqueConstraint("product_id", "price_level_id", name="uq_product_price_level"),)

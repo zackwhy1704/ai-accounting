@@ -31,6 +31,7 @@ class ContactCreate(BaseModel):
     shipping_postcode: str | None = None
     shipping_country: str | None = None
     default_currency: str | None = None
+    price_level_id: UUID | None = None
     credit_limit: float | None = None
     credit_hold: bool = False
     default_payment_terms: str | None = None
@@ -75,6 +76,7 @@ class ContactUpdate(BaseModel):
     shipping_postcode: str | None = None
     shipping_country: str | None = None
     default_currency: str | None = None
+    price_level_id: UUID | None = None
     credit_limit: float | None = None
     credit_hold: bool | None = None
     default_payment_terms: str | None = None
@@ -107,6 +109,7 @@ class ContactResponse(BaseModel):
     shipping_postcode: str | None = None
     shipping_country: str | None = None
     default_currency: str | None = None
+    price_level_id: UUID | None = None
     credit_limit: float | None = None
     credit_hold: bool | None = None
     default_payment_terms: str | None = None

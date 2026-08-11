@@ -45,6 +45,7 @@ class Contact(Base):
     shipping_postcode: Mapped[str | None] = mapped_column(String(20))
     shipping_country: Mapped[str | None] = mapped_column(String(100))
     # Default preferences
+    price_level_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("price_levels.id"), nullable=True)
     credit_limit: Mapped[float | None] = mapped_column(Numeric(15, 2), nullable=True)  # None = no limit
     credit_hold: Mapped[bool] = mapped_column(Boolean, default=False)  # block new sales documents
     default_currency: Mapped[str | None] = mapped_column(String(3))
