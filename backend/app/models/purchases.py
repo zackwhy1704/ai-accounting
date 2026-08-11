@@ -41,6 +41,7 @@ class Bill(Base):
     amount_paid: Mapped[float] = mapped_column(Numeric(15, 2), default=0)
     currency: Mapped[str] = mapped_column(String(3), default="SGD")
     exchange_rate: Mapped[float] = mapped_column(Numeric(15, 6), default=1)  # doc-date rate to org base currency
+    purchase_order_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("purchase_orders.id"), nullable=True)
     project_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("projects.id"), nullable=True)
     department_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("departments.id"), nullable=True)
     notes: Mapped[str | None] = mapped_column(Text)
@@ -438,3 +439,30 @@ class PurchaseRefund(Base):
     __table_args__ = (UniqueConstraint("organization_id", "refund_no", name="uq_org_pur_refund_no"),)
 
 # ── Contact Groups ─────────────────────────────
+
+
+# ──────────────────────────────────────────────
+# Purchase Requisitions (internal purchase requests)
+# ──────────────────────────────────────────────
+class PurchaseRequisition(Base):
+    """Internal request-to-buy: draft → submitted → approved/rejected →
+    converted (to a draft Purchase Order). Lines are JSONB
+    [{product_id?, description, quantity, est_unit_price}]."""
+    __tablename__ = "purchase_requisitions"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=new_uuid)
+    organization_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("organizations.id", ondelete="CASCADE"), index=True)
+    requisition_number: Mapped[str] = mapped_column(String(50))
+    status: Mapped[str] = mapped_column(String(20), default="draft")  # draft|submitted|approved|rejected|converted
+    request_date: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    needed_by: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    requested_by: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("users.id"))
+    approved_by: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("users.id"))
+    approved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    rejection_reason: Mapped[str | None] = mapped_column(String(500))
+    notes: Mapped[str | None] = mapped_column(Text)
+    lines: Mapped[dict] = mapped_column(JSONB, default=list)
+    purchase_order_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("purchase_orders.id"), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+    __table_args__ = (UniqueConstraint("organization_id", "requisition_number", name="uq_org_requisition_number"),)

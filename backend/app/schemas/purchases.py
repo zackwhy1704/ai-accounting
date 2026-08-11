@@ -71,6 +71,7 @@ class BillCreate(BaseModel):
     currency: str = "SGD"
     project_id: UUID | None = None
     department_id: UUID | None = None
+    purchase_order_id: UUID | None = None
     notes: str | None = None
     terms: str | None = None
     billing_address_line1: str | None = None
@@ -110,6 +111,7 @@ class BillUpdate(BaseModel):
     currency: str | None = None
     project_id: UUID | None = None
     department_id: UUID | None = None
+    purchase_order_id: UUID | None = None
     notes: str | None = None
     billing_address_line1: str | None = None
     billing_address_line2: str | None = None
@@ -141,6 +143,7 @@ class BillResponse(BaseModel):
     exchange_rate: float | None = None
     project_id: UUID | None = None
     department_id: UUID | None = None
+    purchase_order_id: UUID | None = None
     notes: str | None
     terms: str | None = None
     created_at: datetime

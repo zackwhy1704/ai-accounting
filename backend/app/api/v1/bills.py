@@ -114,6 +114,7 @@ async def create_bill(
         exchange_rate=await document_rate(db, org_id, data.currency, data.issue_date),
         project_id=data.project_id,
         department_id=data.department_id,
+        purchase_order_id=data.purchase_order_id,
         notes=data.notes,
         terms=data.terms,
         billing_address_line1=data.billing_address_line1,
