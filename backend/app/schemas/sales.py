@@ -5,6 +5,7 @@ from datetime import datetime
 
 # ── Invoice ──
 class LineItemCreate(BaseModel):
+    product_id: UUID | None = None
     line_type: str = "goods"  # goods, services
     description: str
     quantity: float = Field(default=1.0, ge=0)
@@ -29,6 +30,7 @@ class LineItemCreate(BaseModel):
         return self
 
 class LineItemResponse(BaseModel):
+    product_id: UUID | None = None
     id: UUID
     description: str
     quantity: float
@@ -277,6 +279,7 @@ class SalesOrderResponse(BaseModel):
 
 # ── Delivery Order ──
 class DeliveryOrderLineItemCreate(BaseModel):
+    product_id: UUID | None = None
     line_type: str = "goods"  # goods, services
     description: str
     quantity: float = 1.0
@@ -353,6 +356,7 @@ class DeliveryOrderResponse(BaseModel):
 
 # ── Credit Note ──
 class CreditNoteLineItemCreate(BaseModel):
+    product_id: UUID | None = None
     line_type: str = "goods"  # goods, services
     description: str
     quantity: float = 1.0
@@ -657,6 +661,7 @@ class SalesRefundResponse(BaseModel):
 
 # ── Sale Receipts ──
 class SaleReceiptLineItem(BaseModel):
+    product_id: UUID | None = None
     description: str
     quantity: float = 1.0
     unit_price: float

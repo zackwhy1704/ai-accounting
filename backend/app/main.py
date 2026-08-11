@@ -30,6 +30,7 @@ from app.api.v1.fixed_asset_depreciation import router as fixed_asset_depreciati
 from app.api.v1.recurring_journals import router as recurring_journals_router
 from app.api.v1.budgets import router as budgets_router
 from app.api.v1.dimensions import router as dimensions_router
+from app.api.v1.stock_ledger import router as stock_ledger_router
 from app.api.v1.sg_compliance import router as sg_compliance_router
 
 settings = get_settings()
@@ -286,4 +287,5 @@ app.include_router(fixed_asset_depreciation_router, prefix=settings.API_V1_PREFI
 app.include_router(recurring_journals_router, prefix=settings.API_V1_PREFIX)
 app.include_router(budgets_router, prefix=settings.API_V1_PREFIX)
 app.include_router(dimensions_router, prefix=settings.API_V1_PREFIX)
+app.include_router(stock_ledger_router, prefix=settings.API_V1_PREFIX)
 app.include_router(sg_compliance_router, prefix=settings.API_V1_PREFIX)

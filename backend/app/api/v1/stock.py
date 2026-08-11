@@ -12,7 +12,8 @@ from app.core.permissions import require_write
 from app.core.pagination import PaginationParams, paginated_result, apply_sort
 from app.core.sequences import next_sequence_number
 from app.core.audit import log_audit
-from app.models.models import StockAdjustment, StockTransfer, Product
+from app.services import inventory as inv
+from app.models.models import StockMove, StockAdjustment, StockTransfer, Product
 from .gl_helpers import post_gl, revert_gl
 
 # ── Schemas ────────────────────────────────────
@@ -74,6 +75,8 @@ class StockTransferCreate(BaseModel):
     transfer_date: datetime
     from_location: Optional[str] = None
     to_location: Optional[str] = None
+    from_location_id: Optional[UUID] = None
+    to_location_id: Optional[UUID] = None
     notes: Optional[str] = None
     lines: list[StockTransferLine] = []
 
@@ -82,6 +85,8 @@ class StockTransferUpdate(BaseModel):
     transfer_date: Optional[datetime] = None
     from_location: Optional[str] = None
     to_location: Optional[str] = None
+    from_location_id: Optional[UUID] = None
+    to_location_id: Optional[UUID] = None
     notes: Optional[str] = None
     lines: Optional[list[StockTransferLine]] = None
 
@@ -93,6 +98,8 @@ class StockTransferResponse(BaseModel):
     transfer_date: datetime
     from_location: Optional[str]
     to_location: Optional[str]
+    from_location_id: Optional[UUID] = None
+    to_location_id: Optional[UUID] = None
     notes: Optional[str]
     status: str
     lines: list[StockTransferLine]
@@ -274,8 +281,19 @@ async def confirm_adjustment(
                 select(Product).where(Product.name == name, Product.organization_id == org_id)
             )).scalar_one_or_none()
         if product is not None:
-            product.qty_on_hand = float(product.qty_on_hand or 0) + delta
-        net_value += delta * cost
+            # Through the costing service: updates weighted-average on positive
+            # adjustments and writes the StockMove ledger row. Write-downs go out
+            # at the current average cost so the GL matches the ledger value.
+            if delta > 0:
+                await inv.stock_in(db, org_id, product, delta, cost or float(product.avg_cost or 0),
+                                   "adjustment", adj.id, adj.adjustment_date,
+                                   note=adj.adjustment_no)
+                net_value += delta * (cost or float(product.avg_cost or 0))
+            else:
+                used = await inv.stock_out(db, org_id, product, -delta,
+                                           "adjustment", adj.id, adj.adjustment_date,
+                                           note=adj.adjustment_no)
+                net_value += delta * used
 
     # Post inventory GL: Inventory Asset (1300) <-> Inventory Adjustment (5800).
     # Skips silently if those accounts are not in the chart (post_gl returns None).
@@ -423,6 +441,42 @@ async def complete_transfer(
         raise HTTPException(status_code=404, detail="Stock transfer not found")
     if trf.status != "draft":
         raise HTTPException(status_code=400, detail="Only draft transfers can be completed")
+
+    # Move each line between locations in the stock ledger: OUT at the source,
+    # IN at the destination, both at current weighted-average cost. Global
+    # qty_on_hand and GL value are unchanged — a transfer relocates, it doesn't
+    # create or consume stock.
+    org_id = current_user["org_id"]
+    if not await inv.has_moves(db, "transfer", trf.id):
+        for line in (trf.lines or []):
+            qty = float(line.get("quantity") or line.get("qty") or 0)
+            if qty <= 0:
+                continue
+            product = None
+            if line.get("product_id"):
+                product = (await db.execute(
+                    select(Product).where(Product.id == line["product_id"], Product.organization_id == org_id)
+                )).scalar_one_or_none()
+            if product is None and line.get("product"):
+                product = (await db.execute(
+                    select(Product).where(Product.name == line["product"], Product.organization_id == org_id)
+                )).scalar_one_or_none()
+            if product is None:
+                continue
+            cost = float(product.avg_cost or 0) or float(product.cost_price or 0)
+            db.add(StockMove(
+                organization_id=org_id, product_id=product.id,
+                location_id=trf.from_location_id, date=trf.transfer_date,
+                qty=-qty, unit_cost=cost, source_type="transfer", source_id=trf.id,
+                note=f"{trf.transfer_no} out: {trf.from_location or ''}",
+            ))
+            db.add(StockMove(
+                organization_id=org_id, product_id=product.id,
+                location_id=trf.to_location_id, date=trf.transfer_date,
+                qty=qty, unit_cost=cost, source_type="transfer", source_id=trf.id,
+                note=f"{trf.transfer_no} in: {trf.to_location or ''}",
+            ))
+
     trf.status = "completed"
     await db.commit()
     await log_audit(db, current_user["org_id"], current_user["sub"], "complete", "stock_transfer", trf_id)

@@ -83,6 +83,7 @@ class BillLineItem(Base):
     __tablename__ = "bill_line_items"
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=new_uuid)
+    product_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("products.id"), nullable=True)
     bill_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("bills.id", ondelete="CASCADE"))
     description: Mapped[str] = mapped_column(String(500))
     line_type: Mapped[str] = mapped_column(String(10), default="goods")
@@ -198,6 +199,7 @@ class GRNLineItem(Base):
     __tablename__ = "grn_line_items"
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=new_uuid)
+    product_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("products.id"), nullable=True)
     grn_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("goods_received_notes.id", ondelete="CASCADE"))
     description: Mapped[str] = mapped_column(String(500))
     quantity_ordered: Mapped[float] = mapped_column(Numeric(10, 2), default=0)

@@ -33,6 +33,58 @@ async def _fx_account_id(db: AsyncSession, org_id):
     )).scalar_one_or_none()
 
 
+COGS_CODE = "5000"       # Cost of Goods Sold fallback
+INVENTORY_CODE = "1300"  # Inventory Asset fallback
+
+
+async def _account_id_by_code(db: AsyncSession, org_id, code: str):
+    from app.models.models import Account
+    return (await db.execute(
+        select(Account.id).where(Account.organization_id == org_id, Account.code == code)
+    )).scalar_one_or_none()
+
+
+async def post_inventory_gl(
+    db: AsyncSession, org_id, *, date: datetime, number: str,
+    source: str, source_id: UUID, issued: list, direction: str,
+):
+    """COGS/inventory journal for stock movements tied to a document.
+
+    `issued` = [(product, qty, cost_value)] from services/inventory.
+    direction 'out' (sale):        DR COGS / CR Inventory
+    direction 'in'  (bill/return): DR Inventory / CR COGS-expense
+    Accounts resolve per product (expense_account_id / inventory_account_id)
+    with chart-code fallbacks 5000 / 1300. Products whose accounts can't be
+    resolved are skipped (stock still moves; a warning covers the gap) so a
+    missing chart entry never blocks the document itself.
+    """
+    cogs_fallback = await _account_id_by_code(db, org_id, COGS_CODE)
+    inv_fallback = await _account_id_by_code(db, org_id, INVENTORY_CODE)
+
+    grouped: dict[tuple, float] = {}
+    for product, _qty, value in issued:
+        exp = product.expense_account_id or cogs_fallback
+        inv = product.inventory_account_id or inv_fallback
+        if not exp or not inv or value <= 0:
+            continue
+        grouped[(exp, inv)] = round(grouped.get((exp, inv), 0.0) + value, 2)
+    if not grouped:
+        return None
+
+    entries = []
+    for (exp, inv), value in grouped.items():
+        if direction == "out":
+            entries.append((exp, value, 0.0))
+            entries.append((inv, 0.0, value))
+        else:
+            entries.append((inv, value, 0.0))
+            entries.append((exp, 0.0, value))
+    desc = "COGS" if direction == "out" else "Inventory received"
+    return await post_gl_by_id(
+        db, org_id, date, f"{desc} — {number}", number, source, source_id, entries,
+    )
+
+
 async def post_invoice_gl(
     db: AsyncSession, org_id, *, issue_date: datetime, number: str,
     invoice_id: UUID, subtotal: float, tax_amount: float, total: float,

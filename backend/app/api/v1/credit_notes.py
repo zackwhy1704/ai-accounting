@@ -18,6 +18,8 @@ from app.models.accounting import Transaction, JournalEntry, Account as AccountM
 from .gl_helpers import post_gl, revert_gl
 from app.services.gl_posting import post_credit_note_gl
 from app.services.fx import document_rate
+from app.services.inventory import receive_for_document_lines, reverse_moves
+from app.services.gl_posting import post_inventory_gl
 from app.core.audit import log_audit
 from app.schemas.schemas import (
     CreditNoteCreate, CreditNoteUpdate, CreditNoteResponse,
@@ -151,6 +153,17 @@ async def create_credit_note(data: CreditNoteCreate, current_user: dict = Depend
         rate=float(obj.exchange_rate),
     )
 
+    # Perpetual inventory: returned tracked products go back into stock at the
+    # current weighted-average cost (DR Inventory / CR COGS).
+    returned = await receive_for_document_lines(
+        db, org_id, data.line_items, "credit_note", obj.id, data.issue_date, cost_from="avg",
+    )
+    if returned:
+        await post_inventory_gl(
+            db, org_id, date=data.issue_date, number=obj.credit_note_number,
+            source="credit_note", source_id=obj.id, issued=returned, direction="in",
+        )
+
     await db.commit()
     await log_audit(db, org_id, current_user["sub"], "create", "credit_note", obj.id)
     result2 = await db.execute(
@@ -258,6 +271,17 @@ async def update_credit_note_status(cn_id: UUID, status: str, current_user: dict
     valid = {"draft", "issued", "applied", "void"}
     if status not in valid:
         raise HTTPException(status_code=400, detail=f"Invalid status. Must be one of: {', '.join(valid)}")
+    # Voiding must reverse what the create posted: the CN GL and any stock returns.
+    if status == "void" and obj.status != "void":
+        if float(obj.credit_applied or 0) > 0:
+            raise HTTPException(status_code=400, detail="Remove credit applications first before voiding.")
+        await revert_gl(
+            db, current_user["org_id"], obj.id, "credit_note",
+            obj.issue_date,
+            f"Reversal: Credit Note {obj.credit_note_number} voided",
+            obj.credit_note_number,
+        )
+        await reverse_moves(db, current_user["org_id"], "credit_note", obj.id, obj.issue_date)
     obj.status = status
     await db.commit()
     return {"id": str(cn_id), "status": status}

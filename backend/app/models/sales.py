@@ -89,6 +89,7 @@ class InvoiceLineItem(Base):
     __tablename__ = "invoice_line_items"
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=new_uuid)
+    product_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("products.id"), nullable=True)
     invoice_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("invoices.id", ondelete="CASCADE"))
     line_type: Mapped[str] = mapped_column(String(10), default="goods")  # goods, services
     description: Mapped[str] = mapped_column(String(500))
@@ -290,6 +291,7 @@ class DeliveryOrderLineItem(Base):
     __tablename__ = "delivery_order_line_items"
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=new_uuid)
+    product_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("products.id"), nullable=True)
     delivery_order_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("delivery_orders.id", ondelete="CASCADE"))
     line_type: Mapped[str] = mapped_column(String(10), default="goods")  # goods, services
     description: Mapped[str] = mapped_column(String(500))
@@ -374,6 +376,7 @@ class CreditNoteLineItem(Base):
     __tablename__ = "credit_note_line_items"
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=new_uuid)
+    product_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("products.id"), nullable=True)
     credit_note_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("credit_notes.id", ondelete="CASCADE"))
     line_type: Mapped[str] = mapped_column(String(10), default="goods")  # goods, services
     description: Mapped[str] = mapped_column(String(500))

@@ -25,6 +25,7 @@ class Product(Base):
     unit: Mapped[str | None] = mapped_column(String(20))   # pcs, kg, hr, m, etc.
     unit_price: Mapped[float] = mapped_column(Numeric(18, 4), default=0)
     cost_price: Mapped[float] = mapped_column(Numeric(18, 4), default=0)
+    avg_cost: Mapped[float] = mapped_column(Numeric(18, 4), default=0)  # weighted-average cost, maintained by services/inventory
     currency: Mapped[str] = mapped_column(String(3), default="MYR")
     tax_rate_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("tax_rates.id"))
     income_account_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("accounts.id"))
@@ -83,6 +84,8 @@ class StockTransfer(Base):
     transfer_date: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     from_location: Mapped[str | None] = mapped_column(String(100))
     to_location: Mapped[str | None] = mapped_column(String(100))
+    from_location_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("locations.id"), nullable=True)
+    to_location_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("locations.id"), nullable=True)
     notes: Mapped[str | None] = mapped_column(Text)
     status: Mapped[str] = mapped_column(String(20), default="draft")  # draft | completed | void
     lines: Mapped[list] = mapped_column(JSONB, default=list)
@@ -90,3 +93,30 @@ class StockTransfer(Base):
     __table_args__ = (UniqueConstraint("organization_id", "transfer_no", name="uq_org_transfer_no"),)
 
 # ── Fixed Assets ───────────────────────────────
+
+
+# ──────────────────────────────────────────────
+# Stock Moves — the perpetual-inventory ledger
+# ──────────────────────────────────────────────
+class StockMove(Base):
+    """One row per stock movement (+in / -out), written by services/inventory.
+    qty_on_hand and per-location balances derive from SUMming these; unit_cost
+    is the weighted-average (outs) or receipt (ins) cost in base currency."""
+    __tablename__ = "stock_moves"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=new_uuid)
+    organization_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("organizations.id", ondelete="CASCADE"), index=True)
+    product_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("products.id", ondelete="CASCADE"))
+    location_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("locations.id"), nullable=True)
+    date: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    qty: Mapped[float] = mapped_column(Numeric(18, 4))       # positive = in, negative = out
+    unit_cost: Mapped[float] = mapped_column(Numeric(18, 4), default=0)
+    source_type: Mapped[str] = mapped_column(String(30))     # invoice | credit_note | grn | bill | sale_receipt | adjustment | transfer | reversal
+    source_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)
+    note: Mapped[str | None] = mapped_column(String(300))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+    __table_args__ = (
+        Index("ix_stock_moves_org_product", "organization_id", "product_id"),
+        Index("ix_stock_moves_source", "source_type", "source_id"),
+    )

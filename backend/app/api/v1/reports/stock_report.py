@@ -37,7 +37,9 @@ async def stock_values_report(
 
     for p in products:
         qty = float(p.qty_on_hand or 0)
-        cost = float(p.cost_price or 0)
+        # Weighted-average cost from the perpetual-inventory engine; falls back
+        # to the static cost_price for products that have never had a stock-in.
+        cost = float(p.avg_cost or 0) or float(p.cost_price or 0)
         value = qty * cost
         total_value += value
         items.append({
@@ -46,7 +48,8 @@ async def stock_values_report(
             "product_type": p.product_type,
             "unit": p.unit,
             "qty_on_hand": qty,
-            "cost_price": cost,
+            "cost_price": float(p.cost_price or 0),
+            "avg_cost": cost,
             "total_value": value,
         })
 

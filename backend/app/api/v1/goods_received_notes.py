@@ -13,11 +13,14 @@ from app.core.permissions import require_write
 from app.core.pagination import PaginationParams, paginated_result, apply_sort
 from app.core.audit import log_audit
 from app.models.models import GoodsReceivedNote, GRNLineItem, Contact
+from app.services.fx import document_rate
+from app.services.inventory import receive_for_document_lines, reverse_moves
 
 router = APIRouter(prefix="/goods-received-notes", tags=["goods-received-notes"])
 
 
 class GRNLineItemCreate(BaseModel):
+    product_id: Optional[UUID] = None
     description: str
     quantity_ordered: float = 0.0
     quantity_received: float
@@ -141,6 +144,7 @@ async def create_grn(
     for i, item in enumerate(payload.line_items):
         line = GRNLineItem(
             grn_id=grn.id,
+            product_id=item.product_id,
             description=item.description,
             quantity_ordered=item.quantity_ordered,
             quantity_received=item.quantity_received,
@@ -246,7 +250,23 @@ async def update_grn_status(
     if not grn:
         raise HTTPException(status_code=404, detail="GRN not found")
 
+    prev_status = grn.status
     grn.status = status
+
+    # Physical receipt moves stock IN at the line cost (weighted-average update).
+    # No GL here — inventory value posts when the Bill is approved (see bills.py).
+    if status in ("received", "billed") and prev_status == "draft":
+        from sqlalchemy.orm import selectinload as _sl
+        loaded = (await db.execute(
+            select(GoodsReceivedNote).options(_sl(GoodsReceivedNote.line_items))
+            .where(GoodsReceivedNote.id == grn.id)
+        )).scalar_one()
+        rate = await document_rate(db, current_user["org_id"], grn.currency, grn.received_date)
+        await receive_for_document_lines(
+            db, current_user["org_id"], loaded.line_items, "grn", grn.id,
+            grn.received_date, rate=rate, qty_key="quantity_received",
+        )
+
     await db.commit()
     await log_audit(db, current_user["org_id"], current_user["sub"], "status_change", "grn", grn_id)
     return {"status": grn.status}
@@ -269,6 +289,7 @@ async def delete_grn(
         raise HTTPException(status_code=404, detail="GRN not found")
     if grn.status == "billed":
         raise HTTPException(status_code=400, detail="Cannot delete a billed GRN")
+    await reverse_moves(db, current_user["org_id"], "grn", grn_id, grn.received_date)
     await db.execute(delete(GRNLineItem).where(GRNLineItem.grn_id == grn_id))
     await db.delete(grn)
     await db.commit()

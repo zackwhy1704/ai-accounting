@@ -11,7 +11,7 @@ from app.core.security import get_current_user
 from app.core.permissions import require_write
 from app.core.pagination import PaginationParams, paginated_result, apply_sort
 from app.core.list_helpers import with_contact_name
-from app.models.models import Bill, BillLineItem, PurchasePayment, PurchaseCreditApplication, PurchaseCreditNote, Transaction, JournalEntry, Account, Contact
+from app.models.models import Bill, BillLineItem, GoodsReceivedNote, PurchasePayment, PurchaseCreditApplication, PurchaseCreditNote, Transaction, JournalEntry, Account, Contact
 from app.schemas.schemas import BillCreate, BillUpdate, BillResponse
 from app.core.line_items import calculate_line_items
 from app.services.pricing import line_after_discount, line_tax
@@ -19,6 +19,8 @@ from .gl_helpers import post_gl, post_gl_by_id, revert_gl
 from app.core.org_defaults import get_default_accounts
 from app.services.gl_posting import post_bill_gl
 from app.services.fx import document_rate
+from app.services.inventory import has_moves, receive_for_document_lines, reverse_moves
+from app.services.gl_posting import post_inventory_gl
 from app.core.audit import log_audit
 
 router = APIRouter(prefix="/bills", tags=["Bills"])
@@ -227,7 +229,8 @@ async def update_bill_status(
 ):
     org_id = current_user["org_id"]
     result = await db.execute(
-        select(Bill).where(Bill.id == bill_id, Bill.organization_id == current_user["org_id"])
+        select(Bill).options(selectinload(Bill.line_items))
+        .where(Bill.id == bill_id, Bill.organization_id == current_user["org_id"])
     )
     bill = result.scalar_one_or_none()
     if not bill:
@@ -259,6 +262,39 @@ async def update_bill_status(
             project_id=bill.project_id,
             department_id=bill.department_id,
         )
+        # Perpetual inventory: receive tracked products unless a linked GRN
+        # already moved the quantity in. Value enters inventory here either way:
+        # DR Inventory / CR COGS-expense reclassifies the expense the bill posted.
+        grns = (await db.execute(
+            select(GoodsReceivedNote.id).where(GoodsReceivedNote.bill_id == bill.id)
+        )).scalars().all()
+        grn_moved = False
+        for gid in grns:
+            if await has_moves(db, "grn", gid):
+                grn_moved = True
+                break
+        received = []
+        if not grn_moved:
+            received = await receive_for_document_lines(
+                db, org_id, bill.line_items, "bill", bill.id, bill.issue_date, rate=rate,
+            )
+        else:
+            # Quantity came in via GRN; still reclass the inventory value off expense.
+            from app.models.models import Product as _Product
+            pids = {li.product_id for li in bill.line_items if li.product_id}
+            prods = {p.id: p for p in (await db.execute(
+                select(_Product).where(_Product.id.in_(pids))
+            )).scalars().all()} if pids else {}
+            for li in bill.line_items:
+                prod = prods.get(li.product_id)
+                if prod is not None and prod.track_inventory and float(li.quantity or 0) > 0:
+                    value = round(float(li.quantity) * float(li.unit_price or 0) * rate, 2)
+                    received.append((prod, float(li.quantity), value))
+        if received:
+            await post_inventory_gl(
+                db, org_id, date=bill.issue_date, number=bill.bill_number,
+                source="bill", source_id=bill.id, issued=received, direction="in",
+            )
 
     # void/cancelled: reverse any posted GL entries
     elif status in ("void", "cancelled") and prev_status not in ("draft", "received"):
@@ -268,6 +304,7 @@ async def update_bill_status(
             f"Reversal: Bill {bill.bill_number} cancelled",
             bill.bill_number,
         )
+        await reverse_moves(db, org_id, "bill", bill.id, bill.issue_date)
 
     await db.commit()
     action = "void" if status in ("void", "cancelled") else "status_change"

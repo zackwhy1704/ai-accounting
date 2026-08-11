@@ -23,6 +23,8 @@ from .gl_helpers import post_gl, post_gl_by_id, revert_gl
 from app.core.org_defaults import get_default_accounts
 from app.services.gl_posting import post_invoice_gl
 from app.services.fx import document_rate
+from app.services.inventory import issue_for_document_lines, reverse_moves
+from app.services.gl_posting import post_inventory_gl
 from app.core.list_helpers import with_contact_name
 
 router = APIRouter(prefix="/invoices", tags=["Invoices"])
@@ -217,7 +219,8 @@ async def update_invoice_status(
 ):
     org_id = current_user["org_id"]
     result = await db.execute(
-        select(Invoice).where(Invoice.id == invoice_id, Invoice.organization_id == org_id)
+        select(Invoice).options(selectinload(Invoice.line_items))
+        .where(Invoice.id == invoice_id, Invoice.organization_id == org_id)
     )
     invoice = result.scalar_one_or_none()
     if not invoice:
@@ -263,6 +266,16 @@ async def update_invoice_status(
             project_id=invoice.project_id,
             department_id=invoice.department_id,
         )
+        # Perpetual inventory: issue tracked products at weighted-average cost
+        # and post DR COGS / CR Inventory (same source, so cancel reverses it).
+        issued = await issue_for_document_lines(
+            db, org_id, invoice.line_items, "invoice", invoice.id, invoice.issue_date,
+        )
+        if issued:
+            await post_inventory_gl(
+                db, org_id, date=invoice.issue_date, number=invoice.invoice_number,
+                source="invoice", source_id=invoice.id, issued=issued, direction="out",
+            )
 
     # cancelled: reverse any previously posted GL entries
     elif status == "cancelled" and prev_status != "draft":
@@ -272,6 +285,7 @@ async def update_invoice_status(
             f"Reversal: Invoice {invoice.invoice_number} cancelled",
             invoice.invoice_number,
         )
+        await reverse_moves(db, org_id, "invoice", invoice.id, invoice.issue_date)
 
     await db.commit()
     action = "void" if status in ("void", "cancelled") else "status_change"

@@ -18,6 +18,8 @@ from app.schemas.schemas import SaleReceiptCreate, SaleReceiptResponse, SaleRece
 from .gl_helpers import post_gl, revert_gl
 from app.services.gl_posting import post_sale_receipt_gl
 from app.services.fx import document_rate
+from app.services.inventory import issue_for_document_lines, reverse_moves
+from app.services.gl_posting import post_inventory_gl
 
 router = APIRouter(prefix="/sale-receipts", tags=["sale-receipts"])
 
@@ -119,6 +121,16 @@ async def create_sale_receipt(
         rate=float(receipt.exchange_rate),
     )
 
+    # Perpetual inventory: cash sales issue stock + post COGS like invoices
+    issued = await issue_for_document_lines(
+        db, current_user["org_id"], receipt.line_items or [], "sale_receipt", receipt.id, payload.receipt_date,
+    )
+    if issued:
+        await post_inventory_gl(
+            db, current_user["org_id"], date=payload.receipt_date, number=receipt_number,
+            source="sale_receipt", source_id=receipt.id, issued=issued, direction="out",
+        )
+
     await db.commit()
     await log_audit(db, current_user["org_id"], current_user["sub"], "create", "sale_receipt", receipt.id)
     await db.refresh(receipt)
@@ -202,6 +214,7 @@ async def delete_sale_receipt(
         f"Deletion: Sale Receipt {receipt.receipt_number}",
         receipt.receipt_number,
     )
+    await reverse_moves(db, current_user["org_id"], "sale_receipt", receipt_id, receipt.receipt_date)
     await db.delete(receipt)
     await db.commit()
     await log_audit(db, current_user["org_id"], current_user["sub"], "delete", "sale_receipt", receipt_id)
@@ -231,6 +244,7 @@ async def void_sale_receipt(
         f"Reversal: Sale Receipt {receipt.receipt_number} voided",
         receipt.receipt_number,
     )
+    await reverse_moves(db, current_user["org_id"], "sale_receipt", receipt_id, receipt.receipt_date)
     await db.commit()
     await log_audit(db, current_user["org_id"], current_user["sub"], "void", "sale_receipt", receipt_id)
     await db.refresh(receipt)
