@@ -84,6 +84,8 @@ class BillLineItem(Base):
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=new_uuid)
     product_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("products.id"), nullable=True)
+    uom: Mapped[str | None] = mapped_column(String(30), nullable=True)  # selected unit; None = base unit
+    uom_factor: Mapped[float] = mapped_column(Numeric(18, 6), default=1)  # base units per selected unit
     bill_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("bills.id", ondelete="CASCADE"))
     description: Mapped[str] = mapped_column(String(500))
     line_type: Mapped[str] = mapped_column(String(10), default="goods")
@@ -200,6 +202,8 @@ class GRNLineItem(Base):
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=new_uuid)
     product_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("products.id"), nullable=True)
+    uom: Mapped[str | None] = mapped_column(String(30), nullable=True)  # selected unit; None = base unit
+    uom_factor: Mapped[float] = mapped_column(Numeric(18, 6), default=1)  # base units per selected unit
     grn_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("goods_received_notes.id", ondelete="CASCADE"))
     description: Mapped[str] = mapped_column(String(500))
     quantity_ordered: Mapped[float] = mapped_column(Numeric(10, 2), default=0)

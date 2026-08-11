@@ -133,7 +133,7 @@ async def issue_for_document_lines(
     for li in line_items:
         pid = g(li, "product_id")
         product = products.get(UUID(str(pid))) if pid and not isinstance(pid, UUID) else products.get(pid)
-        qty = float(g(li, "quantity") or 0)
+        qty = float(g(li, "quantity") or 0) * float(g(li, "uom_factor") or 1)  # to base units
         if product is None or not product.track_inventory or qty <= 0:
             continue
         unit_cost = await stock_out(db, org_id, product, qty, source_type, source_id, date)
@@ -166,13 +166,15 @@ async def receive_for_document_lines(
     for li in line_items:
         pid = g(li, "product_id")
         product = products.get(UUID(str(pid))) if pid and not isinstance(pid, UUID) else products.get(pid)
-        qty = float(g(li, qty_key) or 0)
+        factor = float(g(li, "uom_factor") or 1)
+        qty = float(g(li, qty_key) or 0) * factor  # to base units
         if product is None or not product.track_inventory or qty <= 0:
             continue
         if cost_from == "avg":
             unit_cost = float(product.avg_cost or 0) or float(product.cost_price or 0)
         else:
-            unit_cost = round(float(g(li, "unit_price") or 0) * float(rate or 1.0), 4)
+            # line price is per selected UOM; base-unit cost divides by the factor
+            unit_cost = round(float(g(li, "unit_price") or 0) * float(rate or 1.0) / factor, 4)
         await stock_in(db, org_id, product, qty, unit_cost, source_type, source_id, date)
         received.append((product, qty, round(qty * unit_cost, 2)))
     return received

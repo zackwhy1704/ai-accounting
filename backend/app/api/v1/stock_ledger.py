@@ -120,3 +120,65 @@ async def product_stock_card(
         "avg_cost": float(product.avg_cost or 0),
         "moves": rows,
     }
+
+
+# ── Product UOMs ───────────────────────────────────────────────────────────────
+
+from pydantic import BaseModel
+
+from app.core.permissions import require_write
+from app.models.models import ProductUom
+
+
+class UomIn(BaseModel):
+    name: str
+    factor: float
+    barcode: str | None = None
+
+
+class UomsUpsert(BaseModel):
+    uoms: list[UomIn]
+
+
+@router.get("/products/{product_id}/uoms")
+async def list_product_uoms(product_id: UUID, db: AsyncSession = Depends(get_db), current_user: dict = Depends(get_current_user)):
+    product = (await db.execute(
+        select(Product).where(Product.id == product_id, Product.organization_id == current_user["org_id"])
+    )).scalar_one_or_none()
+    if not product:
+        raise HTTPException(status_code=404, detail="Product not found")
+    rows = (await db.execute(
+        select(ProductUom).where(ProductUom.product_id == product_id).order_by(ProductUom.factor)
+    )).scalars().all()
+    return {
+        "product_id": str(product_id),
+        "base_unit": product.unit or "unit",
+        "uoms": [{"id": str(u.id), "name": u.name, "factor": float(u.factor), "barcode": u.barcode} for u in rows],
+    }
+
+
+@router.put("/products/{product_id}/uoms")
+async def set_product_uoms(product_id: UUID, payload: UomsUpsert, db: AsyncSession = Depends(get_db), current_user: dict = Depends(require_write())):
+    """Replace the product's alternate-UOM list. Factors must be positive; names
+    unique per product (the base unit itself is not listed here)."""
+    product = (await db.execute(
+        select(Product).where(Product.id == product_id, Product.organization_id == current_user["org_id"])
+    )).scalar_one_or_none()
+    if not product:
+        raise HTTPException(status_code=404, detail="Product not found")
+    names = [u.name.strip().lower() for u in payload.uoms]
+    if len(names) != len(set(names)):
+        raise HTTPException(status_code=422, detail="UOM names must be unique")
+    if any(float(u.factor) <= 0 for u in payload.uoms):
+        raise HTTPException(status_code=422, detail="UOM factors must be positive")
+
+    existing = (await db.execute(
+        select(ProductUom).where(ProductUom.product_id == product_id)
+    )).scalars().all()
+    for row in existing:
+        await db.delete(row)
+    await db.flush()
+    for u in payload.uoms:
+        db.add(ProductUom(product_id=product_id, name=u.name.strip(), factor=round(float(u.factor), 6), barcode=u.barcode))
+    await db.commit()
+    return await list_product_uoms(product_id, db, current_user)

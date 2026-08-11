@@ -149,3 +149,21 @@ class ProductPrice(Base):
     unit_price: Mapped[float] = mapped_column(Numeric(18, 4))
 
     __table_args__ = (UniqueConstraint("product_id", "price_level_id", name="uq_product_price_level"),)
+
+
+# ──────────────────────────────────────────────
+# Product UOMs (multi unit-of-measure)
+# ──────────────────────────────────────────────
+class ProductUom(Base):
+    """Alternative sell/buy units for a product. `factor` = how many BASE units
+    (Product.unit) one of this UOM contains — e.g. box of 12 → factor 12.
+    Document lines store the chosen uom + factor; stock always moves in base."""
+    __tablename__ = "product_uoms"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=new_uuid)
+    product_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("products.id", ondelete="CASCADE"), index=True)
+    name: Mapped[str] = mapped_column(String(30))          # box, carton, dozen...
+    factor: Mapped[float] = mapped_column(Numeric(18, 6))  # base units per 1 of this UOM
+    barcode: Mapped[str | None] = mapped_column(String(64))
+
+    __table_args__ = (UniqueConstraint("product_id", "name", name="uq_product_uom_name"),)

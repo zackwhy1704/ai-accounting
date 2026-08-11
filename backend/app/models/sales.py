@@ -90,6 +90,8 @@ class InvoiceLineItem(Base):
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=new_uuid)
     product_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("products.id"), nullable=True)
+    uom: Mapped[str | None] = mapped_column(String(30), nullable=True)  # selected unit; None = base unit
+    uom_factor: Mapped[float] = mapped_column(Numeric(18, 6), default=1)  # base units per selected unit
     invoice_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("invoices.id", ondelete="CASCADE"))
     line_type: Mapped[str] = mapped_column(String(10), default="goods")  # goods, services
     description: Mapped[str] = mapped_column(String(500))
@@ -292,6 +294,8 @@ class DeliveryOrderLineItem(Base):
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=new_uuid)
     product_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("products.id"), nullable=True)
+    uom: Mapped[str | None] = mapped_column(String(30), nullable=True)  # selected unit; None = base unit
+    uom_factor: Mapped[float] = mapped_column(Numeric(18, 6), default=1)  # base units per selected unit
     delivery_order_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("delivery_orders.id", ondelete="CASCADE"))
     line_type: Mapped[str] = mapped_column(String(10), default="goods")  # goods, services
     description: Mapped[str] = mapped_column(String(500))
@@ -377,6 +381,8 @@ class CreditNoteLineItem(Base):
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=new_uuid)
     product_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("products.id"), nullable=True)
+    uom: Mapped[str | None] = mapped_column(String(30), nullable=True)  # selected unit; None = base unit
+    uom_factor: Mapped[float] = mapped_column(Numeric(18, 6), default=1)  # base units per selected unit
     credit_note_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("credit_notes.id", ondelete="CASCADE"))
     line_type: Mapped[str] = mapped_column(String(10), default="goods")  # goods, services
     description: Mapped[str] = mapped_column(String(500))
