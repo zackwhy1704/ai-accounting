@@ -75,6 +75,11 @@ import PurchaseRefundsPage from './pages/purchases/PurchaseRefundsPage'
 import ChartOfAccountsPage from './pages/accounting/ChartOfAccountsPage'
 import TaxCodesPage from './pages/accounting/TaxCodesPage'
 import FixedAssetsPage from './pages/accounting/FixedAssetsPage'
+import YearEndClosePage from './pages/accounting/YearEndClosePage'
+import RecurringJournalsPage from './pages/accounting/RecurringJournalsPage'
+import BudgetsPage from './pages/accounting/BudgetsPage'
+import DimensionsPage from './pages/settings/DimensionsPage'
+import AuditLogPage from './pages/settings/AuditLogPage'
 import NewFixedAssetPage from './pages/accounting/NewFixedAssetPage'
 import AgedReceivablesPage from './pages/reports/AgedReceivablesPage'
 import AgedPayablesPage from './pages/reports/AgedPayablesPage'
@@ -258,6 +263,11 @@ function App() {
         <Route path="/accounting/fixed-assets" element={<FixedAssetsPage />} />
         <Route path="/accounting/fixed-assets/new" element={<NewFixedAssetPage />} />
         <Route path="/accounting/fixed-assets/:id/edit" element={<EditFixedAssetPage />} />
+        <Route path="/accounting/year-end" element={<YearEndClosePage />} />
+        <Route path="/accounting/recurring-journals" element={<RecurringJournalsPage />} />
+        <Route path="/accounting/budgets" element={<BudgetsPage />} />
+        <Route path="/settings/dimensions" element={<DimensionsPage />} />
+        <Route path="/settings/audit-log" element={<AuditLogPage />} />
 
         {/* Reports */}
         <Route path="/reports" element={<ReportsIndexPage />} />

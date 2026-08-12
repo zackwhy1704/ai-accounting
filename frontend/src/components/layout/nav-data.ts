@@ -116,6 +116,9 @@ export const navItems: NavItem[] = [
       { labelKey: "nav.taxCodes", href: "/accounting/tax-codes" },
       { labelKey: "nav.manualJournals", href: "/accounting/journals" },
       { labelKey: "nav.fixedAssets", href: "/accounting/fixed-assets" },
+      { labelKey: "nav.recurringJournals", href: "/accounting/recurring-journals" },
+      { labelKey: "nav.budgets", href: "/accounting/budgets" },
+      { labelKey: "nav.yearEndClose", href: "/accounting/year-end" },
     ],
   },
   { labelKey: "nav.myInvois", href: "/myinvois", icon: "file-chart", feature: "myinvois" },
@@ -144,6 +147,8 @@ export const navItems: NavItem[] = [
       { labelKey: "nav.customFields", href: "/settings/custom-fields" },
       { labelKey: "nav.paymentLinks", href: "/settings/payment-links" },
       { labelKey: "nav.exchangeRates", href: "/settings/exchange-rates" },
+      { labelKey: "nav.dimensions", href: "/settings/dimensions" },
+      { labelKey: "nav.auditLog", href: "/settings/audit-log" },
     ],
   },
 ]
