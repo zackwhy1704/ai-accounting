@@ -84,6 +84,8 @@ import StockTakesPage from './pages/stock/StockTakesPage'
 import StockTakeDetailPage from './pages/stock/StockTakeDetailPage'
 import StockLedgerPage from './pages/stock/StockLedgerPage'
 import ProductInventoryPage from './pages/products/ProductInventoryPage'
+import PurchaseRequisitionsPage from './pages/purchases/PurchaseRequisitionsPage'
+import BillMatchPage from './pages/purchases/BillMatchPage'
 import RecurringJournalsPage from './pages/accounting/RecurringJournalsPage'
 import BudgetsPage from './pages/accounting/BudgetsPage'
 import DimensionsPage from './pages/settings/DimensionsPage'
@@ -208,6 +210,8 @@ function App() {
         <Route path="/purchases/bills" element={<BillsPage />} />
         <Route path="/purchases/bills/new" element={<NewBillPage />} />
         <Route path="/purchases/bills/:id/edit" element={<EditBillPage />} />
+        <Route path="/purchases/bills/:id/match" element={<BillMatchPage />} />
+        <Route path="/purchases/requisitions" element={<PurchaseRequisitionsPage />} />
         <Route path="/purchases/purchase-orders" element={<PurchaseOrdersPage />} />
         <Route path="/purchases/purchase-orders/new" element={<NewPurchaseOrderPage />} />
         <Route path="/purchases/purchase-orders/:id/edit" element={<EditPurchaseOrderPage />} />

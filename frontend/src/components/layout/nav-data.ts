@@ -36,6 +36,7 @@ export const navItems: NavItem[] = [
     icon: "shopping-cart",
     feature: "purchases",
     children: [
+      { labelKey: "nav.purchaseRequisitions", href: "/purchases/requisitions" },
       { labelKey: "nav.purchaseOrders", href: "/purchases/purchase-orders" },
       { labelKey: "nav.goodsReceivedNotes", href: "/purchases/goods-received-notes" },
       { labelKey: "nav.bills", href: "/purchases/bills" },
