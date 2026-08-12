@@ -1,6 +1,8 @@
 import { useState, useEffect } from "react"
 import { useNavigate, useParams } from "react-router-dom"
+import { useQuery } from "@tanstack/react-query"
 import { useContact, useUpdateContact } from "../../lib/hooks"
+import api from "../../lib/api"
 import { Card } from "../../components/ui/card"
 import { Button } from "../../components/ui/button"
 import { Input } from "../../components/ui/input"
@@ -41,6 +43,14 @@ export default function EditContactPage() {
   const [shippingCountry, setShippingCountry] = useState("")
 
   const [defaultPaymentTerms, setDefaultPaymentTerms] = useState("")
+  const [creditLimit, setCreditLimit] = useState("")
+  const [creditHold, setCreditHold] = useState(false)
+  const [priceLevelId, setPriceLevelId] = useState("")
+
+  const { data: priceLevels = [] } = useQuery<Array<{ id: string; name: string }>>({
+    queryKey: ["price-levels"],
+    queryFn: () => api.get("/price-levels").then(r => r.data),
+  })
 
   useEffect(() => {
     if (contact && !populated) {
@@ -69,6 +79,9 @@ export default function EditContactPage() {
       setShippingPostcode(contact.shipping_postcode ?? "")
       setShippingCountry(contact.shipping_country ?? "")
       setDefaultPaymentTerms(contact.default_payment_terms ?? "")
+      setCreditLimit(contact.credit_limit != null ? String(contact.credit_limit) : "")
+      setCreditHold(contact.credit_hold ?? false)
+      setPriceLevelId(contact.price_level_id ?? "")
       setPopulated(true)
     }
   }, [contact, populated])
@@ -110,6 +123,9 @@ export default function EditContactPage() {
       shipping_postcode: shippingPostcode || undefined,
       shipping_country: shippingCountry || undefined,
       default_payment_terms: defaultPaymentTerms || undefined,
+      credit_limit: creditLimit !== "" ? parseFloat(creditLimit) : null,
+      credit_hold: creditHold,
+      price_level_id: priceLevelId || null,
     })
     navigate("/contacts")
   }
@@ -286,6 +302,33 @@ export default function EditContactPage() {
               </SelectContent>
             </Select>
           </div>
+        </div>
+      </Card>
+
+      {/* Credit & Pricing */}
+      <Card className="rounded-2xl border-border bg-card p-6 shadow-[0_0_0_1px_rgba(15,23,42,0.06),0_18px_55px_rgba(2,6,23,0.08)]">
+        <h2 className="mb-4 text-sm font-semibold text-foreground">Credit &amp; Pricing</h2>
+        <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+          <div className="space-y-1.5">
+            <label className="text-sm font-medium text-foreground">Credit Limit</label>
+            <Input type="number" value={creditLimit} onChange={e => setCreditLimit(e.target.value)} placeholder="No limit" />
+            <p className="text-xs text-muted-foreground">New invoices are blocked when outstanding + invoice exceeds this. Leave empty for no limit.</p>
+          </div>
+          <div className="space-y-1.5">
+            <label className="text-sm font-medium text-foreground">Price Level</label>
+            <select
+              value={priceLevelId}
+              onChange={e => setPriceLevelId(e.target.value)}
+              className="h-10 w-full rounded-md border border-border bg-background px-3 text-sm"
+            >
+              <option value="">Standard pricing</option>
+              {priceLevels.map(l => <option key={l.id} value={l.id}>{l.name}</option>)}
+            </select>
+          </div>
+          <label className="flex items-center gap-2 text-sm text-foreground md:col-span-2">
+            <input type="checkbox" checked={creditHold} onChange={e => setCreditHold(e.target.checked)} className="h-4 w-4" />
+            Credit hold — block all new sales documents for this contact
+          </label>
         </div>
       </Card>
 

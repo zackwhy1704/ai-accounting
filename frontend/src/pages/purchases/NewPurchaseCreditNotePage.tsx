@@ -73,6 +73,7 @@ export default function NewVendorCreditPage() {
         currency,
         notes: notes || null,
         line_items: lineItems.map((l, i) => ({
+          product_id: l.product_id || undefined,
           description: l.description,
           line_type: l.line_type,
           account_id: l.account_id || undefined,

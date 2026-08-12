@@ -112,22 +112,23 @@ export default function NewPurchasePaymentPage() {
   const handleSave = async () => {
     if (!isFormValid) { toast("Please fill in all required fields", "warning"); return }
     try {
-      const selectedBillIds = Object.entries(selectedBills).filter(([id, sel]) => sel && (allocations[id] || 0) > 0).map(([id]) => id)
-      const selectedDnIds = Object.entries(selectedDNs).filter(([id, sel]) => sel && (dnAllocations[id] || 0) > 0).map(([id]) => id)
-      const linkedBillId = selectedBillIds[0] ?? null
-      const linkedDnId = selectedDnIds[0] ?? null
-
-      const payAmt = linkedBillId ? (allocations[linkedBillId] ?? effectiveAmount)
-        : linkedDnId ? (dnAllocations[linkedDnId] ?? effectiveAmount)
-        : effectiveAmount
+      // One payment can settle several bills/debit notes: send every ticked
+      // allocation and let the backend derive the amount from their sum.
+      const allocationRows = [
+        ...Object.entries(selectedBills)
+          .filter(([id, sel]) => sel && (allocations[id] || 0) > 0)
+          .map(([id]) => ({ bill_id: id, amount: allocations[id] })),
+        ...Object.entries(selectedDNs)
+          .filter(([id, sel]) => sel && (dnAllocations[id] || 0) > 0)
+          .map(([id]) => ({ debit_note_id: id, amount: dnAllocations[id] })),
+      ]
 
       await createPayment.mutateAsync({
         contact_id: contactId || null,
-        bill_id: linkedBillId,
-        debit_note_id: linkedDnId,
         payment_no: paymentNo || undefined,
         payment_date: new Date(paymentDate).toISOString(),
-        amount: payAmt,
+        amount: allocationRows.length > 0 ? 0 : effectiveAmount,
+        allocations: allocationRows,
         currency,
         payment_method: paymentMethod,
         reference_no: referenceNo || null,

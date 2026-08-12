@@ -128,6 +128,7 @@ export default function EditBillPage() {
         line_items: lineItems.map((item, i) => {
           const qty = item.line_type === "services" ? 1 : item.quantity
           return {
+            product_id: item.product_id || undefined,
             description: item.description,
             account_id: item.account_id || undefined,
             quantity: qty,

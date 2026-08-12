@@ -42,6 +42,8 @@ export default function NewContactPage() {
 
   // Default preferences (payment terms stored on backend; currency/tax_inclusive cached per-contact in localStorage)
   const [defaultPaymentTerms, setDefaultPaymentTerms] = useState("")
+  const [creditLimit, setCreditLimit] = useState("")
+  const [creditHold, setCreditHold] = useState(false)
 
   const copyBillingToShipping = () => {
     setShippingLine1(billingLine1)
@@ -80,6 +82,8 @@ export default function NewContactPage() {
       shipping_postcode: shippingPostcode || undefined,
       shipping_country: shippingCountry || undefined,
       default_payment_terms: defaultPaymentTerms || undefined,
+      credit_limit: creditLimit !== "" ? parseFloat(creditLimit) : undefined,
+      credit_hold: creditHold,
     })
     navigate("/contacts")
   }
@@ -257,6 +261,21 @@ export default function NewContactPage() {
               </SelectContent>
             </Select>
           </div>
+        </div>
+      </Card>
+
+      {/* Credit */}
+      <Card className="rounded-2xl border-border bg-card p-6 shadow-[0_0_0_1px_rgba(15,23,42,0.06),0_18px_55px_rgba(2,6,23,0.08)]">
+        <h2 className="mb-4 text-sm font-semibold text-foreground">Credit</h2>
+        <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+          <div className="space-y-1.5">
+            <label className="text-sm font-medium text-foreground">Credit Limit</label>
+            <Input type="number" value={creditLimit} onChange={e => setCreditLimit(e.target.value)} placeholder="No limit" />
+          </div>
+          <label className="flex items-center gap-2 self-end pb-2 text-sm text-foreground">
+            <input type="checkbox" checked={creditHold} onChange={e => setCreditHold(e.target.checked)} className="h-4 w-4" />
+            Credit hold
+          </label>
         </div>
       </Card>
 

@@ -1,5 +1,5 @@
 import { useState } from "react"
-import { Loader2, UserPlus, Trash2, Copy, Users } from "lucide-react"
+import { Loader2, UserPlus, Trash2, Users } from "lucide-react"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { Card } from "../../components/ui/card"
 import { Button } from "../../components/ui/button"

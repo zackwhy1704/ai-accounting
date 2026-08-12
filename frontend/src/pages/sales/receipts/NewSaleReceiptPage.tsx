@@ -10,6 +10,7 @@ import { Plus, Trash2 } from "lucide-react"
 import { getContactPrefs, saveContactPref } from "../../../lib/contact-prefs"
 
 interface LineItem {
+  product_id?: string
   description: string
   quantity: number
   unit_price: number
@@ -71,6 +72,7 @@ export default function NewSaleReceiptPage() {
       reference,
       currency,
       line_items: lineItems.map(li => ({
+        product_id: li.product_id || undefined,
         description: li.description,
         quantity: li.quantity,
         unit_price: li.unit_price,

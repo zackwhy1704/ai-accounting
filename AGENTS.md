@@ -32,7 +32,7 @@ Contacts · Products · BankAccounts · BankTransactions · BankTransfers · Sto
 
 2. **Financial documents are void-only, never hard-deleted.** Delete endpoints guard `status in ("draft", "void")`. Never remove this guard.
 
-3. **TypeScript: run `npx tsc --noEmit` after every TS/TSX change. Zero errors before commit.**
+3. **TypeScript: run `node_modules/.bin/tsc -b` (NOT bare `tsc --noEmit` — the root tsconfig is solution-style with references, so `--noEmit` checks nothing) after every TS/TSX change. Zero errors before commit; the build script runs `tsc -b && vite build`.**
 
 4. **Always `await db.commit()` after every mutation.** Missing commit = data silently not persisted.
 

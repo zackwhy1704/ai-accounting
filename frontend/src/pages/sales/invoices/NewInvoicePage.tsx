@@ -9,6 +9,8 @@ import { Input } from "../../../components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../../components/ui/select"
 import { SearchableSelect } from "../../../components/ui/searchable-select"
 import { LineItemsEditor, useLineItems } from "../../../components/line-items"
+import { useQuery } from "@tanstack/react-query"
+import api from "../../../lib/api"
 
 export default function NewInvoicePage() {
   const navigate = useNavigate()
@@ -55,6 +57,31 @@ export default function NewInvoicePage() {
 
   const [currency, setCurrency] = useState("MYR")
   const [journalMemo, setJournalMemo] = useState("")
+  const [projectId, setProjectId] = useState("")
+  const [departmentId, setDepartmentId] = useState("")
+
+  const { data: projects = [] } = useQuery<Array<{ id: string; name: string }>>({
+    queryKey: ["dimensions", "projects"],
+    queryFn: () => api.get("/dimensions/projects").then(r => r.data),
+  })
+  const { data: departments = [] } = useQuery<Array<{ id: string; name: string }>>({
+    queryKey: ["dimensions", "departments"],
+    queryFn: () => api.get("/dimensions/departments").then(r => r.data),
+  })
+
+  // Product picked from the quick-add: apply the contact's tier price when one exists
+  const addProductLine = async (line: any) => {
+    let resolved = line
+    if (line.product_id && contactId) {
+      try {
+        const r = await api.get("/pricing/resolve", { params: { product_id: line.product_id, contact_id: contactId } })
+        if (r.data?.source === "price_level") {
+          resolved = { ...line, unit_price: r.data.unit_price, amount: r.data.unit_price * (line.quantity || 1) }
+        }
+      } catch { /* fall back to the standard price */ }
+    }
+    setLineItems(prev => [...prev, resolved])
+  }
 
   const { lineItems, setLineItems, updateLine, addLine, removeLine, subTotal, totalDiscount: totalLineDiscount, totalTax, total } = useLineItems({
     taxRates,
@@ -74,6 +101,8 @@ export default function NewInvoicePage() {
         due_date: invoiceDate,
         currency,
         notes: journalMemo || null,
+        project_id: projectId || null,
+        department_id: departmentId || null,
         terms: terms || null,
         billing_address_line1: billingLine1 || null,
         billing_address_line2: billingLine2 || null,
@@ -82,6 +111,7 @@ export default function NewInvoicePage() {
         billing_postcode: billingPostcode || null,
         billing_country: billingCountry || null,
         line_items: lineItems.map(li => ({
+          product_id: li.product_id || undefined,
           description: li.description,
           account_id: li.account_id || undefined,
           quantity: li.quantity,
@@ -209,7 +239,7 @@ export default function NewInvoicePage() {
           products={productOptions}
           showProductSearch
           onProductSearch={setProductQuery}
-          onAddProductLine={line => setLineItems(prev => [...prev, line])}
+          onAddProductLine={line => { void addProductLine(line) }}
         />
 
         <div className="mt-6 flex justify-end">
@@ -236,6 +266,28 @@ export default function NewInvoicePage() {
         </div>
 
         <div className="mt-6 border-t border-border pt-4 space-y-4">
+          {(projects.length > 0 || departments.length > 0) && (
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              {projects.length > 0 && (
+                <div>
+                  <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Project</label>
+                  <select value={projectId} onChange={e => setProjectId(e.target.value)} className="h-9 w-full rounded-md border border-border bg-background px-3 text-sm">
+                    <option value="">No project</option>
+                    {projects.map(pj => <option key={pj.id} value={pj.id}>{pj.name}</option>)}
+                  </select>
+                </div>
+              )}
+              {departments.length > 0 && (
+                <div>
+                  <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Department</label>
+                  <select value={departmentId} onChange={e => setDepartmentId(e.target.value)} className="h-9 w-full rounded-md border border-border bg-background px-3 text-sm">
+                    <option value="">No department</option>
+                    {departments.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
+                  </select>
+                </div>
+              )}
+            </div>
+          )}
           <div>
             <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Journal / Memo</label>
             <textarea

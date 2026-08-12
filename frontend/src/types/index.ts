@@ -33,6 +33,9 @@ export interface Contact {
   shipping_postcode: string | null
   shipping_country: string | null
   default_payment_terms: string | null
+  credit_limit?: number | null
+  credit_hold?: boolean
+  price_level_id?: string | null
   created_at: string
 }
 

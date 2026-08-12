@@ -10,6 +10,8 @@ import { Input } from "../../components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../components/ui/select"
 import { SearchableSelect } from "../../components/ui/searchable-select"
 import { LineItemsEditor, useLineItems } from "../../components/line-items"
+import { useQuery } from "@tanstack/react-query"
+import api from "../../lib/api"
 
 export default function NewBillPage() {
   const navigate = useNavigate()
@@ -29,6 +31,17 @@ export default function NewBillPage() {
   const [dueDate, setDueDate] = useState("")
   const [currency, setCurrency] = useState("MYR")
   const [notes, setNotes] = useState("")
+  const [projectId, setProjectId] = useState("")
+  const [departmentId, setDepartmentId] = useState("")
+
+  const { data: projects = [] } = useQuery<Array<{ id: string; name: string }>>({
+    queryKey: ["dimensions", "projects"],
+    queryFn: () => api.get("/dimensions/projects").then(r => r.data),
+  })
+  const { data: departments = [] } = useQuery<Array<{ id: string; name: string }>>({
+    queryKey: ["dimensions", "departments"],
+    queryFn: () => api.get("/dimensions/departments").then(r => r.data),
+  })
 
   const [billingLine1, setBillingLine1] = useState("")
   const [billingLine2, setBillingLine2] = useState("")
@@ -137,6 +150,8 @@ export default function NewBillPage() {
         due_date: dueDate ? new Date(dueDate).toISOString() : new Date(issueDate).toISOString(),
         currency,
         notes: notes || null,
+        project_id: projectId || null,
+        department_id: departmentId || null,
         billing_address_line1: billingLine1 || null,
         billing_address_line2: billingLine2 || null,
         billing_city: billingCity || null,
@@ -152,6 +167,7 @@ export default function NewBillPage() {
         line_items: lineItems.map((item, i) => {
           const qty = item.line_type === "services" ? 1 : item.quantity
           return {
+            product_id: item.product_id || undefined,
             description: item.description,
             account_id: item.account_id || undefined,
             quantity: qty,
@@ -298,6 +314,29 @@ export default function NewBillPage() {
             </div>
           </div>
         </div>
+
+        {(projects.length > 0 || departments.length > 0) && (
+          <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2">
+            {projects.length > 0 && (
+              <div>
+                <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Project</label>
+                <select value={projectId} onChange={e => setProjectId(e.target.value)} className="h-9 w-full rounded-md border border-border bg-background px-3 text-sm">
+                  <option value="">No project</option>
+                  {projects.map(pj => <option key={pj.id} value={pj.id}>{pj.name}</option>)}
+                </select>
+              </div>
+            )}
+            {departments.length > 0 && (
+              <div>
+                <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Department</label>
+                <select value={departmentId} onChange={e => setDepartmentId(e.target.value)} className="h-9 w-full rounded-md border border-border bg-background px-3 text-sm">
+                  <option value="">No department</option>
+                  {departments.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
+                </select>
+              </div>
+            )}
+          </div>
+        )}
 
         <div className="mt-6">
           <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Notes</label>

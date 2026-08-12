@@ -6,6 +6,7 @@ export type DiscountMode = "percent" | "amount"
  * Every field every target page touches is represented here.
  */
 export interface LineItem {
+  product_id?: string
   line_type: LineType
   description: string
   account_id: string

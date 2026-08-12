@@ -152,6 +152,7 @@ export default function EditInvoicePage() {
     billing_postcode: billingPostcode || null,
     billing_country: billingCountry || null,
     line_items: lineItems.map(li => ({
+      product_id: li.product_id || undefined,
       description: li.description,
       account_id: li.account_id || undefined,
       quantity: li.quantity,

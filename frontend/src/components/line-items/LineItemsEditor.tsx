@@ -259,6 +259,7 @@ export function LineItemsEditor({
                       onMouseDown={e => {
                         e.preventDefault()
                         onAddProductLine?.({
+                          product_id: p.id,
                           line_type: "goods",
                           description: p.name,
                           account_id: p.account_id ?? "",
