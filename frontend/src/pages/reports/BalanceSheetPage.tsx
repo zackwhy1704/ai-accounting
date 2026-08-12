@@ -15,22 +15,35 @@ interface BalanceSheetReport {
   equity: number
   liabilities_and_equity: number
   is_balanced: boolean
+  comparative?: {
+    as_of_date: string
+    assets: number
+    liabilities: number
+    equity: number
+    liabilities_and_equity: number
+  }
 }
 
 export default function BalanceSheetPage() {
   const today = new Date().toISOString().slice(0, 10)
   const [asAt, setAsAt] = useState(today)
-  const [activeAsAt, setActiveAsAt] = useState(today)
+  const [compare, setCompare] = useState("")
+  const [active, setActive] = useState({ asAt: today, compare: "" })
 
   const { data, isLoading, isFetching, isError, error } = useQuery<BalanceSheetReport>({
-    queryKey: ["report-balance-sheet", activeAsAt],
-    queryFn: () => api.get(`/reports/balance-sheet?as_of_date=${activeAsAt}`).then(r => r.data),
+    queryKey: ["report-balance-sheet", active],
+    queryFn: () => api.get("/reports/balance-sheet", {
+      params: { as_of_date: active.asAt, ...(active.compare ? { compare: active.compare } : {}) },
+    }).then(r => r.data),
   })
 
-  const Row = ({ label, value, bold = false }: { label: string; value: string; bold?: boolean }) => (
+  const Row = ({ label, value, comparative, bold = false }: { label: string; value: string; comparative?: string; bold?: boolean }) => (
     <div className={`flex items-center justify-between border-b border-border py-2.5 last:border-0 ${bold ? "bg-muted/30" : ""}`}>
       <span className={`text-sm ${bold ? "font-semibold text-foreground" : "text-muted-foreground"}`}>{label}</span>
-      <span className={`text-sm tabular-nums ${bold ? "font-bold" : ""} text-foreground`}>{value}</span>
+      <span className="flex items-center gap-6">
+        {comparative !== undefined && <span className="text-sm tabular-nums text-muted-foreground">{comparative}</span>}
+        <span className={`text-sm tabular-nums ${bold ? "font-bold" : ""} text-foreground`}>{value}</span>
+      </span>
     </div>
   )
 
@@ -66,7 +79,15 @@ export default function BalanceSheetPage() {
             <label className="text-xs font-medium text-muted-foreground">As At</label>
             <Input type="date" value={asAt} onChange={e => setAsAt(e.target.value)} className="h-9 text-sm w-48" />
           </div>
-          <Button type="button" onClick={() => setActiveAsAt(asAt)} className="h-9 bg-gradient-to-r from-[#7C9DFF] to-[#4D63FF] px-4 text-sm text-white" disabled={isFetching}>
+          <div className="space-y-1.5">
+            <label className="text-xs font-medium text-muted-foreground">Compare</label>
+            <select value={compare} onChange={e => setCompare(e.target.value)} className="h-9 rounded-md border border-border bg-background px-3 text-sm">
+              <option value="">No comparison</option>
+              <option value="previous_month">Previous month</option>
+              <option value="previous_year">Previous year</option>
+            </select>
+          </div>
+          <Button type="button" onClick={() => setActive({ asAt, compare })} className="h-9 bg-gradient-to-r from-[#7C9DFF] to-[#4D63FF] px-4 text-sm text-white" disabled={isFetching}>
             {isFetching ? <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" /> : null}
             Update
           </Button>
@@ -85,23 +106,29 @@ export default function BalanceSheetPage() {
         </div>
       ) : data ? (
         <Card className="rounded-2xl border-border bg-card p-6 shadow-[0_0_0_1px_rgba(15,23,42,0.06),0_18px_55px_rgba(2,6,23,0.08)]">
+          {data.comparative && (
+            <div className="mb-3 flex justify-end gap-6 text-xs text-muted-foreground">
+              <span>As at {data.comparative.as_of_date}</span>
+              <span className="font-medium text-foreground">As at {data.as_of_date}</span>
+            </div>
+          )}
           <div className="mb-4 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Assets</div>
           <div className="space-y-0 divide-y divide-border rounded-xl border border-border px-4">
-            <Row label="Total Assets" value={formatCurrency(data.assets)} bold />
+            <Row label="Total Assets" value={formatCurrency(data.assets)} comparative={data.comparative ? formatCurrency(data.comparative.assets) : undefined} bold />
           </div>
 
           <div className="mt-6 mb-4 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Liabilities</div>
           <div className="space-y-0 divide-y divide-border rounded-xl border border-border px-4">
-            <Row label="Total Liabilities" value={formatCurrency(data.liabilities)} />
+            <Row label="Total Liabilities" value={formatCurrency(data.liabilities)} comparative={data.comparative ? formatCurrency(data.comparative.liabilities) : undefined} />
           </div>
 
           <div className="mt-6 mb-4 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Equity</div>
           <div className="space-y-0 divide-y divide-border rounded-xl border border-border px-4">
-            <Row label="Total Equity" value={formatCurrency(data.equity)} />
+            <Row label="Total Equity" value={formatCurrency(data.equity)} comparative={data.comparative ? formatCurrency(data.comparative.equity) : undefined} />
           </div>
 
           <div className="mt-6 space-y-0 divide-y divide-border rounded-xl border-2 border-border px-4">
-            <Row label="Liabilities + Equity" value={formatCurrency(data.liabilities_and_equity)} bold />
+            <Row label="Liabilities + Equity" value={formatCurrency(data.liabilities_and_equity)} comparative={data.comparative ? formatCurrency(data.comparative.liabilities_and_equity) : undefined} bold />
           </div>
         </Card>
       ) : isError ? (

@@ -82,6 +82,10 @@ export const navItems: NavItem[] = [
       { labelKey: "nav.stockAdjustments", href: "/stock/adjustments" },
       { labelKey: "nav.stockTransfers", href: "/stock/transfers" },
       { labelKey: "nav.stockValues", href: "/stock/values" },
+      { labelKey: "nav.stockAging", href: "/reports/stock-aging" },
+      { labelKey: "nav.reorderAdvice", href: "/reports/reorder-advice" },
+      { labelKey: "nav.stockMovement", href: "/reports/stock-movement" },
+      { labelKey: "nav.batchExpiry", href: "/reports/batch-expiry" },
     ],
   },
   {

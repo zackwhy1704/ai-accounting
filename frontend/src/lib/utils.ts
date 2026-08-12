@@ -37,3 +37,19 @@ export function downloadCSV(filename: string, rows: string[][]) {
 export function printReport() {
   window.print()
 }
+
+/** Download any report as a styled Excel workbook via the backend exporter. */
+export async function downloadXLSX(filename: string, title: string, headers: string[], rows: (string | number)[][]) {
+  const api = (await import("./api")).default
+  const res = await api.post(
+    "/reports/export-xlsx",
+    { filename, sheet_name: title.slice(0, 31), title, headers, rows },
+    { responseType: "blob" },
+  )
+  const url = URL.createObjectURL(res.data as Blob)
+  const a = document.createElement("a")
+  a.href = url
+  a.download = `${filename}.xlsx`
+  a.click()
+  URL.revokeObjectURL(url)
+}

@@ -76,6 +76,10 @@ import ChartOfAccountsPage from './pages/accounting/ChartOfAccountsPage'
 import TaxCodesPage from './pages/accounting/TaxCodesPage'
 import FixedAssetsPage from './pages/accounting/FixedAssetsPage'
 import YearEndClosePage from './pages/accounting/YearEndClosePage'
+import StockAgingPage from './pages/reports/StockAgingPage'
+import ReorderAdvicePage from './pages/reports/ReorderAdvicePage'
+import StockMovementPage from './pages/reports/StockMovementPage'
+import BatchExpiryPage from './pages/reports/BatchExpiryPage'
 import RecurringJournalsPage from './pages/accounting/RecurringJournalsPage'
 import BudgetsPage from './pages/accounting/BudgetsPage'
 import DimensionsPage from './pages/settings/DimensionsPage'
@@ -278,6 +282,10 @@ function App() {
         <Route path="/reports/sst-02" element={<SST02Page />} />
         <Route path="/reports/profit-loss" element={<ProfitLossPage />} />
         <Route path="/reports/balance-sheet" element={<BalanceSheetPage />} />
+        <Route path="/reports/stock-aging" element={<StockAgingPage />} />
+        <Route path="/reports/reorder-advice" element={<ReorderAdvicePage />} />
+        <Route path="/reports/stock-movement" element={<StockMovementPage />} />
+        <Route path="/reports/batch-expiry" element={<BatchExpiryPage />} />
         <Route path="/reports/cash-flow" element={<CashFlowPage />} />
         <Route path="/reports/invoice-summary" element={<InvoiceSummaryPage />} />
         <Route path="/reports/bill-summary" element={<BillSummaryPage />} />
