@@ -80,6 +80,10 @@ import StockAgingPage from './pages/reports/StockAgingPage'
 import ReorderAdvicePage from './pages/reports/ReorderAdvicePage'
 import StockMovementPage from './pages/reports/StockMovementPage'
 import BatchExpiryPage from './pages/reports/BatchExpiryPage'
+import StockTakesPage from './pages/stock/StockTakesPage'
+import StockTakeDetailPage from './pages/stock/StockTakeDetailPage'
+import StockLedgerPage from './pages/stock/StockLedgerPage'
+import ProductInventoryPage from './pages/products/ProductInventoryPage'
 import RecurringJournalsPage from './pages/accounting/RecurringJournalsPage'
 import BudgetsPage from './pages/accounting/BudgetsPage'
 import DimensionsPage from './pages/settings/DimensionsPage'
@@ -256,6 +260,10 @@ function App() {
         <Route path="/stock/adjustments/new" element={<NewStockAdjustmentPage />} />
         <Route path="/stock/adjustments/:id/edit" element={<EditStockAdjustmentPage />} />
         <Route path="/stock/transfers" element={<StockTransfersPage />} />
+        <Route path="/stock/stock-takes" element={<StockTakesPage />} />
+        <Route path="/stock/stock-takes/:id" element={<StockTakeDetailPage />} />
+        <Route path="/stock/ledger" element={<StockLedgerPage />} />
+        <Route path="/products/:id/inventory" element={<ProductInventoryPage />} />
         <Route path="/stock/transfers/new" element={<NewStockTransferPage />} />
         <Route path="/stock/transfers/:id/edit" element={<EditStockTransferPage />} />
         <Route path="/stock/values" element={<StockValuesPage />} />
