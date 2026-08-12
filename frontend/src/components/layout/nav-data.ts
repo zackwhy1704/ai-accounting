@@ -20,6 +20,7 @@ export const navItems: NavItem[] = [
     feature: "sales",
     children: [
       { labelKey: "nav.quotations", href: "/sales/quotations" },
+      { labelKey: "nav.salesOrders", href: "/sales/orders" },
       { labelKey: "nav.deliveryOrders", href: "/sales/delivery-orders" },
       { labelKey: "nav.invoices", href: "/sales/invoices" },
       { labelKey: "nav.creditNotes", href: "/sales/credit-notes" },
@@ -155,6 +156,8 @@ export const navItems: NavItem[] = [
       { labelKey: "nav.paymentLinks", href: "/settings/payment-links" },
       { labelKey: "nav.exchangeRates", href: "/settings/exchange-rates" },
       { labelKey: "nav.dimensions", href: "/settings/dimensions" },
+      { labelKey: "nav.priceLevels", href: "/settings/price-levels" },
+      { labelKey: "nav.team", href: "/settings/team" },
       { labelKey: "nav.auditLog", href: "/settings/audit-log" },
     ],
   },

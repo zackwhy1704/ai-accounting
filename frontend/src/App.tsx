@@ -86,6 +86,10 @@ import StockLedgerPage from './pages/stock/StockLedgerPage'
 import ProductInventoryPage from './pages/products/ProductInventoryPage'
 import PurchaseRequisitionsPage from './pages/purchases/PurchaseRequisitionsPage'
 import BillMatchPage from './pages/purchases/BillMatchPage'
+import SalesOrdersPage from './pages/sales/sales-orders/SalesOrdersPage'
+import TeamPage from './pages/settings/TeamPage'
+import PriceLevelsPage from './pages/settings/PriceLevelsPage'
+import AcceptTeamInvitePage from './pages/auth/AcceptTeamInvitePage'
 import RecurringJournalsPage from './pages/accounting/RecurringJournalsPage'
 import BudgetsPage from './pages/accounting/BudgetsPage'
 import DimensionsPage from './pages/settings/DimensionsPage'
@@ -167,6 +171,7 @@ function App() {
       <Route path="/p/:slug/invite/:token" element={<AcceptInvitePage />} />
       {/* Firm-client invite accept — requires login */}
       <Route path="/accept-client-invite" element={<AcceptClientInvitePage />} />
+      <Route path="/accept-team-invite" element={<AcceptTeamInvitePage />} />
       <Route path="/pay/:token" element={<PayPage />} />
       <Route path="/login" element={<LoginPage />} />
       <Route path="/onboarding" element={<ProtectedRoute allowOnboarding><OnboardingPage /></ProtectedRoute>} />
@@ -178,6 +183,7 @@ function App() {
         <Route path="/sales/quotations" element={<QuotationsPage />} />
         <Route path="/sales/quotations/new" element={<NewQuotationPage />} />
         <Route path="/sales/quotations/:id/edit" element={<EditQuotationPage />} />
+        <Route path="/sales/orders" element={<SalesOrdersPage />} />
 <Route path="/sales/delivery-orders" element={<DeliveryOrdersPage />} />
         <Route path="/sales/delivery-orders/new" element={<NewDeliveryOrderPage />} />
         <Route path="/sales/delivery-orders/:id/edit" element={<EditDeliveryOrderPage />} />
@@ -284,6 +290,8 @@ function App() {
         <Route path="/accounting/budgets" element={<BudgetsPage />} />
         <Route path="/settings/dimensions" element={<DimensionsPage />} />
         <Route path="/settings/audit-log" element={<AuditLogPage />} />
+        <Route path="/settings/team" element={<TeamPage />} />
+        <Route path="/settings/price-levels" element={<PriceLevelsPage />} />
 
         {/* Reports */}
         <Route path="/reports" element={<ReportsIndexPage />} />
