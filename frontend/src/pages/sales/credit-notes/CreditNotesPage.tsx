@@ -2,7 +2,7 @@ import { useMemo, useState, useEffect } from "react"
 import { useNavigate } from "react-router-dom"
 import { Plus, Search, ArrowRightLeft, Pencil, Send, XCircle, RotateCcw, Trash2, Undo2 } from "lucide-react"
 import { RowActionsMenu } from "../../../components/ui/row-actions"
-import { useCreditNotesPage, useContacts, useInvoices, useUpdateCreditNoteStatus, useDeleteCreditNote, useRemoveCreditApplications, useDebounce } from "../../../lib/hooks"
+import { useCreditNotesPage, useContacts, useInvoices, useUpdateCreditNoteStatus, useDeleteCreditNote, useRemoveCreditApplications, useRemoveSingleCreditApplication, useDebounce } from "../../../lib/hooks"
 import { PaginationControls } from "../../../components/ui/pagination-controls"
 import { formatCurrency, formatDate, cn } from "../../../lib/utils"
 import { useTheme } from "../../../lib/theme"
@@ -27,6 +27,7 @@ export default function CreditNotesPage() {
   const updateStatus = useUpdateCreditNoteStatus()
   const deleteCreditNote = useDeleteCreditNote()
   const removeApplications = useRemoveCreditApplications()
+  const removeSingleApplication = useRemoveSingleCreditApplication()
   const { toast } = useToast()
   const patch = (id: string, status: string, label?: string) => updateStatus.mutate({ id, status }, { onSuccess: () => label && toast(label, "success"), onError: (e: any) => toast(e?.response?.data?.detail ?? `Failed to update status`, "warning") })
   const [tab, setTab] = useState("all")
@@ -170,7 +171,14 @@ export default function CreditNotesPage() {
                             { label: "Revert to Draft", icon: <Undo2 className="h-3.5 w-3.5" />, onClick: () => patch(row.id, "draft", "Credit note reverted to draft"), disabled: row.status !== "issued" || (row.credit_applied ?? 0) > 0 },
                             { label: t("creditNotes.applyToInvoice"), icon: <ArrowRightLeft className="h-3.5 w-3.5" />, onClick: () => navigate(`/sales/credit-notes/${row.id}/edit?tab=apply_credit`), disabled: row.status === "void" || row.status === "draft" },
                             { label: "Issue Refund", icon: <RotateCcw className="h-3.5 w-3.5" />, onClick: () => { const avail = Number(row.total) - Number(row.credit_applied ?? 0); navigate(`/sales/refunds/new?credit_note_id=${row.id}&amount=${avail.toFixed(2)}&contact_id=${row.contact_id}`) }, disabled: row.status === "void" || row.status === "applied" || (Number(row.total) - Number(row.credit_applied ?? 0)) <= 0 },
-                            { label: "Remove Applications", icon: <ArrowRightLeft className="h-3.5 w-3.5" />, onClick: () => { if (confirm("Remove all credit applications from this CN? The applied amounts will be removed from linked invoices and the CN will revert to Issued.")) removeApplications.mutate(row.id, { onSuccess: () => toast("Credit applications removed", "success"), onError: (e: any) => toast(e?.response?.data?.detail ?? "Failed to remove applications", "warning") }) }, danger: true, dividerBefore: true, disabled: (row.credit_applied ?? 0) <= 0 && (row.credit_applications?.length ?? 0) <= 0 },
+                            ...(row.credit_applications ?? []).map((app: any, appIdx: number) => ({
+                              label: `Remove application: ${invoiceMap.get(app.invoice_id) ?? `#${appIdx + 1}`} (${formatCurrency(app.amount)})`,
+                              icon: <ArrowRightLeft className="h-3.5 w-3.5" />,
+                              onClick: () => { if (confirm(`Remove this application of ${formatCurrency(app.amount)}? The invoice balance will be restored.`)) removeSingleApplication.mutate({ cnId: row.id, appId: app.id }, { onSuccess: () => toast("Application removed", "success"), onError: (e: any) => toast(e?.response?.data?.detail ?? "Failed to remove application", "warning") }) },
+                              danger: true,
+                              ...(appIdx === 0 ? { dividerBefore: true } : {}),
+                            })),
+                            { label: "Remove All Applications", icon: <ArrowRightLeft className="h-3.5 w-3.5" />, onClick: () => { if (confirm("Remove all credit applications from this CN? The applied amounts will be removed from linked invoices and the CN will revert to Issued.")) removeApplications.mutate(row.id, { onSuccess: () => toast("Credit applications removed", "success"), onError: (e: any) => toast(e?.response?.data?.detail ?? "Failed to remove applications", "warning") }) }, danger: true, dividerBefore: (row.credit_applications?.length ?? 0) === 0, disabled: (row.credit_applied ?? 0) <= 0 && (row.credit_applications?.length ?? 0) <= 0 },
                             { label: "Void", icon: <XCircle className="h-3.5 w-3.5" />, onClick: () => { if ((row.credit_applied ?? 0) > 0 || (row.credit_applications?.length ?? 0) > 0) { toast("This credit note has applied amounts. Please use \"Remove Applications\" first before voiding.", "warning"); return } if (confirm("Void this credit note? This cannot be undone.")) patch(row.id, "void", "Credit note voided") }, danger: true, disabled: row.status === "void" },
                             { label: "Delete", icon: <Trash2 className="h-3.5 w-3.5" />, onClick: () => { if ((row.credit_applied ?? 0) > 0 || (row.credit_applications?.length ?? 0) > 0) { toast("This credit note has applied amounts. Please use \"Remove Applications\" first to restore invoice balances before deleting.", "warning"); return } if (row.status !== "draft" && row.status !== "void" && row.status !== "issued") { toast("Please void this credit note first before deleting.", "warning"); return } if (confirm(`Delete credit note ${row.credit_note_number ?? ""}? This cannot be undone.`)) deleteCreditNote.mutate(row.id, { onSuccess: () => toast("Credit note deleted", "success"), onError: (e: any) => toast(e?.response?.data?.detail ?? "Failed to delete credit note", "warning") }) }, danger: true, disabled: row.status === "applied" },
                           ]} />

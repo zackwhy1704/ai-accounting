@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react"
 import { useQueryClient } from "@tanstack/react-query"
 import { useNavigate } from "react-router-dom"
 import { Plus, Search, FileText, Send, XCircle, Pencil, Trash2, Receipt, ArrowRightLeft, RotateCcw } from "lucide-react"
-import { usePurchaseCreditNotesPage, useContacts, useDeletePurchaseCreditNote, useBills, useRemovePurchaseCreditApplications, useDebounce } from "../../lib/hooks"
+import { usePurchaseCreditNotesPage, useContacts, useDeletePurchaseCreditNote, useBills, useRemovePurchaseCreditApplications, useRemoveSinglePurchaseCreditApplication, useDebounce } from "../../lib/hooks"
 import { PaginationControls } from "../../components/ui/pagination-controls"
 import api from "../../lib/api"
 import { formatCurrency, formatDate, cn as clsx } from "../../lib/utils"
@@ -37,6 +37,7 @@ export default function PurchaseCreditNotesPage() {
   const { toast } = useToast()
   const deletePCN = useDeletePurchaseCreditNote()
   const removeApplications = useRemovePurchaseCreditApplications()
+  const removeSingleApplication = useRemoveSinglePurchaseCreditApplication()
   const [tab, setTab] = useState("all")
   const [search, setSearch] = useState("")
   const [page, setPage] = useState(1)
@@ -175,7 +176,14 @@ export default function PurchaseCreditNotesPage() {
                             { label: "Mark as Issued", icon: <Send className="h-3.5 w-3.5" />, onClick: () => patch(cn.id, "issued", "Credit note marked as issued"), dividerBefore: true, disabled: cn.status !== "draft" },
                             { label: "Apply to Bill", icon: <ArrowRightLeft className="h-3.5 w-3.5" />, onClick: () => navigate(`/purchases/credit-notes/${cn.id}/edit?tab=apply_credit`), disabled: cn.status === "void" || cn.status === "draft" },
                             { label: "Issue Refund", icon: <RotateCcw className="h-3.5 w-3.5" />, onClick: () => { const avail = Number(cn.total) - Number(cn.credit_applied ?? 0); navigate(`/purchases/refunds/new?pcn_id=${cn.id}&amount=${avail.toFixed(2)}&contact_id=${cn.contact_id}`) }, disabled: cn.status === "void" || cn.status === "draft" || (Number(cn.total) - Number(cn.credit_applied ?? 0)) <= 0 },
-                            { label: "Remove Applications", icon: <ArrowRightLeft className="h-3.5 w-3.5" />, onClick: () => { if (confirm("Remove all credit applications from this PCN? The applied amounts will be removed from linked bills and the PCN will revert to Issued.")) removeApplications.mutate(cn.id, { onSuccess: () => toast("Credit applications removed", "success"), onError: (e: any) => toast(e?.response?.data?.detail ?? "Failed to remove applications", "warning") }) }, danger: true, dividerBefore: true, disabled: (cn.credit_applied ?? 0) <= 0 && (cn.credit_applications?.length ?? 0) <= 0 },
+                            ...(cn.credit_applications ?? []).map((app: any, appIdx: number) => ({
+                              label: `Remove application: ${billMap.get(app.bill_id) ?? `#${appIdx + 1}`} (${formatCurrency(app.amount)})`,
+                              icon: <ArrowRightLeft className="h-3.5 w-3.5" />,
+                              onClick: () => { if (confirm(`Remove this application of ${formatCurrency(app.amount)}? The bill balance will be restored.`)) removeSingleApplication.mutate({ pcnId: cn.id, appId: app.id }, { onSuccess: () => toast("Application removed", "success"), onError: (e: any) => toast(e?.response?.data?.detail ?? "Failed to remove application", "warning") }) },
+                              danger: true,
+                              ...(appIdx === 0 ? { dividerBefore: true } : {}),
+                            })),
+                            { label: "Remove All Applications", icon: <ArrowRightLeft className="h-3.5 w-3.5" />, onClick: () => { if (confirm("Remove all credit applications from this PCN? The applied amounts will be removed from linked bills and the PCN will revert to Issued.")) removeApplications.mutate(cn.id, { onSuccess: () => toast("Credit applications removed", "success"), onError: (e: any) => toast(e?.response?.data?.detail ?? "Failed to remove applications", "warning") }) }, danger: true, dividerBefore: (cn.credit_applications?.length ?? 0) === 0, disabled: (cn.credit_applied ?? 0) <= 0 && (cn.credit_applications?.length ?? 0) <= 0 },
                             { label: "Void", icon: <XCircle className="h-3.5 w-3.5" />, onClick: () => { if ((cn.credit_applied ?? 0) > 0 || (cn.credit_applications?.length ?? 0) > 0) { toast("This credit note has applied amounts. Please use \"Remove Applications\" first before voiding.", "warning"); return } if (confirm("Void this credit note? This reverses the GL entries and cannot be undone.")) patch(cn.id, "void", "Credit note voided") }, danger: true, dividerBefore: true, disabled: cn.status === "void" },
                             { label: "Delete", icon: <Trash2 className="h-3.5 w-3.5" />, onClick: () => { if ((cn.credit_applied ?? 0) > 0 || (cn.credit_applications?.length ?? 0) > 0) { toast("This credit note has applied amounts. Please use \"Remove Applications\" first before deleting.", "warning"); return } if (cn.status !== "draft" && cn.status !== "void" && cn.status !== "issued") { toast("Please void this credit note first before deleting.", "warning"); return } if (confirm(`Delete credit note ${cn.pcn_number}? This cannot be undone.`)) deletePCN.mutate(cn.id, { onSuccess: () => toast("Credit note deleted", "success"), onError: (e: any) => toast(e?.response?.data?.detail ?? "Failed to delete", "warning") }) }, danger: true, disabled: cn.status === "applied" },
                           ]} />
