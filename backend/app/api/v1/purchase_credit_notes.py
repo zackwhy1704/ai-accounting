@@ -20,6 +20,7 @@ from app.schemas.schemas import (
 )
 from .gl_helpers import post_gl, revert_gl
 from app.services.gl_posting import post_purchase_credit_note_gl
+from app.services.pricing import line_after_discount as _net
 from app.services.fx import document_rate
 
 router = APIRouter(prefix="/purchase-credit-notes", tags=["purchase-credit-notes"])
@@ -190,6 +191,7 @@ async def create_purchase_credit_note(
         tax_amount=float(tax_amount),
         total=float(total),
         rate=float(pcn.exchange_rate),
+        lines=[(li.account_id, _net(li.quantity, li.unit_price, li.discount, getattr(li, "discount_mode", "percent") or "percent")) for li in payload.line_items],
     )
 
     await db.commit()

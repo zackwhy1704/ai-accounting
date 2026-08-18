@@ -7,7 +7,7 @@ from sqlalchemy import select, func
 
 from app.core.database import get_db
 from app.core.security import get_current_user
-from ._util import parse_date
+from ._util import parse_date, account_nature, PL_NATURES, NATURE_REVENUE, NATURE_COST_OF_SALES, NATURE_EXPENSE, NATURE_OTHER_INCOME, NATURE_OTHER_EXPENSE
 from app.models.models import (
     Invoice, Bill, Contact,
     InvoiceLineItem, BillLineItem,
@@ -108,11 +108,12 @@ async def profit_loss_report(
             comp_query = comp_query.where(
                 func.coalesce(JournalEntry.department_id, Transaction.department_id) == department_id
             )
-        for r in (await db.execute(comp_query.group_by(Account.id, Account.type))).all():
-            t = (r.type or "").lower()
-            if t in ("revenue", "income"):
+        comp_query = comp_query.add_columns(Account.code)
+        for r in (await db.execute(comp_query.group_by(Account.id, Account.type, Account.code))).all():
+            nature = account_nature(r.type, r.code)
+            if nature in (NATURE_REVENUE, NATURE_OTHER_INCOME):
                 comparative_by_account[r.id] = float(r.credit or 0) - float(r.debit or 0)
-            elif t in ("expense", "cogs", "cost_of_sales"):
+            elif nature in (NATURE_COST_OF_SALES, NATURE_EXPENSE, NATURE_OTHER_EXPENSE):
                 comparative_by_account[r.id] = float(r.debit or 0) - float(r.credit or 0)
 
     # Optional budget overlay: sum monthly buckets for the calendar months the
@@ -133,49 +134,37 @@ async def profit_loss_report(
             for b in budget_rows
         }
 
-    revenue_lines: list[dict] = []
-    expense_lines: list[dict] = []
-    total_revenue = 0.0
-    total_expenses = 0.0
-    budget_revenue = 0.0
-    budget_expenses = 0.0
+    # Five P&L buckets per the Malaysian statement flow:
+    # (4) Revenue - (5) Cost of Sales = Gross Profit
+    #   - (6) Expenses + (8) Other Income - (9) Other Expenses = Net Profit
+    INCOME_SIDE = (NATURE_REVENUE, NATURE_OTHER_INCOME)
+    buckets: dict = {n: {"lines": [], "total": 0.0, "budget": 0.0} for n in PL_NATURES}
+
+    def _bucket_line(nature: str, acct_id, code, name, amount: float) -> None:
+        bucket = buckets[nature]
+        line = {"code": code, "name": name, "amount": amount}
+        if include_budget:
+            b = budget_by_account.pop(acct_id, 0.0)
+            line["budget"] = b
+            line["variance"] = round(amount - b, 2)
+            bucket["budget"] += b
+        if comp_range:
+            c = comparative_by_account.pop(acct_id, 0.0)
+            line["comparative"] = round(c, 2)
+            line["change"] = round(amount - c, 2)
+        bucket["lines"].append(line)
+        bucket["total"] += amount
 
     for row in rows:
-        t = (row.type or "").lower()
+        nature = account_nature(row.type, row.code)
+        if nature not in PL_NATURES:
+            continue
         dr = float(row.debit or 0)
         cr = float(row.credit or 0)
-        if t in ("revenue", "income"):
-            amount = cr - dr  # revenue is a credit-balance account
-            if abs(amount) < 0.005 and row.id not in budget_by_account and row.id not in comparative_by_account:
-                continue
-            line = {"code": row.code, "name": row.name, "amount": amount}
-            if include_budget:
-                b = budget_by_account.pop(row.id, 0.0)
-                line["budget"] = b
-                line["variance"] = round(amount - b, 2)
-                budget_revenue += b
-            if comp_range:
-                c = comparative_by_account.pop(row.id, 0.0)
-                line["comparative"] = round(c, 2)
-                line["change"] = round(amount - c, 2)
-            revenue_lines.append(line)
-            total_revenue += amount
-        elif t in ("expense", "cogs", "cost_of_sales"):
-            amount = dr - cr  # expense is a debit-balance account
-            if abs(amount) < 0.005 and row.id not in budget_by_account and row.id not in comparative_by_account:
-                continue
-            line = {"code": row.code, "name": row.name, "amount": amount}
-            if include_budget:
-                b = budget_by_account.pop(row.id, 0.0)
-                line["budget"] = b
-                line["variance"] = round(amount - b, 2)
-                budget_expenses += b
-            if comp_range:
-                c = comparative_by_account.pop(row.id, 0.0)
-                line["comparative"] = round(c, 2)
-                line["change"] = round(amount - c, 2)
-            expense_lines.append(line)
-            total_expenses += amount
+        amount = (cr - dr) if nature in INCOME_SIDE else (dr - cr)
+        if abs(amount) < 0.005 and row.id not in budget_by_account and row.id not in comparative_by_account:
+            continue
+        _bucket_line(nature, row.id, row.code, row.name, amount)
 
     # Accounts with activity only in the comparison period still belong on the report
     if comp_range and comparative_by_account:
@@ -184,15 +173,11 @@ async def profit_loss_report(
         )).scalars().all()
         for acct in leftover_comp:
             c = comparative_by_account.get(acct.id, 0.0)
-            if abs(c) < 0.005:
+            nature = account_nature(acct.type, acct.code)
+            if abs(c) < 0.005 or nature not in PL_NATURES:
                 continue
-            t = (acct.type or "").lower()
-            line = {"code": acct.code, "name": acct.name, "amount": 0.0,
-                    "comparative": round(c, 2), "change": round(-c, 2)}
-            if t in ("revenue", "income"):
-                revenue_lines.append(line)
-            elif t in ("expense", "cogs", "cost_of_sales"):
-                expense_lines.append(line)
+            buckets[nature]["lines"].append({"code": acct.code, "name": acct.name, "amount": 0.0,
+                                             "comparative": round(c, 2), "change": round(-c, 2)})
 
     # Budgeted P&L accounts with no actuals in the period still belong on the report
     if include_budget and budget_by_account:
@@ -201,18 +186,29 @@ async def profit_loss_report(
         )).scalars().all()
         for acct in leftover:
             b = budget_by_account.get(acct.id, 0.0)
-            if b == 0:
+            nature = account_nature(acct.type, acct.code)
+            if b == 0 or nature not in PL_NATURES:
                 continue
-            t = (acct.type or "").lower()
-            line = {"code": acct.code, "name": acct.name, "amount": 0.0, "budget": b, "variance": round(-b, 2)}
-            if t in ("revenue", "income"):
-                revenue_lines.append(line)
-                budget_revenue += b
-            elif t in ("expense", "cogs", "cost_of_sales"):
-                expense_lines.append(line)
-                budget_expenses += b
+            buckets[nature]["lines"].append({"code": acct.code, "name": acct.name, "amount": 0.0,
+                                             "budget": b, "variance": round(-b, 2)})
+            buckets[nature]["budget"] += b
 
-    net_income = total_revenue - total_expenses
+    for bucket in buckets.values():
+        bucket["total"] = round(bucket["total"], 2)
+        bucket["lines"].sort(key=lambda l: l.get("code") or "")
+
+    total_revenue = buckets[NATURE_REVENUE]["total"]
+    total_cos = buckets[NATURE_COST_OF_SALES]["total"]
+    total_exp = buckets[NATURE_EXPENSE]["total"]
+    total_oi = buckets[NATURE_OTHER_INCOME]["total"]
+    total_oe = buckets[NATURE_OTHER_EXPENSE]["total"]
+    gross_profit = round(total_revenue - total_cos, 2)
+    net_income = round(gross_profit - total_exp + total_oi - total_oe, 2)
+    # Legacy aggregate (old two-section shape): everything cost-side in one number
+    total_expenses = round(total_cos + total_exp + total_oe - total_oi, 2)
+    budget_revenue = round(buckets[NATURE_REVENUE]["budget"] + buckets[NATURE_OTHER_INCOME]["budget"], 2)
+    budget_expenses = round(buckets[NATURE_COST_OF_SALES]["budget"] + buckets[NATURE_EXPENSE]["budget"]
+                            + buckets[NATURE_OTHER_EXPENSE]["budget"], 2)
 
     return {
         "report_type": "profit_loss",
@@ -223,15 +219,28 @@ async def profit_loss_report(
         "sections": {
             "revenue": {
                 "total": total_revenue,
-                "invoice_count": len(revenue_lines),  # legacy key: now = #revenue accounts
-                "lines": revenue_lines,
+                "invoice_count": len(buckets[NATURE_REVENUE]["lines"]),  # legacy key
+                "lines": buckets[NATURE_REVENUE]["lines"],
+            },
+            "cost_of_sales": {
+                "total": total_cos,
+                "lines": buckets[NATURE_COST_OF_SALES]["lines"],
             },
             "expenses": {
-                "total": total_expenses,
-                "bill_count": len(expense_lines),      # legacy key: now = #expense accounts
-                "lines": expense_lines,
+                "total": total_exp,
+                "bill_count": len(buckets[NATURE_EXPENSE]["lines"]),      # legacy key
+                "lines": buckets[NATURE_EXPENSE]["lines"],
+            },
+            "other_income": {
+                "total": total_oi,
+                "lines": buckets[NATURE_OTHER_INCOME]["lines"],
+            },
+            "other_expense": {
+                "total": total_oe,
+                "lines": buckets[NATURE_OTHER_EXPENSE]["lines"],
             },
         },
+        "gross_profit": gross_profit,
         "net_income": net_income,
         **({"budget": {
             "revenue_total": round(budget_revenue, 2),

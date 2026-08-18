@@ -85,15 +85,75 @@ async def post_inventory_gl(
     )
 
 
+def _line_legs(lines, rate: float, default_account_id) -> list[tuple]:
+    """[(account_id|None, net_amount_doc_ccy)] → [(account_id, base_amount)]
+    grouped by account, lines without an account falling to the default."""
+    grouped: dict = {}
+    for account_id, net in lines:
+        acct = account_id or default_account_id
+        grouped[acct] = grouped.get(acct, 0.0) + to_base(net, rate)
+    return [(acct, round(amt, 2)) for acct, amt in grouped.items() if round(amt, 2) != 0]
+
+
+async def _line_leg_accounts(db, org_id, defaults, *, side: str):
+    """(counterpart_id, default_line_id, tax_id) for the per-line posting path.
+    side='sales': AR / revenue / output tax. side='purchase': AP / expense / input tax."""
+    if side == "sales":
+        counterpart = defaults.get("ar") or await _account_id_by_code(db, org_id, "1100")
+        default_line = defaults.get("revenue") or await _account_id_by_code(db, org_id, "4000")
+        tax = defaults.get("output_tax") or await _account_id_by_code(db, org_id, "2100")
+    else:
+        counterpart = defaults.get("ap") or await _account_id_by_code(db, org_id, "2000")
+        default_line = defaults.get("expense") or await _account_id_by_code(db, org_id, "5000")
+        tax = defaults.get("input_tax") or await _account_id_by_code(db, org_id, "1200")
+    return counterpart, default_line, tax
+
+
+def _with_residual(entries: list, legs: list, total_base: float, tax_amount: float, tax_id,
+                   *, legs_credit: bool) -> list | None:
+    """Append line legs + the tax/rounding residual so the txn always balances.
+    Residual (total - Σ line legs) goes to the tax leg when the document is
+    taxed, else folds into the last line leg. Returns None when a taxed doc has
+    no resolvable tax account (caller falls back to the single-leg path)."""
+    legs_sum = round(sum(a for _, a in legs), 2)
+    residual = round(total_base - legs_sum, 2)
+    for acct, amt in legs:
+        entries.append((acct, 0.0, amt) if legs_credit else (acct, amt, 0.0))
+    if tax_amount > 0:
+        if not tax_id:
+            return None
+        entries.append((tax_id, 0.0, residual) if legs_credit else (tax_id, residual, 0.0))
+    elif residual != 0 and legs:
+        acct, amt = legs[-1]
+        entries[-1] = (acct, 0.0, round(amt + residual, 2)) if legs_credit else (acct, round(amt + residual, 2), 0.0)
+    return entries
+
+
 async def post_invoice_gl(
     db: AsyncSession, org_id, *, issue_date: datetime, number: str,
     invoice_id: UUID, subtotal: float, tax_amount: float, total: float,
-    rate: float = 1.0, project_id=None, department_id=None,
+    rate: float = 1.0, project_id=None, department_id=None, lines=None,
 ):
-    """DR AR (total) / CR Revenue (subtotal) / CR Output Tax (tax) — one balanced txn.
-    Amounts arrive in document currency; `rate` converts them to org base currency."""
+    """DR AR (total) / CR each line's income account / CR Output Tax.
+
+    `lines` = [(account_id|None, net_amount)] posts revenue to the account the
+    user picked per line (falling back to the default revenue account), so
+    6xxx/8xxx/9xxx accounts actually receive entries. Without `lines` the
+    legacy single-revenue-leg posting applies. Amounts arrive in document
+    currency; `rate` converts to base and the tax leg absorbs rounding."""
+    raw_tax = tax_amount
     subtotal, tax_amount, total = convert_doc_amounts(subtotal, tax_amount, total, rate)
     defaults = await get_default_accounts(db, org_id)
+
+    if lines:
+        ar_id, default_rev, tax_id = await _line_leg_accounts(db, org_id, defaults, side="sales")
+        if ar_id and default_rev:
+            legs = _line_legs(lines, rate, default_rev)
+            entries = _with_residual([(ar_id, total, 0.0)], legs, total, raw_tax, tax_id, legs_credit=True)
+            if entries is not None:
+                return await post_gl_by_id(db, org_id, issue_date, f"Invoice {number}", number,
+                                           "invoice", invoice_id, entries,
+                                           project_id=project_id, department_id=department_id)
     if defaults.get("ar") and defaults.get("revenue") and (tax_amount == 0 or defaults.get("output_tax")):
         entries = [(defaults["ar"], total, 0.0), (defaults["revenue"], 0.0, subtotal)]
         if tax_amount > 0:
@@ -110,11 +170,23 @@ async def post_invoice_gl(
 async def post_bill_gl(
     db: AsyncSession, org_id, *, issue_date: datetime, number: str,
     bill_id: UUID, subtotal: float, tax_amount: float, total: float,
-    rate: float = 1.0, project_id=None, department_id=None,
+    rate: float = 1.0, project_id=None, department_id=None, lines=None,
 ):
-    """DR Expense (subtotal) / DR Input Tax (tax) / CR AP (total) — one balanced txn."""
+    """DR each line's expense account / DR Input Tax / CR AP (total).
+    See post_invoice_gl for the per-line `lines` contract."""
+    raw_tax = tax_amount
     subtotal, tax_amount, total = convert_doc_amounts(subtotal, tax_amount, total, rate)
     defaults = await get_default_accounts(db, org_id)
+
+    if lines:
+        ap_id, default_exp, tax_id = await _line_leg_accounts(db, org_id, defaults, side="purchase")
+        if ap_id and default_exp:
+            legs = _line_legs(lines, rate, default_exp)
+            entries = _with_residual([(ap_id, 0.0, total)], legs, total, raw_tax, tax_id, legs_credit=False)
+            if entries is not None:
+                return await post_gl_by_id(db, org_id, issue_date, f"Bill {number}", number,
+                                           "bill", bill_id, entries,
+                                           project_id=project_id, department_id=department_id)
     if defaults.get("ap") and defaults.get("expense") and (tax_amount == 0 or defaults.get("input_tax")):
         entries = [(defaults["expense"], subtotal, 0.0), (defaults["ap"], 0.0, total)]
         if tax_amount > 0:
@@ -217,11 +289,22 @@ async def post_purchase_payment_gl(
 async def post_credit_note_gl(
     db: AsyncSession, org_id, *, issue_date: datetime, number: str,
     cn_id: UUID, subtotal: float, tax_amount: float, total: float,
-    rate: float = 1.0,
+    rate: float = 1.0, lines=None,
 ):
-    """Sales credit note (reverses a sale): DR Revenue / DR Output Tax / CR AR."""
+    """Sales credit note (reverses a sale): DR each line's income account /
+    DR Output Tax / CR AR. `lines` as in post_invoice_gl."""
+    raw_tax = tax_amount
     subtotal, tax_amount, total = convert_doc_amounts(subtotal, tax_amount, total, rate)
     defaults = await get_default_accounts(db, org_id)
+
+    if lines:
+        ar_id, default_rev, tax_id = await _line_leg_accounts(db, org_id, defaults, side="sales")
+        if ar_id and default_rev:
+            legs = _line_legs(lines, rate, default_rev)
+            entries = _with_residual([(ar_id, 0.0, total)], legs, total, raw_tax, tax_id, legs_credit=False)
+            if entries is not None:
+                return await post_gl_by_id(db, org_id, issue_date, f"Credit Note {number}", number,
+                                           "credit_note", cn_id, entries)
     if defaults.get("ar") and defaults.get("revenue") and (tax_amount == 0 or defaults.get("output_tax")):
         entries = [(defaults["revenue"], subtotal, 0.0), (defaults["ar"], 0.0, total)]
         if tax_amount > 0:
@@ -236,11 +319,22 @@ async def post_credit_note_gl(
 async def post_debit_note_gl(
     db: AsyncSession, org_id, *, issue_date: datetime, number: str,
     dn_id: UUID, subtotal: float, tax_amount: float, total: float,
-    rate: float = 1.0,
+    rate: float = 1.0, lines=None,
 ):
-    """Sales debit note (increases a sale): DR AR / CR Revenue / CR Output Tax."""
+    """Sales debit note (increases a sale): DR AR / CR each line's income
+    account / CR Output Tax. `lines` as in post_invoice_gl."""
+    raw_tax = tax_amount
     subtotal, tax_amount, total = convert_doc_amounts(subtotal, tax_amount, total, rate)
     defaults = await get_default_accounts(db, org_id)
+
+    if lines:
+        ar_id, default_rev, tax_id = await _line_leg_accounts(db, org_id, defaults, side="sales")
+        if ar_id and default_rev:
+            legs = _line_legs(lines, rate, default_rev)
+            entries = _with_residual([(ar_id, total, 0.0)], legs, total, raw_tax, tax_id, legs_credit=True)
+            if entries is not None:
+                return await post_gl_by_id(db, org_id, issue_date, f"Debit Note {number}", number,
+                                           "debit_note", dn_id, entries)
     if defaults.get("ar") and defaults.get("revenue") and (tax_amount == 0 or defaults.get("output_tax")):
         entries = [(defaults["ar"], total, 0.0), (defaults["revenue"], 0.0, subtotal)]
         if tax_amount > 0:
@@ -292,11 +386,22 @@ async def post_sales_refund_gl(
 async def post_purchase_credit_note_gl(
     db: AsyncSession, org_id, *, issue_date: datetime, number: str,
     pcn_id: UUID, subtotal: float, tax_amount: float, total: float,
-    rate: float = 1.0,
+    rate: float = 1.0, lines=None,
 ):
-    """Purchase credit note (reduces a purchase): DR AP / CR Expense / CR Input Tax."""
+    """Purchase credit note (reduces a purchase): DR AP / CR each line's
+    expense account / CR Input Tax. `lines` as in post_invoice_gl."""
+    raw_tax = tax_amount
     subtotal, tax_amount, total = convert_doc_amounts(subtotal, tax_amount, total, rate)
     defaults = await get_default_accounts(db, org_id)
+
+    if lines:
+        ap_id, default_exp, tax_id = await _line_leg_accounts(db, org_id, defaults, side="purchase")
+        if ap_id and default_exp:
+            legs = _line_legs(lines, rate, default_exp)
+            entries = _with_residual([(ap_id, total, 0.0)], legs, total, raw_tax, tax_id, legs_credit=True)
+            if entries is not None:
+                return await post_gl_by_id(db, org_id, issue_date, f"Purchase Credit Note {number}", number,
+                                           "purchase_credit_note", pcn_id, entries)
     if defaults.get("ap") and defaults.get("expense") and (tax_amount == 0 or defaults.get("input_tax")):
         entries = [(defaults["ap"], total, 0.0), (defaults["expense"], 0.0, subtotal)]
         if tax_amount > 0:
@@ -311,11 +416,22 @@ async def post_purchase_credit_note_gl(
 async def post_purchase_debit_note_gl(
     db: AsyncSession, org_id, *, issue_date: datetime, number: str,
     pdn_id: UUID, subtotal: float, tax_amount: float, total: float,
-    rate: float = 1.0,
+    rate: float = 1.0, lines=None,
 ):
-    """Purchase debit note (increases a purchase / reduces payable): DR AP / CR Expense / DR Input Tax reversal."""
+    """Purchase debit note (increases a purchase / reduces payable): DR AP /
+    CR each line's expense account / CR Input Tax. `lines` as in post_invoice_gl."""
+    raw_tax = tax_amount
     subtotal, tax_amount, total = convert_doc_amounts(subtotal, tax_amount, total, rate)
     defaults = await get_default_accounts(db, org_id)
+
+    if lines:
+        ap_id, default_exp, tax_id = await _line_leg_accounts(db, org_id, defaults, side="purchase")
+        if ap_id and default_exp:
+            legs = _line_legs(lines, rate, default_exp)
+            entries = _with_residual([(ap_id, total, 0.0)], legs, total, raw_tax, tax_id, legs_credit=True)
+            if entries is not None:
+                return await post_gl_by_id(db, org_id, issue_date, f"Purchase Debit Note {number}", number,
+                                           "purchase_debit_note", pdn_id, entries)
     if defaults.get("ap") and defaults.get("expense") and (tax_amount == 0 or defaults.get("input_tax")):
         entries = [(defaults["ap"], total, 0.0), (defaults["expense"], 0.0, subtotal)]
         if tax_amount > 0:

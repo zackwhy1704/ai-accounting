@@ -17,6 +17,7 @@ from app.models.sales import SalesRefund
 from app.models.accounting import Transaction, JournalEntry, Account as AccountModel
 from .gl_helpers import post_gl, revert_gl
 from app.services.gl_posting import post_credit_note_gl
+from app.services.pricing import line_after_discount as _net
 from app.services.fx import document_rate
 from app.services.inventory import receive_for_document_lines, reverse_moves
 from app.services.gl_posting import post_inventory_gl
@@ -151,6 +152,7 @@ async def create_credit_note(data: CreditNoteCreate, current_user: dict = Depend
         tax_amount=float(tax_amount),
         total=float(total),
         rate=float(obj.exchange_rate),
+        lines=[(li.account_id, _net(li.quantity, li.unit_price, li.discount, getattr(li, "discount_mode", "percent") or "percent")) for li in data.line_items],
     )
 
     # Perpetual inventory: returned tracked products go back into stock at the

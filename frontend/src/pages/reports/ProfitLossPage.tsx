@@ -25,8 +25,12 @@ interface ProfitLossReport {
   basis?: string
   sections: {
     revenue: { total: number; invoice_count: number; lines?: PLLine[] }
+    cost_of_sales?: { total: number; lines?: PLLine[] }
     expenses: { total: number; bill_count: number; lines?: PLLine[] }
+    other_income?: { total: number; lines?: PLLine[] }
+    other_expense?: { total: number; lines?: PLLine[] }
   }
+  gross_profit?: number
   net_income: number
   budget?: { revenue_total: number; expense_total: number; net_income: number; net_variance: number }
   comparative?: { start_date: string; end_date: string; revenue_total: number; expense_total: number; net_income: number }
@@ -84,21 +88,23 @@ export default function ProfitLossPage() {
       ...(hasBudget ? [(l.budget ?? 0).toFixed(2), (l.variance ?? 0).toFixed(2)] : []),
       ...(hasComparative ? [(l.comparative ?? 0).toFixed(2), (l.change ?? 0).toFixed(2)] : []),
     ]
+    const section = (title: string, sec?: { total: number; lines?: PLLine[] }) =>
+      sec && (sec.lines?.length || sec.total) ? [
+        [title],
+        ...((sec.lines ?? []).map(lineRow)),
+        [`Total ${title}`, sec.total.toFixed(2)],
+        [],
+      ] : []
     return [
       header,
-      ["REVENUE"],
-      ...((data.sections.revenue.lines ?? []).map(lineRow)),
-      ["Total Revenue", data.sections.revenue.total.toFixed(2),
-        ...(hasBudget ? [data.budget!.revenue_total.toFixed(2), ""] : []),
-        ...(hasComparative ? [data.comparative!.revenue_total.toFixed(2), ""] : [])],
+      ...section("Revenue", data.sections.revenue),
+      ...section("Cost of Sales", data.sections.cost_of_sales),
+      ["Gross Profit", (data.gross_profit ?? data.sections.revenue.total - (data.sections.cost_of_sales?.total ?? 0)).toFixed(2)],
       [],
-      ["EXPENSES"],
-      ...((data.sections.expenses.lines ?? []).map(lineRow)),
-      ["Total Expenses", data.sections.expenses.total.toFixed(2),
-        ...(hasBudget ? [data.budget!.expense_total.toFixed(2), ""] : []),
-        ...(hasComparative ? [data.comparative!.expense_total.toFixed(2), ""] : [])],
-      [],
-      ["Net Income", data.net_income.toFixed(2),
+      ...section("Expenses", data.sections.expenses),
+      ...section("Other Income", data.sections.other_income),
+      ...section("Other Expenses", data.sections.other_expense),
+      ["Net Profit", data.net_income.toFixed(2),
         ...(hasBudget ? [data.budget!.net_income.toFixed(2), data.budget!.net_variance.toFixed(2)] : []),
         ...(hasComparative ? [data.comparative!.net_income.toFixed(2), (data.net_income - data.comparative!.net_income).toFixed(2)] : [])],
     ]
@@ -234,14 +240,41 @@ export default function ProfitLossPage() {
             <tbody>
               <tr><td colSpan={2 + extraCols} className="px-3 pt-4 pb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Revenue</td></tr>
               {(data.sections.revenue.lines ?? []).map(l => <LineRow key={`r-${l.code}`} l={l} />)}
-              <TotalRow label="Total Revenue" actual={data.sections.revenue.total} budget={data.budget?.revenue_total} comparative={data.comparative?.revenue_total} />
+              <TotalRow label="Total Revenue" actual={data.sections.revenue.total} />
+
+              {((data.sections.cost_of_sales?.lines?.length ?? 0) > 0 || (data.sections.cost_of_sales?.total ?? 0) !== 0) && (
+                <>
+                  <tr><td colSpan={2 + extraCols} className="px-3 pt-5 pb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Cost of Sales</td></tr>
+                  {(data.sections.cost_of_sales?.lines ?? []).map(l => <LineRow key={`c-${l.code}`} l={l} />)}
+                  <TotalRow label="Total Cost of Sales" actual={data.sections.cost_of_sales?.total ?? 0} />
+                </>
+              )}
+
+              <tr><td colSpan={2 + extraCols} className="pt-2" /></tr>
+              <TotalRow label="Gross Profit" actual={data.gross_profit ?? (data.sections.revenue.total - (data.sections.cost_of_sales?.total ?? 0))} negative />
 
               <tr><td colSpan={2 + extraCols} className="px-3 pt-5 pb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Expenses</td></tr>
               {(data.sections.expenses.lines ?? []).map(l => <LineRow key={`e-${l.code}`} l={l} />)}
-              <TotalRow label="Total Expenses" actual={data.sections.expenses.total} budget={data.budget?.expense_total} comparative={data.comparative?.expense_total} />
+              <TotalRow label="Total Expenses" actual={data.sections.expenses.total} />
+
+              {((data.sections.other_income?.lines?.length ?? 0) > 0 || (data.sections.other_income?.total ?? 0) !== 0) && (
+                <>
+                  <tr><td colSpan={2 + extraCols} className="px-3 pt-5 pb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Other Income</td></tr>
+                  {(data.sections.other_income?.lines ?? []).map(l => <LineRow key={`oi-${l.code}`} l={l} />)}
+                  <TotalRow label="Total Other Income" actual={data.sections.other_income?.total ?? 0} />
+                </>
+              )}
+
+              {((data.sections.other_expense?.lines?.length ?? 0) > 0 || (data.sections.other_expense?.total ?? 0) !== 0) && (
+                <>
+                  <tr><td colSpan={2 + extraCols} className="px-3 pt-5 pb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Other Expenses</td></tr>
+                  {(data.sections.other_expense?.lines ?? []).map(l => <LineRow key={`oe-${l.code}`} l={l} />)}
+                  <TotalRow label="Total Other Expenses" actual={data.sections.other_expense?.total ?? 0} />
+                </>
+              )}
 
               <tr><td colSpan={2 + extraCols} className="pt-3" /></tr>
-              <TotalRow label="Net Income" actual={data.net_income} budget={data.budget?.net_income} comparative={data.comparative?.net_income} negative />
+              <TotalRow label="Net Profit" actual={data.net_income} budget={data.budget?.net_income} comparative={data.comparative?.net_income} negative />
             </tbody>
           </table>
         </Card>

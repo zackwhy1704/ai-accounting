@@ -14,6 +14,7 @@ from app.models.models import (
 )
 from .gl_helpers import post_gl, revert_gl
 from app.services.gl_posting import post_debit_note_gl
+from app.services.pricing import line_after_discount as _net
 from app.services.fx import document_rate
 from app.schemas.schemas import (
     DebitNoteCreate, DebitNoteUpdate, DebitNoteResponse,
@@ -132,6 +133,7 @@ async def create_debit_note(data: DebitNoteCreate, current_user: dict = Depends(
         tax_amount=float(tax_amount),
         total=float(subtotal + tax_amount),
         rate=float(obj.exchange_rate),
+        lines=[(li.account_id, _net(li.quantity, li.unit_price, li.discount, getattr(li, "discount_mode", "percent") or "percent")) for li in data.line_items],
     )
 
     await db.commit()

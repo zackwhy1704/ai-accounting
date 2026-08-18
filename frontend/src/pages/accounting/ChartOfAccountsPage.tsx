@@ -30,24 +30,32 @@ interface ExtractedAccount {
   description: string | null
 }
 
-type AccountTypeFilter = "All" | "Assets" | "Liabilities" | "Equity" | "Revenue" | "Expenses"
-const FILTER_TABS: AccountTypeFilter[] = ["All", "Assets", "Liabilities", "Equity", "Revenue", "Expenses"]
+type AccountTypeFilter = "All" | "Assets" | "Liabilities" | "Equity" | "Revenue" | "Cost of Sales" | "Expenses" | "Other Income" | "Other Expenses"
+const FILTER_TABS: AccountTypeFilter[] = ["All", "Assets", "Liabilities", "Equity", "Revenue", "Cost of Sales", "Expenses", "Other Income", "Other Expenses"]
 
+// Malaysian account-nature convention (first code digit): 1 Asset, 2 Liability,
+// 3 Equity, 4 Revenue, 5 Cost, 6 Expense, 8 Other Income, 9 Other Expense.
 const TYPE_LABEL_MAP: Record<string, string> = {
-  asset: "Assets", assets: "Assets",
+  asset: "Assets", assets: "Assets", bank: "Assets", cash: "Assets",
   liability: "Liabilities", liabilities: "Liabilities",
   equity: "Equity",
   revenue: "Revenue", income: "Revenue",
+  cogs: "Cost of Sales", cost_of_sales: "Cost of Sales", cost: "Cost of Sales",
   expense: "Expenses", expenses: "Expenses",
+  other_income: "Other Income",
+  other_expense: "Other Expenses", other_expenses: "Other Expenses",
 }
 const TYPE_COLOR: Record<string, string> = {
   Assets: "bg-blue-100 text-blue-700",
   Liabilities: "bg-rose-100 text-rose-700",
   Equity: "bg-purple-100 text-purple-700",
   Revenue: "bg-emerald-100 text-emerald-700",
+  "Cost of Sales": "bg-orange-100 text-orange-700",
   Expenses: "bg-amber-100 text-amber-700",
+  "Other Income": "bg-teal-100 text-teal-700",
+  "Other Expenses": "bg-pink-100 text-pink-700",
 }
-const TYPE_OPTIONS = ["asset", "liability", "equity", "revenue", "expense"]
+const TYPE_OPTIONS = ["asset", "liability", "equity", "revenue", "cost_of_sales", "expense", "other_income", "other_expense"]
 
 interface EditState {
   code: string

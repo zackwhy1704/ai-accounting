@@ -6,19 +6,22 @@ from sqlalchemy import select, func
 
 from app.core.database import get_db
 from app.core.security import get_current_user
-from ._util import parse_date
+from ._util import parse_date, account_nature, PL_NATURES, NATURE_ASSET, NATURE_LIABILITY, NATURE_EQUITY, NATURE_REVENUE, NATURE_OTHER_INCOME
 from app.models.models import Account, JournalEntry, Transaction
 
 router = APIRouter()
 
 
 async def _bs_sections(db: AsyncSession, org_id, as_of: datetime) -> dict:
-    """Assets / liabilities / equity totals as of a date (P&L folds into equity)."""
+    """Assets / liabilities / equity as of a date, with per-account detail
+    lines (the accountants' requirement: Bank 1000 + Cash 500 + Debtors 200 =
+    Total Assets 1700, not just the total). P&L accounts fold into equity as a
+    single "Current Year Earnings" line so the statement still balances."""
     result = await db.execute(
         select(
-            Account.type,
-            func.sum(JournalEntry.debit).label("total_debit"),
-            func.sum(JournalEntry.credit).label("total_credit"),
+            Account.id, Account.code, Account.name, Account.type,
+            func.coalesce(func.sum(JournalEntry.debit), 0).label("total_debit"),
+            func.coalesce(func.sum(JournalEntry.credit), 0).label("total_credit"),
         )
         .join(JournalEntry, JournalEntry.account_id == Account.id)
         .join(Transaction, JournalEntry.transaction_id == Transaction.id)
@@ -27,23 +30,41 @@ async def _bs_sections(db: AsyncSession, org_id, as_of: datetime) -> dict:
             Transaction.date <= as_of,
             Transaction.is_posted == True,
         )
-        .group_by(Account.type)
+        .group_by(Account.id, Account.code, Account.name, Account.type)
+        .order_by(Account.code)
     )
-    sections: dict = {}
+    sections: dict = {
+        "assets": 0.0, "liabilities": 0.0, "equity": 0.0,
+        "asset_lines": [], "liability_lines": [], "equity_lines": [],
+    }
+    earnings = 0.0
     for row in result.all():
         dr = float(row.total_debit or 0)
         cr = float(row.total_credit or 0)
-        t = row.type.lower() if row.type else "other"
-        if t in ("asset", "assets"):
-            sections["assets"] = sections.get("assets", 0) + dr - cr
-        elif t in ("liability", "liabilities"):
-            sections["liabilities"] = sections.get("liabilities", 0) + cr - dr
-        elif t in ("equity",):
-            sections["equity"] = sections.get("equity", 0) + cr - dr
-        elif t in ("revenue", "income"):
-            sections["equity"] = sections.get("equity", 0) + cr - dr  # Retained earnings
-        elif t in ("expense", "expenses"):
-            sections["equity"] = sections.get("equity", 0) - (dr - cr)  # Reduces retained earnings
+        nature = account_nature(row.type, row.code)
+        if nature == NATURE_ASSET:
+            bal = dr - cr
+            if abs(bal) >= 0.005:
+                sections["asset_lines"].append({"code": row.code, "name": row.name, "amount": round(bal, 2)})
+            sections["assets"] += bal
+        elif nature == NATURE_LIABILITY:
+            bal = cr - dr
+            if abs(bal) >= 0.005:
+                sections["liability_lines"].append({"code": row.code, "name": row.name, "amount": round(bal, 2)})
+            sections["liabilities"] += bal
+        elif nature == NATURE_EQUITY:
+            bal = cr - dr
+            if abs(bal) >= 0.005:
+                sections["equity_lines"].append({"code": row.code, "name": row.name, "amount": round(bal, 2)})
+            sections["equity"] += bal
+        elif nature in PL_NATURES:
+            signed = (cr - dr) if nature in (NATURE_REVENUE, NATURE_OTHER_INCOME) else -(dr - cr)
+            earnings += signed
+    if abs(earnings) >= 0.005:
+        sections["equity_lines"].append({"code": None, "name": "Current Year Earnings", "amount": round(earnings, 2)})
+    sections["equity"] += earnings
+    for k in ("assets", "liabilities", "equity"):
+        sections[k] = round(sections[k], 2)
     return sections
 
 
@@ -83,8 +104,13 @@ async def balance_sheet_report(
         "assets": total_assets,
         "liabilities": total_liabilities,
         "equity": total_equity,
-        "liabilities_and_equity": total_liabilities + total_equity,
+        "liabilities_and_equity": round(total_liabilities + total_equity, 2),
         "is_balanced": abs(total_assets - (total_liabilities + total_equity)) < 0.01,
+        "sections": {
+            "assets": {"total": total_assets, "lines": sections.get("asset_lines", [])},
+            "liabilities": {"total": total_liabilities, "lines": sections.get("liability_lines", [])},
+            "equity": {"total": total_equity, "lines": sections.get("equity_lines", [])},
+        },
         **({"comparative": comparative} if comparative else {}),
         "generated_at": datetime.now(timezone.utc).isoformat(),
     }

@@ -15,6 +15,11 @@ interface BalanceSheetReport {
   equity: number
   liabilities_and_equity: number
   is_balanced: boolean
+  sections?: {
+    assets: { total: number; lines: Array<{ code: string | null; name: string; amount: number }> }
+    liabilities: { total: number; lines: Array<{ code: string | null; name: string; amount: number }> }
+    equity: { total: number; lines: Array<{ code: string | null; name: string; amount: number }> }
+  }
   comparative?: {
     as_of_date: string
     assets: number
@@ -59,10 +64,19 @@ export default function BalanceSheetPage() {
           <Button variant="outline" size="sm" onClick={() => downloadCSV(`balance-sheet-${data.as_of_date}.csv`, [
             ["Balance Sheet", `As at ${data.as_of_date}`],
             [],
-            ["Section", "Amount"],
+            ["Account", "Amount"],
+            ["ASSETS"],
+            ...((data.sections?.assets.lines ?? []).map(l => [l.code ? `${l.code} ${l.name}` : l.name, l.amount.toFixed(2)])),
             ["Total Assets", data.assets.toFixed(2)],
+            [],
+            ["LIABILITIES"],
+            ...((data.sections?.liabilities.lines ?? []).map(l => [l.code ? `${l.code} ${l.name}` : l.name, l.amount.toFixed(2)])),
             ["Total Liabilities", data.liabilities.toFixed(2)],
+            [],
+            ["EQUITY"],
+            ...((data.sections?.equity.lines ?? []).map(l => [l.code ? `${l.code} ${l.name}` : l.name, l.amount.toFixed(2)])),
             ["Total Equity", data.equity.toFixed(2)],
+            [],
             ["Liabilities + Equity", data.liabilities_and_equity.toFixed(2)],
           ])}>
             <Download className="mr-1.5 h-3.5 w-3.5" /> CSV
@@ -114,17 +128,26 @@ export default function BalanceSheetPage() {
           )}
           <div className="mb-4 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Assets</div>
           <div className="space-y-0 divide-y divide-border rounded-xl border border-border px-4">
+            {(data.sections?.assets.lines ?? []).map(l => (
+              <Row key={`a-${l.code}-${l.name}`} label={l.code ? `${l.code} — ${l.name}` : l.name} value={formatCurrency(l.amount)} />
+            ))}
             <Row label="Total Assets" value={formatCurrency(data.assets)} comparative={data.comparative ? formatCurrency(data.comparative.assets) : undefined} bold />
           </div>
 
           <div className="mt-6 mb-4 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Liabilities</div>
           <div className="space-y-0 divide-y divide-border rounded-xl border border-border px-4">
-            <Row label="Total Liabilities" value={formatCurrency(data.liabilities)} comparative={data.comparative ? formatCurrency(data.comparative.liabilities) : undefined} />
+            {(data.sections?.liabilities.lines ?? []).map(l => (
+              <Row key={`l-${l.code}-${l.name}`} label={l.code ? `${l.code} — ${l.name}` : l.name} value={formatCurrency(l.amount)} />
+            ))}
+            <Row label="Total Liabilities" value={formatCurrency(data.liabilities)} comparative={data.comparative ? formatCurrency(data.comparative.liabilities) : undefined} bold />
           </div>
 
           <div className="mt-6 mb-4 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Equity</div>
           <div className="space-y-0 divide-y divide-border rounded-xl border border-border px-4">
-            <Row label="Total Equity" value={formatCurrency(data.equity)} comparative={data.comparative ? formatCurrency(data.comparative.equity) : undefined} />
+            {(data.sections?.equity.lines ?? []).map(l => (
+              <Row key={`q-${l.code}-${l.name}`} label={l.code ? `${l.code} — ${l.name}` : l.name} value={formatCurrency(l.amount)} />
+            ))}
+            <Row label="Total Equity" value={formatCurrency(data.equity)} comparative={data.comparative ? formatCurrency(data.comparative.equity) : undefined} bold />
           </div>
 
           <div className="mt-6 space-y-0 divide-y divide-border rounded-xl border-2 border-border px-4">

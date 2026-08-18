@@ -270,6 +270,7 @@ async def update_invoice_status(
             rate=rate,
             project_id=invoice.project_id,
             department_id=invoice.department_id,
+            lines=[(li.account_id, float(li.amount or 0)) for li in invoice.line_items],
         )
         # Perpetual inventory: issue tracked products at weighted-average cost
         # and post DR COGS / CR Inventory (same source, so cancel reverses it).

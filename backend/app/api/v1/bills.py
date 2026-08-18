@@ -262,6 +262,7 @@ async def update_bill_status(
             rate=rate,
             project_id=bill.project_id,
             department_id=bill.department_id,
+            lines=[(li.account_id, float(li.amount or 0)) for li in bill.line_items],
         )
         # Perpetual inventory: receive tracked products unless a linked GRN
         # already moved the quantity in. Value enters inventory here either way:
