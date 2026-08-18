@@ -271,3 +271,36 @@ async def confirm_import_accounts(
     for a in created:
         await db.refresh(a)
     return created
+
+
+@router.post("/import-standard-chart", status_code=201)
+async def import_standard_chart(
+    db: AsyncSession = Depends(get_db),
+    current_user: dict = Depends(require_write()),
+):
+    """Load the standard Malaysian SME chart (accountant-provided, 214 accounts,
+    first-digit nature convention with header/subheader groups). Idempotent:
+    codes that already exist in this org are skipped, so it can safely be run
+    on an org that already has the default seed chart."""
+    from app.core.standard_chart_my import STANDARD_CHART_MY
+    org_id = current_user["org_id"]
+
+    existing = {
+        code for (code,) in (await db.execute(
+            select(Account.code).where(Account.organization_id == org_id)
+        )).all()
+    }
+    created = 0
+    for code, name, acct_type, account_role in STANDARD_CHART_MY:
+        if code in existing:
+            continue
+        db.add(Account(
+            organization_id=org_id, code=code, name=name,
+            type=acct_type, account_role=account_role,
+        ))
+        created += 1
+    await db.commit()
+    await log_audit(db, org_id, current_user["sub"], "import_standard_chart", "account", None,
+                    {"created": created, "skipped": len(STANDARD_CHART_MY) - created})
+    return {"created": created, "skipped": len(STANDARD_CHART_MY) - created,
+            "total": len(STANDARD_CHART_MY)}

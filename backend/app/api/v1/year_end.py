@@ -26,8 +26,27 @@ from .gl_helpers import post_gl_by_id
 
 router = APIRouter(prefix="/accounting", tags=["accounting-period"])
 
-RETAINED_EARNINGS_CODE = "3100"
-PL_ACCOUNT_TYPES = ("revenue", "income", "expense")
+RETAINED_EARNINGS_CODES = ("3100", "32100")  # default seed chart / standard MY chart
+PL_ACCOUNT_TYPES = ("revenue", "income", "expense", "cost", "cogs", "cost_of_sales",
+                    "other_income", "other_expense", "other_expenses")
+
+
+async def find_retained_earnings(db: AsyncSession, org_id) -> "Account | None":
+    """Resolve the retained-earnings account: known codes first, then by name.
+    Charts differ (seed uses 3100, the standard MY chart uses 32100)."""
+    for code in RETAINED_EARNINGS_CODES:
+        acct = (await db.execute(
+            select(Account).where(Account.organization_id == org_id, Account.code == code)
+        )).scalar_one_or_none()
+        if acct is not None and getattr(acct, "account_role", "account") == "account":
+            return acct
+    return (await db.execute(
+        select(Account).where(
+            Account.organization_id == org_id,
+            Account.name.ilike("retained earning%"),
+            Account.account_role == "account",
+        )
+    )).scalars().first()
 
 
 def fiscal_year_end_for(org: Organization, today: datetime) -> datetime:
@@ -142,11 +161,9 @@ async def run_year_end_close(
     if not balances:
         raise HTTPException(status_code=400, detail="No profit-and-loss activity to close for this fiscal year")
 
-    re_acct = (await db.execute(
-        select(Account).where(Account.organization_id == org_id, Account.code == RETAINED_EARNINGS_CODE)
-    )).scalar_one_or_none()
+    re_acct = await find_retained_earnings(db, org_id)
     if not re_acct:
-        raise HTTPException(status_code=400, detail=f"Retained earnings account {RETAINED_EARNINGS_CODE} not found")
+        raise HTTPException(status_code=400, detail="No retained-earnings account found (looked for codes 3100/32100 and names starting 'Retained Earning')")
 
     entries, net_income = build_close_entries([(a.id, n) for a, n in balances], re_acct.id)
 

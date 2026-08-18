@@ -203,6 +203,23 @@ export default function ChartOfAccountsPage() {
           <Button
             type="button"
             variant="secondary"
+            onClick={() => {
+              if (confirm("Load the standard Malaysian chart of accounts (214 accounts, SSM-style)? Existing account codes are kept — only missing ones are added.")) {
+                api.post("/accounts/import-standard-chart")
+                  .then(r => {
+                    qc.invalidateQueries({ queryKey: ["accounts"] })
+                    toast(`Standard chart loaded — ${r.data.created} added, ${r.data.skipped} already present`, "success")
+                  })
+                  .catch((e: any) => toast(e?.response?.data?.detail ?? "Failed to load standard chart", "warning"))
+              }
+            }}
+            className="h-9 rounded-xl px-3 text-xs font-semibold"
+          >
+            <FileUp className="mr-1.5 h-4 w-4" /> Load Standard Chart
+          </Button>
+          <Button
+            type="button"
+            variant="secondary"
             onClick={() => { setImportOpen(true); setExtracted(null); setImportError("") }}
             className="h-9 rounded-xl px-3 text-xs font-semibold"
           >
