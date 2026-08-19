@@ -1,5 +1,6 @@
 import { QueryError } from "../../components/ui/query-error"
 import { useState } from "react"
+import { useSearchParams } from "react-router-dom"
 import { Loader2, Download, Printer } from "lucide-react"
 import { useQuery } from "@tanstack/react-query"
 import { Card } from "../../components/ui/card"
@@ -34,11 +35,18 @@ interface GeneralLedgerReport {
 
 export default function GeneralLedgerPage() {
   const thisYear = new Date().getFullYear()
-  const [fromDate, setFromDate] = useState(`${thisYear}-01-01`)
-  const [toDate, setToDate] = useState(new Date().toISOString().slice(0, 10))
-  const [account, setAccount] = useState("")
+  const [searchParams] = useSearchParams()
+  // Drill-through from P&L/Balance Sheet lands here with ?account=&from_date=&to_date= —
+  // read them on mount so the destination page actually honours the incoming filter
+  // instead of silently falling back to the default unfiltered current-year view.
+  const initialFromDate = searchParams.get("from_date") ?? `${thisYear}-01-01`
+  const initialToDate = searchParams.get("to_date") ?? new Date().toISOString().slice(0, 10)
+  const initialAccount = searchParams.get("account") ?? ""
+  const [fromDate, setFromDate] = useState(initialFromDate)
+  const [toDate, setToDate] = useState(initialToDate)
+  const [account, setAccount] = useState(initialAccount)
   const [includeZero, setIncludeZero] = useState(false)
-  const [queryParams, setQueryParams] = useState({ fromDate: `${thisYear}-01-01`, toDate: new Date().toISOString().slice(0, 10), account: "", includeZero: false })
+  const [queryParams, setQueryParams] = useState({ fromDate: initialFromDate, toDate: initialToDate, account: initialAccount, includeZero: false })
 
   const { data, isLoading, isFetching, isError, error } = useQuery<GeneralLedgerReport>({
     queryKey: ["report-general-ledger", queryParams],
