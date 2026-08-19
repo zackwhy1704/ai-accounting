@@ -6,6 +6,7 @@ import { Card } from "../../components/ui/card"
 import { Button } from "../../components/ui/button"
 import { Input } from "../../components/ui/input"
 import { formatCurrency, downloadCSV, printReport } from "../../lib/utils"
+import { FutureDocumentsHint } from "../../components/ui/future-documents-hint"
 import api from "../../lib/api"
 
 interface DebtorLine {
@@ -91,6 +92,8 @@ export default function DebtorLedgerPage() {
           </Button>
         </div>
       </Card>
+
+      <FutureDocumentsHint after={queryParams.toDate} />
 
       <Card className="rounded-2xl border-border bg-card shadow-[0_0_0_1px_rgba(15,23,42,0.06),0_18px_55px_rgba(2,6,23,0.08)] overflow-hidden">
         {isLoading ? (

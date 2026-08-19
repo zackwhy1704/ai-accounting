@@ -34,6 +34,7 @@ export default function NewInvoicePage() {
   const [terms, setTerms] = useState("cbd")
   const [invoiceDate, setInvoiceDate] = useState(() => new Date().toISOString().slice(0, 10))
   const [customerPo, setCustomerPo] = useState("")
+  const isFutureDated = invoiceDate > new Date().toISOString().slice(0, 10)
 
   const [billingLine1, setBillingLine1] = useState("")
   const [billingLine2, setBillingLine2] = useState("")
@@ -252,6 +253,12 @@ export default function NewInvoicePage() {
         {currency !== "MYR" && (
           <div className="rounded-xl border border-amber-400/40 bg-amber-500/10 px-4 py-2.5 text-xs text-amber-700">
             ⚠ This invoice is in {currency}. Foreign-currency GL conversion and FX gain/loss are not yet enabled — amounts post to the ledger at face value. Use your base currency (MYR) for accurate reporting until multi-currency is released.
+          </div>
+        )}
+
+        {isFutureDated && (
+          <div className="rounded-xl border border-amber-400/40 bg-amber-500/10 px-4 py-2.5 text-xs text-amber-700">
+            ⚠ This invoice is dated in the future ({invoiceDate}). It won't appear in reports covering today's date until then, and it can't be submitted to MyInvois until its date arrives. Double-check the date if this wasn't intentional.
           </div>
         )}
 

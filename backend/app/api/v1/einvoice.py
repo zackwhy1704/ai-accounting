@@ -60,6 +60,19 @@ async def _guard_not_already_submitted(db: AsyncSession, org_id, source_type: st
         raise HTTPException(status_code=400, detail=f"Document already submitted (status: {existing.status}). Cancel it first to resubmit.")
 
 
+def _guard_not_future_dated(issue_date: datetime | None, label: str) -> None:
+    """LHDN expects e-Invoices submitted close to the actual transaction date
+    (within ~72h) — the issue_date recorded is what LHDN uses to assign the
+    document's financial year. Block submitting a document dated in the
+    future rather than silently sending a date that doesn't match reality."""
+    if issue_date and issue_date.date() > datetime.now(timezone.utc).date():
+        raise HTTPException(
+            status_code=400,
+            detail=f"Cannot submit this {label} to MyInvois — its date ({issue_date.date().isoformat()}) is in the future. "
+                   f"LHDN requires the issue date to reflect the actual transaction date.",
+        )
+
+
 async def _invoice_billing_reference(db: AsyncSession, org_id, invoice_id) -> dict | None:
     """BillingReference for CN/DN/refund: original invoice number + LHDN UUID if known."""
     if not invoice_id:
@@ -101,6 +114,7 @@ async def submit_invoice(invoice_id: UUID, db: AsyncSession = Depends(get_db), c
     if inv.status in ("draft", "void", "cancelled"):
         raise HTTPException(status_code=400, detail=f"Cannot submit a {inv.status} invoice")
     await _guard_not_already_submitted(db, org.id, "invoice", inv.id)
+    _guard_not_future_dated(inv.issue_date, "invoice")
     return await _submit_and_log(
         db, org, current_user,
         source_type="invoice", source_id=inv.id, doc_type_code=ubl.DOC_TYPE_INVOICE,
@@ -124,6 +138,7 @@ async def submit_credit_note(cn_id: UUID, db: AsyncSession = Depends(get_db), cu
     if cn.status in ("draft", "void"):
         raise HTTPException(status_code=400, detail=f"Cannot submit a {cn.status} credit note")
     await _guard_not_already_submitted(db, org.id, "credit_note", cn.id)
+    _guard_not_future_dated(cn.issue_date, "credit note")
     return await _submit_and_log(
         db, org, current_user,
         source_type="credit_note", source_id=cn.id, doc_type_code=ubl.DOC_TYPE_CREDIT_NOTE,
@@ -148,6 +163,7 @@ async def submit_debit_note(dn_id: UUID, db: AsyncSession = Depends(get_db), cur
     if dn.status in ("draft", "void"):
         raise HTTPException(status_code=400, detail=f"Cannot submit a {dn.status} debit note")
     await _guard_not_already_submitted(db, org.id, "debit_note", dn.id)
+    _guard_not_future_dated(dn.issue_date, "debit note")
     return await _submit_and_log(
         db, org, current_user,
         source_type="debit_note", source_id=dn.id, doc_type_code=ubl.DOC_TYPE_DEBIT_NOTE,
@@ -171,6 +187,7 @@ async def submit_refund(refund_id: UUID, db: AsyncSession = Depends(get_db), cur
     if rf.status == "void":
         raise HTTPException(status_code=400, detail="Cannot submit a voided refund")
     await _guard_not_already_submitted(db, org.id, "refund", rf.id)
+    _guard_not_future_dated(rf.refund_date, "refund")
     # Refund notes reference the credit note's original invoice when available
     billing_ref = None
     if rf.credit_note_id:

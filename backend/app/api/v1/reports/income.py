@@ -17,6 +17,38 @@ from app.models.models import (
 router = APIRouter()
 
 
+@router.get("/future-documents-count")
+async def future_documents_count(
+    after: str = Query(..., description="YYYY-MM-DD — count invoices/bills dated after this"),
+    db: AsyncSession = Depends(get_db),
+    current_user: dict = Depends(get_current_user),
+):
+    """How many invoices/bills fall outside a report's date range because
+    they're dated after it — lets report pages show 'N future-dated
+    documents not shown' instead of leaving the user wondering where a
+    correctly-recorded but future-dated document went."""
+    org_id = current_user["org_id"]
+    cutoff = parse_date(after, "after", end_of_day=True)
+    excluded = ("draft", "void", "cancelled")
+
+    inv_count = (await db.execute(
+        select(func.count()).select_from(Invoice).where(
+            Invoice.organization_id == org_id,
+            Invoice.issue_date > cutoff,
+            Invoice.status.notin_(excluded),
+        )
+    )).scalar() or 0
+    bill_count = (await db.execute(
+        select(func.count()).select_from(Bill).where(
+            Bill.organization_id == org_id,
+            Bill.issue_date > cutoff,
+            Bill.status.notin_(excluded),
+        )
+    )).scalar() or 0
+
+    return {"after": after, "invoices": inv_count, "bills": bill_count, "total": inv_count + bill_count}
+
+
 @router.get("/profit-loss")
 async def profit_loss_report(
     start_date: str = Query(..., description="YYYY-MM-DD"),

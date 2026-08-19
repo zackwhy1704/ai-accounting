@@ -7,6 +7,7 @@ import { Card } from "../../components/ui/card"
 import { Button } from "../../components/ui/button"
 import { Input } from "../../components/ui/input"
 import { formatCurrency, formatDate, downloadCSV, printReport } from "../../lib/utils"
+import { FutureDocumentsHint } from "../../components/ui/future-documents-hint"
 import api from "../../lib/api"
 
 interface LedgerEntry {
@@ -125,6 +126,8 @@ export default function GeneralLedgerPage() {
           </Button>
         </div>
       </Card>
+
+      <FutureDocumentsHint after={queryParams.toDate} />
 
       {isLoading ? (
         <div className="py-12 text-center text-sm text-muted-foreground">
