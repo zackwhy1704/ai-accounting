@@ -61,7 +61,7 @@ async def _bs_sections(db: AsyncSession, org_id, as_of: datetime) -> dict:
             signed = (cr - dr) if nature in (NATURE_REVENUE, NATURE_OTHER_INCOME) else -(dr - cr)
             earnings += signed
     if abs(earnings) >= 0.005:
-        sections["equity_lines"].append({"code": None, "name": "Current Year Earnings", "amount": round(earnings, 2)})
+        sections["equity_lines"].append({"code": "32200", "name": "Current Year Earnings", "amount": round(earnings, 2)})
     sections["equity"] += earnings
     for k in ("assets", "liabilities", "equity"):
         sections[k] = round(sections[k], 2)
@@ -119,6 +119,7 @@ async def balance_sheet_report(
 @router.get("/trial-balance")
 async def trial_balance_report(
     as_of_date: str = Query(None, description="YYYY-MM-DD"),
+    include_zero: bool = Query(False, description="Include active accounts with zero balance"),
     db: AsyncSession = Depends(get_db),
     current_user: dict = Depends(get_current_user),
 ):
@@ -149,11 +150,13 @@ async def trial_balance_report(
     lines = []
     total_dr = 0.0
     total_cr = 0.0
+    seen_codes = set()
     for row in rows:
         dr = float(row.total_debit or 0)
         cr = float(row.total_credit or 0)
         total_dr += dr
         total_cr += cr
+        seen_codes.add(row.code)
         lines.append({
             "code": row.code,
             "name": row.name,
@@ -162,6 +165,29 @@ async def trial_balance_report(
             "credit": cr,
             "balance": dr - cr,
         })
+
+    if include_zero:
+        zero_result = await db.execute(
+            select(Account.code, Account.name, Account.type)
+            .where(
+                Account.organization_id == org_id,
+                Account.is_active == True,
+                Account.account_role == "account",
+            )
+            .order_by(Account.code)
+        )
+        for row in zero_result.all():
+            if row.code in seen_codes:
+                continue
+            lines.append({
+                "code": row.code,
+                "name": row.name,
+                "type": row.type,
+                "debit": 0.0,
+                "credit": 0.0,
+                "balance": 0.0,
+            })
+        lines.sort(key=lambda l: l["code"] or "")
 
     return {
         "report_type": "trial_balance",

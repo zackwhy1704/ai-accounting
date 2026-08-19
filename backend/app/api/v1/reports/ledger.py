@@ -116,8 +116,8 @@ async def general_ledger_report(
             })
 
         ledger_accounts.append({
-            "account_code": acct.code,
-            "account_name": acct.name,
+            "code": acct.code,
+            "name": acct.name,
             "account_type": acct.type,
             "opening_balance": opening_balance,
             "closing_balance": running if entries else opening_balance,

@@ -12,11 +12,30 @@ from app.core.pagination import PaginationParams, paginated_result, apply_sort
 from app.core.audit import log_audit
 from app.models.models import Account
 from app.schemas.schemas import AccountCreate, AccountUpdate, AccountResponse
+from .reports._util import account_nature, _TYPE_TO_NATURE
 
 router = APIRouter(prefix="/accounts", tags=["Chart of Accounts"])
 logger = logging.getLogger(__name__)
 
 ALLOWED_PDF_TYPE = "application/pdf"
+
+
+def _nature_warning(acct_type: str | None, code: str | None) -> str | None:
+    """Non-blocking hint when an account's code digit disagrees with its type's
+    nature — e.g. type=expense but code starts with 5 (cost_of_sales). Some
+    charts are legitimately unusual, so this never blocks the save."""
+    t = (acct_type or "").strip().lower().replace(" ", "_")
+    type_nature = _TYPE_TO_NATURE.get(t)
+    if not type_nature:
+        return None
+    code_nature = account_nature(None, code)  # code-only resolution
+    if code_nature != type_nature:
+        return (
+            f"Account code '{code}' typically indicates a '{code_nature}' account "
+            f"(by Malaysian first-digit convention), but the selected type is '{acct_type}'. "
+            f"This may place the account in the wrong report section."
+        )
+    return None
 
 
 @router.get("")
@@ -83,7 +102,9 @@ async def create_account(
     account = Account(organization_id=current_user["org_id"], **data.model_dump())
     db.add(account)
     await db.flush()
-    return account
+    response = AccountResponse.model_validate(account)
+    response.warning = _nature_warning(account.type, account.code)
+    return response
 
 
 @router.patch("/{account_id}", response_model=AccountResponse)
@@ -121,7 +142,9 @@ async def update_account(
     await db.commit()
     await log_audit(db, current_user["org_id"], current_user["sub"], "update", "account", account_id)
     await db.refresh(account)
-    return account
+    response = AccountResponse.model_validate(account)
+    response.warning = _nature_warning(account.type, account.code)
+    return response
 
 
 @router.delete("/{account_id}", status_code=204)

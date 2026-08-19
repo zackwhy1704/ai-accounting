@@ -92,21 +92,23 @@ export default function ChartOfAccountsPage() {
   const updateMutation = useMutation({
     mutationFn: ({ id, ...data }: { id: string } & Partial<EditState>) =>
       api.patch(`/accounts/${id}`, data).then(r => r.data),
-    onSuccess: () => {
+    onSuccess: (data) => {
       qc.invalidateQueries({ queryKey: ["accounts"] })
       setEditingId(null)
       toast("Account updated", "success")
+      if (data?.warning) toast(data.warning, "warning")
     },
     onError: (e: any) => toast(e?.response?.data?.detail || "Failed to update account", "warning"),
   })
 
   const createMutation = useMutation({
     mutationFn: (data: EditState) => api.post("/accounts", { ...data, currency: "MYR" }).then(r => r.data),
-    onSuccess: () => {
+    onSuccess: (data) => {
       qc.invalidateQueries({ queryKey: ["accounts"] })
       setShowNewRow(false)
       setNewRow({ code: "", name: "", type: "asset", subtype: "", description: "", account_role: "account" })
       toast("Account created", "success")
+      if (data?.warning) toast(data.warning, "warning")
     },
     onError: (e: any) => toast(e?.response?.data?.detail || "Failed to create account", "warning"),
   })

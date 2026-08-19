@@ -18,8 +18,8 @@ interface LedgerEntry {
 }
 
 interface LedgerAccount {
-  account_code: string
-  account_name: string
+  code: string
+  name: string
   account_type: string
   entries: LedgerEntry[]
   opening_balance: number
@@ -75,7 +75,7 @@ export default function GeneralLedgerPage() {
             ]
             data?.accounts?.forEach(acc => {
               acc.entries.forEach(e => {
-                rows.push([acc.account_code, acc.account_name, e.date, e.description, e.reference ?? "", e.debit > 0 ? e.debit.toFixed(2) : "", e.credit > 0 ? e.credit.toFixed(2) : "", e.balance.toFixed(2)])
+                rows.push([acc.code, acc.name, e.date, e.description, e.reference ?? "", e.debit > 0 ? e.debit.toFixed(2) : "", e.credit > 0 ? e.credit.toFixed(2) : "", e.balance.toFixed(2)])
               })
             })
             downloadCSV(`general-ledger-${queryParams.fromDate}-${queryParams.toDate}.csv`, rows)
@@ -126,13 +126,13 @@ export default function GeneralLedgerPage() {
       ) : (
         <div className="space-y-4">
           {(data?.accounts ?? []).map(acc => (
-            <Card key={acc.account_code} className="rounded-2xl border-border bg-card shadow-[0_0_0_1px_rgba(15,23,42,0.06)] overflow-hidden">
+            <Card key={acc.code} className="rounded-2xl border-border bg-card shadow-[0_0_0_1px_rgba(15,23,42,0.06)] overflow-hidden">
               {/* Account header */}
               <div className="border-b border-border bg-muted/30 px-4 py-3">
                 <div className="flex items-center justify-between">
                   <div>
-                    <span className="text-xs font-mono text-muted-foreground mr-2">{acc.account_code}</span>
-                    <span className="text-sm font-semibold text-foreground">{acc.account_name}</span>
+                    <span className="text-xs font-mono text-muted-foreground mr-2">{acc.code}</span>
+                    <span className="text-sm font-semibold text-foreground">{acc.name}</span>
                   </div>
                   <div className="flex items-center gap-4 text-xs text-muted-foreground">
                     <span>Opening: <span className="font-medium text-foreground">{formatCurrency(acc.opening_balance)}</span></span>
