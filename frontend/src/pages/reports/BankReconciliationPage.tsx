@@ -1,11 +1,13 @@
-import { useRef } from "react"
-import { Loader2, Upload, Check, X, Sparkles, RefreshCw, Download, Printer } from "lucide-react"
+import { useRef, useState } from "react"
+import { Loader2, Upload, Check, X, Sparkles, RefreshCw, Download, Printer, Plus } from "lucide-react"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { Card } from "../../components/ui/card"
 import { Button } from "../../components/ui/button"
+import { Input } from "../../components/ui/input"
 import { formatCurrency, formatDate, downloadCSV, printReport } from "../../lib/utils"
 import api from "../../lib/api"
 import { QueryError } from "../../components/ui/query-error"
+import { useToast } from "../../components/ui/toast"
 
 interface BankStatementLine {
   id: string
@@ -37,7 +39,14 @@ interface ReconciliationSummary {
 
 export default function BankReconciliationPage() {
   const queryClient = useQueryClient()
+  const { toast } = useToast()
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const [showManualForm, setShowManualForm] = useState(false)
+  const [manualDate, setManualDate] = useState(new Date().toISOString().slice(0, 10))
+  const [manualDescription, setManualDescription] = useState("")
+  const [manualReference, setManualReference] = useState("")
+  const [manualDebit, setManualDebit] = useState("")
+  const [manualCredit, setManualCredit] = useState("")
 
   const { data: lines, isLoading: linesLoading, isError: linesError, error: linesErr } = useQuery<BankStatementLine[]>({
     queryKey: ["bank-reconciliation-lines"],
@@ -79,6 +88,25 @@ export default function BankReconciliationPage() {
     mutationFn: (lineId: string) => api.post(`/bank-reconciliation/unmatch/${lineId}`),
     onSuccess: () => invalidateAll(),
   })
+
+  const addLineMutation = useMutation({
+    mutationFn: (body: { date: string; description: string; reference: string | null; debit: number; credit: number }) =>
+      api.post("/bank-reconciliation/lines", body),
+    onSuccess: () => {
+      invalidateAll()
+      setManualDescription(""); setManualReference(""); setManualDebit(""); setManualCredit("")
+      setShowManualForm(false)
+      toast("Statement line added", "success")
+    },
+    onError: (e: any) => toast(e?.response?.data?.detail ?? "Failed to add line", "warning"),
+  })
+
+  const handleAddManualLine = () => {
+    const debit = parseFloat(manualDebit) || 0
+    const credit = parseFloat(manualCredit) || 0
+    if (!manualDescription || (debit <= 0 && credit <= 0)) return
+    addLineMutation.mutate({ date: manualDate, description: manualDescription, reference: manualReference || null, debit, credit })
+  }
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -139,7 +167,7 @@ export default function BankReconciliationPage() {
       {/* Upload Section */}
       <Card className="rounded-2xl border-border bg-card p-4 shadow-[0_0_0_1px_rgba(15,23,42,0.06),0_18px_55px_rgba(2,6,23,0.08)] print:hidden">
         <div className="flex items-center gap-4">
-          <input ref={fileInputRef} type="file" accept=".csv,.ofx,.qfx,.mt940,.sta,.txt" className="hidden" onChange={handleFileChange} />
+          <input ref={fileInputRef} type="file" accept=".csv,.ofx,.qfx,.mt940,.sta,.txt,.pdf" className="hidden" onChange={handleFileChange} />
           <Button
             type="button"
             onClick={() => fileInputRef.current?.click()}
@@ -147,7 +175,16 @@ export default function BankReconciliationPage() {
             disabled={uploadMutation.isPending}
           >
             {uploadMutation.isPending ? <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" /> : <Upload className="mr-2 h-3.5 w-3.5" />}
-            Upload CSV
+            Upload Statement
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => setShowManualForm(v => !v)}
+            className="h-9 px-4 text-sm"
+          >
+            <Plus className="mr-2 h-3.5 w-3.5" />
+            Add Line Manually
           </Button>
           {uploadMutation.isSuccess && (
             <span className="text-sm text-emerald-600 font-medium">
@@ -159,6 +196,44 @@ export default function BankReconciliationPage() {
             <span className="text-sm text-red-600 font-medium">Upload failed. Please try again.</span>
           )}
         </div>
+        <div className="mt-1.5 text-xs text-muted-foreground">Supports CSV, OFX/QFX, MT940, or a PDF statement (extracted via AI).</div>
+
+        {showManualForm && (
+          <div className="mt-4 grid grid-cols-2 gap-3 rounded-xl border border-border p-3 sm:grid-cols-5">
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-muted-foreground">Date</label>
+              <Input type="date" value={manualDate} onChange={e => setManualDate(e.target.value)} className="h-9 text-sm" />
+            </div>
+            <div className="space-y-1.5 sm:col-span-2">
+              <label className="text-xs font-medium text-muted-foreground">Description</label>
+              <Input value={manualDescription} onChange={e => setManualDescription(e.target.value)} placeholder="e.g. Cheque deposit" className="h-9 text-sm" />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-muted-foreground">Reference</label>
+              <Input value={manualReference} onChange={e => setManualReference(e.target.value)} placeholder="Optional" className="h-9 text-sm" />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-muted-foreground">Debit</label>
+              <Input type="number" min="0" step="0.01" value={manualDebit} onChange={e => { setManualDebit(e.target.value); if (e.target.value) setManualCredit("") }} placeholder="0.00" className="h-9 text-sm" />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-muted-foreground">Credit</label>
+              <Input type="number" min="0" step="0.01" value={manualCredit} onChange={e => { setManualCredit(e.target.value); if (e.target.value) setManualDebit("") }} placeholder="0.00" className="h-9 text-sm" />
+            </div>
+            <div className="col-span-2 flex items-end justify-end gap-2 sm:col-span-5">
+              <Button type="button" variant="outline" size="sm" onClick={() => setShowManualForm(false)}>Cancel</Button>
+              <Button
+                type="button"
+                size="sm"
+                onClick={handleAddManualLine}
+                disabled={addLineMutation.isPending || !manualDescription || (!manualDebit && !manualCredit)}
+                className="bg-gradient-to-r from-[#7C9DFF] to-[#4D63FF] text-white"
+              >
+                {addLineMutation.isPending ? "Adding..." : "Add Line"}
+              </Button>
+            </div>
+          </div>
+        )}
       </Card>
 
       {/* Summary Bar */}

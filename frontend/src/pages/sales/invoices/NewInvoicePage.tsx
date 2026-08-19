@@ -1,6 +1,6 @@
-import { useState } from "react"
-import { useNavigate } from "react-router-dom"
-import { useContacts, useContactSearch, useAccounts, useCreateInvoice, useTaxRates, useProductSearch } from "../../../lib/hooks"
+import { useEffect, useRef, useState } from "react"
+import { useNavigate, useSearchParams } from "react-router-dom"
+import { useContacts, useContactSearch, useAccounts, useCreateInvoice, useInvoice, useTaxRates, useProductSearch } from "../../../lib/hooks"
 import { useTheme } from "../../../lib/theme"
 import { getContactPrefs } from "../../../lib/contact-prefs"
 import { Card } from "../../../components/ui/card"
@@ -15,6 +15,10 @@ import api from "../../../lib/api"
 export default function NewInvoicePage() {
   const navigate = useNavigate()
   const { t } = useTheme()
+  const [searchParams] = useSearchParams()
+  const copyFromId = searchParams.get("copy") ?? undefined
+  const { data: sourceInvoice } = useInvoice(copyFromId)
+  const populatedCopy = useRef(false)
   const { data: contacts = [] } = useContacts()
   const [contactQuery, setContactQuery] = useState("")
   const { data: searchedContacts = [] } = useContactSearch(contactQuery)
@@ -86,6 +90,38 @@ export default function NewInvoicePage() {
   const { lineItems, setLineItems, updateLine, addLine, removeLine, subTotal, totalDiscount: totalLineDiscount, totalTax, total } = useLineItems({
     taxRates,
   })
+
+  // Duplicate flow: ?copy=<invoice_id> pre-fills this draft from the source
+  // invoice's header + line items (new number/date, status stays draft).
+  useEffect(() => {
+    if (!sourceInvoice || populatedCopy.current) return
+    populatedCopy.current = true
+    setContactId(String(sourceInvoice.contact_id ?? ""))
+    setTerms(sourceInvoice.terms ?? "cbd")
+    setCustomerPo(sourceInvoice.customer_po ?? "")
+    setCurrency(sourceInvoice.currency ?? "MYR")
+    setJournalMemo(sourceInvoice.journal_memo ?? "")
+    setBillingLine1(sourceInvoice.billing_address_line1 ?? "")
+    setBillingLine2(sourceInvoice.billing_address_line2 ?? "")
+    setBillingCity(sourceInvoice.billing_city ?? "")
+    setBillingState(sourceInvoice.billing_state ?? "")
+    setBillingPostcode(sourceInvoice.billing_postcode ?? "")
+    setBillingCountry(sourceInvoice.billing_country ?? "")
+    if (sourceInvoice.line_items?.length) {
+      setLineItems(sourceInvoice.line_items.map((l: any) => ({
+        description: l.description ?? "",
+        account_id: l.account_id ? String(l.account_id) : "",
+        quantity: l.quantity ?? 1,
+        unit_price: l.unit_price ?? 0,
+        amount: l.amount ?? 0,
+        discount: l.discount ?? 0,
+        discount_mode: (l.discount_mode === "amount" ? "amount" : "percent") as "percent" | "amount",
+        tax_rate: l.tax_rate ?? 0,
+        line_type: l.line_type ?? "goods",
+        tax_code_id: l.tax_code_id ? String(l.tax_code_id) : "",
+      })))
+    }
+  }, [sourceInvoice, setLineItems])
 
   const appliedToDate = 0
   const balanceDue = total - appliedToDate

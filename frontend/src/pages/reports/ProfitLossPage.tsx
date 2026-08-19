@@ -1,5 +1,6 @@
 import { QueryError } from "../../components/ui/query-error"
 import { useState } from "react"
+import { useNavigate } from "react-router-dom"
 import { Loader2, Download, Printer, FileSpreadsheet } from "lucide-react"
 import { useQuery } from "@tanstack/react-query"
 import { Card } from "../../components/ui/card"
@@ -39,6 +40,7 @@ interface ProfitLossReport {
 interface Dimension { id: string; name: string; code: string | null }
 
 export default function ProfitLossPage() {
+  const navigate = useNavigate()
   const thisYear = new Date().getFullYear()
   const today = new Date().toISOString().slice(0, 10)
   const [fromDate, setFromDate] = useState(`${thisYear}-01-01`)
@@ -114,9 +116,22 @@ export default function ProfitLossPage() {
     <td className={`px-3 py-2 text-right text-sm tabular-nums ${bold ? "font-bold" : ""} ${negative ? "text-rose-600" : "text-foreground"}`}>{v}</td>
   )
 
+  const goToLedger = (l: PLLine) => {
+    const params = new URLSearchParams({
+      account: l.code,
+      from_date: queryParams.fromDate,
+      to_date: queryParams.toDate,
+    })
+    navigate(`/reports/general-ledger?${params.toString()}`)
+  }
+
   const LineRow = ({ l }: { l: PLLine }) => (
     <tr className="border-b border-border last:border-0">
-      <td className="px-3 py-2 text-sm text-muted-foreground">{l.code} — {l.name}</td>
+      <td className="px-3 py-2 text-sm text-muted-foreground">
+        <button type="button" onClick={() => goToLedger(l)} className="text-left hover:underline hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded">
+          {l.code} — {l.name}
+        </button>
+      </td>
       <Cell v={formatCurrency(l.amount)} />
       {hasBudget && <Cell v={formatCurrency(l.budget ?? 0)} />}
       {hasBudget && <Cell v={formatCurrency(l.variance ?? 0)} negative={(l.variance ?? 0) < 0} />}

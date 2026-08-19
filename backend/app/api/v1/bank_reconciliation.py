@@ -146,6 +146,74 @@ Return ONLY the JSON array, no other text."""
 
 # ── Endpoints ─────────────────────────────────
 
+async def _parse_pdf_statement(content: bytes) -> list[dict]:
+    """Extract statement lines from a PDF bank statement via the AI document
+    pipeline (same Claude document-vision approach used for bill/invoice PDF
+    import in accounts.py). Returns the same normalised shape as
+    bank_statement_parser.parse_statement: date/description/reference/amount/balance."""
+    if not settings.ANTHROPIC_API_KEY:
+        raise HTTPException(status_code=503, detail="AI extraction not configured")
+    import base64
+    import anthropic
+    client = anthropic.AsyncAnthropic(api_key=settings.ANTHROPIC_API_KEY, timeout=90)
+    b64 = base64.b64encode(content).decode()
+    prompt = """\
+Extract ALL transaction lines from this bank statement document.
+Return ONLY valid JSON array with this structure:
+[
+  {"date": "YYYY-MM-DD", "description": "text", "reference": "optional or null",
+   "amount": 123.45, "balance": null}
+]
+Rules:
+- amount is signed: positive = money in (deposit/credit), negative = money out (withdrawal/debit)
+- Extract every transaction row visible in the document
+- If a field is missing use null
+- Return ONLY the JSON array, no markdown, no explanation"""
+    try:
+        message = await client.messages.create(
+            model=settings.AI_MODEL,
+            max_tokens=16000,
+            messages=[{
+                "role": "user",
+                "content": [
+                    {"type": "document", "source": {"type": "base64", "media_type": "application/pdf", "data": b64}},
+                    {"type": "text", "text": prompt},
+                ],
+            }],
+        )
+        raw = message.content[0].text.strip()
+        if raw.startswith("```"):
+            raw = raw.split("\n", 1)[1] if "\n" in raw else raw[3:]
+            if raw.endswith("```"):
+                raw = raw[:-3]
+            raw = raw.strip()
+        extracted = json.loads(raw)
+        if not isinstance(extracted, list):
+            raise ValueError("Expected a JSON array")
+    except json.JSONDecodeError as e:
+        logger.error(f"Bank statement PDF parse failed: {e}")
+        raise HTTPException(status_code=422, detail="Could not extract transactions from this PDF. Try a clearer scan or a CSV/OFX export instead.")
+    except Exception as e:
+        logger.error(f"Bank statement PDF extraction failed: {e}")
+        raise HTTPException(status_code=422, detail=f"Failed to extract transactions from PDF: {e}")
+
+    parsed = []
+    for row in extracted:
+        d = row.get("date")
+        try:
+            date = datetime.strptime(d, "%Y-%m-%d").replace(tzinfo=timezone.utc) if d else None
+        except ValueError:
+            date = None
+        parsed.append({
+            "date": date,
+            "description": row.get("description") or "",
+            "reference": row.get("reference") or None,
+            "amount": row.get("amount"),
+            "balance": row.get("balance"),
+        })
+    return parsed
+
+
 @router.post("/upload")
 async def upload_bank_statement(
     file: UploadFile = File(...),
@@ -153,21 +221,24 @@ async def upload_bank_statement(
     db: AsyncSession = Depends(get_db),
     current_user: dict = Depends(require_write()),
 ):
-    """Upload a bank statement (CSV, OFX/QFX, or MT940) and create BankStatementLine records."""
+    """Upload a bank statement (CSV, OFX/QFX, MT940, or PDF) and create BankStatementLine records."""
     org_id = current_user["org_id"]
     from app.services.bank_statement_parser import parse_statement, SUPPORTED
 
     if not file.filename:
         raise HTTPException(status_code=400, detail="No file provided")
     ext = file.filename.lower().rsplit(".", 1)[-1] if "." in file.filename else ""
-    if ext not in SUPPORTED:
-        raise HTTPException(status_code=400, detail=f"Unsupported format .{ext}. Supported: {', '.join(SUPPORTED)}")
-
-    content = await file.read()
-    try:
-        parsed = parse_statement(content, file.filename)
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+    if ext == "pdf":
+        content = await file.read()
+        parsed = await _parse_pdf_statement(content)
+    elif ext not in SUPPORTED:
+        raise HTTPException(status_code=400, detail=f"Unsupported format .{ext}. Supported: {', '.join(SUPPORTED)}, pdf")
+    else:
+        content = await file.read()
+        try:
+            parsed = parse_statement(content, file.filename)
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=str(e))
 
     count = 0
     for tx in parsed:
@@ -188,6 +259,52 @@ async def upload_bank_statement(
     await db.commit()
     await log_audit(db, org_id, current_user["sub"], "upload", "bank_statement", bank_account_id or org_id, {"imported": count, "format": ext})
     return {"imported": count, "format": ext}
+
+
+class ManualStatementLineCreate(BaseModel):
+    date: str  # YYYY-MM-DD
+    description: str
+    reference: str | None = None
+    debit: float = 0.0
+    credit: float = 0.0
+    bank_account_id: UUID | None = None
+
+
+@router.post("/lines")
+async def create_manual_statement_line(
+    body: ManualStatementLineCreate,
+    db: AsyncSession = Depends(get_db),
+    current_user: dict = Depends(require_write()),
+):
+    """Add a single bank statement line by hand (no file to import)."""
+    org_id = current_user["org_id"]
+    try:
+        date = datetime.strptime(body.date, "%Y-%m-%d").replace(tzinfo=timezone.utc)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid date — expected YYYY-MM-DD")
+    if body.debit <= 0 and body.credit <= 0:
+        raise HTTPException(status_code=400, detail="Enter a debit or credit amount")
+    if body.debit > 0 and body.credit > 0:
+        raise HTTPException(status_code=400, detail="Enter either a debit or a credit, not both")
+
+    amount = body.credit if body.credit > 0 else -body.debit
+    line = BankStatementLine(
+        organization_id=org_id,
+        bank_account_id=body.bank_account_id,
+        date=date,
+        description=body.description,
+        reference=body.reference,
+        amount=amount,
+        status="unmatched",
+    )
+    db.add(line)
+    await db.commit()
+    await db.refresh(line)
+    await log_audit(db, org_id, current_user["sub"], "create", "bank_statement_line", line.id)
+    return {
+        "id": str(line.id), "date": body.date, "description": line.description,
+        "reference": line.reference, "amount": float(line.amount), "status": line.status,
+    }
 
 
 @router.get("/lines")

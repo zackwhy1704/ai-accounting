@@ -1,5 +1,6 @@
 import { QueryError } from "../../components/ui/query-error"
 import { useState } from "react"
+import { useNavigate } from "react-router-dom"
 import { Loader2, Download, Printer } from "lucide-react"
 import { useQuery } from "@tanstack/react-query"
 import { Card } from "../../components/ui/card"
@@ -30,6 +31,7 @@ interface BalanceSheetReport {
 }
 
 export default function BalanceSheetPage() {
+  const navigate = useNavigate()
   const today = new Date().toISOString().slice(0, 10)
   const [asAt, setAsAt] = useState(today)
   const [compare, setCompare] = useState("")
@@ -42,9 +44,25 @@ export default function BalanceSheetPage() {
     }).then(r => r.data),
   })
 
-  const Row = ({ label, value, comparative, bold = false }: { label: string; value: string; comparative?: string; bold?: boolean }) => (
+  const goToLedger = (code: string | null) => {
+    if (!code) return
+    const params = new URLSearchParams({
+      account: code,
+      from_date: "2000-01-01",
+      to_date: active.asAt,
+    })
+    navigate(`/reports/general-ledger?${params.toString()}`)
+  }
+
+  const Row = ({ label, value, comparative, bold = false, code }: { label: string; value: string; comparative?: string; bold?: boolean; code?: string | null }) => (
     <div className={`flex items-center justify-between border-b border-border py-2.5 last:border-0 ${bold ? "bg-muted/30" : ""}`}>
-      <span className={`text-sm ${bold ? "font-semibold text-foreground" : "text-muted-foreground"}`}>{label}</span>
+      {!bold && code !== undefined ? (
+        <button type="button" onClick={() => goToLedger(code)} disabled={!code} className="text-sm text-muted-foreground text-left hover:underline hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded disabled:hover:no-underline disabled:cursor-default">
+          {label}
+        </button>
+      ) : (
+        <span className={`text-sm ${bold ? "font-semibold text-foreground" : "text-muted-foreground"}`}>{label}</span>
+      )}
       <span className="flex items-center gap-6">
         {comparative !== undefined && <span className="text-sm tabular-nums text-muted-foreground">{comparative}</span>}
         <span className={`text-sm tabular-nums ${bold ? "font-bold" : ""} text-foreground`}>{value}</span>
@@ -129,7 +147,7 @@ export default function BalanceSheetPage() {
           <div className="mb-4 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Assets</div>
           <div className="space-y-0 divide-y divide-border rounded-xl border border-border px-4">
             {(data.sections?.assets.lines ?? []).map(l => (
-              <Row key={`a-${l.code}-${l.name}`} label={l.code ? `${l.code} — ${l.name}` : l.name} value={formatCurrency(l.amount)} />
+              <Row key={`a-${l.code}-${l.name}`} label={l.code ? `${l.code} — ${l.name}` : l.name} value={formatCurrency(l.amount)} code={l.code} />
             ))}
             <Row label="Total Assets" value={formatCurrency(data.assets)} comparative={data.comparative ? formatCurrency(data.comparative.assets) : undefined} bold />
           </div>
@@ -137,7 +155,7 @@ export default function BalanceSheetPage() {
           <div className="mt-6 mb-4 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Liabilities</div>
           <div className="space-y-0 divide-y divide-border rounded-xl border border-border px-4">
             {(data.sections?.liabilities.lines ?? []).map(l => (
-              <Row key={`l-${l.code}-${l.name}`} label={l.code ? `${l.code} — ${l.name}` : l.name} value={formatCurrency(l.amount)} />
+              <Row key={`l-${l.code}-${l.name}`} label={l.code ? `${l.code} — ${l.name}` : l.name} value={formatCurrency(l.amount)} code={l.code} />
             ))}
             <Row label="Total Liabilities" value={formatCurrency(data.liabilities)} comparative={data.comparative ? formatCurrency(data.comparative.liabilities) : undefined} bold />
           </div>
@@ -145,7 +163,7 @@ export default function BalanceSheetPage() {
           <div className="mt-6 mb-4 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Equity</div>
           <div className="space-y-0 divide-y divide-border rounded-xl border border-border px-4">
             {(data.sections?.equity.lines ?? []).map(l => (
-              <Row key={`q-${l.code}-${l.name}`} label={l.code ? `${l.code} — ${l.name}` : l.name} value={formatCurrency(l.amount)} />
+              <Row key={`q-${l.code}-${l.name}`} label={l.code ? `${l.code} — ${l.name}` : l.name} value={formatCurrency(l.amount)} code={l.code} />
             ))}
             <Row label="Total Equity" value={formatCurrency(data.equity)} comparative={data.comparative ? formatCurrency(data.comparative.equity) : undefined} bold />
           </div>

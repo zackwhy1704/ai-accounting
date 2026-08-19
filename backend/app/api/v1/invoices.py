@@ -653,10 +653,10 @@ async def apply_overpaid_to_invoice(
     if not src:
         raise HTTPException(status_code=404, detail="Source invoice not found")
 
-    overpaid = float(src.amount_paid or 0) - float(src.total or 0)
+    overpaid = round(float(src.amount_paid or 0) - float(src.total or 0), 2)
     if overpaid <= 0:
         raise HTTPException(status_code=400, detail="Invoice is not overpaid")
-    if body.amount <= 0 or body.amount > overpaid:
+    if body.amount <= 0 or round(body.amount, 2) > overpaid:
         raise HTTPException(status_code=400, detail=f"Amount must be between 0 and {overpaid:.2f}")
 
     tgt = (await db.execute(
@@ -702,10 +702,10 @@ async def refund_overpaid(
     if not inv:
         raise HTTPException(status_code=404, detail="Invoice not found")
 
-    overpaid = float(inv.amount_paid or 0) - float(inv.total or 0)
+    overpaid = round(float(inv.amount_paid or 0) - float(inv.total or 0), 2)
     if overpaid <= 0:
         raise HTTPException(status_code=400, detail="Invoice is not overpaid")
-    if body.amount <= 0 or body.amount > overpaid:
+    if body.amount <= 0 or round(body.amount, 2) > overpaid:
         raise HTTPException(status_code=400, detail=f"Amount must be between 0 and {overpaid:.2f}")
 
     from app.core.sequences import next_sequence_number

@@ -41,10 +41,14 @@ export default function TrialBalancePage() {
   const today = new Date().toISOString().slice(0, 10)
   const [asAt, setAsAt] = useState(today)
   const [activeAsAt, setActiveAsAt] = useState(today)
+  const [includeZero, setIncludeZero] = useState(false)
+  const [activeIncludeZero, setActiveIncludeZero] = useState(false)
 
   const { data, isLoading, isFetching, isError, error } = useQuery<TrialBalanceReport>({
-    queryKey: ["report-trial-balance", activeAsAt],
-    queryFn: () => api.get(`/reports/trial-balance?as_of_date=${activeAsAt}`).then(r => r.data),
+    queryKey: ["report-trial-balance", activeAsAt, activeIncludeZero],
+    queryFn: () => api.get("/reports/trial-balance", {
+      params: { as_of_date: activeAsAt, ...(activeIncludeZero ? { include_zero: true } : {}) },
+    }).then(r => r.data),
   })
 
   const grouped = (data?.lines ?? []).reduce<Record<string, TrialBalanceLine[]>>((acc, l) => {
@@ -93,7 +97,11 @@ export default function TrialBalancePage() {
             <label className="text-xs font-medium text-muted-foreground">As At</label>
             <Input type="date" value={asAt} onChange={e => setAsAt(e.target.value)} className="h-9 text-sm w-48" />
           </div>
-          <Button type="button" onClick={() => setActiveAsAt(asAt)} className="h-9 bg-gradient-to-r from-[#7C9DFF] to-[#4D63FF] px-4 text-sm text-white" disabled={isFetching}>
+          <label className="flex h-9 items-center gap-2 text-sm text-muted-foreground">
+            <input type="checkbox" checked={includeZero} onChange={e => setIncludeZero(e.target.checked)} className="h-4 w-4" />
+            Include zero-balance accounts
+          </label>
+          <Button type="button" onClick={() => { setActiveAsAt(asAt); setActiveIncludeZero(includeZero) }} className="h-9 bg-gradient-to-r from-[#7C9DFF] to-[#4D63FF] px-4 text-sm text-white" disabled={isFetching}>
             {isFetching ? <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" /> : null}
             Update
           </Button>

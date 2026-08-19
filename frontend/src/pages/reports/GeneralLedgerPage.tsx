@@ -37,7 +37,8 @@ export default function GeneralLedgerPage() {
   const [fromDate, setFromDate] = useState(`${thisYear}-01-01`)
   const [toDate, setToDate] = useState(new Date().toISOString().slice(0, 10))
   const [account, setAccount] = useState("")
-  const [queryParams, setQueryParams] = useState({ fromDate: `${thisYear}-01-01`, toDate: new Date().toISOString().slice(0, 10), account: "" })
+  const [includeZero, setIncludeZero] = useState(false)
+  const [queryParams, setQueryParams] = useState({ fromDate: `${thisYear}-01-01`, toDate: new Date().toISOString().slice(0, 10), account: "", includeZero: false })
 
   const { data, isLoading, isFetching, isError, error } = useQuery<GeneralLedgerReport>({
     queryKey: ["report-general-ledger", queryParams],
@@ -47,12 +48,13 @@ export default function GeneralLedgerPage() {
         to_date: queryParams.toDate,
       })
       if (queryParams.account) params.set("account", queryParams.account)
+      if (queryParams.includeZero) params.set("include_zero", "true")
       return api.get(`/reports/general-ledger?${params.toString()}`).then(r => r.data)
     },
   })
 
   const handleUpdate = () => {
-    setQueryParams({ fromDate, toDate, account })
+    setQueryParams({ fromDate, toDate, account, includeZero })
   }
 
   return (
@@ -104,7 +106,11 @@ export default function GeneralLedgerPage() {
             <Input placeholder="e.g. Cash, 1000" value={account} onChange={e => setAccount(e.target.value)} className="h-9 text-sm" />
           </div>
         </div>
-        <div className="mt-3 flex justify-end">
+        <div className="mt-3 flex items-center justify-between">
+          <label className="flex h-9 items-center gap-2 text-sm text-muted-foreground">
+            <input type="checkbox" checked={includeZero} onChange={e => setIncludeZero(e.target.checked)} className="h-4 w-4" />
+            Include zero-balance accounts
+          </label>
           <Button type="button" onClick={handleUpdate} className="h-9 bg-gradient-to-r from-[#7C9DFF] to-[#4D63FF] px-4 text-sm text-white" disabled={isFetching}>
             {isFetching ? <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" /> : null}
             Update

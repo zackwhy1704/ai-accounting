@@ -9,7 +9,7 @@ from app.core.pagination import PaginationParams, paginated_result, apply_sort
 from app.models.models import (
     CreditNote, SalesRefund, Contact,
 )
-from .gl_helpers import post_gl
+from .gl_helpers import post_gl, revert_gl
 from app.services.gl_posting import post_sales_refund_gl
 from app.services.fx import document_rate
 from app.schemas.schemas import (
@@ -184,6 +184,13 @@ async def update_sales_refund_status(sr_id: UUID, status: str, current_user: dic
             cn.credit_applied = max(0.0, float(cn.credit_applied or 0) - float(obj.amount or 0))
             if cn.status == "applied" and float(cn.credit_applied or 0) < float(cn.total or 0):
                 cn.status = "issued"
+    if voiding:
+        await revert_gl(
+            db, current_user["org_id"], sr_id, "refund",
+            obj.refund_date,
+            f"Reversal: Refund {obj.refund_number} voided",
+            obj.refund_number,
+        )
 
     obj.status = status
     await db.commit()
@@ -197,9 +204,12 @@ async def delete_sales_refund(sr_id: UUID, current_user: dict = Depends(require_
     obj = result.scalar_one_or_none()
     if not obj:
         raise HTTPException(status_code=404, detail="Sales refund not found")
-    # Refund a still-active refund consumed CN balance — return it.
-    # Already-void refunds had their reversal done at void time.
-    if obj.status != "void" and obj.credit_note_id:
+    # Every refund posts GL on create (there's no draft path today) — deleting an
+    # active refund directly would orphan that GL and its CN application, so
+    # require voiding first (which reverses both). Mirrors purchase_refunds.py.
+    if obj.status not in ("draft", "void"):
+        raise HTTPException(status_code=400, detail="Only draft or void refunds can be deleted. Void the refund first.")
+    if obj.status == "draft" and obj.credit_note_id:
         cn_res = await db.execute(
             select(CreditNote).where(CreditNote.id == obj.credit_note_id)
         )
