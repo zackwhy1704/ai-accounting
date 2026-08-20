@@ -568,6 +568,7 @@ class SalesRefund(Base):
     organization_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("organizations.id"))
     contact_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("contacts.id"))
     credit_note_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("credit_notes.id"))
+    invoice_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("invoices.id"))
     refund_number: Mapped[str] = mapped_column(String(50))
     status: Mapped[str] = mapped_column(String(20), default="draft")  # draft, completed, void
     refund_date: Mapped[datetime] = mapped_column(DateTime(timezone=True))

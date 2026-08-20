@@ -727,6 +727,7 @@ async def refund_overpaid(
     refund = SalesRefund(
         organization_id=org_id,
         contact_id=inv.contact_id,
+        invoice_id=inv.id,
         refund_number=ref_number,
         refund_date=refund_date,
         amount=body.amount,

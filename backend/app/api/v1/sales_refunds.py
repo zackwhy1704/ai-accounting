@@ -7,7 +7,7 @@ from app.core.security import get_current_user
 from app.core.permissions import require_write
 from app.core.pagination import PaginationParams, paginated_result, apply_sort
 from app.models.models import (
-    CreditNote, SalesRefund, Contact,
+    CreditNote, SalesRefund, Contact, Invoice,
 )
 from .gl_helpers import post_gl, revert_gl
 from app.services.gl_posting import post_sales_refund_gl
@@ -184,6 +184,16 @@ async def update_sales_refund_status(sr_id: UUID, status: str, current_user: dic
             cn.credit_applied = max(0.0, float(cn.credit_applied or 0) - float(obj.amount or 0))
             if cn.status == "applied" and float(cn.credit_applied or 0) < float(cn.total or 0):
                 cn.status = "issued"
+    if voiding and obj.invoice_id:
+        # Mirrors purchase_refunds.py's _restore_bill: undo the amount_paid
+        # deduction the refund-overpaid create path applied directly to the
+        # invoice (that path has no CN to restore through, so this is the
+        # only way its effect gets reversed on void).
+        inv_res = await db.execute(select(Invoice).where(Invoice.id == obj.invoice_id))
+        inv = inv_res.scalar_one_or_none()
+        if inv:
+            inv.amount_paid = float(inv.amount_paid or 0) + float(obj.amount or 0)
+            inv.mark_paid()
     if voiding:
         await revert_gl(
             db, current_user["org_id"], sr_id, "refund",
