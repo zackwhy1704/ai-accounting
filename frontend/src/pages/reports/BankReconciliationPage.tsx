@@ -1,5 +1,5 @@
 import { useRef, useState } from "react"
-import { Loader2, Upload, Check, X, Sparkles, RefreshCw, Download, Printer, Plus } from "lucide-react"
+import { Loader2, Upload, Check, X, Sparkles, RefreshCw, Download, Printer, Plus, Trash2 } from "lucide-react"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { Card } from "../../components/ui/card"
 import { Button } from "../../components/ui/button"
@@ -87,6 +87,12 @@ export default function BankReconciliationPage() {
   const rejectMutation = useMutation({
     mutationFn: (lineId: string) => api.post(`/bank-reconciliation/unmatch/${lineId}`),
     onSuccess: () => invalidateAll(),
+  })
+
+  const deleteLineMutation = useMutation({
+    mutationFn: (lineId: string) => api.delete(`/bank-reconciliation/lines/${lineId}`),
+    onSuccess: () => { invalidateAll(); toast("Statement line deleted", "success") },
+    onError: (e: any) => toast(e?.response?.data?.detail ?? "Failed to delete line", "warning"),
   })
 
   const addLineMutation = useMutation({
@@ -353,6 +359,17 @@ export default function BankReconciliationPage() {
                     )}
                     {line.status === "reconciled" && (
                       <Check className="inline h-4 w-4 text-emerald-600" />
+                    )}
+                    {line.status === "unmatched" && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-7 border-red-300 text-red-600 hover:bg-red-50 text-xs px-2"
+                        onClick={() => { if (confirm("Delete this statement line? This cannot be undone.")) deleteLineMutation.mutate(line.id) }}
+                        disabled={deleteLineMutation.isPending}
+                      >
+                        <Trash2 className="h-3 w-3 mr-1" /> Delete
+                      </Button>
                     )}
                   </td>
                 </tr>

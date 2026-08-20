@@ -307,6 +307,36 @@ async def create_manual_statement_line(
     }
 
 
+@router.delete("/lines/{line_id}", status_code=204)
+async def delete_statement_line(
+    line_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: dict = Depends(require_write()),
+):
+    """Delete a bank statement line — e.g. the wrong file was imported, or a
+    manual entry was a mistake. Only unmatched lines can be deleted; a
+    matched/reconciled line is tied to a real GL transaction and must be
+    unmatched first (mirrors the refund void-before-delete pattern)."""
+    org_id = current_user["org_id"]
+    result = await db.execute(
+        select(BankStatementLine).where(
+            BankStatementLine.id == line_id,
+            BankStatementLine.organization_id == org_id,
+        )
+    )
+    line = result.scalar_one_or_none()
+    if not line:
+        raise HTTPException(status_code=404, detail="Statement line not found")
+    if line.status != "unmatched":
+        raise HTTPException(
+            status_code=400,
+            detail=f"Only unmatched lines can be deleted (this line is {line.status}). Unmatch it first.",
+        )
+    await db.delete(line)
+    await db.commit()
+    await log_audit(db, org_id, current_user["sub"], "delete", "bank_statement_line", line_id)
+
+
 @router.get("/lines")
 async def get_statement_lines(
     status: str = Query(None),
