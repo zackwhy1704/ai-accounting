@@ -283,8 +283,8 @@ async def update_invoice_status(
                 source="invoice", source_id=invoice.id, issued=issued, direction="out",
             )
 
-    # cancelled: reverse any previously posted GL entries
-    elif status == "cancelled" and prev_status != "draft":
+    # void/cancelled: reverse any previously posted GL entries
+    elif status in ("void", "cancelled") and prev_status != "draft":
         await revert_gl(
             db, org_id, invoice.id, "invoice",
             invoice.issue_date,
