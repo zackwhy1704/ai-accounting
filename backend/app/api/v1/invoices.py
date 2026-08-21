@@ -283,8 +283,13 @@ async def update_invoice_status(
                 source="invoice", source_id=invoice.id, issued=issued, direction="out",
             )
 
-    # void/cancelled: reverse any previously posted GL entries
-    elif status in ("void", "cancelled") and prev_status != "draft":
+    # void/cancelled: reverse any previously posted GL entries. Guard against
+    # prev_status already being void/cancelled — without it, a repeat call
+    # (same status re-sent, or void-then-cancel) reverses GL that was already
+    # reversed, driving every account further off zero each time. Matches
+    # credit_notes.py / sales_refunds.py's existing != "void" guard; a repeat
+    # call is a silent 200 no-op, same as those two already do.
+    elif status in ("void", "cancelled") and prev_status != "draft" and prev_status not in ("void", "cancelled"):
         await revert_gl(
             db, org_id, invoice.id, "invoice",
             invoice.issue_date,

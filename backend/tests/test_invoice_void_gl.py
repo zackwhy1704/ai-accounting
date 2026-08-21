@@ -149,3 +149,74 @@ class TestVoidInvoiceReversesGL:
                 select(Transaction).where(Transaction.source_id == uuid.UUID(inv_id), Transaction.source == "invoice_reversal")
             )).scalars().all()
         assert len(reversal_txns) == 1, "cancelled must still post exactly one reversal transaction"
+
+
+class TestVoidCancelIdempotent:
+    """Pre-existing bug found auditing the fix above: repeated void/cancel
+    calls each appended ANOTHER reversal transaction, since the reversal
+    branch only checked the target status and prev_status != "draft" — an
+    already-void invoice has prev_status == "void", which still passed. Each
+    repeat call drove every account further off zero (net -318/+18/+300 after
+    a 2nd void, -636/+36/+600 after a 3rd — unbounded). This predates the
+    void-reverses-GL fix: repeating 'cancelled' alone on master double-reverses
+    identically, confirmed live before writing this test.
+
+    Fix mirrors credit_notes.py / sales_refunds.py's existing pattern (both
+    already guard with `and obj.status != "void"`): a repeat void/cancel call
+    is now a silent 200 no-op — same convention those two already use, not
+    invented here."""
+
+    async def test_repeated_void_does_not_double_reverse_invoice(self, client, org_with_defaults):
+        import uuid
+        contact_id = await _make_contact(org_with_defaults["org_id"])
+        inv_id = await _create_and_send_invoice(client, org_with_defaults, contact_id)
+
+        for i in range(3):
+            r = await client.patch(f"/invoices/{inv_id}/status", params={"status": "void"})
+            assert r.status_code == 200, f"call #{i+1}: {r.text}"
+            assert r.json()["status"] == "void"
+
+        r = await client.get("/reports/trial-balance", params={"as_of_date": "2030-01-01"})
+        for line in r.json()["lines"]:
+            assert line["debit"] == line["credit"], (
+                f"{line['code']} {line['name']} should still net to zero after 3 void calls, "
+                f"got dr={line['debit']} cr={line['credit']}"
+            )
+
+        async with async_session() as s:
+            from sqlalchemy import select
+            from app.models.models import Transaction
+            reversal_txns = (await s.execute(
+                select(Transaction).where(Transaction.source_id == uuid.UUID(inv_id), Transaction.source == "invoice_reversal")
+            )).scalars().all()
+        assert len(reversal_txns) == 1, (
+            f"expected exactly 1 reversal transaction after 3 void calls, got {len(reversal_txns)}"
+        )
+
+    async def test_void_then_cancel_does_not_double_reverse(self, client, org_with_defaults):
+        import uuid
+        contact_id = await _make_contact(org_with_defaults["org_id"])
+        inv_id = await _create_and_send_invoice(client, org_with_defaults, contact_id)
+
+        r = await client.patch(f"/invoices/{inv_id}/status", params={"status": "void"})
+        assert r.status_code == 200, r.text
+        r = await client.patch(f"/invoices/{inv_id}/status", params={"status": "cancelled"})
+        assert r.status_code == 200, r.text
+        assert r.json()["status"] == "cancelled", "the status field itself may still change on a repeat call"
+
+        r = await client.get("/reports/trial-balance", params={"as_of_date": "2030-01-01"})
+        for line in r.json()["lines"]:
+            assert line["debit"] == line["credit"], (
+                f"{line['code']} {line['name']} should net to zero after void-then-cancel, "
+                f"got dr={line['debit']} cr={line['credit']}"
+            )
+
+        async with async_session() as s:
+            from sqlalchemy import select
+            from app.models.models import Transaction
+            reversal_txns = (await s.execute(
+                select(Transaction).where(Transaction.source_id == uuid.UUID(inv_id), Transaction.source == "invoice_reversal")
+            )).scalars().all()
+        assert len(reversal_txns) == 1, (
+            f"void-then-cancel must not post a second reversal, got {len(reversal_txns)}"
+        )
