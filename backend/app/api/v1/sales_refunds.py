@@ -174,6 +174,17 @@ async def update_sales_refund_status(sr_id: UUID, status: str, current_user: dic
     if status not in valid:
         raise HTTPException(status_code=400, detail=f"Invalid status. Must be one of: {', '.join(valid)}")
 
+    # Voiding is terminal: reinstating from it would move the refund back to
+    # completed (its GL and any CN/invoice restoration stays fully reversed at
+    # zero) without redoing the credit-application/amount_paid adjustments that
+    # only run on the voiding path above. No duplicate path exists for
+    # refunds, so point at creating a fresh one instead.
+    if obj.status == "void" and status != "void":
+        raise HTTPException(
+            status_code=400,
+            detail="A voided refund cannot be reinstated. Create a new refund instead.",
+        )
+
     voiding = status == "void" and obj.status != "void"
     if voiding and obj.credit_note_id:
         cn_res = await db.execute(

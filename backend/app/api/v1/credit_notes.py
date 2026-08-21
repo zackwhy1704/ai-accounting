@@ -273,6 +273,17 @@ async def update_credit_note_status(cn_id: UUID, status: str, current_user: dict
     valid = {"draft", "issued", "applied", "void"}
     if status not in valid:
         raise HTTPException(status_code=400, detail=f"Invalid status. Must be one of: {', '.join(valid)}")
+
+    # Voiding is terminal: reinstating from it would move the credit note back
+    # to a live status (usable against invoices again) while its GL stays fully
+    # reversed at zero — silently understating the reversal. No duplicate path
+    # exists for credit notes, so point at creating a fresh one instead.
+    if obj.status == "void" and status != "void":
+        raise HTTPException(
+            status_code=400,
+            detail="A voided credit note cannot be reinstated. Create a new credit note instead.",
+        )
+
     # Voiding must reverse what the create posted: the CN GL and any stock returns.
     if status == "void" and obj.status != "void":
         if float(obj.credit_applied or 0) > 0:

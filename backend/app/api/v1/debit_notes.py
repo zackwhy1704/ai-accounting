@@ -208,6 +208,27 @@ async def update_debit_note_status(dn_id: UUID, status: str, current_user: dict 
         raise HTTPException(status_code=400, detail=f"Invalid status. Must be one of: {', '.join(valid)}")
     if status == "void" and obj.status == "applied":
         raise HTTPException(status_code=400, detail="This debit note has a payment applied. Void the payment first before voiding the debit note.")
+
+    # Voiding is terminal: reinstating from it would move the debit note back
+    # to a live status while its GL stays fully reversed at zero. No duplicate
+    # path exists for debit notes, so point at creating a fresh one instead.
+    if obj.status == "void" and status != "void":
+        raise HTTPException(
+            status_code=400,
+            detail="A voided debit note cannot be reinstated. Create a new debit note instead.",
+        )
+
+    # Voiding must reverse what create posted — GL is posted unconditionally
+    # at create time (no draft gate), so every non-draft debit note has a live
+    # GL entry that needs reversing.
+    if status == "void" and obj.status != "void":
+        await revert_gl(
+            db, current_user["org_id"], obj.id, "debit_note",
+            obj.issue_date,
+            f"Reversal: Debit Note {obj.debit_note_number} voided",
+            obj.debit_note_number,
+        )
+
     obj.status = status
     await db.commit()
     await log_audit(db, current_user["org_id"], current_user["sub"], "status_change", "debit_note", dn_id)
