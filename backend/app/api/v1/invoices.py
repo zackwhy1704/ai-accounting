@@ -244,6 +244,17 @@ async def update_invoice_status(
         if float(invoice.amount_paid or 0) > 0:
             raise HTTPException(status_code=400, detail="This invoice has payments applied. Remove or void the payments first before voiding the invoice.")
 
+    # Voiding/cancelling is terminal: no UI path reinstates from it, and doing
+    # so directly would move the invoice back to a live status (billable,
+    # appears on AR/debtor reports) while its GL stays fully reversed at zero
+    # — silently understating revenue and receivables. Duplicate into a new
+    # draft instead (the existing path for "I need this invoice again").
+    if invoice.status in ("void", "cancelled") and status not in ("void", "cancelled"):
+        raise HTTPException(
+            status_code=400,
+            detail="A voided or cancelled invoice cannot be reinstated. Duplicate it into a new draft instead.",
+        )
+
     prev_status = invoice.status
     invoice.status = status
 
