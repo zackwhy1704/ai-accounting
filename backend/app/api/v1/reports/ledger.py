@@ -8,7 +8,7 @@ from uuid import UUID
 
 from app.core.database import get_db
 from app.core.security import get_current_user
-from ._util import parse_date
+from ._util import parse_date, account_nature, CREDIT_NATURES
 from app.models.models import (
     Invoice, Bill, Contact, Account, JournalEntry, Transaction,
 )
@@ -73,6 +73,8 @@ async def general_ledger_report(
             Transaction.date,
             Transaction.description,
             Transaction.reference,
+            Transaction.source,
+            Transaction.source_id,
             JournalEntry.debit,
             JournalEntry.credit,
         )
@@ -95,7 +97,13 @@ async def general_ledger_report(
     # Assemble per-account in Python from the two result sets (2 queries total).
     ledger_accounts = []
     for acct in accounts:
-        opening_balance = opening_by_acct.get(acct.id, 0.0)
+        # Balances follow the account's natural side: debit-nature accounts
+        # (assets, expenses) run dr-cr; credit-nature accounts (liabilities,
+        # equity, revenue) run cr-dr so a normal AP balance reads POSITIVE.
+        nature = account_nature(acct.type, acct.code)
+        credit_natured = nature in CREDIT_NATURES
+        sign = -1.0 if credit_natured else 1.0
+        opening_balance = sign * opening_by_acct.get(acct.id, 0.0)
         rows = entries_by_acct.get(acct.id, [])
         if not rows and abs(opening_balance) < 0.01:
             continue  # Skip accounts with no activity
@@ -105,22 +113,26 @@ async def general_ledger_report(
         for row in rows:
             dr = float(row.debit or 0)
             cr = float(row.credit or 0)
-            running += dr - cr
+            running += (cr - dr) if credit_natured else (dr - cr)
             entries.append({
                 "date": row.date.strftime("%Y-%m-%d") if row.date else None,
                 "description": row.description or "",
                 "reference": row.reference,
+                "source": row.source,
+                "source_id": str(row.source_id) if row.source_id else None,
                 "debit": dr,
                 "credit": cr,
-                "balance": running,
+                "balance": round(running, 2),
             })
 
         ledger_accounts.append({
             "account_code": acct.code,
             "account_name": acct.name,
             "account_type": acct.type,
-            "opening_balance": opening_balance,
-            "closing_balance": running if entries else opening_balance,
+            "nature": nature,
+            "balance_side": "credit" if credit_natured else "debit",
+            "opening_balance": round(opening_balance, 2),
+            "closing_balance": round(running if entries else opening_balance, 2),
             "entries": entries,
         })
 
@@ -261,6 +273,7 @@ async def debtor_ledger_report(
             total_paid += p
             total_balance += b
             inv_list.append({
+                "id": str(inv.id),
                 "invoice_number": inv.invoice_number,
                 "date": inv.issue_date.strftime("%Y-%m-%d") if inv.issue_date else None,
                 "due_date": inv.due_date.strftime("%Y-%m-%d") if inv.due_date else None,
@@ -337,6 +350,7 @@ async def creditor_ledger_report(
             total_paid += p
             total_balance += b
             bill_list.append({
+                "id": str(bill.id),
                 "bill_number": bill.bill_number,
                 "date": bill.issue_date.strftime("%Y-%m-%d") if bill.issue_date else None,
                 "due_date": bill.due_date.strftime("%Y-%m-%d") if bill.due_date else None,

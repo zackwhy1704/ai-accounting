@@ -1,5 +1,6 @@
 import { QueryError } from "../../components/ui/query-error"
 import { useState, Fragment } from "react"
+import { useNavigate } from "react-router-dom"
 import { Loader2, Download, Printer } from "lucide-react"
 import { useQuery } from "@tanstack/react-query"
 import { Card } from "../../components/ui/card"
@@ -34,6 +35,7 @@ interface CreditorLedgerReport {
 }
 
 export default function CreditorLedgerPage() {
+  const navigate = useNavigate()
   const thisYear = new Date().getFullYear()
   const [fromDate, setFromDate] = useState(`${thisYear}-01-01`)
   const [toDate, setToDate] = useState(new Date().toISOString().slice(0, 10))
@@ -135,7 +137,12 @@ export default function CreditorLedgerPage() {
                     <td colSpan={7} className="px-4 py-2.5 text-sm font-semibold text-foreground">{vendor.vendor_name}</td>
                   </tr>
                   {vendor.bills.map((bill, bi) => (
-                    <tr key={`${vi}-${bi}`} className="border-b border-border hover:bg-muted/30">
+                    <tr
+                      key={`${vi}-${bi}`}
+                      className="border-b border-border hover:bg-muted/30 cursor-pointer"
+                      title="Open this bill"
+                      onClick={() => (bill as any).id && navigate(`/purchases/bills/${(bill as any).id}/edit`)}
+                    >
                       <td className="px-4 py-2.5 text-sm font-medium text-foreground">{bill.bill_number}</td>
                       <td className="px-4 py-2.5 text-sm text-foreground">{bill.date}</td>
                       <td className="px-4 py-2.5 text-sm text-foreground">{bill.due_date}</td>

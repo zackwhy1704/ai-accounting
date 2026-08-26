@@ -1,5 +1,6 @@
 import { QueryError } from "../../components/ui/query-error"
 import { useState } from "react"
+import { useNavigate } from "react-router-dom"
 import { Loader2, Download, Printer } from "lucide-react"
 import { useQuery } from "@tanstack/react-query"
 import { Card } from "../../components/ui/card"
@@ -38,6 +39,7 @@ const normaliseType = (t: string | undefined | null) => {
 }
 
 export default function TrialBalancePage() {
+  const navigate = useNavigate()
   const today = new Date().toISOString().slice(0, 10)
   const [asAt, setAsAt] = useState(today)
   const [activeAsAt, setActiveAsAt] = useState(today)
@@ -138,7 +140,12 @@ export default function TrialBalancePage() {
                     </td>
                   </tr>
                   {lines.map(l => (
-                    <tr key={l.code} className="border-b border-border last:border-0 hover:bg-muted/30">
+                    <tr
+                      key={l.code}
+                      className="border-b border-border last:border-0 hover:bg-muted/30 cursor-pointer"
+                      title="View this account in the General Ledger"
+                      onClick={() => navigate(`/reports/general-ledger?account=${encodeURIComponent(l.code)}`)}
+                    >
                       <td className="px-4 py-2.5 text-xs font-mono text-muted-foreground">{l.code}</td>
                       <td className="px-4 py-2.5 text-sm text-foreground">{l.name}</td>
                       <td className="px-4 py-2.5 text-right text-sm tabular-nums text-foreground">{l.debit > 0 ? formatCurrency(l.debit) : "—"}</td>

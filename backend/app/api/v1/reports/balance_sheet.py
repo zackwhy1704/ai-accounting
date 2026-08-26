@@ -146,12 +146,18 @@ async def trial_balance_report(
     )
     rows = result.all()
 
+    # Accountant-standard trial balance: each account shows its NET balance on
+    # one side only (debit column when net-debit, credit column when net-credit),
+    # not gross movement on both sides.
     lines = []
     total_dr = 0.0
     total_cr = 0.0
     for row in rows:
-        dr = float(row.total_debit or 0)
-        cr = float(row.total_credit or 0)
+        net = round(float(row.total_debit or 0) - float(row.total_credit or 0), 2)
+        if abs(net) < 0.005:
+            continue
+        dr = net if net > 0 else 0.0
+        cr = -net if net < 0 else 0.0
         total_dr += dr
         total_cr += cr
         lines.append({
@@ -160,7 +166,7 @@ async def trial_balance_report(
             "type": row.type,
             "debit": dr,
             "credit": cr,
-            "balance": dr - cr,
+            "balance": net,
         })
 
     return {

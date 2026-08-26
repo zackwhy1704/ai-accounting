@@ -1,5 +1,6 @@
 import { QueryError } from "../../components/ui/query-error"
 import { useState } from "react"
+import { useNavigate, useSearchParams } from "react-router-dom"
 import { Loader2, Download, Printer } from "lucide-react"
 import { useQuery } from "@tanstack/react-query"
 import { Card } from "../../components/ui/card"
@@ -33,11 +34,28 @@ interface GeneralLedgerReport {
 }
 
 export default function GeneralLedgerPage() {
+  const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
+  const accountFromUrl = searchParams.get("account") ?? ""
+
+  const DOC_ROUTES: Record<string, (id: string) => string> = {
+    invoice: id => `/sales/invoices/${id}/edit`,
+    bill: id => `/purchases/bills/${id}/edit`,
+    credit_note: id => `/sales/credit-notes/${id}/edit`,
+    debit_note: id => `/sales/debit-notes/${id}/edit`,
+    purchase_credit_note: id => `/purchases/credit-notes/${id}/edit`,
+    manual_journal: id => `/accounting/journals/${id}/edit`,
+  }
+  const openSource = (entry: { source?: string | null; source_id?: string | null }) => {
+    if (!entry.source || !entry.source_id) return
+    const to = DOC_ROUTES[entry.source]
+    if (to) navigate(to(entry.source_id))
+  }
   const thisYear = new Date().getFullYear()
   const [fromDate, setFromDate] = useState(`${thisYear}-01-01`)
   const [toDate, setToDate] = useState(new Date().toISOString().slice(0, 10))
-  const [account, setAccount] = useState("")
-  const [queryParams, setQueryParams] = useState({ fromDate: `${thisYear}-01-01`, toDate: new Date().toISOString().slice(0, 10), account: "" })
+  const [account, setAccount] = useState(accountFromUrl)
+  const [queryParams, setQueryParams] = useState({ fromDate: `${thisYear}-01-01`, toDate: new Date().toISOString().slice(0, 10), account: accountFromUrl })
 
   const { data, isLoading, isFetching, isError, error } = useQuery<GeneralLedgerReport>({
     queryKey: ["report-general-ledger", queryParams],
@@ -153,7 +171,7 @@ export default function GeneralLedgerPage() {
                 </thead>
                 <tbody>
                   {acc.entries.map((entry, i) => (
-                    <tr key={i} className="border-b border-border last:border-0 hover:bg-muted/30">
+                    <tr key={i} className="border-b border-border last:border-0 hover:bg-muted/30" onClick={() => openSource(entry as any)} style={(entry as any).source_id ? { cursor: "pointer" } : undefined} title={(entry as any).source_id ? "Open source document" : undefined}>
                       <td className="px-4 py-2 text-xs text-muted-foreground whitespace-nowrap">{formatDate(entry.date)}</td>
                       <td className="px-4 py-2 text-sm text-foreground">{entry.description}</td>
                       <td className="px-4 py-2 text-xs text-muted-foreground">{entry.reference ?? "—"}</td>

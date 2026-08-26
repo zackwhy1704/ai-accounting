@@ -178,8 +178,23 @@ async def create_purchase_refund(
     db.add(refund)
     await db.flush()
 
-    # Deduct refund amount from linked bill's amount_paid
+    # A supplier refund against a bill returns an OVERPAYMENT — it can never
+    # exceed the overpaid portion (refunding a normally-paid bill would wrongly
+    # reopen its outstanding balance; that case belongs to a purchase credit note).
     if payload.bill_id:
+        bill_check = (await db.execute(select(Bill).where(Bill.id == payload.bill_id))).scalar_one_or_none()
+        if bill_check is not None:
+            overpaid = round(float(bill_check.amount_paid or 0) - float(bill_check.total or 0), 2)
+            if overpaid <= 0:
+                raise HTTPException(
+                    status_code=400,
+                    detail="This bill is not overpaid — there is nothing to refund. For goods returned or billing corrections, raise a Purchase Credit Note and refund that instead.",
+                )
+            if float(payload.amount) > overpaid + 0.005:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Refund exceeds the overpaid amount ({overpaid:.2f}) on this bill.",
+                )
         await _deduct_bill(db, payload.bill_id, float(payload.amount))
 
     # Deduct refund amount from linked PCN balance
