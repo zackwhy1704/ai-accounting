@@ -244,6 +244,17 @@ async def update_invoice_status(
         if float(invoice.amount_paid or 0) > 0:
             raise HTTPException(status_code=400, detail="This invoice has payments applied. Remove or void the payments first before voiding the invoice.")
 
+    # Voiding/cancelling is terminal: no UI path reinstates from it, and doing
+    # so directly would move the invoice back to a live status (billable,
+    # appears on AR/debtor reports) while its GL stays fully reversed at zero
+    # — silently understating revenue and receivables. Duplicate into a new
+    # draft instead (the existing path for "I need this invoice again").
+    if invoice.status in ("void", "cancelled") and status not in ("void", "cancelled"):
+        raise HTTPException(
+            status_code=400,
+            detail="A voided or cancelled invoice cannot be reinstated. Duplicate it into a new draft instead.",
+        )
+
     prev_status = invoice.status
     invoice.status = status
 
@@ -283,8 +294,13 @@ async def update_invoice_status(
                 source="invoice", source_id=invoice.id, issued=issued, direction="out",
             )
 
-    # cancelled: reverse any previously posted GL entries
-    elif status == "cancelled" and prev_status != "draft":
+    # void/cancelled: reverse any previously posted GL entries. Guard against
+    # prev_status already being void/cancelled — without it, a repeat call
+    # (same status re-sent, or void-then-cancel) reverses GL that was already
+    # reversed, driving every account further off zero each time. Matches
+    # credit_notes.py / sales_refunds.py's existing != "void" guard; a repeat
+    # call is a silent 200 no-op, same as those two already do.
+    elif status in ("void", "cancelled") and prev_status != "draft" and prev_status not in ("void", "cancelled"):
         await revert_gl(
             db, org_id, invoice.id, "invoice",
             invoice.issue_date,
@@ -653,10 +669,10 @@ async def apply_overpaid_to_invoice(
     if not src:
         raise HTTPException(status_code=404, detail="Source invoice not found")
 
-    overpaid = float(src.amount_paid or 0) - float(src.total or 0)
+    overpaid = round(float(src.amount_paid or 0) - float(src.total or 0), 2)
     if overpaid <= 0:
         raise HTTPException(status_code=400, detail="Invoice is not overpaid")
-    if body.amount <= 0 or body.amount > overpaid:
+    if body.amount <= 0 or round(body.amount, 2) > overpaid:
         raise HTTPException(status_code=400, detail=f"Amount must be between 0 and {overpaid:.2f}")
 
     tgt = (await db.execute(
@@ -702,10 +718,10 @@ async def refund_overpaid(
     if not inv:
         raise HTTPException(status_code=404, detail="Invoice not found")
 
-    overpaid = float(inv.amount_paid or 0) - float(inv.total or 0)
+    overpaid = round(float(inv.amount_paid or 0) - float(inv.total or 0), 2)
     if overpaid <= 0:
         raise HTTPException(status_code=400, detail="Invoice is not overpaid")
-    if body.amount <= 0 or body.amount > overpaid:
+    if body.amount <= 0 or round(body.amount, 2) > overpaid:
         raise HTTPException(status_code=400, detail=f"Amount must be between 0 and {overpaid:.2f}")
 
     from app.core.sequences import next_sequence_number
@@ -727,6 +743,7 @@ async def refund_overpaid(
     refund = SalesRefund(
         organization_id=org_id,
         contact_id=inv.contact_id,
+        invoice_id=inv.id,
         refund_number=ref_number,
         refund_date=refund_date,
         amount=body.amount,

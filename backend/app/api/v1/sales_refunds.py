@@ -7,9 +7,9 @@ from app.core.security import get_current_user
 from app.core.permissions import require_write
 from app.core.pagination import PaginationParams, paginated_result, apply_sort
 from app.models.models import (
-    CreditNote, SalesRefund, Contact,
+    CreditNote, SalesRefund, Contact, Invoice,
 )
-from .gl_helpers import post_gl
+from .gl_helpers import post_gl, revert_gl
 from app.services.gl_posting import post_sales_refund_gl
 from app.services.fx import document_rate
 from app.schemas.schemas import (
@@ -174,6 +174,17 @@ async def update_sales_refund_status(sr_id: UUID, status: str, current_user: dic
     if status not in valid:
         raise HTTPException(status_code=400, detail=f"Invalid status. Must be one of: {', '.join(valid)}")
 
+    # Voiding is terminal: reinstating from it would move the refund back to
+    # completed (its GL and any CN/invoice restoration stays fully reversed at
+    # zero) without redoing the credit-application/amount_paid adjustments that
+    # only run on the voiding path above. No duplicate path exists for
+    # refunds, so point at creating a fresh one instead.
+    if obj.status == "void" and status != "void":
+        raise HTTPException(
+            status_code=400,
+            detail="A voided refund cannot be reinstated. Create a new refund instead.",
+        )
+
     voiding = status == "void" and obj.status != "void"
     if voiding and obj.credit_note_id:
         cn_res = await db.execute(
@@ -184,6 +195,23 @@ async def update_sales_refund_status(sr_id: UUID, status: str, current_user: dic
             cn.credit_applied = max(0.0, float(cn.credit_applied or 0) - float(obj.amount or 0))
             if cn.status == "applied" and float(cn.credit_applied or 0) < float(cn.total or 0):
                 cn.status = "issued"
+    if voiding and obj.invoice_id:
+        # Mirrors purchase_refunds.py's _restore_bill: undo the amount_paid
+        # deduction the refund-overpaid create path applied directly to the
+        # invoice (that path has no CN to restore through, so this is the
+        # only way its effect gets reversed on void).
+        inv_res = await db.execute(select(Invoice).where(Invoice.id == obj.invoice_id))
+        inv = inv_res.scalar_one_or_none()
+        if inv:
+            inv.amount_paid = float(inv.amount_paid or 0) + float(obj.amount or 0)
+            inv.mark_paid()
+    if voiding:
+        await revert_gl(
+            db, current_user["org_id"], sr_id, "refund",
+            obj.refund_date,
+            f"Reversal: Refund {obj.refund_number} voided",
+            obj.refund_number,
+        )
 
     obj.status = status
     await db.commit()
@@ -197,9 +225,12 @@ async def delete_sales_refund(sr_id: UUID, current_user: dict = Depends(require_
     obj = result.scalar_one_or_none()
     if not obj:
         raise HTTPException(status_code=404, detail="Sales refund not found")
-    # Refund a still-active refund consumed CN balance — return it.
-    # Already-void refunds had their reversal done at void time.
-    if obj.status != "void" and obj.credit_note_id:
+    # Every refund posts GL on create (there's no draft path today) — deleting an
+    # active refund directly would orphan that GL and its CN application, so
+    # require voiding first (which reverses both). Mirrors purchase_refunds.py.
+    if obj.status not in ("draft", "void"):
+        raise HTTPException(status_code=400, detail="Only draft or void refunds can be deleted. Void the refund first.")
+    if obj.status == "draft" and obj.credit_note_id:
         cn_res = await db.execute(
             select(CreditNote).where(CreditNote.id == obj.credit_note_id)
         )

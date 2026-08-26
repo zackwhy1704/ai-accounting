@@ -327,6 +327,18 @@ async def update_purchase_refund_status(
     refund = result.scalar_one_or_none()
     if not refund:
         raise HTTPException(status_code=404, detail="Purchase refund not found")
+
+    # Voiding is terminal: reinstating from it would move the refund back to
+    # completed (its GL and any bill/PCN restoration stays fully reversed at
+    # zero) without redoing the _restore_bill/_restore_pcn adjustments that
+    # only run on the voiding path below. No duplicate path exists for
+    # refunds, so point at creating a fresh one instead.
+    if refund.status == "void" and status != "void":
+        raise HTTPException(
+            status_code=400,
+            detail="A voided refund cannot be reinstated. Create a new refund instead.",
+        )
+
     if status == "void" and refund.status != "void":
         if refund.bill_id:
             await _restore_bill(db, refund.bill_id, float(refund.amount or 0))

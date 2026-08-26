@@ -241,6 +241,15 @@ async def update_bill_status(
     if status not in valid_statuses:
         raise HTTPException(status_code=400, detail=f"Invalid status. Must be one of: {valid_statuses}")
 
+    # Voiding/cancelling is terminal: no UI path reinstates from it, and doing
+    # so directly would move the bill back to a live status while its GL
+    # stays fully reversed at zero — silently understating expenses and AP.
+    if bill.status in ("void", "cancelled") and status not in ("void", "cancelled"):
+        raise HTTPException(
+            status_code=400,
+            detail="A voided or cancelled bill cannot be reinstated. Duplicate it into a new draft instead.",
+        )
+
     prev_status = bill.status
     bill.status = status
 
@@ -298,8 +307,12 @@ async def update_bill_status(
                 source="bill", source_id=bill.id, issued=received, direction="in",
             )
 
-    # void/cancelled: reverse any posted GL entries
-    elif status in ("void", "cancelled") and prev_status not in ("draft", "received"):
+    # void/cancelled: reverse any posted GL entries. Guard against prev_status
+    # already being void/cancelled — without it, a repeat call reverses GL
+    # that was already reversed, driving every account further off zero each
+    # time. Matches credit_notes.py / sales_refunds.py's existing != "void"
+    # guard; a repeat call is a silent 200 no-op, same as those two.
+    elif status in ("void", "cancelled") and prev_status not in ("draft", "received", "void", "cancelled"):
         await revert_gl(
             db, org_id, bill.id, "bill",
             bill.issue_date,

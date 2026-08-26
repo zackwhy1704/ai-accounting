@@ -15,7 +15,7 @@ from app.schemas.schemas import (
 )
 from app.core.sequences import next_sequence_number
 from app.core.line_items import calculate_line_items
-from .gl_helpers import post_gl
+from .gl_helpers import post_gl, revert_gl
 from app.services.gl_posting import post_purchase_debit_note_gl
 from app.services.pricing import line_after_discount as _net
 from app.services.fx import document_rate
@@ -246,6 +246,27 @@ async def update_purchase_debit_note_status(
     obj = result.scalar_one_or_none()
     if not obj:
         raise HTTPException(status_code=404, detail="Purchase debit note not found")
+
+    # Voiding is terminal: reinstating from it would move the debit note back
+    # to a live status while its GL stays fully reversed at zero. No duplicate
+    # path exists for purchase debit notes, so point at creating a fresh one.
+    if obj.status == "void" and status != "void":
+        raise HTTPException(
+            status_code=400,
+            detail="A voided purchase debit note cannot be reinstated. Create a new purchase debit note instead.",
+        )
+
+    # Voiding must reverse what create posted — GL is posted unconditionally
+    # at create time (no draft gate), so every non-draft debit note has a live
+    # GL entry that needs reversing.
+    if status == "void" and obj.status != "void":
+        await revert_gl(
+            db, current_user["org_id"], obj.id, "purchase_debit_note",
+            obj.issue_date,
+            f"Reversal: Purchase Debit Note {obj.debit_note_number} voided",
+            obj.debit_note_number,
+        )
+
     obj.status = status
     await db.commit()
     await log_audit(db, current_user["org_id"], current_user["sub"], "status_change", "purchase_debit_note", dn_id, {"status": status})

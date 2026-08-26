@@ -113,6 +113,13 @@ export function useUpdateManualJournal() {
     onSuccess: (_d, v) => { qc.invalidateQueries({ queryKey: ['manual-journals'] }); qc.invalidateQueries({ queryKey: ['manual-journal', v.id] }) },
   })
 }
+export function usePostManualJournal() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) => api.post(`/manual-journals/${id}/post`).then(r => r.data),
+    onSuccess: (_d, id) => { qc.invalidateQueries({ queryKey: ['manual-journals'] }); qc.invalidateQueries({ queryKey: ['manual-journal', id] }) },
+  })
+}
 
 // Fixed Assets
 const _fixedAssets = makeListHook<any>('/fixed-assets', 'fixed-assets')

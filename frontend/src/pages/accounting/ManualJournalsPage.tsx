@@ -3,8 +3,8 @@ import { useEffect, useState } from "react"
 import { useQueryClient } from "@tanstack/react-query"
 import { useNavigate } from "react-router-dom"
 import { ViewDetailSheet } from "../../components/ui/view-detail-sheet"
-import { Plus, BookOpen, FileText, XCircle, Pencil, Trash2, Search } from "lucide-react"
-import { useManualJournalsPage, useDebounce } from "../../lib/hooks"
+import { Plus, BookOpen, FileText, XCircle, Pencil, Trash2, Search, Send } from "lucide-react"
+import { useManualJournalsPage, useDebounce, usePostManualJournal } from "../../lib/hooks"
 import { PaginationControls } from "../../components/ui/pagination-controls"
 import api from "../../lib/api"
 import { formatDate, formatCurrency } from "../../lib/utils"
@@ -33,6 +33,7 @@ export default function ManualJournalsPage() {
   const { data: journalsPage, isLoading } = useManualJournalsPage({ search: debouncedSearch, page, limit: 50 })
   const journals = journalsPage?.items ?? []
   const [viewItem, setViewItem] = useState<typeof journals[0] | null>(null)
+  const postJournal = usePostManualJournal()
 
   useEffect(() => { setPage(1) }, [debouncedSearch])
 
@@ -99,6 +100,7 @@ export default function ManualJournalsPage() {
                     </TableCell>
                     <TableCell className="text-right">
                       <RowActionsMenu actions={[
+                        { label: "Post", icon: <Send className="h-3.5 w-3.5" />, onClick: () => { if (confirm("Post this journal entry? It will appear in reports and can no longer be edited.")) postJournal.mutate(j.id, { onSuccess: () => toast("Journal entry posted", "success"), onError: (e: any) => toast(e?.response?.data?.detail ?? "Failed to post journal entry", "warning") }) }, disabled: j.status !== "draft" },
                         { label: "Edit", icon: <Pencil className="h-3.5 w-3.5" />, onClick: () => navigate(`/accounting/journals/${j.id}/edit`) },
                         { label: "View", icon: <FileText className="h-4 w-4" />, onClick: () => { setViewItem(j) } },
                         { label: "Void", icon: <XCircle className="h-4 w-4" />, onClick: () => { if (confirm("Void this journal entry?")) api.patch(`/accounting/journals/${j.id}`, { status: "void" }).then(() => { queryClient.invalidateQueries({ queryKey: ["manual-journals"] }); toast("Journal entry voided", "success") }).catch((e: any) => toast(e?.response?.data?.detail ?? "Failed to void journal entry", "warning")) }, danger: true, dividerBefore: true, disabled: j.status === "void" },

@@ -6,6 +6,7 @@ import { Card } from "../../components/ui/card"
 import { Button } from "../../components/ui/button"
 import { Input } from "../../components/ui/input"
 import { formatCurrency, formatDate, downloadCSV, printReport } from "../../lib/utils"
+import { FutureDocumentsHint } from "../../components/ui/future-documents-hint"
 import api from "../../lib/api"
 
 interface BucketEntry {
@@ -78,6 +79,8 @@ export default function AgedReceivablesPage() {
           </Button>
         </div>
       </Card>
+
+      <FutureDocumentsHint after={activePeriodDate} />
 
       {hasData && (
         <div className="flex gap-2 print:hidden">

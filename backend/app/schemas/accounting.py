@@ -36,6 +36,7 @@ class AccountResponse(BaseModel):
     account_role: str = "account"
     parent_id: UUID | None = None
     created_at: datetime
+    warning: str | None = None
     model_config = {"from_attributes": True}
 
 

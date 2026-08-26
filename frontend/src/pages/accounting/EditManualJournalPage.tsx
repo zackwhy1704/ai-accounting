@@ -1,12 +1,19 @@
 import { useState, useEffect, useRef } from "react"
 import { useNavigate, useParams } from "react-router-dom"
 import { Plus, Trash2 } from "lucide-react"
-import { useManualJournal, useUpdateManualJournal, useAccounts, useContacts } from "../../lib/hooks"
+import { useManualJournal, useUpdateManualJournal, usePostManualJournal, useAccounts, useContacts } from "../../lib/hooks"
 import { Card } from "../../components/ui/card"
 import { Button } from "../../components/ui/button"
 import { Input } from "../../components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../components/ui/select"
+import { Badge } from "../../components/ui/badge"
 import { useToast } from "../../components/ui/toast"
+
+const statusColors: Record<string, string> = {
+  draft: "bg-slate-500/10 text-slate-600 border-slate-300/20",
+  posted: "bg-emerald-500/10 text-emerald-700 border-emerald-400/20",
+  void: "bg-rose-500/10 text-rose-700 border-rose-400/20",
+}
 
 interface JournalLine {
   account_id: string
@@ -26,6 +33,7 @@ export default function EditManualJournalPage() {
   const { toast } = useToast()
   const { data } = useManualJournal(id)
   const updateJournal = useUpdateManualJournal()
+  const postJournal = usePostManualJournal()
   const { data: accounts = [] } = useAccounts()
   const { data: contacts = [] } = useContacts()
 
@@ -91,23 +99,42 @@ export default function EditManualJournalPage() {
     )
   }
 
+  const handlePost = () => {
+    if (!id) return
+    if (!confirm("Post this journal entry? It will appear in reports and can no longer be edited.")) return
+    postJournal.mutate(id, {
+      onSuccess: () => { toast("Journal entry posted", "success"); navigate("/accounting/journals") },
+      onError: (e: any) => toast(e?.response?.data?.detail ?? "Failed to post journal entry", "warning"),
+    })
+  }
+
+  const status = data?.status ?? "draft"
+  const isDraft = status === "draft"
+
   return (
     <div className="mx-auto max-w-4xl space-y-6 py-8">
-      <div>
-        <div className="text-xs text-muted-foreground">Accounting</div>
-        <h1 className="mt-1 text-2xl font-bold text-foreground">Edit Journal Entry</h1>
-        <p className="mt-1 text-sm text-muted-foreground">Update this manual general ledger entry</p>
+      <div className="flex items-start justify-between">
+        <div>
+          <div className="text-xs text-muted-foreground">Accounting</div>
+          <h1 className="mt-1 text-2xl font-bold text-foreground">Edit Journal Entry</h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            {isDraft ? "This entry is a draft and will not appear in reports until posted." : "Update this manual general ledger entry"}
+          </p>
+        </div>
+        <Badge variant="outline" className={`rounded-lg px-2.5 py-1 text-xs font-semibold ${statusColors[status] ?? ""}`}>
+          {status.charAt(0).toUpperCase() + status.slice(1)}
+        </Badge>
       </div>
 
       <Card className="rounded-2xl border-border bg-card p-6 shadow-[0_0_0_1px_rgba(15,23,42,0.06),0_18px_55px_rgba(2,6,23,0.08)]">
         <div className="grid grid-cols-2 gap-4 mb-6">
           <div className="space-y-1.5">
             <label className="text-sm font-medium text-foreground">Date</label>
-            <Input type="date" value={date} onChange={e => setDate(e.target.value)} />
+            <Input type="date" value={date} onChange={e => setDate(e.target.value)} disabled={!isDraft} />
           </div>
           <div className="space-y-1.5">
             <label className="text-sm font-medium text-foreground">Currency</label>
-            <Select value={currency} onValueChange={setCurrency}>
+            <Select value={currency} onValueChange={setCurrency} disabled={!isDraft}>
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
                 {["MYR", "SGD", "USD", "EUR", "AUD"].map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
@@ -116,11 +143,11 @@ export default function EditManualJournalPage() {
           </div>
           <div className="space-y-1.5">
             <label className="text-sm font-medium text-foreground">Reference</label>
-            <Input placeholder="e.g. ADJ-001" value={reference} onChange={e => setReference(e.target.value)} />
+            <Input placeholder="e.g. ADJ-001" value={reference} onChange={e => setReference(e.target.value)} disabled={!isDraft} />
           </div>
           <div className="space-y-1.5">
             <label className="text-sm font-medium text-foreground">Description</label>
-            <Input placeholder="Brief description" value={description} onChange={e => setDescription(e.target.value)} />
+            <Input placeholder="Brief description" value={description} onChange={e => setDescription(e.target.value)} disabled={!isDraft} />
           </div>
         </div>
 
@@ -141,7 +168,7 @@ export default function EditManualJournalPage() {
               {lines.map((line, idx) => (
                 <tr key={idx} className="border-b border-border last:border-0">
                   <td className="px-2 py-1.5">
-                    <Select value={line.account_id} onValueChange={v => updateLine(idx, "account_id", v)}>
+                    <Select value={line.account_id} onValueChange={v => updateLine(idx, "account_id", v)} disabled={!isDraft}>
                       <SelectTrigger className="h-8 text-xs border-0 bg-transparent focus:ring-1"><SelectValue placeholder="Select account" /></SelectTrigger>
                       <SelectContent>
                         {accounts.map(a => <SelectItem key={a.id} value={a.id}>{a.code} – {a.name}</SelectItem>)}
@@ -149,10 +176,10 @@ export default function EditManualJournalPage() {
                     </Select>
                   </td>
                   <td className="px-2 py-1.5">
-                    <Input className="h-8 text-xs border-0 bg-transparent focus-visible:ring-1" placeholder="Description" value={line.description} onChange={e => updateLine(idx, "description", e.target.value)} />
+                    <Input className="h-8 text-xs border-0 bg-transparent focus-visible:ring-1" placeholder="Description" value={line.description} onChange={e => updateLine(idx, "description", e.target.value)} disabled={!isDraft} />
                   </td>
                   <td className="px-2 py-1.5">
-                    <Select value={line.contact_id} onValueChange={v => updateLine(idx, "contact_id", v)}>
+                    <Select value={line.contact_id} onValueChange={v => updateLine(idx, "contact_id", v)} disabled={!isDraft}>
                       <SelectTrigger className="h-8 text-xs border-0 bg-transparent focus:ring-1"><SelectValue placeholder="Optional" /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="">None</SelectItem>
@@ -161,15 +188,17 @@ export default function EditManualJournalPage() {
                     </Select>
                   </td>
                   <td className="px-2 py-1.5">
-                    <Input type="number" className="h-8 text-xs text-right border-0 bg-transparent focus-visible:ring-1" placeholder="0.00" value={line.debit} onChange={e => updateLine(idx, "debit", e.target.value)} />
+                    <Input type="number" className="h-8 text-xs text-right border-0 bg-transparent focus-visible:ring-1" placeholder="0.00" value={line.debit} onChange={e => updateLine(idx, "debit", e.target.value)} disabled={!isDraft} />
                   </td>
                   <td className="px-2 py-1.5">
-                    <Input type="number" className="h-8 text-xs text-right border-0 bg-transparent focus-visible:ring-1" placeholder="0.00" value={line.credit} onChange={e => updateLine(idx, "credit", e.target.value)} />
+                    <Input type="number" className="h-8 text-xs text-right border-0 bg-transparent focus-visible:ring-1" placeholder="0.00" value={line.credit} onChange={e => updateLine(idx, "credit", e.target.value)} disabled={!isDraft} />
                   </td>
                   <td className="px-2 py-1.5">
-                    <button type="button" onClick={() => removeLine(idx)} className="text-muted-foreground hover:text-rose-600">
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </button>
+                    {isDraft && (
+                      <button type="button" onClick={() => removeLine(idx)} className="text-muted-foreground hover:text-rose-600">
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    )}
                   </td>
                 </tr>
               ))}
@@ -177,9 +206,11 @@ export default function EditManualJournalPage() {
             <tfoot>
               <tr className="border-t border-border bg-muted/20">
                 <td colSpan={3} className="px-3 py-2 text-xs text-muted-foreground">
-                  <button type="button" onClick={addLine} className="flex items-center gap-1 text-blue-600 hover:underline">
-                    <Plus className="h-3.5 w-3.5" /> Add line
-                  </button>
+                  {isDraft && (
+                    <button type="button" onClick={addLine} className="flex items-center gap-1 text-blue-600 hover:underline">
+                      <Plus className="h-3.5 w-3.5" /> Add line
+                    </button>
+                  )}
                 </td>
                 <td className={`px-3 py-2 text-right text-xs font-semibold ${isBalanced ? "text-emerald-700" : "text-rose-600"}`}>
                   {totalDebit.toFixed(2)}
@@ -199,13 +230,24 @@ export default function EditManualJournalPage() {
 
         <div className="mt-6 flex justify-end gap-3">
           <Button type="button" variant="secondary" onClick={() => navigate("/accounting/journals")}>Cancel</Button>
-          <Button
-            onClick={handleSave}
-            disabled={updateJournal.isPending || !isBalanced || !hasLines || totalDebit === 0}
-            className="bg-gradient-to-r from-[#7C9DFF] to-[#4D63FF] text-white"
-          >
-            {updateJournal.isPending ? "Saving..." : "Save Journal Entry"}
-          </Button>
+          {isDraft && (
+            <Button
+              onClick={handleSave}
+              disabled={updateJournal.isPending || !isBalanced || !hasLines || totalDebit === 0}
+              variant="outline"
+            >
+              {updateJournal.isPending ? "Saving..." : "Save Draft"}
+            </Button>
+          )}
+          {isDraft && (
+            <Button
+              onClick={handlePost}
+              disabled={postJournal.isPending || !isBalanced || !hasLines || totalDebit === 0}
+              className="bg-gradient-to-r from-[#7C9DFF] to-[#4D63FF] text-white"
+            >
+              {postJournal.isPending ? "Posting..." : "Post Journal Entry"}
+            </Button>
+          )}
         </div>
       </Card>
     </div>
